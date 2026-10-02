@@ -37,6 +37,24 @@ function createSimilarStage(type: StageType): AlgorithmStage {
   } as unknown as AlgorithmStage;
 }
 
+function geometryCreateSimilarStage(): AlgorithmStage {
+  const created = nextStage(StageType.provide_fake_solution, 'Yes');
+  const repeat = nextStage(StageType.ask_to_repeat_similar_exercise, 'No');
+
+  return {
+    getActionHint: () => 'Has the student created a similar exercise?',
+    getMessages: () => [{
+      title: 'Create an exercise similar to this:',
+      text: '',
+      exercise: 'Divide the figure into 3 unequal parts.',
+      image: 'rectangle.png',
+    }],
+    getNext: () => [created, repeat],
+    getPrevious: () => null,
+    getType: () => StageType.begin_ask_to_create_similar_exercise,
+  } as unknown as AlgorithmStage;
+}
+
 const skill: AiSkill = {
   id: 'effect-lifecycle',
   cid: 'effect-lifecycle-cid',
@@ -95,6 +113,25 @@ describe('AI Tutor similar-exercise decisions', (): void => {
     assert.match(prompt, /Previously shown stage instructions/);
     assert.match(prompt, /PREVIOUSLY_SHOWN_REPEAT_EXERCISE/);
     assert.match(prompt, /do not count merely repeating the exercise from the previous stage/i);
+  });
+
+
+  it('treats an undivided geometry figure as valid unsolved exercise input', (): void => {
+    const prompt = decisionPrompt(
+      skill,
+      geometryCreateSimilarStage(),
+      'Divide the figure into 2 unequal parts.',
+      '',
+      '',
+      1,
+    );
+
+    assert.match(prompt, /Do not confuse creating an exercise with solving it/i);
+    assert.match(prompt, /UNSOLVED INPUT/i);
+    assert.match(prompt, /plain undivided circle, rectangle, triangle/i);
+    assert.match(prompt, /Division lines would be part of the solution/i);
+    assert.match(prompt, /Visuals supplied by the student in the current response: 1/i);
+    assert.match(prompt, /Divide the figure into 2 unequal parts/i);
   });
 });
 

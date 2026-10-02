@@ -91,8 +91,18 @@ const CREATE_SIMILAR_EXERCISE_RULES = [
   'A similar exercise is expected to keep the same skill, solution pattern, and often much of the same task structure. Do not require a different concept, API, method, or substantially different wording.',
   'Accept a distinct task instance of the same skill when the student changes concrete inputs, values, identifiers, resources, data, scenario, or constraints so there is a new prompt to solve. Close wording is allowed.',
   'For programming exercises, changing variables, URLs/resources, data, or other concrete setup while asking for the same programming/lifecycle pattern counts as a valid similar exercise.',
+  'Do not confuse creating an exercise with solving it. At this stage, the student should provide the problem to be solved; they are not expected to include the answer, completed construction, final diagram, or solution markings.',
   'Reject only when the student merely restates the very same concrete exercise without a student-created change to its instance, or gives an answer/solution instead of posing an exercise.',
   'Judge originality only against exercises actually shown to the student in the current stage or explicitly supplied previous-stage context. Do not reject an exercise because it happens to resemble another stored DB example that was not shown to the student.',
+];
+
+const CREATE_SIMILAR_EXERCISE_VISUAL_RULES = [
+  'If the shown example has an image, the student must also create or submit at least one visual that is genuinely part of their new exercise.',
+  'IMPORTANT: the student visual is allowed to represent the UNSOLVED INPUT of the exercise. Do not require the visual to already show the solution.',
+  "For example, for an exercise such as 'Divide the figure into 2 unequal parts', a plain undivided circle, rectangle, triangle, or other figure is a valid exercise visual. Division lines would be part of the solution and are NOT required when the student is only creating the exercise.",
+  'Judge the student text and visual together. A visual counts when it supplies the object, diagram, graph, shape, or other input that the student exercise asks the solver to operate on.',
+  'A raster image, SVG drawing, or valid TikZ drawing counts; a text-only response does NOT when the shown example requires a visual.',
+  "Do not count the tutor's original image as student-created, and do not accept an unrelated visual or an unchanged copy of the original as satisfying this requirement.",
 ];
 
 function createSimilarDecisionContext(context: DecisionPromptContext): string[] {
@@ -117,7 +127,7 @@ function beginCreateSimilarExerciseDecisionPrompt(context: DecisionPromptContext
     'You are taking the role of the HUMAN TUTOR in the begin_ask_to_create_similar_exercise stage of a Slonig TutoringAlgorithm.',
     'This request is only to decide whether the student created a new exercise instance that practices the same skill as the shown example.',
     ...CREATE_SIMILAR_EXERCISE_RULES,
-    "If the shown example has an image, the student must also create or submit at least one visual that is genuinely part of their new exercise. A raster image, SVG drawing, or valid TikZ drawing counts; a text-only response does NOT. Do not count the tutor's original image as student-created, and do not accept an unrelated visual or an unchanged copy of the original as satisfying this requirement.",
+    ...CREATE_SIMILAR_EXERCISE_VISUAL_RULES,
     `If the student created a valid new similar exercise instance, return ${created}.`,
     `Otherwise, return ${notCreated}. Do not select the Skip stage merely because the exercise is poor or incorrect.`,
     'Do NOT tutor in your own words. Do NOT give feedback, encouragement, hints, explanations, or replacement dialogue.',
@@ -133,7 +143,7 @@ function createSimilarExerciseDecisionPrompt(context: DecisionPromptContext): st
     'You are taking the role of the HUMAN TUTOR in the ask_to_create_similar_exercise stage of a Slonig TutoringAlgorithm.',
     'This request is only to decide whether the student created a new exercise instance that practices the same skill as the shown example.',
     ...CREATE_SIMILAR_EXERCISE_RULES,
-    "If the shown example has an image, the student must also create or submit at least one visual that is genuinely part of their new exercise. A raster image, SVG drawing, or valid TikZ drawing counts; a text-only response does NOT. Do not count the tutor's original image as student-created, and do not accept an unrelated visual or an unchanged copy of the original as satisfying this requirement.",
+    ...CREATE_SIMILAR_EXERCISE_VISUAL_RULES,
     `If the student created a valid new similar exercise instance, return ${created}.`,
     `Otherwise, return ${notCreated}.`,
     'Do NOT tutor in your own words. Do NOT give feedback, encouragement, hints, explanations, or replacement dialogue.',
@@ -151,7 +161,7 @@ function cycleCreateSimilarExerciseDecisionPrompt(context: DecisionPromptContext
     ...CREATE_SIMILAR_EXERCISE_RULES,
     'Because this stage follows a repetition step, do not count merely repeating the exercise from the previous stage as an independently created exercise.',
     previousStageContext(context.stage),
-    "If the shown example has an image, the student must also create or submit at least one visual that is genuinely part of their new exercise. A raster image, SVG drawing, or valid TikZ drawing counts; a text-only response does NOT. Do not count the tutor's original image as student-created, and do not accept an unrelated visual or an unchanged copy of the original as satisfying this requirement.",
+    ...CREATE_SIMILAR_EXERCISE_VISUAL_RULES,
     `If the student created a valid new similar exercise instance, return ${created}.`,
     `Otherwise, return ${notCreated}.`,
     'Do NOT tutor in your own words. Do NOT give feedback, encouragement, hints, explanations, or replacement dialogue.',
