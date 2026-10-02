@@ -37,10 +37,12 @@ import type { ExerciseTemplate } from './db/ExerciseTemplate.js';
 import type { Ability, AbilityExercise, AbilityValue } from './db/Ability.js';
 import type { Image } from './db/Image.js';
 import type { AiTutorStudentMessage } from './db/AiTutorStudentMessage.js';
+import type { StandardEmbedding } from './db/StandardEmbedding.js';
+import type { ConceptEmbedding } from './db/ConceptEmbedding.js';
 import { shouldExportDatabaseRow } from './backup.js';
 
 export { BOOK_PROCESSING_STAGES, getBookCompletedStages, isBookProcessingStageComplete, withBookProcessingStagesResetFrom, withCompletedBookProcessingStage } from './db/Book.js';
-export type { LearnRequest, TutorAction, CanceledInsurance, Reexamination, LetterTemplate, CanceledLetter, Reimbursement, Letter, Insurance, Lesson, Pseudonym, Setting, Signer, UsageRight, Agreement, Ability, AbilityExercise, AbilityValue, Image, Book, BookProcessingStageKey, BookStageSpend, BookStageSpendKey, BookSubject, BookPage, MathpixHeading, BookChapter, BookConcept, Exercise, Skill, ExerciseTemplate, AiTutorStudentMessage };
+export type { LearnRequest, TutorAction, CanceledInsurance, Reexamination, LetterTemplate, CanceledLetter, Reimbursement, Letter, Insurance, Lesson, Pseudonym, Setting, Signer, UsageRight, Agreement, Ability, AbilityExercise, AbilityValue, Image, Book, BookProcessingStageKey, BookStageSpend, BookStageSpendKey, BookSubject, BookPage, MathpixHeading, BookChapter, BookConcept, Exercise, Skill, ExerciseTemplate, AiTutorStudentMessage, StandardEmbedding, ConceptEmbedding };
 export type { ImageType } from './db/Image.js';
 
 const EXERCISE_ABILITY_MODULE = /^book-(\d+)-exercise-(\d+)$/;
@@ -557,7 +559,7 @@ export async function getBookByContentHash(contentHash: string): Promise<Book | 
 }
 
 export async function deleteBook(id: number): Promise<void> {
-    await db.transaction('rw', db.books, db.bookPages, db.bookChapters, db.bookConcepts, db.exercises, db.skills, db.exerciseTemplates, async () => {
+    await db.transaction('rw', db.books, db.bookPages, db.bookChapters, db.bookConcepts, db.conceptEmbeddings, db.exercises, db.skills, db.exerciseTemplates, async () => {
         const pageKeys = await db.bookPages.where('bookId').equals(id).primaryKeys();
         const chapterIds = (await db.bookChapters.where('bookId').equals(id).primaryKeys()) as number[];
         const skillIds = (await Promise.all(chapterIds.map((chapterId) => db.skills.where('chapterId').equals(chapterId).primaryKeys()))).flat() as number[];
@@ -572,6 +574,7 @@ export async function deleteBook(id: number): Promise<void> {
             ...chapterIds.map((chapterId) => db.skills.where('chapterId').equals(chapterId).delete())
         ]);
         await db.bookChapters.where('bookId').equals(id).delete();
+        await db.conceptEmbeddings.where('bookId').equals(id).delete();
     });
 }
 
@@ -791,7 +794,7 @@ export async function deleteBookChapters(bookId: number, chapterIds: number[]): 
         return;
     }
 
-    await db.transaction('rw', db.books, db.bookPages, db.bookChapters, db.bookConcepts, db.exercises, db.skills, db.exerciseTemplates, async () => {
+    await db.transaction('rw', db.books, db.bookPages, db.bookChapters, db.bookConcepts, db.conceptEmbeddings, db.exercises, db.skills, db.exerciseTemplates, async () => {
         const chapters = await db.bookChapters.bulkGet(uniqueIds);
 
         if (chapters.some((chapter) => !chapter || chapter.bookId !== bookId)) {
@@ -803,6 +806,8 @@ export async function deleteBookChapters(bookId: number, chapterIds: number[]): 
         const skillIds = (await Promise.all(uniqueIds.map((chapterId) => db.skills.where('chapterId').equals(chapterId).primaryKeys()))).flat() as number[];
 
         for (const page of pages) {
+            const conceptIds = (await db.bookConcepts.where('bookPage').equals([bookId, page.pageNumber]).primaryKeys()) as number[];
+
             await db.bookPages.update([bookId, page.pageNumber], {
                 chapter: '',
                 chapterId: undefined,
@@ -810,11 +815,19 @@ export async function deleteBookChapters(bookId: number, chapterIds: number[]): 
                 excludedFromAnalysis: true
             });
             await db.bookConcepts.where('bookPage').equals([bookId, page.pageNumber]).delete();
+            if (conceptIds.length) {
+                await db.conceptEmbeddings.bulkDelete(conceptIds);
+            }
             await db.exercises.where('bookPage').equals([bookId, page.pageNumber]).delete();
         }
 
         const pageLessConcepts = await db.bookConcepts.where('bookPage').equals([bookId, 0]).toArray();
-        await Promise.all(pageLessConcepts.flatMap(({ chapterId, id }) => id !== undefined && chapterId !== undefined && selected.has(chapterId) ? [db.bookConcepts.delete(id)] : []));
+        const pageLessConceptIds = pageLessConcepts.flatMap(({ chapterId, id }) => id !== undefined && chapterId !== undefined && selected.has(chapterId) ? [id] : []);
+
+        await Promise.all(pageLessConceptIds.map((id) => db.bookConcepts.delete(id)));
+        if (pageLessConceptIds.length) {
+            await db.conceptEmbeddings.bulkDelete(pageLessConceptIds);
+        }
         await Promise.all(skillIds.map((skillId) => db.exerciseTemplates.where('skillId').equals(skillId).delete()));
         await Promise.all(uniqueIds.map((chapterId) => db.skills.where('chapterId').equals(chapterId).delete()));
         await db.bookChapters.bulkDelete(uniqueIds);
@@ -905,7 +918,7 @@ export async function deleteExercise(id: number): Promise<void> {
 }
 
 export async function replaceParsedBookPageContent(bookId: number, pageNumber: number, chapterTitle: string, concepts: Array<Omit<BookConcept, 'bookPage' | 'chapterId' | 'id'>>, exercises: Array<Omit<Exercise, 'bookPage' | 'conceptId' | 'id'> & { conceptIndex?: number }>): Promise<{ concepts: BookConcept[]; exercises: Exercise[] }> {
-    return db.transaction('rw', db.bookPages, db.bookChapters, db.bookConcepts, db.exercises, db.abilities, async () => {
+    return db.transaction('rw', db.bookPages, db.bookChapters, db.bookConcepts, db.conceptEmbeddings, db.exercises, db.abilities, async () => {
         const storedPage = await db.bookPages.get([bookId, pageNumber]);
         const previousPage = storedPage?.chapterId !== undefined || storedPage?.chapter.trim()
             ? undefined
@@ -921,7 +934,11 @@ export async function replaceParsedBookPageContent(bookId: number, pageNumber: n
         const conceptBookPage: [number, number] = [bookId, pageNumber];
         const exerciseBookPage: [number, number] = [bookId, pageNumber];
         const conceptRows = concepts.map((concept) => ({ ...concept, attempt: concept.attempt ?? 0, bookPage: conceptBookPage, chapterId }));
+        const previousConceptIds = (await db.bookConcepts.where('bookPage').equals(conceptBookPage).primaryKeys()) as number[];
         await db.bookConcepts.where('bookPage').equals(conceptBookPage).delete();
+        if (previousConceptIds.length) {
+            await db.conceptEmbeddings.bulkDelete(previousConceptIds);
+        }
         await db.exercises.where('bookPage').equals(exerciseBookPage).delete();
 
         const conceptIds = await db.bookConcepts.bulkAdd(conceptRows, { allKeys: true });
@@ -948,9 +965,14 @@ export async function getBookPages(bookId: number): Promise<BookPage[]> {
 }
 
 export async function deleteBookPage(bookId: number, pageNumber: number): Promise<void> {
-    await db.transaction('rw', db.bookPages, db.bookConcepts, db.exercises, async () => {
+    await db.transaction('rw', db.bookPages, db.bookConcepts, db.conceptEmbeddings, db.exercises, async () => {
+        const conceptIds = (await db.bookConcepts.where('bookPage').equals([bookId, pageNumber]).primaryKeys()) as number[];
+
         await db.bookPages.delete([bookId, pageNumber]);
         await db.bookConcepts.where('bookPage').equals([bookId, pageNumber]).delete();
+        if (conceptIds.length) {
+            await db.conceptEmbeddings.bulkDelete(conceptIds);
+        }
         await db.exercises.where('bookPage').equals([bookId, pageNumber]).delete();
     });
 }
@@ -976,11 +998,14 @@ export async function createBookConcept(concept: Omit<BookConcept, 'id'>): Promi
 }
 
 export async function updateBookConcept(id: number, changes: Partial<Omit<BookConcept, 'id'>>): Promise<BookConcept | undefined> {
-    return db.transaction('rw', db.bookConcepts, db.bookPages, db.exercises, db.abilities, async () => {
+    return db.transaction('rw', db.bookConcepts, db.conceptEmbeddings, db.bookPages, db.exercises, db.abilities, async () => {
         const previous = await db.bookConcepts.get(id);
         const previousChapterId = await chapterIdForConcept(previous);
 
         await db.bookConcepts.update(id, changes);
+        if (Object.prototype.hasOwnProperty.call(changes, 'title') || Object.prototype.hasOwnProperty.call(changes, 'description')) {
+            await db.conceptEmbeddings.delete(id);
+        }
         const concept = await db.bookConcepts.get(id);
         const nextChapterId = await chapterIdForConcept(concept);
         const chapterMembershipChanged = Object.prototype.hasOwnProperty.call(changes, 'chapterId') && previousChapterId !== nextChapterId;
@@ -1131,11 +1156,12 @@ export async function reorderBookConcepts(sortedIds: number[], explicitChapterId
 }
 
 export async function deleteBookConcept(id: number): Promise<void> {
-    await db.transaction('rw', db.bookConcepts, db.skills, db.bookPages, db.exercises, db.abilities, async () => {
+    await db.transaction('rw', db.bookConcepts, db.conceptEmbeddings, db.skills, db.bookPages, db.exercises, db.abilities, async () => {
         const concept = await db.bookConcepts.get(id);
         const chapterId = await chapterIdForConcept(concept);
 
         await db.bookConcepts.delete(id);
+        await db.conceptEmbeddings.delete(id);
         const linkedSkills = await db.skills.filter(({ bookConceptIds }) => (bookConceptIds ?? []).includes(id)).toArray();
 
         await Promise.all(linkedSkills.flatMap((skill) => skill.id === undefined ? [] : [db.skills.update(skill.id, { bookConceptIds: (skill.bookConceptIds ?? []).filter((conceptId) => conceptId !== id) })]));
@@ -1149,8 +1175,12 @@ export async function deleteBookConcept(id: number): Promise<void> {
 export async function replaceBookConceptsForBookPage(bookId: number, pageNumber: number, concepts: Array<Omit<BookConcept, 'bookPage' | 'id'>>): Promise<BookConcept[]> {
     const bookPage: [number, number] = [bookId, pageNumber];
 
-    return db.transaction('rw', db.bookConcepts, async () => {
+    return db.transaction('rw', db.bookConcepts, db.conceptEmbeddings, async () => {
+        const previousConceptIds = (await db.bookConcepts.where('bookPage').equals(bookPage).primaryKeys()) as number[];
         await db.bookConcepts.where('bookPage').equals(bookPage).delete();
+        if (previousConceptIds.length) {
+            await db.conceptEmbeddings.bulkDelete(previousConceptIds);
+        }
         const ids = await db.bookConcepts.bulkAdd(concepts.map((concept) => ({ ...concept, attempt: concept.attempt ?? 0, bookPage })), { allKeys: true });
 
         return concepts.map((concept, index) => ({ ...concept, attempt: concept.attempt ?? 0, bookPage, id: ids[index] }));
@@ -1281,6 +1311,8 @@ export const SettingKey = {
     LAST_BAN_START_TIME: 'LAST_BAN_START_TIME',
     BAN_COUNT: 'BAN_COUNT',
     REDO_TUTORIAL: 'REDO_TUTORIAL',
+    STANDARDS_EMBEDDER: 'STANDARDS_EMBEDDER',
+    CONCEPTS_EMBEDDER: 'CONCEPTS_EMBEDDER',
 } as const;
 
 export async function storeSetting(id: string, value: string) {
@@ -1309,6 +1341,58 @@ export async function hasSetting(id: string): Promise<boolean> {
     const value = await getSetting(id);
     return value ? true : false;
 };
+
+export async function getStandardEmbeddings(ids: string[]): Promise<StandardEmbedding[]> {
+    const uniqueIds = Array.from(new Set(ids.map((id) => id.trim()).filter(Boolean)));
+
+    if (!uniqueIds.length) {
+        return [];
+    }
+
+    const rows = await db.standardEmbeddings.bulkGet(uniqueIds);
+
+    return rows.flatMap((row) => row ? [row] : []);
+}
+
+export async function putStandardEmbeddings(embeddings: StandardEmbedding[]): Promise<void> {
+    if (!embeddings.length) {
+        return;
+    }
+
+    await db.standardEmbeddings.bulkPut(embeddings);
+}
+
+export async function clearStandardEmbeddings(): Promise<void> {
+    await db.standardEmbeddings.clear();
+}
+
+export async function getConceptEmbeddings(ids: number[]): Promise<ConceptEmbedding[]> {
+    const uniqueIds = Array.from(new Set(ids.filter((id) => Number.isSafeInteger(id) && id > 0)));
+
+    if (!uniqueIds.length) {
+        return [];
+    }
+
+    const rows = await db.conceptEmbeddings.bulkGet(uniqueIds);
+
+    return rows.flatMap((row) => row ? [row] : []);
+}
+
+export async function putConceptEmbeddings(embeddings: ConceptEmbedding[]): Promise<void> {
+    if (!embeddings.length) {
+        return;
+    }
+
+    await db.conceptEmbeddings.bulkPut(embeddings);
+}
+
+export async function clearConceptEmbeddings(): Promise<void> {
+    await db.conceptEmbeddings.clear();
+}
+
+export async function deleteConceptEmbedding(id: number): Promise<void> {
+    await db.conceptEmbeddings.delete(id);
+}
 
 export async function getInsuranceDaysValid() {
     const stored_validity = await getSetting(SettingKey.INSURANCE_VALIDITY);

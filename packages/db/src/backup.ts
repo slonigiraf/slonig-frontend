@@ -13,7 +13,9 @@ const BOOK_PARSING_TABLES = new Set([
 
 const CACHE_TABLES = new Set([
   'cidCache',
-  'aiTutorStudentMessages'
+  'aiTutorStudentMessages',
+  'standardEmbeddings',
+  'conceptEmbeddings'
 ]);
 
 export function shouldExportDatabaseRow (tableName: string, value?: unknown, includeEverything = false): boolean {

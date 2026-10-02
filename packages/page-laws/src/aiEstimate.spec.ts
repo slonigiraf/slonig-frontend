@@ -30,9 +30,9 @@ describe('AI input estimates', (): void => {
     });
   });
 
-  it('has fallback pricing for the processing and Standards default models', (): void => {
+  it('has fallback pricing for the processing and Standards embedding defaults', (): void => {
     expect(estimateAiInput('openai/gpt-6-luna', ['1234'], 1_000).totalPriceUsd).toEqual(0.0005001);
-    expect(estimateAiInput('openai/gpt-5-nano', ['1234'], 1_000).totalPriceUsd).toEqual(0.00040005);
+    expect(estimateAiInput('openai/text-embedding-3-small', ['1234'], 0).totalPriceUsd).toEqual(0.00000002);
   });
 
   it('shows per-request and total estimates', (): void => {

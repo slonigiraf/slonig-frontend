@@ -21,7 +21,8 @@ const MODEL_PRICE_PER_MILLION: Record<string, [number, number]> = {
   'openai/gpt-5-nano': [0.05, 0.4],
   'openai/gpt-5-mini': [0.25, 2],
   'openai/gpt-5.4': [2.5, 15],
-  'openai/gpt-6-luna': [0.1, 0.5]
+  'openai/gpt-6-luna': [0.1, 0.5],
+  'openai/text-embedding-3-small': [0.02, 0]
 };
 
 export interface AiRequestEstimate {

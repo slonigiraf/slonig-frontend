@@ -11,6 +11,8 @@ await describe('database backup filtering', async (): Promise<void> => {
     const excludedTables = [
       'cidCache',
       'aiTutorStudentMessages',
+      'standardEmbeddings',
+      'conceptEmbeddings',
       'books',
       'bookPages',
       'bookChapters',
@@ -27,7 +29,7 @@ await describe('database backup filtering', async (): Promise<void> => {
   });
 
   await it('includes every table when requested', (): void => {
-    ['cidCache', 'aiTutorStudentMessages', 'books', 'bookPages', 'bookChapters', 'bookConcepts', 'exercises', 'skills', 'exerciseTemplates', 'lessons']
+    ['cidCache', 'aiTutorStudentMessages', 'standardEmbeddings', 'conceptEmbeddings', 'books', 'bookPages', 'bookChapters', 'bookConcepts', 'exercises', 'skills', 'exerciseTemplates', 'lessons']
       .forEach((tableName) => assert.equal(shouldExportDatabaseRow(tableName, undefined, true), true));
     assert.equal(shouldExportDatabaseRow('abilities', { moduleId: 'book-42-exercise-7' }, true), true);
   });

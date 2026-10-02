@@ -29,7 +29,7 @@ import { assertDisjointSortChapterConcepts, conceptsForSortChapter, parseSortedC
 import { conceptBelongsToChapter, conceptsForRefinementChapter, hasPersistedRefinedConceptMembership, parseRefinedChapterGroups, REFINE_CHAPTERS_SPEND_STAGE, refinedChapterSplitPages, refineChapterPrompt, type RefinedConceptPersistenceExpectation, withRefineChaptersComplete } from './refineChapters.js';
 import { formatOpenRouterSpend, reportOpenRouterCost, type OpenRouterCostReporter } from './openRouterCost.js';
 import { useBookStageTimer } from './bookStageTime.js';
-import { BOOK_AGE_DETECTION_PROMPT, BOOK_CHAPTER_EXTRACTION_REQUEST_PROMPT, BOOK_LANGUAGE_DETECTION_PROMPT, BOOK_SUBJECT_DETECTION_PROMPT, DEFAULT_PROCESSING_MODEL, DEFAULT_STANDARDS_MODEL, MATHPIX_PDF_PAGE_PRICE_USD, OPENAI_MODELS } from './constants.js';
+import { BOOK_AGE_DETECTION_PROMPT, BOOK_CHAPTER_EXTRACTION_REQUEST_PROMPT, BOOK_LANGUAGE_DETECTION_PROMPT, BOOK_SUBJECT_DETECTION_PROMPT, DEFAULT_PROCESSING_MODEL, DEFAULT_STANDARDS_EMBEDDER, DEFAULT_STANDARDS_MODEL, MATHPIX_PDF_PAGE_PRICE_USD, OPENAI_MODELS } from './constants.js';
 import { stripMarkdownImageReferences } from './bookImageRefs.js';
 import { chapterAssignmentsFromBoundaries, chapterEvidenceWindows, chapterReconciliationPrompt, chapterWindowPrompt, deriveStructuralChapterCandidates, extractMathpixHeadingsFromLines, pageChapterEvidence, parseChapterBoundaries, stabilizeChapterBoundaries, type ChapterBoundaryProposal } from './chapterSegmentation.js';
 import { getSharedChapterSelection, resolveSharedChapterIndex, storeSharedChapterSelection, subscribeSharedChapterSelection, type SharedChapterSelection } from './chapterSelection.js';
@@ -38,7 +38,8 @@ import { conceptChaptersFromPages, parseGeneratedChapterConcepts, type ConceptCh
 import { conceptDeduplicationInput, deduplicateConceptsPrompt, parseDeduplicateConceptPairs, type DeduplicateConceptInput, type DeduplicateConceptPair } from './deduplicateConcepts.js';
 import { missingGeneratedExerciseConceptIndexes } from './exercises.js';
 import { sortExercisesForDisplay } from './learningOrder.js';
-import { loadStandardsCatalogsForBookSubject, loadStoredBookStandards, mergeStandardsMatches, parseStandardsMatches, STANDARD_FRAMEWORKS, STANDARDS_MATCH_RUNS, standardsChapterKey, standardsConceptFingerprint, standardsConceptInputs, standardsMatchingPrompt, standardsPathForBookSubject, storeBookStandards, type CurriculumStandard, type StandardsCatalog, type StandardsConceptInput, type StoredBookStandards } from './standards.js';
+import { embeddingCosineDistance, loadStandardsCatalogsForBookSubject, loadStoredBookStandards, mergeStandardsMatches, parseStandardsMatches, STANDARD_FRAMEWORKS, STANDARDS_MATCH_RUNS, standardsCandidatesFromEmbeddings, standardsChapterKey, standardsConceptFingerprint, standardsConceptInputs, standardsMatchingPrompt, standardsPathForBookSubject, storeBookStandards, type CurriculumStandard, type StandardsCatalog, type StoredBookStandards } from './standards.js';
+import { cachedConceptEmbeddingMap, ensureConceptEmbeddingCache, ensureStandardEmbeddingCache } from './standardsEmbeddings.js';
 import Skills, { type AutoRunProgress, type PipelineAction } from './Skills.js';
 import SkillsCourse from './SkillsCourse.js';
 import { extractPdfOutlineChapterBoundaries, loadPdfJs } from './pdf.js';
@@ -801,8 +802,8 @@ async function requestRefinedChapterGroups(client: OpenAI, model: string, chapte
   return parseRefinedChapterGroups(content, concepts.length, pageCount).chapters;
 }
 
-async function requestChapterStandards(client: OpenAI, model: string, chapterTitle: string, concepts: StandardsConceptInput[], catalogs: StandardsCatalog[], onCost?: OpenRouterCostReporter): Promise<CurriculumStandard[]> {
-  if (!concepts.length) {
+async function requestChapterStandards(client: OpenAI, model: string, chapterTitle: string, concepts: ReturnType<typeof standardsConceptInputs>, conceptEmbeddings: number[][], catalogs: StandardsCatalog[], standardEmbeddings: ReadonlyMap<string, number[]>, onCost?: OpenRouterCostReporter): Promise<CurriculumStandard[]> {
+  if (!concepts.length || !conceptEmbeddings.length) {
     return [];
   }
 
@@ -813,12 +814,16 @@ async function requestChapterStandards(client: OpenAI, model: string, chapterTit
   }
 
   const assignments = await Promise.all(populatedCatalogs.map(async (catalog): Promise<CurriculumStandard[]> => {
+    const { catalog: candidateCatalog, matches: embeddingMatches } = standardsCandidatesFromEmbeddings(conceptEmbeddings, catalog, standardEmbeddings);
+
+    if (!candidateCatalog.standards.length) {
+      return [];
+    }
+
+    const prompt = standardsMatchingPrompt(chapterTitle, concepts, candidateCatalog);
     const runs = await Promise.all(Array.from({ length: STANDARDS_MATCH_RUNS }, async (): Promise<CurriculumStandard[]> => {
       const response = await openRouterRequestGate.run(() => client.chat.completions.create({
-        messages: [{
-          content: standardsMatchingPrompt(chapterTitle, concepts, catalog),
-          role: 'user'
-        }],
+        messages: [{ content: prompt, role: 'user' }],
         model,
         response_format: { type: 'json_object' }
       }));
@@ -830,17 +835,41 @@ async function requestChapterStandards(client: OpenAI, model: string, chapterTit
         throw new Error(`OpenRouter returned no ${catalog.framework} standards matching data.`);
       }
 
-      return parseStandardsMatches(content, catalog);
+      return parseStandardsMatches(content, candidateCatalog);
     }));
+    const reconciled = mergeStandardsMatches(runs, Math.floor(STANDARDS_MATCH_RUNS / 2) + 1);
+    const distanceByCode = new Map(embeddingMatches.map(({ code, distance }) => [code, distance] as const));
 
-    return mergeStandardsMatches(runs, Math.floor(STANDARDS_MATCH_RUNS / 2) + 1);
+    return reconciled.map((standard) => {
+      const distance = distanceByCode.get(standard.code);
+
+      return distance === undefined ? standard : { ...standard, distance };
+    });
   }));
 
   return mergeStandardsMatches(assignments);
 }
 
-function getChapterStandardsConcepts(concepts: BookConcept[], chapter: ConceptChapterNavigationItem): StandardsConceptInput[] {
-  return standardsConceptInputs(concepts.filter((concept) => conceptBelongsToChapter(concept, chapter)));
+function getChapterStandardsConceptRows(concepts: BookConcept[], chapter: ConceptChapterNavigationItem): BookConcept[] {
+  const seen = new Set<string>();
+
+  return concepts.filter((concept) => {
+    if (!conceptBelongsToChapter(concept, chapter)) {
+      return false;
+    }
+
+    const title = concept.title.trim();
+    const description = concept.description.trim();
+    const key = `${title}${description}`;
+
+    if (!title || seen.has(key)) {
+      return false;
+    }
+
+    seen.add(key);
+
+    return true;
+  });
 }
 
 async function generateChapterContentWithEmptyConceptRetry(client: OpenAI, model: string, chapterTitle: string, pages: ChapterConceptInputPage[], retryEmptyConcepts: boolean, onCost?: OpenRouterCostReporter): Promise<GeneratedChapterConcepts> {
@@ -1444,13 +1473,38 @@ interface Props {
   standardsModel: string;
 }
 
-type ReaderPane = 'age' | 'chapters' | 'conceptExercises' | 'conceptsSkills' | 'language' | 'subject' | 'pdf' | 'preExercisesExercises' | 'skillsCourse' | 'standards' | 'text' | 'textConcepts';
+type ReaderPane = 'age' | 'chapters' | 'conceptExercises' | 'conceptsSkills' | 'embeddings' | 'language' | 'subject' | 'pdf' | 'preExercisesExercises' | 'skillsCourse' | 'standards' | 'text' | 'textConcepts';
 type RecognitionTarget = 'all' | 'page';
 interface ReaderEntityCounts {
   abilities: number;
   bookExercises: number;
   concepts: number;
   exercises: number;
+}
+
+interface ConceptEmbeddingHeatmapEntry {
+  concept: BookConcept;
+  embedding: number[];
+  norm: number;
+}
+
+function conceptEmbeddingDistanceMatrix (entries: ConceptEmbeddingHeatmapEntry[]): Array<Array<number | undefined>> {
+  const matrix = Array.from({ length: entries.length }, () => Array<number | undefined>(entries.length));
+
+  for (let row = 0; row < entries.length; row++) {
+    matrix[row][row] = 0;
+
+    for (let column = row + 1; column < entries.length; column++) {
+      const left = entries[row];
+      const right = entries[column];
+      const distance = embeddingCosineDistance(left.embedding, right.embedding, left.norm, right.norm);
+
+      matrix[row][column] = distance;
+      matrix[column][row] = distance;
+    }
+  }
+
+  return matrix;
 }
 
 interface FixConceptsReviewChapter {
@@ -1579,7 +1633,7 @@ function getSessionReaderPane(bookId: number): ReaderPane {
       return 'text';
     }
 
-    return value === 'text' || value === 'language' || value === 'subject' || value === 'age' || value === 'chapters' || value === 'textConcepts' || value === 'standards' || value === 'conceptExercises' || value === 'preExercisesExercises' || value === 'skillsCourse' ? value : 'text';
+    return value === 'text' || value === 'language' || value === 'subject' || value === 'age' || value === 'chapters' || value === 'textConcepts' || value === 'standards' || value === 'embeddings' || value === 'conceptExercises' || value === 'preExercisesExercises' || value === 'skillsCourse' ? value : 'text';
   } catch {
     return 'text';
   }
@@ -1594,7 +1648,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
       return 'text';
     }
 
-    if (storedPane === 'standards' && !isBookProcessingStageComplete(book, 'fixImages')) {
+    if ((storedPane === 'standards' || storedPane === 'embeddings') && !isBookProcessingStageComplete(book, 'fixImages')) {
       return isBookProcessingStageComplete(book, 'fixExercises')
         ? 'preExercisesExercises'
         : isBookProcessingStageComplete(book, 'concepts') ? 'textConcepts' : 'text';
@@ -1626,6 +1680,11 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
   const [isApplyingDeduplicateConceptsReview, setIsApplyingDeduplicateConceptsReview] = useState(false);
   const [standardsCatalogs, setStandardsCatalogs] = useState<StandardsCatalog[]>([]);
   const [standardsChapterIndex, setStandardsChapterIndex] = useState(0);
+  const [embeddingHeatmapMode, setEmbeddingHeatmapMode] = useState<'book' | 'chapter'>('chapter');
+  const [embeddingConceptInventory, setEmbeddingConceptInventory] = useState<BookConcept[]>([]);
+  const [embeddingByConceptId, setEmbeddingByConceptId] = useState<Map<number, number[]>>(new Map());
+  const [isEmbeddingHeatmapLoading, setIsEmbeddingHeatmapLoading] = useState(false);
+  const [conceptEmbeddingsRefreshToken, setConceptEmbeddingsRefreshToken] = useState(0);
   const [conceptChapterIndex, setConceptChapterIndex] = useState(0);
   const [standardsAssignedChapterCount, setStandardsAssignedChapterCount] = useState(0);
   const [fixConceptsTargetChapterCount, setFixConceptsTargetChapterCount] = useState(0);
@@ -1847,6 +1906,42 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
 
     return descriptions;
   }, [standardsCatalogs]);
+  const embeddingBookEntries = useMemo<ConceptEmbeddingHeatmapEntry[]>(() => {
+    const seen = new Set<number>();
+    const orderedConcepts: BookConcept[] = [];
+
+    conceptChapters.forEach((chapter) => {
+      conceptsForNavigationChapter(embeddingConceptInventory, chapter).forEach((concept) => {
+        if (concept.id !== undefined && !seen.has(concept.id)) {
+          seen.add(concept.id);
+          orderedConcepts.push(concept);
+        }
+      });
+    });
+    embeddingConceptInventory.forEach((concept) => {
+      if (concept.id !== undefined && !seen.has(concept.id)) {
+        seen.add(concept.id);
+        orderedConcepts.push(concept);
+      }
+    });
+
+    return orderedConcepts.flatMap((concept) => {
+      const embedding = concept.id === undefined ? undefined : embeddingByConceptId.get(concept.id);
+      const norm = embedding ? Math.sqrt(embedding.reduce((sum, value) => sum + value * value, 0)) : 0;
+
+      return embedding?.length && norm > 0 ? [{ concept, embedding, norm }] : [];
+    });
+  }, [conceptChapters, embeddingByConceptId, embeddingConceptInventory]);
+  const embeddingChapterEntries = useMemo<ConceptEmbeddingHeatmapEntry[]>(() => currentStandardsChapter
+    ? embeddingBookEntries.filter(({ concept }) => conceptBelongsToChapter(concept, currentStandardsChapter))
+    : [], [currentStandardsChapter, embeddingBookEntries]);
+  const embeddingMissingCount = useMemo(() => {
+    const persistentIds = new Set(embeddingConceptInventory.flatMap(({ id }) => id === undefined ? [] : [id]));
+
+    return Math.max(0, persistentIds.size - embeddingByConceptId.size);
+  }, [embeddingByConceptId, embeddingConceptInventory]);
+  const embeddingHeatmapEntries = embeddingHeatmapMode === 'chapter' ? embeddingChapterEntries : embeddingBookEntries;
+  const embeddingHeatmapDistances = useMemo(() => conceptEmbeddingDistanceMatrix(embeddingHeatmapEntries), [embeddingHeatmapEntries]);
   const chapterGenerationEstimate = useMemo(() => {
     const chapterText = currentConceptChapter?.pageNumbers.map((chapterPageNumber) => `--- page ${chapterPageNumber} ---\n${pages.get(chapterPageNumber)?.pageMMD ?? ''}`).join('\n\n') ?? '';
     const estimatedRequest = chapterText.padEnd(chapterText.length + 2_000);
@@ -2058,7 +2153,49 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
   }, [book.subject]);
 
   useEffect(() => {
-    if (activePane === 'standards' && !isBookProcessingStageComplete(book, 'fixImages')) {
+    let cancelled = false;
+
+    if (activePane !== 'embeddings') {
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    setIsEmbeddingHeatmapLoading(true);
+    getBookConceptInventory(book.id, pages.keys())
+      .then(async (inventory) => {
+        const byId = await cachedConceptEmbeddingMap(DEFAULT_STANDARDS_EMBEDDER, inventory);
+
+        if (!cancelled) {
+          setEmbeddingConceptInventory(inventory);
+          setEmbeddingByConceptId(byId);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setEmbeddingConceptInventory([]);
+          setEmbeddingByConceptId(new Map());
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setIsEmbeddingHeatmapLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activePane, book.id, conceptEmbeddingsRefreshToken, pages]);
+
+  useEffect(() => {
+    if (activePane === 'embeddings' && !isBookProcessingStageComplete(book, 'standards')) {
+      setActivePane(isBookProcessingStageComplete(book, 'fixImages') ? 'standards' : 'text');
+    }
+  }, [activePane, book]);
+
+  useEffect(() => {
+    if ((activePane === 'standards' || activePane === 'embeddings') && !isBookProcessingStageComplete(book, 'fixImages')) {
       setActivePane(isBookProcessingStageComplete(book, 'fixExercises')
         ? 'preExercisesExercises'
         : isBookProcessingStageComplete(book, 'concepts') ? 'textConcepts' : 'text');
@@ -4536,7 +4673,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
     });
   }, [isGeneratingAllConcepts, isIdentifyingChapters, isRecognizingAll, isGeneratingAllExercises, onProcessingComplete, processingPage, recognizeAllPages, recognizeAllRequest, totalPages]);
 
-  const assignStandards = useCallback(async (force = false, model = DEFAULT_STANDARDS_MODEL): Promise<void> => {
+  const assignStandards = useCallback(async (force = false): Promise<void> => {
     if (!conceptChapters.length || isAssigningStandards) {
       return;
     }
@@ -4569,9 +4706,14 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
         maxRetries: 0
       });
       const catalogs = await loadStandardsCatalogsForBookSubject(book.subject);
+      const standardEmbeddings = await ensureStandardEmbeddingCache(client, DEFAULT_STANDARDS_EMBEDDER, catalogs, addStandardsCost);
       const conceptInventory = await getBookConceptInventory(book.id, pages.keys());
+      const conceptEmbeddings = await ensureConceptEmbeddingCache(client, DEFAULT_STANDARDS_EMBEDDER, conceptInventory, addStandardsCost);
+
+      setConceptEmbeddingsRefreshToken((token) => token + 1);
       const results = await mapConcurrent(conceptChapters, OPENROUTER_CONCURRENCY, async (chapter: ConceptChapterNavigationItem) => {
-        const concepts = getChapterStandardsConcepts(conceptInventory, chapter);
+        const chapterConceptRows = getChapterStandardsConceptRows(conceptInventory, chapter);
+        const concepts = standardsConceptInputs(chapterConceptRows);
         const fingerprint = standardsConceptFingerprint(concepts, standardsPathForBookSubject(book.subject) ?? 'no-standards');
         const chapterKey = standardsChapterKey(chapter.chapterId, chapter.title, chapter.pageNumbers);
         const existing = standardsByChapter[chapterKey];
@@ -4583,7 +4725,8 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
         }
 
         try {
-          const standards = await requestChapterStandards(client, model, chapter.title, concepts, catalogs, addStandardsCost);
+          const chapterEmbeddings = chapterConceptRows.flatMap(({ id }) => id === undefined ? [] : (conceptEmbeddings.get(id) ? [conceptEmbeddings.get(id) as number[]] : []));
+          const standards = await requestChapterStandards(client, standardsModel || DEFAULT_STANDARDS_MODEL, chapter.title, concepts, chapterEmbeddings, catalogs, standardEmbeddings, addStandardsCost);
 
           setStandardsAssignedChapterCount((count) => count + 1);
 
@@ -4615,7 +4758,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
     } finally {
       setIsAssigningStandards(false);
     }
-  }, [addStandardsCost, completeStage, book, book.id, book.subject, conceptChapters, isAssigningStandards, pages, revealPane, standardsByChapter]);
+  }, [addStandardsCost, completeStage, book, book.id, book.subject, conceptChapters, isAssigningStandards, pages, revealPane, standardsByChapter, standardsModel]);
 
   useEffect((): void => {
     if (
@@ -4632,10 +4775,10 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
     }
 
     handledAssignAllStandardsRequestRef.current = assignAllStandardsRequest;
-    assignStandards(true, standardsModel)
+    assignStandards(true)
       .catch((assignmentError) => setError(assignmentError instanceof Error ? assignmentError.message : 'Unable to assign chapter standards.'))
       .finally(onProcessingComplete);
-  }, [assignAllStandardsRequest, assignStandards, conceptChapters.length, isAssigningStandards, isGeneratingAllConcepts, isGeneratingAllExercises, isIdentifyingChapters, isRecognizingAll, onProcessingComplete, processingPage, standardsModel]);
+  }, [assignAllStandardsRequest, assignStandards, conceptChapters.length, isAssigningStandards, isGeneratingAllConcepts, isGeneratingAllExercises, isIdentifyingChapters, isRecognizingAll, onProcessingComplete, processingPage]);
 
   useEffect(() => {
     if (!isMaximized) {
@@ -5669,11 +5812,17 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
                   key={key}
                 >
                   <h4>{label}</h4>
-                  <ul>{standards.map(({ code, framework }) => {
+                  <ul>{standards.map(({ code, distance, framework }) => {
                     const description = standardDescriptions.get(`${framework}:${code}`);
 
                     return <li key={code}>
-                      <code>{code}</code>
+                      <div className='standardHeading'>
+                        <code>{code}</code>
+                        {distance !== undefined && Number.isFinite(distance) && <span
+                          className='standardDistance'
+                          title='Cosine distance to the nearest concept embedding in this chapter. Lower is closer.'
+                        >{distance.toFixed(4)}</span>}
+                      </div>
                       {description && <p>{description}</p>}
                     </li>;
                   })}</ul>
@@ -5681,6 +5830,84 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
                 : <p className='emptyOutput'>No applicable standards were identified for this chapter.</p>}
       </div>
       {isAssigningStandards && <small className='standardsSpend'>OpenRouter spend: {formatOpenRouterSpend(openRouterSpent)}</small>}
+    </div>;
+  };
+
+  const conceptHeatmap = (entries: ConceptEmbeddingHeatmapEntry[], distances: Array<Array<number | undefined>>): React.ReactNode => {
+    if (!entries.length) {
+      return <p className='emptyOutput'>No cached concept embeddings are available for this view. Run Standards again to create or refresh them.</p>;
+    }
+
+    return <div className='embeddingHeatmapScroller'>
+      <table className='embeddingHeatmap'>
+        <thead>
+          <tr>
+            <th className='embeddingHeatmapCorner'>Concept</th>
+            {entries.map(({ concept }, index) => <th
+              key={concept.id ?? conceptReferenceKey(concept)}
+              title={concept.title}
+            >{index + 1}</th>)}
+          </tr>
+        </thead>
+        <tbody>{entries.map((row, rowIndex) => <tr key={row.concept.id ?? conceptReferenceKey(row.concept)}>
+          <th title={`${rowIndex + 1}. ${row.concept.title}`}><span>{rowIndex + 1}.</span> {row.concept.title}</th>
+          {entries.map((column, columnIndex) => {
+            const distance = distances[rowIndex]?.[columnIndex];
+            const intensity = distance === undefined ? 0 : Math.max(0, 1 - Math.min(1, distance));
+            const backgroundAlpha = 0.08 + intensity * 0.7;
+
+            return <td
+              key={column.concept.id ?? columnIndex}
+              style={{
+                backgroundColor: `rgba(47, 111, 235, ${backgroundAlpha.toFixed(3)})`,
+                color: intensity > 0.58 ? '#fff' : 'var(--color-text)'
+              }}
+              title={distance === undefined
+                ? `${row.concept.title} ↔ ${column.concept.title}: unavailable`
+                : `${row.concept.title} ↔ ${column.concept.title}: cosine distance ${distance.toFixed(4)}`}
+            >{distance === undefined ? '—' : distance.toFixed(2)}</td>;
+          })}
+        </tr>)}</tbody>
+      </table>
+    </div>;
+  };
+
+  const embeddingsPane = (): React.ReactNode => {
+    const entries = embeddingHeatmapEntries;
+    const title = embeddingHeatmapMode === 'chapter'
+      ? (currentStandardsChapter?.title || 'Chapter not identified')
+      : book.name;
+
+    return <div className='tabPanel embeddingsPanel'>
+      <div className='detailsHeader'>
+        <span>Concept embedding heatmap</span>
+        <div
+          aria-label='Embedding heatmap scope'
+          className='embeddingScopeTabs'
+          role='group'
+        >
+          <button
+            aria-pressed={embeddingHeatmapMode === 'chapter'}
+            className={embeddingHeatmapMode === 'chapter' ? 'active' : ''}
+            onClick={() => setEmbeddingHeatmapMode('chapter')}
+            type='button'
+          >Chapter</button>
+          <button
+            aria-pressed={embeddingHeatmapMode === 'book'}
+            className={embeddingHeatmapMode === 'book' ? 'active' : ''}
+            onClick={() => setEmbeddingHeatmapMode('book')}
+            type='button'
+          >Whole book</button>
+        </div>
+      </div>
+      <div className='embeddingHeatmapIntro'>
+        <strong>{title}</strong>
+        <span>Cosine distance between concept embeddings. Lower values are closer; 0 means identical direction.</span>
+        {embeddingMissingCount > 0 && <span className='embeddingCacheWarning'>{embeddingMissingCount} concept embedding{embeddingMissingCount === 1 ? '' : 's'} missing or stale. Run Standards again to refresh the cache.</span>}
+      </div>
+      {isEmbeddingHeatmapLoading
+        ? <p className='emptyOutput'>Loading cached concept embeddings…</p>
+        : conceptHeatmap(entries, embeddingHeatmapDistances)}
     </div>;
   };
 
@@ -6282,6 +6509,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
           ['conceptExercises', 'Exercises', revealedPanes.has('conceptExercises') || isBookProcessingStageComplete(book, 'exercises'), entityCounts.exercises],
           ['preExercisesExercises', 'Abilities', revealedPanes.has('preExercisesExercises') || isBookProcessingStageComplete(book, 'abilities'), entityCounts.abilities],
           ['standards', 'Standards', revealedPanes.has('standards') || isBookProcessingStageComplete(book, 'standards'), undefined],
+          ['embeddings', 'Embeddings', isBookProcessingStageComplete(book, 'standards'), undefined],
           ['skillsCourse', 'Course', revealedPanes.has('skillsCourse') || isBookProcessingStageComplete(book, 'abilities'), undefined]
         ] as Array<[ReaderPane, string, boolean, number | undefined]>).filter(([, , isVisible]) => isVisible).map(([pane, label, , count]) => (
           <button
@@ -6349,14 +6577,14 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
             value={pageNumber}
           />
         </div>}
-        {activePane === 'standards' && <div className='chapterNavigation'>
+        {(activePane === 'standards' || (activePane === 'embeddings' && embeddingHeatmapMode === 'chapter')) && <div className='chapterNavigation'>
           <Button
             icon='arrow-left'
             isDisabled={standardsChapterIndex <= 0}
             onClick={() => changeStandardsChapter(standardsChapterIndex - 1)}
           />
           <label>Chapter <select
-            aria-label='Navigate standards chapters'
+            aria-label={activePane === 'embeddings' ? 'Navigate embedding chapters' : 'Navigate standards chapters'}
             disabled={!conceptChapters.length}
             onChange={({ target }) => changeStandardsChapter(Number(target.value))}
             value={conceptChapters.length ? standardsChapterIndex : ''}
@@ -6500,6 +6728,8 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
                   </>
                   : activePane === 'standards'
                     ? <div className='detailsArea fullWidthDetails'>{standardsPane()}</div>
+                    : activePane === 'embeddings'
+                      ? <div className='detailsArea fullWidthDetails'>{embeddingsPane()}</div>
                     : activePane === 'conceptExercises'
                       ? <div className='detailsArea fullWidthDetails'>{exercisesPane()}</div>
                       : activePane === 'conceptsSkills'
@@ -6893,9 +7123,139 @@ const StyledReader = styled.div`
     font-size: 0.95em;
   }
 
+  .standardHeading {
+    align-items: baseline;
+    display: flex;
+    gap: 0.55rem;
+  }
+
+  .standardDistance {
+    border: 1px solid #d5d9e3;
+    border-radius: 0.35rem;
+    font-family: monospace;
+    font-size: 0.82em;
+    line-height: 1.25;
+    padding: 0.08rem 0.28rem;
+    white-space: nowrap;
+  }
+
   .standardsSpend {
     margin-top: 0.6rem;
     opacity: 0.8;
+  }
+
+  .embeddingsPanel {
+    overflow: hidden;
+  }
+
+  .embeddingScopeTabs {
+    border: 1px solid #d5d9e3;
+    border-radius: 0.4rem;
+    display: inline-flex;
+    overflow: hidden;
+  }
+
+  .embeddingScopeTabs button {
+    background: transparent;
+    border: 0;
+    color: var(--color-text);
+    cursor: pointer;
+    font: inherit;
+    padding: 0.38rem 0.65rem;
+  }
+
+  .embeddingScopeTabs button + button {
+    border-left: 1px solid #d5d9e3;
+  }
+
+  .embeddingScopeTabs button.active {
+    background: rgba(47, 111, 235, 0.14);
+    font-weight: 600;
+  }
+
+  .embeddingHeatmapIntro {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem 1rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .embeddingHeatmapIntro > strong {
+    flex-basis: 100%;
+  }
+
+  .embeddingHeatmapIntro > span {
+    opacity: 0.8;
+  }
+
+  .embeddingHeatmapIntro .embeddingCacheWarning {
+    color: #9a6700;
+    font-weight: 600;
+    opacity: 1;
+  }
+
+  .embeddingHeatmapScroller {
+    border: 1px solid #dde1eb;
+    border-radius: 0.35rem;
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+    overscroll-behavior: contain;
+  }
+
+  .embeddingHeatmap {
+    border-collapse: separate;
+    border-spacing: 1px;
+    font-size: 0.74rem;
+    min-width: max-content;
+  }
+
+  .embeddingHeatmap th, .embeddingHeatmap td {
+    box-sizing: border-box;
+    height: 2.15rem;
+  }
+
+  .embeddingHeatmap thead th {
+    background: var(--bg-input);
+    min-width: 3.15rem;
+    position: sticky;
+    text-align: center;
+    top: 0;
+    z-index: 2;
+  }
+
+  .embeddingHeatmap tbody th, .embeddingHeatmapCorner {
+    background: var(--bg-input);
+    left: 0;
+    max-width: 18rem;
+    min-width: 13rem;
+    overflow: hidden;
+    padding: 0 0.5rem;
+    position: sticky;
+    text-align: left;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    z-index: 1;
+  }
+
+  .embeddingHeatmap .embeddingHeatmapCorner {
+    z-index: 3;
+  }
+
+  .embeddingHeatmap tbody th span {
+    display: inline-block;
+    font-variant-numeric: tabular-nums;
+    opacity: 0.65;
+    text-align: right;
+    width: 2rem;
+  }
+
+  .embeddingHeatmap td {
+    font-family: monospace;
+    font-variant-numeric: tabular-nums;
+    min-width: 3.15rem;
+    padding: 0.25rem;
+    text-align: center;
   }
 
   .conceptsOutput li + li {

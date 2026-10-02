@@ -9,6 +9,7 @@ export type StandardsFramework = 'ccss' | 'ngss' | 'teks' | 'vaSol';
 
 export interface CurriculumStandard {
   code: string;
+  distance?: number;
   framework: StandardsFramework;
 }
 
@@ -44,19 +45,6 @@ interface StandardsSource {
   url: URL;
 }
 
-export const STANDARDS_MATCH_RUNS = 3;
-
-const STANDARDS_MATCH_CANDIDATE_LIMIT = 80;
-const STANDARDS_MATCH_PER_CONCEPT_LIMIT = 12;
-const STANDARDS_RETRIEVAL_STOP_WORDS = new Set([
-  'a', 'an', 'and', 'are', 'as', 'at', 'be', 'been', 'being', 'both', 'but', 'by', 'can', 'could', 'did', 'do', 'does', 'doing',
-  'each', 'either', 'every', 'example', 'examples', 'for', 'from', 'had', 'has', 'have', 'having', 'how', 'if', 'in', 'into',
-  'is', 'it', 'its', 'may', 'more', 'most', 'must', 'no', 'nor', 'not', 'of', 'off', 'on', 'once', 'only', 'or', 'other', 'our',
-  'out', 'over', 'same', 'some', 'such', 'than', 'that', 'the', 'their', 'them', 'then', 'there', 'these', 'they', 'this', 'those',
-  'through', 'to', 'too', 'under', 'until', 'up', 'use', 'used', 'using', 'very', 'was', 'we', 'were', 'what', 'when', 'where',
-  'which', 'while', 'who', 'why', 'will', 'with', 'would', 'you', 'your'
-]);
-
 export const STANDARD_FRAMEWORKS: ReadonlyArray<{ key: StandardsFramework; label: string }> = [
   { key: 'ccss', label: 'Common Core State Standards' },
   { key: 'ngss', label: 'Next Generation Science Standards' },
@@ -86,6 +74,8 @@ const MATH_STANDARDS_SOURCES: ReadonlyArray<StandardsSource> = [
 ];
 
 const catalogCache = new Map<string, Promise<StandardsCatalog>>();
+
+export const STANDARDS_MATCH_RUNS = 3;
 
 function parseJsonResponse (content: string): unknown {
   const json = content.trim().replace(/^```(?:json)?\s*|\s*```$/gi, '').trim();
@@ -255,156 +245,113 @@ export function standardsConceptInputs (concepts: StandardsConceptInput[]): Stan
   });
 }
 
-export function standardsConceptFingerprint (concepts: StandardsConceptInput[], standardsPath = ''): string {
-  const source = `${standardsPath}\u001d${concepts
-    .map(({ description, title }) => `${title.trim()}\u001e${description.trim()}`)
-    .join('\u001f')}`;
-  let hash = 2166136261;
+export function standardsConceptEmbeddingInput ({ description, title }: StandardsConceptInput): string {
+  return `${title.trim()}\n${description.trim()}`.trim();
+}
 
-  for (let index = 0; index < source.length; index++) {
-    hash = Math.imul(hash ^ source.charCodeAt(index), 16777619);
+export function standardEmbeddingInput ({ context, description }: StandardsCandidate): string {
+  return `${context.trim()}\n${description.trim()}`.trim();
+}
+
+function vectorNorm (values: number[]): number {
+  return Math.sqrt(values.reduce((sum, value) => sum + value * value, 0));
+}
+
+function cosineSimilarity (left: number[], right: number[], leftNorm = vectorNorm(left), rightNorm = vectorNorm(right)): number {
+  if (!left.length || left.length !== right.length || leftNorm === 0 || rightNorm === 0) {
+    return Number.NEGATIVE_INFINITY;
   }
 
-  return `${concepts.length}:${(hash >>> 0).toString(16)}`;
+  let dot = 0;
+
+  for (let index = 0; index < left.length; index++) {
+    dot += left[index] * right[index];
+  }
+
+  return dot / (leftNorm * rightNorm);
 }
 
-export function standardsChapterKey (chapterId: number | undefined, title: string, pageNumbers: number[]): string {
-  return chapterId === undefined ? `pages:${pageNumbers.join(',')}:${title.trim()}` : `id:${chapterId}`;
+export function embeddingCosineDistance (left: number[], right: number[], leftNorm = vectorNorm(left), rightNorm = vectorNorm(right)): number | undefined {
+  const similarity = cosineSimilarity(left, right, leftNorm, rightNorm);
+
+  return Number.isFinite(similarity) ? Math.max(0, Math.min(2, 1 - similarity)) : undefined;
 }
 
-export function moduleStandardsText (standards: CurriculumStandard[]): string {
-  const seen = new Set<string>();
+export function standardsMatchesFromEmbeddings (conceptEmbeddings: number[][], catalog: StandardsCatalog, standardEmbeddings: ReadonlyMap<string, number[]>): CurriculumStandard[] {
+  const prepared = catalog.standards.flatMap((standard) => {
+    const embedding = standardEmbeddings.get(standard.code);
 
-  return standards.flatMap(({ code, framework }) => {
-    const canonicalCode = canonicalStandardCode(framework, code);
-
-    if (!canonicalCode || seen.has(canonicalCode)) {
+    if (!embedding?.length) {
       return [];
     }
 
-    seen.add(canonicalCode);
-
-    return [canonicalCode];
-  }).join(', ');
-}
-
-function standardsRetrievalToken (value: string): string {
-  if (value.length > 4 && value.endsWith('ies')) {
-    return `${value.slice(0, -3)}y`;
-  }
-
-  if (value.length > 3 && value.endsWith('s') && !value.endsWith('ss') && !value.endsWith('sis') && !value.endsWith('us')) {
-    return value.slice(0, -1);
-  }
-
-  return value;
-}
-
-function standardsRetrievalTokens (value: string): string[] {
-  return (value.toLowerCase().match(/[a-z0-9]+/g) ?? [])
-    .filter((token) => token.length > 1 && !/^\d+$/.test(token) && !STANDARDS_RETRIEVAL_STOP_WORDS.has(token))
-    .map(standardsRetrievalToken);
-}
-
-function parentStandardCode (framework: StandardsFramework, code: string): string | undefined {
-  if (framework === 'ccss') {
-    const match = /^(CCSS\..+\.\d+)[a-z]$/i.exec(code);
-
-    return match?.[1];
-  }
-
-  if (framework === 'vaSol') {
-    const match = /^(SOL\..+\.\d+)\.[a-z]$/i.exec(code);
-
-    return match?.[1];
-  }
-
-  return undefined;
-}
-
-export function standardsCandidateShortlist (concepts: StandardsConceptInput[], catalog: StandardsCatalog, candidateLimit = STANDARDS_MATCH_CANDIDATE_LIMIT): StandardsCandidate[] {
-  if (catalog.standards.length <= candidateLimit || !concepts.length) {
-    return catalog.standards;
-  }
-
-  const documentTokens = catalog.standards.map(({ context, description }) => new Set(standardsRetrievalTokens(`${context} ${description}`)));
-  const documentFrequency = new Map<string, number>();
-
-  documentTokens.forEach((tokens) => {
-    tokens.forEach((token) => documentFrequency.set(token, (documentFrequency.get(token) ?? 0) + 1));
+    return [{ embedding, norm: vectorNorm(embedding), standard }];
   });
+  const selectedCodes: string[] = [];
+  const selected = new Set<string>();
+  const nearestScoreByStandard = new Map<string, number>();
 
-  const inverseDocumentFrequency = (token: string): number => Math.log((catalog.standards.length + 1) / ((documentFrequency.get(token) ?? 0) + 1)) + 1;
-  const aggregateScores = catalog.standards.map(() => 0);
-  const selected = new Set<number>();
+  for (const conceptEmbedding of conceptEmbeddings) {
+    const conceptNorm = vectorNorm(conceptEmbedding);
+    let best: typeof prepared[number] | undefined;
+    let bestScore = Number.NEGATIVE_INFINITY;
 
-  concepts.forEach(({ description, title }) => {
-    const titleTokens = new Set(standardsRetrievalTokens(title));
-    const conceptTokens = new Set([...titleTokens, ...standardsRetrievalTokens(description)]);
-    const normalizedTitle = standardsRetrievalTokens(title).join(' ');
-    const scores = catalog.standards.map(({ context, description: standardDescription }, index) => {
-      let score = 0;
+    for (const candidate of prepared) {
+      const score = cosineSimilarity(conceptEmbedding, candidate.embedding, conceptNorm, candidate.norm);
 
-      conceptTokens.forEach((token) => {
-        if (documentTokens[index].has(token)) {
-          score += inverseDocumentFrequency(token) * (titleTokens.has(token) ? 6 : 1);
-        }
-      });
-
-      if (normalizedTitle) {
-        const normalizedCandidate = standardsRetrievalTokens(`${context} ${standardDescription}`).join(' ');
-
-        if (` ${normalizedCandidate} `.includes(` ${normalizedTitle} `)) {
-          score += 18;
-        }
+      if (Number.isFinite(score) && score > (nearestScoreByStandard.get(candidate.standard.code) ?? Number.NEGATIVE_INFINITY)) {
+        nearestScoreByStandard.set(candidate.standard.code, score);
       }
 
-      aggregateScores[index] += score;
-
-      return { index, score };
-    });
-
-    scores
-      .filter(({ score }) => score > 0)
-      .sort((a, b) => b.score - a.score)
-      .slice(0, STANDARDS_MATCH_PER_CONCEPT_LIMIT)
-      .forEach(({ index }) => selected.add(index));
-  });
-
-  aggregateScores
-    .map((score, index) => ({ index, score }))
-    .filter(({ score }) => score > 0)
-    .sort((a, b) => b.score - a.score)
-    .slice(0, candidateLimit)
-    .forEach(({ index }) => selected.add(index));
-
-  const codeToIndex = new Map(catalog.standards.map(({ code }, index) => [code, index]));
-
-  [...selected].forEach((index) => {
-    const parentCode = parentStandardCode(catalog.framework, catalog.standards[index].code);
-    const parentIndex = parentCode === undefined ? undefined : codeToIndex.get(parentCode);
-
-    if (parentIndex !== undefined) {
-      selected.add(parentIndex);
-      aggregateScores[parentIndex] = Math.max(aggregateScores[parentIndex], aggregateScores[index] * 0.95);
+      if (score > bestScore) {
+        best = candidate;
+        bestScore = score;
+      }
     }
-  });
 
-  return [...selected]
-    .sort((a, b) => aggregateScores[b] - aggregateScores[a] || a - b)
-    .map((index) => catalog.standards[index]);
+    if (best && Number.isFinite(bestScore) && !selected.has(best.standard.code)) {
+      selected.add(best.standard.code);
+      selectedCodes.push(best.standard.code);
+    }
+  }
+
+  return selectedCodes.flatMap((code) => {
+    const nearestScore = nearestScoreByStandard.get(code);
+
+    if (nearestScore === undefined) {
+      return [];
+    }
+
+    return [{
+      code,
+      distance: Math.max(0, Math.min(2, 1 - nearestScore)),
+      framework: catalog.framework
+    }];
+  });
+}
+
+
+export function standardsCandidatesFromEmbeddings (conceptEmbeddings: number[][], catalog: StandardsCatalog, standardEmbeddings: ReadonlyMap<string, number[]>): { catalog: StandardsCatalog; matches: CurriculumStandard[] } {
+  const matches = standardsMatchesFromEmbeddings(conceptEmbeddings, catalog, standardEmbeddings);
+  const selectedCodes = new Set(matches.map(({ code }) => code));
+
+  return {
+    catalog: {
+      ...catalog,
+      standards: catalog.standards.filter(({ code }) => selectedCodes.has(code))
+    },
+    matches
+  };
 }
 
 export function standardsMatchingPrompt (chapterTitle: string, concepts: StandardsConceptInput[], catalog: StandardsCatalog): string {
-  const candidates = standardsCandidateShortlist(concepts, catalog);
-
-  return `Select the strongest directly matching ${catalog.label} standards for this chapter from the authoritative candidate list supplied below.
+  return `Select the strongest directly matching ${catalog.label} standards for this chapter from the embedding-retrieved candidate list supplied below.
 
 IMPORTANT:
 - Match against the supplied chapter concepts: use both each concept title and description.
-- The candidate standards below are an automatically retrieved subset of the authoritative catalog and are the complete set of codes you may return. Never invent, rewrite, approximate, or complete a standard code from memory.
-- Return only codes that appear verbatim in the candidate list.
-- Choose the smallest useful set of strongest matches. Include multiple standards when distinct chapter concepts genuinely require them, but exclude standards that are merely related, prerequisite, broader, narrower, or keyword-similar.
+- The candidate standards below were preselected by embedding similarity from the authoritative catalog. They are the complete set of codes you may return for this request.
+- Never invent, rewrite, approximate, or complete a standard code from memory. Return only codes that appear verbatim in the candidate list.
+- Choose the smallest useful set of strongest direct matches. Include multiple standards when distinct chapter concepts genuinely require them, but exclude standards that are merely related, prerequisite, broader, narrower, or keyword-similar.
 - Prefer a specific content standard over a broad practice/process standard when both could describe the same concept, unless the practice/process standard is itself directly taught by the concepts.
 - Match the standard's required action and scope, not just its nouns. A shared word such as "variable", "expression", "term", or "coefficient" is not enough by itself.
 - A definition or identifying example does not by itself teach evaluation, solving equations or inequalities, generating equivalent expressions, applying properties, or other procedural skills unless a supplied concept explicitly teaches that action.
@@ -416,7 +363,7 @@ Return only valid JSON in exactly this shape:
 
 Chapter: ${chapterTitle}
 Concepts: ${JSON.stringify(concepts.map(({ description, title }) => ({ description, title })))}
-Candidate standards (${catalog.framework}) from ${catalog.path}: ${JSON.stringify(candidates)}`;
+Embedding-retrieved candidate standards (${catalog.framework}) from ${catalog.path}: ${JSON.stringify(catalog.standards)}`;
 }
 
 export function mergeStandardsMatches (assignments: CurriculumStandard[][], minimumVotes = 1): CurriculumStandard[] {
@@ -481,6 +428,39 @@ export function parseStandardsMatches (content: string, catalog: StandardsCatalo
   return result;
 }
 
+export function standardsConceptFingerprint (concepts: StandardsConceptInput[], standardsPath = ''): string {
+  const source = `${standardsPath}\u001d${concepts
+    .map(({ description, title }) => `${title.trim()}\u001e${description.trim()}`)
+    .join('\u001f')}`;
+  let hash = 2166136261;
+
+  for (let index = 0; index < source.length; index++) {
+    hash = Math.imul(hash ^ source.charCodeAt(index), 16777619);
+  }
+
+  return `${concepts.length}:${(hash >>> 0).toString(16)}`;
+}
+
+export function standardsChapterKey (chapterId: number | undefined, title: string, pageNumbers: number[]): string {
+  return chapterId === undefined ? `pages:${pageNumbers.join(',')}:${title.trim()}` : `id:${chapterId}`;
+}
+
+export function moduleStandardsText (standards: CurriculumStandard[]): string {
+  const seen = new Set<string>();
+
+  return standards.flatMap(({ code, framework }) => {
+    const canonicalCode = canonicalStandardCode(framework, code);
+
+    if (!canonicalCode || seen.has(canonicalCode)) {
+      return [];
+    }
+
+    seen.add(canonicalCode);
+
+    return [canonicalCode];
+  }).join(', ');
+}
+
 const storageKey = (bookId: number): string => `knowledge-upload-book-${bookId}-standards-v4`;
 
 export function loadStoredBookStandards (bookId: number): StoredBookStandards {
@@ -525,7 +505,11 @@ export function loadStoredBookStandards (bookId: number): StoredBookStandards {
 
           const code = canonicalStandardCode(candidate.framework, candidate.code);
 
-          return code ? [{ code, framework: candidate.framework }] : [];
+          const distance = typeof candidate.distance === 'number' && Number.isFinite(candidate.distance)
+            ? candidate.distance
+            : undefined;
+
+          return code ? [{ code, ...(distance === undefined ? {} : { distance }), framework: candidate.framework }] : [];
         })
       };
     });

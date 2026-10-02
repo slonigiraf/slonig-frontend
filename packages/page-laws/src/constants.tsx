@@ -6,7 +6,7 @@ export const sessionPrefix = 'knowledge';
 export const MATHPIX_PDF_PAGE_PRICE_USD = 0.005;
 export const DEFAULT_PROCESSING_MODEL = 'openai/gpt-6-luna';
 export const DEFAULT_STANDARDS_MODEL = 'openai/gpt-5-nano';
-
+export const DEFAULT_STANDARDS_EMBEDDER = 'openai/text-embedding-3-small';
 
 export const MATH_DISPLAY_REQUIREMENTS_PROMPT = String.raw`Math display requirements:
 - Fractions: whenever a mathematical fraction is written or displayed, use LaTeX fraction notation \frac{a}{b} (with the actual numerator and denominator substituted), never slash notation such as a/b. In JSON strings, escape the LaTeX backslash so the JSON remains valid (for example, \\frac{a}{b}); in TikZ labels, render \frac{...}{...} in TeX math mode.

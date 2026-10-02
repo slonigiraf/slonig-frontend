@@ -27,6 +27,8 @@ import type { Exercise } from './Exercise.js';
 import type { Skill } from './Skill.js';
 import type { ExerciseTemplate } from './ExerciseTemplate.js';
 import type { AiTutorStudentMessage } from './AiTutorStudentMessage.js';
+import type { StandardEmbedding } from './StandardEmbedding.js';
+import type { ConceptEmbedding } from './ConceptEmbedding.js';
 
 type LegacyBookSkill = Omit<Skill, 'exerciseIds'> & { bookExerciseIds?: number[] };
 type LegacyExerciseTemplate = Omit<ExerciseTemplate, 'skillId'> & { bookSkillId: number };
@@ -85,6 +87,8 @@ export class SlonigDB extends Dexie {
   skills!: Table<Skill, number>;
   exerciseTemplates!: Table<ExerciseTemplate, number>;
   aiTutorStudentMessages!: Table<AiTutorStudentMessage, string>;
+  standardEmbeddings!: Table<StandardEmbedding, string>;
+  conceptEmbeddings!: Table<ConceptEmbedding, number>;
 
   constructor(name = 'slonig') {
     super(name);
@@ -569,6 +573,12 @@ export class SlonigDB extends Dexie {
 
     this.version(93).stores({
       aiTutorStudentMessages: '&key,lessonId'
+    });
+    this.version(94).stores({
+      standardEmbeddings: '&id'
+    });
+    this.version(95).stores({
+      conceptEmbeddings: '&id,bookId'
     });
 
   }

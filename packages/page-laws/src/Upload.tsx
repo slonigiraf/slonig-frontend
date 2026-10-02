@@ -4,7 +4,7 @@
 import type { Book, BookPage, BookProcessingStageKey, BookStageSpendKey } from '@slonigiraf/db';
 import type { PDFDocumentProxy } from 'pdfjs-dist';
 
-import { createBook, deleteBook, getBook, getBookByContentHash, getBookConceptsForBookPage, getBookPages, getBooks, getExercisesForBookPage, isBookProcessingStageComplete, putBook, resetBookProcessingStagesFrom } from '@slonigiraf/db';
+import { createBook, deleteBook, getBook, getBookByContentHash, getBookConceptsForBookPage, getBookPages, getBooks, getConceptEmbeddings, getExercisesForBookPage, getSetting, getStandardEmbeddings, isBookProcessingStageComplete, putBook, resetBookProcessingStagesFrom, SettingKey } from '@slonigiraf/db';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { Button, Dropdown, Modal, Toggle, styled } from '@polkadot/react-components';
@@ -12,7 +12,7 @@ import { Button, Dropdown, Modal, Toggle, styled } from '@polkadot/react-compone
 import type { AiInputEstimate } from './aiEstimate.js';
 
 import { estimateAiInput, estimateAiRequests } from './aiEstimate.js';
-import { DEFAULT_PROCESSING_MODEL, DEFAULT_STANDARDS_MODEL, MATHPIX_PDF_PAGE_PRICE_USD } from './constants.js';
+import { DEFAULT_PROCESSING_MODEL, DEFAULT_STANDARDS_EMBEDDER, DEFAULT_STANDARDS_MODEL, MATHPIX_PDF_PAGE_PRICE_USD } from './constants.js';
 import OpenRouterModelSelector from './OpenRouterModelSelector.js';
 import { bookLanguageLabel } from './bookLanguage.js';
 import { exerciseGenerationRequestEstimate } from './bookProcessing.js';
@@ -25,7 +25,8 @@ import { clearFixConceptsChapterStatuses, failedFixConceptChapterKeys, fixConcep
 import { formatOpenRouterSpend } from './openRouterCost.js';
 import { clearBookStageTimes, formatBookStageTime, loadBookStageTimes, type BookStageTimes } from './bookStageTime.js';
 import { bookExternalCallTotal, clearBookExternalCalls, loadBookExternalCalls, type BookExternalCalls } from './bookExternalCalls.js';
-import { loadStandardsCatalogsForBookSubject, STANDARDS_MATCH_RUNS, standardsConceptInputs, standardsMatchingPrompt } from './standards.js';
+import { loadStandardsCatalogsForBookSubject, STANDARDS_MATCH_RUNS, standardsCandidatesFromEmbeddings, standardsChapterKey, standardsConceptInputs, standardsMatchingPrompt, standardEmbeddingInput } from './standards.js';
+import { conceptEmbeddingInput } from './standardsEmbeddings.js';
 import { AiPriceEstimate, UnitPriceEstimate } from './PriceEstimate.js';
 import { loadPdfJs } from './pdf.js';
 import StageRunPricePopup from './StageRunPricePopup.js';
@@ -35,6 +36,17 @@ const BookReader = React.lazy(() => import('./BookReader.js'));
 
 const BOOKS_DIRECTORY = 'books';
 const SELECTED_BOOK_SESSION_KEY = 'knowledge-upload-selected-book';
+function combineAiEstimates (...estimates: AiInputEstimate[]): AiInputEstimate {
+  return estimates.reduce<AiInputEstimate>((total, estimate) => ({
+    inputPriceUsd: total.inputPriceUsd + estimate.inputPriceUsd,
+    inputTokens: total.inputTokens + estimate.inputTokens,
+    outputPriceUsd: total.outputPriceUsd + estimate.outputPriceUsd,
+    outputTokens: total.outputTokens + estimate.outputTokens,
+    requests: total.requests + estimate.requests,
+    totalPriceUsd: total.totalPriceUsd + estimate.totalPriceUsd
+  }), { inputPriceUsd: 0, inputTokens: 0, outputPriceUsd: 0, outputTokens: 0, requests: 0, totalPriceUsd: 0 });
+}
+
 const PRICE_STAGES: Array<{ detail?: string; key: BookStageSpendKey; label: string }> = [
   { key: 'recognize', label: 'Recognize' },
   { key: 'language', label: 'Language' },
@@ -326,7 +338,8 @@ function Upload (): React.ReactElement {
         ? estimateAiInput(DEFAULT_PROCESSING_MODEL, regularStages.map(() => 'x'.repeat(syntheticInputLength)), 1_200).totalPriceUsd / regularStages.length
         : 0;
       const standardsFallback = standardStages.length
-        ? estimateAiInput(DEFAULT_STANDARDS_MODEL, standardStages.map(() => 'x'.repeat(syntheticInputLength)), 1_200).totalPriceUsd / standardStages.length
+        ? (estimateAiInput(DEFAULT_STANDARDS_EMBEDDER, standardStages.map(() => 'x'.repeat(syntheticInputLength)), 0).totalPriceUsd +
+          estimateAiInput(DEFAULT_STANDARDS_MODEL, standardStages.flatMap(() => Array.from({ length: STANDARDS_MATCH_RUNS }, () => 'x'.repeat(Math.min(24_000, syntheticInputLength)))), 300).totalPriceUsd) / standardStages.length
         : 0;
       const aiUsd = remainingAiStages.reduce((total, { key }) => {
         const recorded = selectedBook.stageSpend?.[key] ?? 0;
@@ -1075,28 +1088,119 @@ function Upload (): React.ReactElement {
     }
 
     getBookPages(selectedBook.id).then(async (pages) => {
-      const requests: string[] = [];
+      const embeddingRequests: string[] = [];
+      const aiRequests: string[] = [];
       const catalogs = (await loadStandardsCatalogsForBookSubject(selectedBook.subject)).filter(({ standards }) => standards.length);
+      const allStandards = catalogs.flatMap(({ standards }) => standards);
+      const cachedEmbedder = await getSetting(SettingKey.STANDARDS_EMBEDDER);
+      const cachedStandardRows = cachedEmbedder === DEFAULT_STANDARDS_EMBEDDER
+        ? await getStandardEmbeddings(allStandards.map(({ code }) => code))
+        : [];
+      const standardEmbeddings = new Map<string, number[]>(cachedStandardRows.flatMap(({ embedding, id }) => Array.isArray(embedding) && embedding.length ? [[id, embedding] as const] : []));
+      const missingStandardInputs = allStandards.filter(({ code }) => !standardEmbeddings.has(code)).map(standardEmbeddingInput);
+
+      for (let index = 0; index < missingStandardInputs.length; index += 100) {
+        embeddingRequests.push(missingStandardInputs.slice(index, index + 100).join('\n\n'));
+      }
+
+      const conceptRows = [
+        ...(await Promise.all(pages.map(({ pageNumber }) => getBookConceptsForBookPage(selectedBook.id, pageNumber)))).flat(),
+        ...await getBookConceptsForBookPage(selectedBook.id, 0)
+      ];
+      const conceptsById = new Map(conceptRows.flatMap((concept) => concept.id === undefined ? [] : [[concept.id, concept] as const]));
+      const cachedConceptEmbedder = await getSetting(SettingKey.CONCEPTS_EMBEDDER);
+      const cachedConceptRows = cachedConceptEmbedder === DEFAULT_STANDARDS_EMBEDDER
+        ? await getConceptEmbeddings(Array.from(conceptsById.keys()))
+        : [];
+      const currentConceptEmbeddings = new Map<number, number[]>(cachedConceptRows.flatMap(({ embedding, id, input }) => {
+        const concept = conceptsById.get(id);
+
+        return concept && input === conceptEmbeddingInput(concept) && Array.isArray(embedding) && embedding.length
+          ? [[id, embedding] as const]
+          : [];
+      }));
+      const missingConceptInputs = Array.from(conceptsById.values()).flatMap((concept) => {
+        const input = conceptEmbeddingInput(concept);
+
+        return input && !currentConceptEmbeddings.has(concept.id as number) ? [input] : [];
+      });
+
+      for (let index = 0; index < missingConceptInputs.length; index += 100) {
+        embeddingRequests.push(missingConceptInputs.slice(index, index + 100).join('\n\n'));
+      }
 
       for (const chapter of conceptChaptersFromPages(pages)) {
-        const concepts = standardsConceptInputs((await Promise.all(chapter.pageNumbers.map((pageNumber) => getBookConceptsForBookPage(selectedBook.id, pageNumber)))).flat());
+        const seen = new Set<string>();
+        const chapterRows = conceptRows.filter((concept) => {
+          if (!conceptBelongsToChapter(concept, chapter)) {
+            return false;
+          }
+
+          const title = concept.title.trim();
+          const description = concept.description.trim();
+          const key = `${title}\u001f${description}`;
+
+          if (!title || seen.has(key)) {
+            return false;
+          }
+
+          seen.add(key);
+
+          return true;
+        });
+        const concepts = standardsConceptInputs(chapterRows);
 
         if (!concepts.length) {
           continue;
         }
 
+        const chapterEmbeddings = chapterRows.flatMap(({ id }) => id === undefined ? [] : (currentConceptEmbeddings.get(id) ? [currentConceptEmbeddings.get(id) as number[]] : []));
+
         catalogs.forEach((catalog) => {
-          const prompt = standardsMatchingPrompt(chapter.title, concepts, catalog);
+          let candidateCatalog = catalog;
+
+          if (chapterEmbeddings.length && catalog.standards.every(({ code }) => standardEmbeddings.has(code))) {
+            candidateCatalog = standardsCandidatesFromEmbeddings(chapterEmbeddings, catalog, standardEmbeddings).catalog;
+          } else {
+            // Before the missing embeddings are generated we cannot know the exact
+            // nearest standards. Use the same upper bound on candidate count (one
+            // nearest standard per concept) for a useful pre-run token estimate.
+            candidateCatalog = {
+              ...catalog,
+              standards: catalog.standards.slice(0, Math.min(catalog.standards.length, Math.max(1, concepts.length)))
+            };
+          }
+
+          if (!candidateCatalog.standards.length) {
+            return;
+          }
+
+          const prompt = standardsMatchingPrompt(chapter.title, concepts, candidateCatalog);
 
           for (let run = 0; run < STANDARDS_MATCH_RUNS; run++) {
-            requests.push(prompt);
+            aiRequests.push(prompt);
           }
         });
       }
 
-      setStandardsEstimate(requests.length
-        ? estimateAiInput(standardsModel, requests, 600)
-        : t(catalogs.length ? 'No extracted chapter concepts are available for standards matching.' : 'No standards catalogs are available for this book subject.'));
+      if (!catalogs.length) {
+        setStandardsEstimate(t('No standards catalogs are available for this book subject.'));
+        return;
+      }
+
+      if (!conceptsById.size) {
+        setStandardsEstimate(t('No extracted chapter concepts are available for standards matching.'));
+        return;
+      }
+
+      const estimates = [
+        ...(embeddingRequests.length ? [estimateAiInput(DEFAULT_STANDARDS_EMBEDDER, embeddingRequests, 0)] : []),
+        ...(aiRequests.length ? [estimateAiInput(standardsModel, aiRequests, 300)] : [])
+      ];
+
+      setStandardsEstimate(estimates.length
+        ? combineAiEstimates(...estimates)
+        : t('No OpenRouter cost is expected.'));
     }).catch(() => setError(t('Unable to estimate standards assignment cost.')));
   }, [isStandardsConfirmationOpen, selectedBook, standardsModel, t]);
 
@@ -1538,7 +1642,7 @@ function Upload (): React.ReactElement {
         onRun={confirmAssignStandards}
         runLabel={t('Run')}
       >
-        <p>{t('Match standards for every chapter from its extracted concepts? The detected book subject selects the standards catalog path, then each available standards catalog is checked three times against the chapter concepts and the detected standards are combined. Only codes present in the supplied catalog can be stored.')}</p>
+        <p>{t('Match standards for every chapter from its extracted concepts? Embeddings first reduce every standards framework to the nearest candidates for the chapter. Only those candidates are sent to the selected AI model three times, and a standard is kept when at least two runs agree. Standard and concept embeddings are cached in this browser.')}</p>
         <AiPriceEstimate estimate={standardsEstimate} />
         <OpenRouterModelSelector
           className='batchModelSelect'
@@ -1625,9 +1729,9 @@ function Upload (): React.ReactElement {
             key={selectedBook.id}
             file={readerFile}
             generateAllConceptsModel={generateAllConceptsModel}
-            standardsModel={standardsModel}
             languageTabRequest={languageTabRequest}
             subjectTabRequest={subjectTabRequest}
+            standardsModel={standardsModel}
             ageTabRequest={ageTabRequest}
             generateAllConceptsRequest={generateAllConceptsRequest}
             generateOnlyMissingConcepts={generateOnlyMissingConcepts}

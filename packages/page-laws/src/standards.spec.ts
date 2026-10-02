@@ -4,7 +4,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { loadStandardsCatalogsForBookSubject, loadStoredBookStandards, mergeStandardsMatches, moduleStandardsText, parseStandardsMatches, STANDARDS_MATCH_RUNS, standardsCandidateShortlist, standardsConceptFingerprint, standardsConceptInputs, standardsMatchingPrompt, standardsPathForBookSubject, type StandardsCatalog } from './standards.js';
+import { embeddingCosineDistance, loadStandardsCatalogsForBookSubject, loadStoredBookStandards, mergeStandardsMatches, moduleStandardsText, parseStandardsMatches, STANDARDS_MATCH_RUNS, standardEmbeddingInput, standardsCandidatesFromEmbeddings, standardsConceptEmbeddingInput, standardsConceptFingerprint, standardsConceptInputs, standardsMatchesFromEmbeddings, standardsMatchingPrompt, standardsPathForBookSubject, type StandardsCatalog } from './standards.js';
 
 const catalog: StandardsCatalog = {
   framework: 'ccss',
@@ -17,8 +17,16 @@ const catalog: StandardsCatalog = {
 };
 
 describe('chapter standards', (): void => {
-  it('runs standards matching three times', (): void => {
+  it('runs AI standards confirmation three times and reconciles with a 2-of-3 majority', (): void => {
     assert.equal(STANDARDS_MATCH_RUNS, 3);
+    assert.deepEqual(mergeStandardsMatches([
+      [
+        { code: 'CCSS.6.RP.A.2', framework: 'ccss' },
+        { code: 'CCSS.6.EE.A.1', framework: 'ccss' }
+      ],
+      [{ code: 'CCSS.6.RP.A.2', framework: 'ccss' }],
+      []
+    ], Math.floor(STANDARDS_MATCH_RUNS / 2) + 1), [{ code: 'CCSS.6.RP.A.2', framework: 'ccss' }]);
   });
 
   it('derives the standards directory from the detected book subject', (): void => {
@@ -75,102 +83,68 @@ describe('chapter standards', (): void => {
     ]), [{ description: 'Description', title: 'Concept' }]);
   });
 
-  it('builds a matching prompt from chapter concepts and the authoritative standards catalog', (): void => {
+  it('builds embedding inputs from concept title + description and standard context + description', (): void => {
+    assert.equal(standardsConceptEmbeddingInput({ description: '  Compares two quantities.  ', title: '  Unit rate  ' }), 'Unit rate\nCompares two quantities.');
+    assert.equal(standardEmbeddingInput(catalog.standards[0]), '6 > Understand ratio concepts\nUnderstand the concept of a unit rate.');
+  });
+
+  it('computes cosine distance for concept heatmaps', (): void => {
+    assert.ok(Math.abs((embeddingCosineDistance([1, 0], [1, 0]) ?? Infinity) - 0) < 1e-12);
+    assert.ok(Math.abs((embeddingCosineDistance([1, 0], [0, 1]) ?? Infinity) - 1) < 1e-12);
+    assert.ok(Math.abs((embeddingCosineDistance([1, 0], [-1, 0]) ?? Infinity) - 2) < 1e-12);
+    assert.equal(embeddingCosineDistance([], []), undefined);
+  });
+
+  it('selects the nearest standard embedding for each concept, removes duplicates, and keeps the nearest chapter distance', (): void => {
+    const embeddings = new Map<string, number[]>([
+      ['CCSS.6.RP.A.2', [1, 0]],
+      ['CCSS.6.EE.A.1', [0, 1]]
+    ]);
+
+    const secondConceptY = Math.sqrt(0.51);
+
+    const matches = standardsMatchesFromEmbeddings([
+      [0.6, -0.8],
+      [0.7, secondConceptY]
+    ], catalog, embeddings);
+
+    assert.deepEqual(matches.map(({ code, framework }) => ({ code, framework })), [
+      { code: 'CCSS.6.RP.A.2', framework: 'ccss' },
+      { code: 'CCSS.6.EE.A.1', framework: 'ccss' }
+    ]);
+    // The first concept selects the ratio standard, but the second concept is
+    // actually nearer to it. The chapter distance therefore uses 0.7.
+    assert.ok(Math.abs((matches[0].distance ?? Infinity) - 0.3) < 1e-12);
+    assert.ok(Math.abs((matches[1].distance ?? Infinity) - (1 - secondConceptY)) < 1e-12);
+  });
+
+  it('sends the AI only standards selected by embedding retrieval', (): void => {
+    const embeddings = new Map<string, number[]>([
+      ['CCSS.6.RP.A.2', [1, 0]],
+      ['CCSS.6.EE.A.1', [0, 1]]
+    ]);
+    const { catalog: candidates } = standardsCandidatesFromEmbeddings([[1, 0]], catalog, embeddings);
     const prompt = standardsMatchingPrompt('Ratios', [{
       description: 'A unit rate compares two quantities with a second quantity of one.',
       title: 'Unit rates'
-    }], catalog);
+    }], candidates);
 
-    assert.match(prompt, /chapter concepts/i);
-    assert.match(prompt, /complete set of codes/i);
-    assert.match(prompt, /Never invent/i);
-    assert.match(prompt, /Unit rates/);
+    assert.deepEqual(candidates.standards.map(({ code }) => code), ['CCSS.6.RP.A.2']);
+    assert.match(prompt, /embedding-retrieved candidate list/i);
     assert.match(prompt, /CCSS\.6\.RP\.A\.2/);
-    assert.match(prompt, /data\/standards\/en\/math\/common-core\.json/);
-    assert.doesNotMatch(prompt, /Ability questions/i);
+    assert.doesNotMatch(prompt, /CCSS\.6\.EE\.A\.1/);
   });
 
-  it('retrieves a small relevant candidate set instead of sending a whole large catalog to matching', (): void => {
-    const largeCatalog: StandardsCatalog = {
-      ...catalog,
-      standards: [
-        ...Array.from({ length: 100 }, (_, index) => ({
-          code: `CCSS.K.CC.A.${index}`,
-          context: 'Kindergarten > Counting',
-          description: `Count objects in an unrelated counting task number ${index}.`
-        })),
-        {
-          code: 'CCSS.6.EE.A.2b',
-          context: '6 > Apply and extend previous understandings of arithmetic to algebraic expressions',
-          description: 'Identify parts of an expression using mathematical terms (sum, term, product, factor, quotient, coefficient).'
-        }
-      ]
-    };
-    const candidates = standardsCandidateShortlist([{
-      description: 'A coefficient is a constant multiplied by a variable, and a term is a product in an expression.',
-      title: 'Coefficient'
-    }], largeCatalog, 20);
+  it('accepts AI output only when the code is inside the embedding candidate catalog', (): void => {
+    const candidateCatalog: StandardsCatalog = { ...catalog, standards: [catalog.standards[0]] };
 
-    assert.ok(candidates.some(({ code }) => code === 'CCSS.6.EE.A.2b'));
-    assert.ok(candidates.length < largeCatalog.standards.length);
-  });
-
-
-
-  it('joins standards detected across repeated matching runs without duplicates', (): void => {
-    assert.deepEqual(mergeStandardsMatches([
-      [{ code: 'CCSS.6.RP.A.2', framework: 'ccss' }],
-      [{ code: 'CCSS.6.EE.A.1', framework: 'ccss' }],
-      [
-        { code: 'CCSS.6.RP.A.2', framework: 'ccss' },
-        { code: '6.4A', framework: 'teks' }
-      ]
-    ]), [
-      { code: 'CCSS.6.RP.A.2', framework: 'ccss' },
-      { code: 'CCSS.6.EE.A.1', framework: 'ccss' },
-      { code: '6.4A', framework: 'teks' }
-    ]);
-  });
-
-  it('can require repeated matching runs to agree before a standard survives', (): void => {
-    assert.deepEqual(mergeStandardsMatches([
-      [
-        { code: 'CCSS.6.RP.A.2', framework: 'ccss' },
-        { code: 'CCSS.6.EE.A.1', framework: 'ccss' }
-      ],
-      [{ code: 'CCSS.6.RP.A.2', framework: 'ccss' }],
-      []
-    ], 2), [{ code: 'CCSS.6.RP.A.2', framework: 'ccss' }]);
-
-    assert.deepEqual(mergeStandardsMatches([
-      [
-        { code: 'CCSS.6.RP.A.2', framework: 'ccss' },
-        { code: 'CCSS.6.RP.A.2', framework: 'ccss' }
-      ],
-      []
-    ], 2), []);
-  });
-
-  it('accepts only standard codes that were supplied in the catalog', (): void => {
-    assert.deepEqual(parseStandardsMatches('{"codes":["CCSS.6.RP.A.2","CCSS.6.RP.A.2"]}', catalog), [
+    assert.deepEqual(parseStandardsMatches('{"codes":["CCSS.6.RP.A.2"]}', candidateCatalog), [
       { code: 'CCSS.6.RP.A.2', framework: 'ccss' }
     ]);
-
     assert.throws(
-      () => parseStandardsMatches('{"codes":["CCSS.7.RP.A.1"]}', catalog),
+      () => parseStandardsMatches('{"codes":["CCSS.6.EE.A.1"]}', candidateCatalog),
       /not present in data\/standards\/en\/math\/common-core\.json/i
     );
-  });
-
-  it('normalizes a long-form Common Core response only when the normalized code exists in the supplied catalog', (): void => {
-    const expressionCatalog: StandardsCatalog = {
-      ...catalog,
-      standards: [{ code: 'CCSS.6.EE.A.1', context: '6', description: 'Expressions' }]
-    };
-
-    assert.deepEqual(parseStandardsMatches('{"codes":["CCSS.MATH.CONTENT.6.EE.A.1"]}', expressionCatalog), [
-      { code: 'CCSS.6.EE.A.1', framework: 'ccss' }
-    ]);
   });
 
   it('writes Virginia standards with the SOL prefix and normalizes the old VA SOL prefix', (): void => {
@@ -197,7 +171,7 @@ describe('chapter standards', (): void => {
     );
   });
 
-  it('loads current concept-based stored standards and normalizes old long-form CCSS codes inside them', (): void => {
+  it('loads current concept-based stored standards, preserves distances, and normalizes old long-form CCSS codes inside them', (): void => {
     const originalLocalStorage = globalThis.localStorage;
 
     globalThis.localStorage = {
@@ -206,7 +180,7 @@ describe('chapter standards', (): void => {
       getItem: () => JSON.stringify({ chapter: {
         conceptFingerprint: '1:abc',
         standards: [
-          { code: 'CCSS.MATH.CONTENT.6.EE.A.1', framework: 'ccss' },
+          { code: 'CCSS.MATH.CONTENT.6.EE.A.1', distance: 0.1234, framework: 'ccss' },
           { code: 'VA SOL.6.1.a', framework: 'vaSol' }
         ]
       } }),
@@ -219,7 +193,7 @@ describe('chapter standards', (): void => {
       assert.deepEqual(loadStoredBookStandards(1).chapter, {
         conceptFingerprint: '1:abc',
         standards: [
-          { code: 'CCSS.6.EE.A.1', framework: 'ccss' },
+          { code: 'CCSS.6.EE.A.1', distance: 0.1234, framework: 'ccss' },
           { code: 'SOL.6.1.a', framework: 'vaSol' }
         ]
       });

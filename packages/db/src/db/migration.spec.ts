@@ -85,7 +85,13 @@ describe('IndexedDB production migration', (): void => {
       upgraded = new SlonigDB(databaseName);
       await upgraded.open();
 
-      assert.equal(upgraded.verno, 93);
+      assert.equal(upgraded.verno, 95);
+      assert.equal(upgraded.tables.some(({ name }) => name === 'standardEmbeddings'), true);
+      await upgraded.standardEmbeddings.put({ id: 'CCSS.6.RP.A.2', embedding: [0.25, 0.75] });
+      assert.deepEqual(await upgraded.standardEmbeddings.get('CCSS.6.RP.A.2'), { id: 'CCSS.6.RP.A.2', embedding: [0.25, 0.75] });
+      assert.equal(upgraded.tables.some(({ name }) => name === 'conceptEmbeddings'), true);
+      await upgraded.conceptEmbeddings.put({ id: 42, bookId: 7, input: 'Slope\nRate of change', embedding: [0.1, 0.9] });
+      assert.deepEqual(await upgraded.conceptEmbeddings.get(42), { id: 42, bookId: 7, input: 'Slope\nRate of change', embedding: [0.1, 0.9] });
       assert.deepEqual(await upgraded.settings.get('language'), { id: 'language', value: 'sr' });
       assert.equal((await upgraded.lessons.get('lesson-1'))?.cid, 'lesson-cid');
       assert.equal((await upgraded.scheduledEvents.toArray())[0]?.data, 'keep me');
