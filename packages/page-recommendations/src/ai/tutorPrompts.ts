@@ -318,6 +318,10 @@ export function decisionPrompt(
 
 const CODE_FENCE = '```';
 
+function skillHasSolutionImage(skill: AiSkill): boolean {
+  return skill.questions.some((question) => typeof question.answerImageCid === 'string' && Boolean(question.answerImageCid.trim()));
+}
+
 const GENERATED_MESSAGE_KATEX_REQUIREMENTS = String.raw`KaTeX formatting requirements for the returned message:
 - The message is rendered directly with KatexSpan. Surround every mathematical formula or expression with <kx>...</kx>. Do not use \(...\), \[...\], $...$, or $$...$$ delimiters.
 - Every learner-facing numeric literal that is mathematical content must also be inside <kx>...</kx>, including standalone numbers used in an explanation.
@@ -334,6 +338,7 @@ Code formatting requirements for the returned message:
 
 function generatedStageContext(skill: AiSkill, stage: AlgorithmStage, studentExercise: string): string[] {
   const examples = skill.questions.map((q) => `${q.question}${q.questionImageCid ? ' [question image present]' : ''} => ${q.answer}${q.answerImageCid ? ' [answer image present]' : ''}`).join('\n');
+  const hasExampleSolutionImage = skillHasSolutionImage(skill);
   const stageInstructions = stage.getMessages()
     .map((message) => [message.title, message.text, message.exercise].filter(Boolean).join(' '))
     .join('\n');
@@ -344,6 +349,9 @@ function generatedStageContext(skill: AiSkill, stage: AlgorithmStage, studentExe
     `Programmed stage instructions:\n${stageInstructions}`,
     `Student-created exercise:\n${studentExercise}`,
     'Any attachments named \"Student-created exercise ...\" and any TikZ drawing source embedded in the exercise are part of that exact exercise. Inspect them when solving or generating the requested solution.',
+    hasExampleSolutionImage
+      ? 'This skill has at least one stored example whose solution includes an image. Attachments named \"Skill example solution image ...\" are those reference solution images. Inspect them to understand the visual form of the skill, but create a solution specifically for the student-created exercise rather than copying a reference image unchanged.'
+      : '',
     `Skill: ${skill.title}\nStored DB examples for reference:\n${examples || 'none'}`,
     GENERATED_MESSAGE_KATEX_REQUIREMENTS,
     'Return only one JSON object with exactly one key: message.',
@@ -421,12 +429,17 @@ export function formatGeneratedStageMessage(stage: AlgorithmStage, message: stri
 }
 
 function correctFakeSolutionPrompt(skill: AiSkill, stage: AlgorithmStage, studentExercise: string): string {
+  const hasExampleSolutionImage = skillHasSolutionImage(skill);
+
   return [
     'You are taking the role of the HUMAN TUTOR executing the correct_fake_solution stage of a Slonig TutoringAlgorithm.',
     'Show the CORRECT answer/solution to exactly the student-created exercise below, then ask the student to repeat the correct solution from memory.',
     'Do not create a different exercise. Keep the response concise and instructional. Do not critique the student or add generic tutoring feedback.',
+    hasExampleSolutionImage
+      ? String.raw`IMPORTANT: At least one example exercise for this skill uses an image as part of its solution. Therefore the correct solution you return MUST also contain a TikZ drawing that is a genuine part of the correct solution to the student's generated exercise. Include one complete \begin{tikzpicture}...\end{tikzpicture} block, make the drawing mathematically/semantically correct for this exact exercise, and integrate it with any necessary solution text. Do not merely describe what the image should show, do not return a decorative or unrelated diagram, do not copy a reference image unchanged, and do not wrap the TikZ block in a Markdown code fence.`
+      : '',
     ...generatedStageContext(skill, stage, studentExercise),
-  ].join('\n\n');
+  ].filter(Boolean).join('\n\n');
 }
 
 export function generatedStagePrompt(skill: AiSkill, stage: AlgorithmStage, studentExercise: string): string {

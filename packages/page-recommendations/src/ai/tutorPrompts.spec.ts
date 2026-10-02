@@ -74,6 +74,19 @@ const skill: AiSkill = {
 
 const studentExercise = 'Given url="http://example.com", write useEffect that connects to db, disconnects on cleanup and depends on url.';
 
+const visualSolutionSkill: AiSkill = {
+  id: 'visual-geometry',
+  cid: 'visual-geometry-cid',
+  title: 'Divide geometric figures',
+  description: 'Divide a figure according to the requested rule.',
+  questions: [{
+    question: 'Divide the rectangle into 3 unequal parts.',
+    answer: 'The rectangle is split into three regions of different areas.',
+    questionImageCid: 'question-image-cid',
+    answerImageCid: 'solution-image-cid',
+  }],
+};
+
 describe('AI Tutor similar-exercise decisions', (): void => {
   for (const type of [
     StageType.begin_ask_to_create_similar_exercise,
@@ -183,6 +196,30 @@ describe('AI Tutor generated fake solution wording', (): void => {
       assert.match(prompt, /opening fence MUST include the actual language identifier/i);
       assert.match(prompt, /Never return source code as plain prose, inline backticks, or an unlabeled/i);
     }
+  });
+
+  it('requires a correct TikZ solution when the skill examples contain solution images', (): void => {
+    const stage = nextStage(StageType.correct_fake_solution, 'Correct solution');
+    const prompt = generatedStagePrompt(
+      visualSolutionSkill,
+      stage,
+      'Divide my triangle into 2 unequal parts.',
+    );
+
+    assert.match(prompt, /example exercise for this skill uses an image as part of its solution/i);
+    assert.match(prompt, /correct solution you return MUST also contain a TikZ drawing/i);
+    assert.match(prompt, /one complete \\begin\{tikzpicture\}/i);
+    assert.match(prompt, /genuine part of the correct solution/i);
+    assert.match(prompt, /Skill example solution image/i);
+    assert.match(prompt, /do not wrap the TikZ block in a Markdown code fence/i);
+  });
+
+  it('does not require TikZ in a correct solution when the skill has no solution image', (): void => {
+    const stage = nextStage(StageType.correct_fake_solution, 'Correct solution');
+    const prompt = generatedStagePrompt(skill, stage, studentExercise);
+
+    assert.doesNotMatch(prompt, /correct solution you return MUST also contain a TikZ drawing/i);
+    assert.doesNotMatch(prompt, /Skill example solution image/i);
   });
 
   it('adds a detected language to an unlabeled fake-solution code fence', (): void => {

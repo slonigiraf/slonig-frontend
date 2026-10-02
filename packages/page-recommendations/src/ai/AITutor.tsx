@@ -399,6 +399,13 @@ function skillExerciseImageCids(skill: AiSkill | undefined): string[] {
     .filter((cid): cid is string => typeof cid === 'string' && Boolean(cid.trim()))));
 }
 
+function skillSolutionImageCids(skill: AiSkill | undefined): string[] {
+  if (!skill) return [];
+  return Array.from(new Set(skill.questions
+    .map((question) => question.answerImageCid)
+    .filter((cid): cid is string => typeof cid === 'string' && Boolean(cid.trim()))));
+}
+
 function imageDataUrlPayload(dataUrl: string): string {
   const separator = dataUrl.indexOf(',');
   return separator >= 0 ? dataUrl.slice(separator + 1) : dataUrl;
@@ -468,6 +475,7 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
   const restartHandledRef = useRef(false);
   const currentStageImageCids = useMemo(() => stageImageCids(algorithmStage), [algorithmStage]);
   const currentSkillExerciseImageCids = useMemo(() => skillExerciseImageCids(skill), [skill]);
+  const currentSkillSolutionImageCids = useMemo(() => skillSolutionImageCids(skill), [skill]);
 
   const loadStageImageAttachments = useCallback(async (stage: AlgorithmStage): Promise<OpenRouterAttachment[]> => {
     const cids = stageImageCids(stage);
@@ -496,6 +504,20 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
       return { ...cached, name: `Skill exercise image ${index + 1}` };
     }));
   }, [currentSkillExerciseImageCids, ipfs, t]);
+
+  const loadSkillSolutionImageAttachments = useCallback(async (): Promise<OpenRouterAttachment[]> => {
+    if (currentSkillSolutionImageCids.length === 0) return [];
+    if (!ipfs) throw new Error(t('The skill solution images are not available yet.'));
+
+    return Promise.all(currentSkillSolutionImageCids.map(async (cid, index) => {
+      let cached = questionImageCacheRef.current.get(cid);
+      if (!cached) {
+        cached = await ipfsImageToAttachment(ipfs, cid, `Skill example solution image ${index + 1}`, t);
+        questionImageCacheRef.current.set(cid, cached);
+      }
+      return { ...cached, name: `Skill example solution image ${index + 1}` };
+    }));
+  }, [currentSkillSolutionImageCids, ipfs, t]);
 
   useEffect(() => {
     if (storedOpenRouterKey === null) return;
@@ -635,11 +657,14 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
   const generateStageText = useCallback(async (stage: AlgorithmStage, requestId: number): Promise<void> => {
     if (!skill || !stageNeedsGeneratedText(stage)) return;
 
+    const requiresCorrectSolutionTikz = stage.getType() === StageType.correct_fake_solution
+      && currentSkillSolutionImageCids.length > 0;
+
     const saved = loadFromSessionStorage(
       AI_TUTOR_SESSION,
       generatedStageTextSessionKey(lessonId, lessonStep, stage.getType()),
     );
-    if (saved) {
+    if (saved && (!requiresCorrectSolutionTikz || isTikzCode(saved))) {
       if (stageTextRequestRef.current === requestId) setCurrentAiText(saved);
       return;
     }
@@ -668,14 +693,33 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
     setLoading(true);
     setError('');
     try {
-      const generated = await askOpenRouter(
+      const skillSolutionImages = stage.getType() === StageType.correct_fake_solution
+        ? await loadSkillSolutionImageAttachments()
+        : [];
+      const generationAttachments = [...studentExerciseMedia, ...skillSolutionImages];
+      const prompt = generatedStagePrompt(skill, stage, studentExercise);
+      let generated = await askOpenRouter(
         { apiKey: openRouterKey, model: model.trim() || DEFAULT_MODEL },
-        generatedStagePrompt(skill, stage, studentExercise),
+        prompt,
         undefined,
-        studentExerciseMedia,
+        generationAttachments,
       );
-      const generatedMessage = generated.message.trim();
+      let generatedMessage = generated.message.trim();
+
+      if (requiresCorrectSolutionTikz && generatedMessage && !isTikzCode(generatedMessage)) {
+        generated = await askOpenRouter(
+          { apiKey: openRouterKey, model: model.trim() || DEFAULT_MODEL },
+          `${prompt}\n\nCRITICAL RETRY REQUIREMENT: Your previous answer omitted the required TikZ solution visual. Return the complete correct solution again, and this time include one complete \\begin{tikzpicture}...\\end{tikzpicture} block that is a genuine, correct part of the solution to the student's generated exercise.`,
+          undefined,
+          generationAttachments,
+        );
+        generatedMessage = generated.message.trim();
+      }
+
       if (!generatedMessage) throw new Error(t('The AI tutor returned no stage text.'));
+      if (requiresCorrectSolutionTikz && !isTikzCode(generatedMessage)) {
+        throw new Error(t('The AI tutor returned a correct solution without the required TikZ drawing.'));
+      }
       const text = formatGeneratedStageMessage(stage, generatedMessage);
 
       if (stageTextRequestRef.current !== requestId) return;
@@ -699,7 +743,7 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
     } finally {
       if (stageTextRequestRef.current === requestId) setLoading(false);
     }
-  }, [algorithm, lessonId, lessonStep, model, openRouterKey, skill, studentExercise, studentExerciseMedia, t]);
+  }, [algorithm, currentSkillSolutionImageCids, lessonId, lessonStep, loadSkillSolutionImageAttachments, model, openRouterKey, skill, studentExercise, studentExerciseMedia, t]);
 
   useEffect(() => {
     if (!skill || !algorithmStage) return;
