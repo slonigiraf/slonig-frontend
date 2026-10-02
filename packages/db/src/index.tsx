@@ -440,6 +440,7 @@ export async function putBook(book: Book): Promise<void> {
                 chapters: Math.max(storedSpend?.chapters ?? 0, incomingSpend?.chapters ?? 0),
                 concepts: Math.max(storedSpend?.concepts ?? 0, incomingSpend?.concepts ?? 0),
                 fixConcepts: Math.max(storedSpend?.fixConcepts ?? 0, incomingSpend?.fixConcepts ?? 0),
+                embeddings: Math.max(storedSpend?.embeddings ?? 0, incomingSpend?.embeddings ?? 0),
                 deduplicateConcepts: Math.max(storedSpend?.deduplicateConcepts ?? 0, incomingSpend?.deduplicateConcepts ?? 0),
                 sortConcepts: Math.max(storedSpend?.sortConcepts ?? 0, incomingSpend?.sortConcepts ?? 0),
                 refineChapters: Math.max(storedSpend?.refineChapters ?? 0, incomingSpend?.refineChapters ?? 0),

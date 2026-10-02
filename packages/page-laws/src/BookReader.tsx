@@ -29,13 +29,13 @@ import { assertDisjointSortChapterConcepts, conceptsForSortChapter, parseSortedC
 import { conceptBelongsToChapter, conceptsForRefinementChapter, hasPersistedRefinedConceptMembership, parseRefinedChapterGroups, REFINE_CHAPTERS_SPEND_STAGE, refinedChapterSplitPages, refineChapterPrompt, type RefinedConceptPersistenceExpectation, withRefineChaptersComplete } from './refineChapters.js';
 import { formatOpenRouterSpend, reportOpenRouterCost, type OpenRouterCostReporter } from './openRouterCost.js';
 import { useBookStageTimer } from './bookStageTime.js';
-import { BOOK_AGE_DETECTION_PROMPT, BOOK_CHAPTER_EXTRACTION_REQUEST_PROMPT, BOOK_LANGUAGE_DETECTION_PROMPT, BOOK_SUBJECT_DETECTION_PROMPT, DEFAULT_PROCESSING_MODEL, DEFAULT_STANDARDS_EMBEDDER, DEFAULT_STANDARDS_MODEL, MATHPIX_PDF_PAGE_PRICE_USD, OPENAI_MODELS } from './constants.js';
+import { BOOK_AGE_DETECTION_PROMPT, BOOK_CHAPTER_EXTRACTION_REQUEST_PROMPT, BOOK_LANGUAGE_DETECTION_PROMPT, BOOK_SUBJECT_DETECTION_PROMPT, DEFAULT_PROCESSING_MODEL, DEFAULT_STANDARDS_MODEL, MATHPIX_PDF_PAGE_PRICE_USD, OPENAI_MODELS } from './constants.js';
 import { stripMarkdownImageReferences } from './bookImageRefs.js';
 import { chapterAssignmentsFromBoundaries, chapterEvidenceWindows, chapterReconciliationPrompt, chapterWindowPrompt, deriveStructuralChapterCandidates, extractMathpixHeadingsFromLines, pageChapterEvidence, parseChapterBoundaries, stabilizeChapterBoundaries, type ChapterBoundaryProposal } from './chapterSegmentation.js';
 import { getSharedChapterSelection, resolveSharedChapterIndex, storeSharedChapterSelection, subscribeSharedChapterSelection, type SharedChapterSelection } from './chapterSelection.js';
 import { conceptChapterMoveInsertionIndex } from './conceptChapterMove.js';
 import { conceptChaptersFromPages, parseGeneratedChapterConcepts, type ConceptChapterNavigationItem, type GeneratedChapterConcepts } from './conceptRecognition.js';
-import { conceptDeduplicationInput, deduplicateConceptsPrompt, parseDeduplicateConceptPairs, type DeduplicateConceptInput, type DeduplicateConceptPair } from './deduplicateConcepts.js';
+import { conceptDeduplicationInput, deduplicateConceptCandidates, deduplicateConceptsPrompt, parseDeduplicateConceptPairs, type DeduplicateConceptCandidatePair, type DeduplicateConceptInput, type DeduplicateConceptPair } from './deduplicateConcepts.js';
 import { missingGeneratedExerciseConceptIndexes } from './exercises.js';
 import { sortExercisesForDisplay } from './learningOrder.js';
 import { embeddingCosineDistance, loadStandardsCatalogsForBookSubject, loadStoredBookStandards, mergeStandardsMatches, parseStandardsMatches, STANDARD_FRAMEWORKS, STANDARDS_MATCH_RUNS, standardsCandidatesFromEmbeddings, standardsChapterKey, standardsConceptFingerprint, standardsConceptInputs, standardsMatchingPrompt, standardsPathForBookSubject, storeBookStandards, type CurriculumStandard, type StandardsCatalog, type StoredBookStandards } from './standards.js';
@@ -748,8 +748,8 @@ async function requestMissingChapterConcepts(client: OpenAI, model: string, chap
   return parseMissingChapterConcepts(content, concepts, new Set(allowedPageNumbers));
 }
 
-async function requestDeduplicateConceptPairs(client: OpenAI, model: string, concepts: DeduplicateConceptInput[], book: Pick<Book, 'age' | 'language' | 'subject'>, onCost?: OpenRouterCostReporter): Promise<DeduplicateConceptPair[]> {
-  const prompt = deduplicateConceptsPrompt(concepts, book.subject, book.language, book.age);
+async function requestDeduplicateConceptPairs(client: OpenAI, model: string, concepts: DeduplicateConceptInput[], candidates: DeduplicateConceptCandidatePair[], book: Pick<Book, 'age' | 'language' | 'subject'>, onCost?: OpenRouterCostReporter): Promise<DeduplicateConceptPair[]> {
+  const prompt = deduplicateConceptsPrompt(concepts, candidates, book.subject, book.language, book.age);
   const response = await runConceptRequestWithRetry(() => client.chat.completions.create({
     messages: [{ content: prompt, role: 'user' }],
     model,
@@ -763,7 +763,7 @@ async function requestDeduplicateConceptPairs(client: OpenAI, model: string, con
     throw new Error('OpenRouter returned no Deduplicate Concepts data.');
   }
 
-  return parseDeduplicateConceptPairs(content, concepts);
+  return parseDeduplicateConceptPairs(content, concepts, candidates);
 }
 
 async function requestSortedChapterConceptIndexes(client: OpenAI, model: string, chapterTitle: string, concepts: BookConcept[], book: Pick<Book, 'age' | 'language' | 'subject'>, onCost?: OpenRouterCostReporter): Promise<number[]> {
@@ -1442,6 +1442,7 @@ async function recognizePageWithMathpix (appId: string | undefined, apiKey: stri
 interface Props {
   ageTabRequest: number;
   assignAllStandardsRequest: number;
+  embedAllConceptsRequest: number;
   autoRunAll?: boolean;
   autoRunStartKey?: string;
   deduplicateAllConceptsRequest: number;
@@ -1451,6 +1452,7 @@ interface Props {
   refineAllChaptersRequest: number;
   book: Book;
   file: File;
+  embeddingModel: string;
   generateAllConceptsModel: string;
   generateAllConceptsRequest: number;
   generateOnlyMissingConcepts: boolean;
@@ -1464,7 +1466,7 @@ interface Props {
   onPrice: () => void;
   onProcessingComplete: () => void;
   isPriceDisabled?: boolean;
-  pendingProcessingAction?: 'chapters' | 'concepts' | 'fixConcepts' | 'deduplicateConcepts' | 'sortConcepts' | 'refineChapters' | 'recognize' | 'standards' | 'exercises';
+  pendingProcessingAction?: 'chapters' | 'concepts' | 'fixConcepts' | 'embeddings' | 'deduplicateConcepts' | 'sortConcepts' | 'refineChapters' | 'recognize' | 'standards' | 'exercises';
   processingToolbar: PipelineAction[];
   processingToolbarAfterFixImages?: PipelineAction[];
   generateAllExercisesRequest: number;
@@ -1639,7 +1641,7 @@ function getSessionReaderPane(bookId: number): ReaderPane {
   }
 }
 
-function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = false, autoRunStartKey, book, deduplicateAllConceptsRequest, file, fixAllConceptsRequest, fixOnlyFailedConcepts, sortAllConceptsRequest, refineAllChaptersRequest, generateAllConceptsModel, generateAllConceptsRequest, generateAllExercisesRequest, generateOnlyMissingConcepts, generateOnlyMissingExercises, identifyChaptersRequest, isPriceDisabled = false, languageTabRequest, subjectTabRequest, onAbortFastForward, onAutoRunComplete, onBookChange, onFastForward, onPrice, onProcessingComplete, pendingProcessingAction, processingToolbar, processingToolbarAfterFixImages, recognizeAllRequest, standardsModel }: Props): React.ReactElement {
+function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = false, autoRunStartKey, book, deduplicateAllConceptsRequest, embedAllConceptsRequest, embeddingModel, file, fixAllConceptsRequest, fixOnlyFailedConcepts, sortAllConceptsRequest, refineAllChaptersRequest, generateAllConceptsModel, generateAllConceptsRequest, generateAllExercisesRequest, generateOnlyMissingConcepts, generateOnlyMissingExercises, identifyChaptersRequest, isPriceDisabled = false, languageTabRequest, subjectTabRequest, onAbortFastForward, onAutoRunComplete, onBookChange, onFastForward, onPrice, onProcessingComplete, pendingProcessingAction, processingToolbar, processingToolbarAfterFixImages, recognizeAllRequest, standardsModel }: Props): React.ReactElement {
   const { t } = useTranslation();
   const [activePane, setActivePane] = useState<ReaderPane>(() => {
     const storedPane = getSessionReaderPane(book.id);
@@ -1648,10 +1650,14 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
       return 'text';
     }
 
-    if ((storedPane === 'standards' || storedPane === 'embeddings') && !isBookProcessingStageComplete(book, 'fixImages')) {
+    if (storedPane === 'standards' && !isBookProcessingStageComplete(book, 'fixImages')) {
       return isBookProcessingStageComplete(book, 'fixExercises')
         ? 'preExercisesExercises'
         : isBookProcessingStageComplete(book, 'concepts') ? 'textConcepts' : 'text';
+    }
+
+    if (storedPane === 'embeddings' && !isBookProcessingStageComplete(book, 'embeddings')) {
+      return isBookProcessingStageComplete(book, 'concepts') ? 'textConcepts' : 'text';
     }
 
     return storedPane;
@@ -1701,6 +1707,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
   const [fixedConceptsChapterCount, setFixedConceptsChapterCount] = useState(0);
   const [sortedConceptsChapterCount, setSortedConceptsChapterCount] = useState(0);
   const [refinedChaptersChapterCount, setRefinedChaptersChapterCount] = useState(0);
+  const [isEmbeddingConcepts, setIsEmbeddingConcepts] = useState(false);
   const [isDeduplicatingConcepts, setIsDeduplicatingConcepts] = useState(false);
   const [isFixingConcepts, setIsFixingConcepts] = useState(false);
   const [isSortingConcepts, setIsSortingConcepts] = useState(false);
@@ -1754,6 +1761,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
   const [totalPages, setTotalPages] = useState(0);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const handledAssignAllStandardsRequestRef = useRef(assignAllStandardsRequest);
+  const handledEmbedAllConceptsRequestRef = useRef(embedAllConceptsRequest);
   const handledDeduplicateAllConceptsRequestRef = useRef(deduplicateAllConceptsRequest);
   const handledFixAllConceptsRequestRef = useRef(fixAllConceptsRequest);
   const handledSortAllConceptsRequestRef = useRef(sortAllConceptsRequest);
@@ -1813,6 +1821,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
   const addChaptersCost = useCallback((costUsd: number): void => addOpenRouterStageCost('chapters', costUsd), [addOpenRouterStageCost]);
   const addConceptsCost = useCallback((costUsd: number): void => addOpenRouterStageCost('concepts', costUsd), [addOpenRouterStageCost]);
   const addFixConceptsCost = useCallback((costUsd: number): void => addOpenRouterStageCost('fixConcepts', costUsd), [addOpenRouterStageCost]);
+  const addEmbeddingsCost = useCallback((costUsd: number): void => addOpenRouterStageCost('embeddings', costUsd), [addOpenRouterStageCost]);
   const addDeduplicateConceptsCost = useCallback((costUsd: number): void => addOpenRouterStageCost('deduplicateConcepts', costUsd), [addOpenRouterStageCost]);
   const addSortConceptsCost = useCallback((costUsd: number): void => addOpenRouterStageCost('sortConcepts', costUsd), [addOpenRouterStageCost]);
   const addRefineChaptersCost = useCallback((costUsd: number): void => addOpenRouterStageCost(REFINE_CHAPTERS_SPEND_STAGE, costUsd), [addOpenRouterStageCost]);
@@ -2164,7 +2173,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
     setIsEmbeddingHeatmapLoading(true);
     getBookConceptInventory(book.id, pages.keys())
       .then(async (inventory) => {
-        const byId = await cachedConceptEmbeddingMap(DEFAULT_STANDARDS_EMBEDDER, inventory);
+        const byId = await cachedConceptEmbeddingMap(embeddingModel, inventory);
 
         if (!cancelled) {
           setEmbeddingConceptInventory(inventory);
@@ -2186,16 +2195,16 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
     return () => {
       cancelled = true;
     };
-  }, [activePane, book.id, conceptEmbeddingsRefreshToken, pages]);
+  }, [activePane, book.id, conceptEmbeddingsRefreshToken, embeddingModel, pages]);
 
   useEffect(() => {
-    if (activePane === 'embeddings' && !isBookProcessingStageComplete(book, 'standards')) {
-      setActivePane(isBookProcessingStageComplete(book, 'fixImages') ? 'standards' : 'text');
+    if (activePane === 'embeddings' && !isBookProcessingStageComplete(book, 'embeddings')) {
+      setActivePane(isBookProcessingStageComplete(book, 'concepts') ? 'textConcepts' : 'text');
     }
   }, [activePane, book]);
 
   useEffect(() => {
-    if ((activePane === 'standards' || activePane === 'embeddings') && !isBookProcessingStageComplete(book, 'fixImages')) {
+    if (activePane === 'standards' && !isBookProcessingStageComplete(book, 'fixImages')) {
       setActivePane(isBookProcessingStageComplete(book, 'fixExercises')
         ? 'preExercisesExercises'
         : isBookProcessingStageComplete(book, 'concepts') ? 'textConcepts' : 'text');
@@ -2268,10 +2277,10 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
 
     onBookChange(updatedBook ?? withCompletedBookProcessingStage(book, stage));
   }, [book, onBookChange]);
-  const invalidateDeduplicateConceptsStage = useCallback(async (): Promise<void> => {
-    const updatedBook = await resetBookProcessingStagesFrom(book.id, 'deduplicateConcepts');
+  const invalidateEmbeddingsStage = useCallback(async (): Promise<void> => {
+    const updatedBook = await resetBookProcessingStagesFrom(book.id, 'embeddings');
 
-    onBookChange(updatedBook ?? withBookProcessingStagesResetFrom(book, 'deduplicateConcepts'));
+    onBookChange(updatedBook ?? withBookProcessingStagesResetFrom(book, 'embeddings'));
   }, [book, onBookChange]);
   const completeStageRef = useRef(completeStage);
 
@@ -3077,7 +3086,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
     } finally {
       setIsFixingConcepts(false);
     }
-  }, [addFixConceptsCost, book, conceptChapters, deduplicateConceptsReview, fixConceptsReview, generateAllConceptsModel, isDeduplicatingConcepts, isFixingConcepts, isGeneratingAllConcepts, isGeneratingAllExercises, isIdentifyingChapters, isRecognizingAll, pages, revealPane]);
+  }, [addFixConceptsCost, book, conceptChapters, deduplicateConceptsReview, fixConceptsReview, generateAllConceptsModel, isDeduplicatingConcepts, isEmbeddingConcepts, isFixingConcepts, isGeneratingAllConcepts, isGeneratingAllExercises, isIdentifyingChapters, isRecognizingAll, pages, revealPane]);
 
   const discardFixConceptsReview = useCallback((): void => {
     if (isApplyingFixConceptsReview) {
@@ -3223,13 +3232,59 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
     }
   }, [book, conceptChapters, currentConceptChapter, fixConceptsReview, isApplyingFixConceptsReview, onBookChange, onProcessingComplete, pages, refreshConceptCounts, refreshEntityCounts]);
 
+  const embedAllConcepts = useCallback(async (): Promise<void> => {
+    if (isEmbeddingConcepts || isDeduplicatingConcepts || isFixingConcepts || isSortingConcepts || isGeneratingAllConcepts || isRecognizingAll || isIdentifyingChapters || isGeneratingAllExercises || fixConceptsReview || deduplicateConceptsReview) {
+      return;
+    }
+
+    if (!isBookProcessingStageComplete(book, 'fixConcepts')) {
+      setError('Complete Fix concepts before calculating Embedings.');
+      return;
+    }
+
+    setError('');
+    setOpenRouterSpent(0);
+    setIsEmbeddingConcepts(true);
+
+    try {
+      const key = await getSetting(SettingKey.OPENROUTER_TOKEN);
+
+      if (!key) {
+        throw new Error('No OpenRouter token found. Add it in Settings.');
+      }
+
+      const client = new OpenAI({
+        apiKey: key,
+        baseURL: 'https://openrouter.ai/api/v1',
+        dangerouslyAllowBrowser: true,
+        defaultHeaders: { 'HTTP-Referer': window.location.origin, 'X-OpenRouter-Title': 'Slonig' },
+        maxRetries: 0
+      });
+      const inventory = await getBookConceptInventory(book.id, pages.keys());
+      const byId = await ensureConceptEmbeddingCache(client, embeddingModel, inventory, addEmbeddingsCost);
+
+      setEmbeddingConceptInventory(inventory);
+      setEmbeddingByConceptId(byId);
+      setConceptEmbeddingsRefreshToken((token) => token + 1);
+      await completeStage('embeddings');
+      revealPane('embeddings');
+    } finally {
+      setIsEmbeddingConcepts(false);
+    }
+  }, [addEmbeddingsCost, book, completeStage, deduplicateConceptsReview, embeddingModel, fixConceptsReview, isDeduplicatingConcepts, isEmbeddingConcepts, isFixingConcepts, isGeneratingAllConcepts, isGeneratingAllExercises, isIdentifyingChapters, isRecognizingAll, isSortingConcepts, pages, revealPane]);
+
   const deduplicateAllConcepts = useCallback(async (model = generateAllConceptsModel): Promise<void> => {
-    if (isDeduplicatingConcepts || isFixingConcepts || isSortingConcepts || isGeneratingAllConcepts || isRecognizingAll || isIdentifyingChapters || isGeneratingAllExercises || fixConceptsReview || deduplicateConceptsReview) {
+    if (isDeduplicatingConcepts || isEmbeddingConcepts || isFixingConcepts || isSortingConcepts || isGeneratingAllConcepts || isRecognizingAll || isIdentifyingChapters || isGeneratingAllExercises || fixConceptsReview || deduplicateConceptsReview) {
       return;
     }
 
     if (!book.language || !book.subject || book.age === undefined) {
       setError('Set the book language, subject, and learner age before running Deduplicate concepts.');
+      return;
+    }
+
+    if (!isBookProcessingStageComplete(book, 'embeddings')) {
+      setError('Run Embedings before Deduplicate concepts.');
       return;
     }
 
@@ -3258,7 +3313,17 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
         defaultHeaders: { 'HTTP-Referer': window.location.origin, 'X-OpenRouter-Title': 'Slonig' },
         maxRetries: 0
       });
-      const duplicatePairs = await requestDeduplicateConceptPairs(client, model, inputs, book, addDeduplicateConceptsCost);
+      const embeddings = await cachedConceptEmbeddingMap(embeddingModel, Array.from(conceptsById.values()));
+      const missingEmbeddingIds = inputs.filter(({ conceptId }) => !embeddings.has(conceptId)).map(({ conceptId }) => conceptId);
+
+      if (missingEmbeddingIds.length) {
+        throw new Error('Concept Embedings are missing or stale. Run Embedings again before deduplication.');
+      }
+
+      const candidates = deduplicateConceptCandidates(inputs, embeddings);
+      const duplicatePairs = candidates.length
+        ? await requestDeduplicateConceptPairs(client, model, inputs, candidates, book, addDeduplicateConceptsCost)
+        : [];
       const inputById = new Map(inputs.map((input) => [input.conceptId, input] as const));
       const pairs = duplicatePairs.map(({ deletedConceptId, keptConceptId }): DeduplicateConceptsReviewPair => {
         const deleted = conceptsById.get(deletedConceptId);
@@ -3286,7 +3351,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
     } finally {
       setIsDeduplicatingConcepts(false);
     }
-  }, [addDeduplicateConceptsCost, book, deduplicateConceptsReview, fixConceptsReview, generateAllConceptsModel, isDeduplicatingConcepts, isFixingConcepts, isGeneratingAllConcepts, isGeneratingAllExercises, isIdentifyingChapters, isRecognizingAll, isSortingConcepts, loadDeduplicateConceptInventory, revealPane]);
+  }, [addDeduplicateConceptsCost, book, deduplicateConceptsReview, embeddingModel, fixConceptsReview, generateAllConceptsModel, isDeduplicatingConcepts, isEmbeddingConcepts, isFixingConcepts, isGeneratingAllConcepts, isGeneratingAllExercises, isIdentifyingChapters, isRecognizingAll, isSortingConcepts, loadDeduplicateConceptInventory, revealPane]);
 
   useEffect((): void => {
     if (autoRunAll && fixConceptsReview && !isApplyingFixConceptsReview) {
@@ -3385,7 +3450,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
   }, [applyDeduplicateConceptsReview, autoRunAll, deduplicateConceptsReview, isApplyingDeduplicateConceptsReview]);
 
   const sortAllConcepts = useCallback(async (model = generateAllConceptsModel): Promise<void> => {
-    if (isSortingConcepts || isDeduplicatingConcepts || isFixingConcepts || isGeneratingAllConcepts || isRecognizingAll || isIdentifyingChapters || isGeneratingAllExercises || fixConceptsReview || deduplicateConceptsReview) {
+    if (isSortingConcepts || isDeduplicatingConcepts || isEmbeddingConcepts || isFixingConcepts || isGeneratingAllConcepts || isRecognizingAll || isIdentifyingChapters || isGeneratingAllExercises || fixConceptsReview || deduplicateConceptsReview) {
       return;
     }
 
@@ -3499,10 +3564,10 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
     } finally {
       setIsSortingConcepts(false);
     }
-  }, [addSortConceptsCost, book, completeStage, conceptChapters, currentConceptChapter, deduplicateConceptsReview, fixConceptsReview, generateAllConceptsModel, isDeduplicatingConcepts, isFixingConcepts, isGeneratingAllConcepts, isGeneratingAllExercises, isIdentifyingChapters, isRecognizingAll, isSortingConcepts, pages, revealPane]);
+  }, [addSortConceptsCost, book, completeStage, conceptChapters, currentConceptChapter, deduplicateConceptsReview, fixConceptsReview, generateAllConceptsModel, isDeduplicatingConcepts, isEmbeddingConcepts, isFixingConcepts, isGeneratingAllConcepts, isGeneratingAllExercises, isIdentifyingChapters, isRecognizingAll, isSortingConcepts, pages, revealPane]);
 
   const refineAllChapters = useCallback(async (model = generateAllConceptsModel): Promise<void> => {
-    if (isRefiningChapters || isSortingConcepts || isDeduplicatingConcepts || isFixingConcepts || isGeneratingAllConcepts || isRecognizingAll || isIdentifyingChapters || isGeneratingAllExercises || fixConceptsReview || deduplicateConceptsReview) {
+    if (isRefiningChapters || isSortingConcepts || isDeduplicatingConcepts || isEmbeddingConcepts || isFixingConcepts || isGeneratingAllConcepts || isRecognizingAll || isIdentifyingChapters || isGeneratingAllExercises || fixConceptsReview || deduplicateConceptsReview) {
       return;
     }
 
@@ -3639,7 +3704,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
     } finally {
       setIsRefiningChapters(false);
     }
-  }, [addRefineChaptersCost, book, conceptChapters, deduplicateConceptsReview, fixConceptsReview, generateAllConceptsModel, isDeduplicatingConcepts, isFixingConcepts, isGeneratingAllConcepts, isGeneratingAllExercises, isIdentifyingChapters, isRecognizingAll, isRefiningChapters, isSortingConcepts, onBookChange, pages, refreshChapterAssignments, refreshConceptCounts, refreshEntityCounts, revealPane]);
+  }, [addRefineChaptersCost, book, conceptChapters, deduplicateConceptsReview, fixConceptsReview, generateAllConceptsModel, isDeduplicatingConcepts, isEmbeddingConcepts, isFixingConcepts, isGeneratingAllConcepts, isGeneratingAllExercises, isIdentifyingChapters, isRecognizingAll, isRefiningChapters, isSortingConcepts, onBookChange, pages, refreshChapterAssignments, refreshConceptCounts, refreshEntityCounts, revealPane]);
 
   const generateAllExercises = useCallback(async (): Promise<void> => {
     if (!totalPages || processingPage !== undefined || isGeneratingAllConcepts || isRecognizingAll || isGeneratingAllExercises || isIdentifyingChapters || isRefiningChapters) {
@@ -4570,10 +4635,33 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
 
   useEffect((): void => {
     if (
+      embedAllConceptsRequest === handledEmbedAllConceptsRequestRef.current ||
+      processingPage !== undefined ||
+      isGeneratingAllConcepts ||
+      isFixingConcepts ||
+      isEmbeddingConcepts ||
+      isDeduplicatingConcepts ||
+      isSortingConcepts ||
+      isRecognizingAll ||
+      isGeneratingAllExercises ||
+      isIdentifyingChapters
+    ) {
+      return;
+    }
+
+    handledEmbedAllConceptsRequestRef.current = embedAllConceptsRequest;
+    embedAllConcepts()
+      .catch((embeddingError) => setError(embeddingError instanceof Error ? embeddingError.message : 'Unable to calculate concept Embedings.'))
+      .finally(onProcessingComplete);
+  }, [embedAllConcepts, embedAllConceptsRequest, isDeduplicatingConcepts, isEmbeddingConcepts, isFixingConcepts, isGeneratingAllConcepts, isGeneratingAllExercises, isIdentifyingChapters, isRecognizingAll, isSortingConcepts, onProcessingComplete, processingPage]);
+
+  useEffect((): void => {
+    if (
       deduplicateAllConceptsRequest === handledDeduplicateAllConceptsRequestRef.current ||
       processingPage !== undefined ||
       isGeneratingAllConcepts ||
       isFixingConcepts ||
+      isEmbeddingConcepts ||
       isDeduplicatingConcepts ||
       isSortingConcepts ||
       isRecognizingAll ||
@@ -4587,7 +4675,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
     deduplicateAllConcepts(generateAllConceptsModel)
       .catch((deduplicateError) => setError(deduplicateError instanceof Error ? deduplicateError.message : 'Unable to deduplicate concepts.'))
       .finally(onProcessingComplete);
-  }, [deduplicateAllConcepts, deduplicateAllConceptsRequest, generateAllConceptsModel, isDeduplicatingConcepts, isFixingConcepts, isGeneratingAllConcepts, isGeneratingAllExercises, isIdentifyingChapters, isRecognizingAll, isSortingConcepts, onProcessingComplete, processingPage]);
+  }, [deduplicateAllConcepts, deduplicateAllConceptsRequest, generateAllConceptsModel, isDeduplicatingConcepts, isEmbeddingConcepts, isFixingConcepts, isGeneratingAllConcepts, isGeneratingAllExercises, isIdentifyingChapters, isRecognizingAll, isSortingConcepts, onProcessingComplete, processingPage]);
 
   useEffect((): void => {
     if (
@@ -4595,6 +4683,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
       processingPage !== undefined ||
       isGeneratingAllConcepts ||
       isFixingConcepts ||
+      isEmbeddingConcepts ||
       isDeduplicatingConcepts ||
       isSortingConcepts ||
       isRecognizingAll ||
@@ -4608,7 +4697,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
     sortAllConcepts(generateAllConceptsModel)
       .catch((sortError) => setError(sortError instanceof Error ? sortError.message : 'Unable to sort chapter concepts.'))
       .finally(onProcessingComplete);
-  }, [conceptChapters.length, generateAllConceptsModel, isDeduplicatingConcepts, isFixingConcepts, isGeneratingAllConcepts, isGeneratingAllExercises, isIdentifyingChapters, isRecognizingAll, isSortingConcepts, onProcessingComplete, processingPage, sortAllConcepts, sortAllConceptsRequest]);
+  }, [conceptChapters.length, generateAllConceptsModel, isDeduplicatingConcepts, isEmbeddingConcepts, isFixingConcepts, isGeneratingAllConcepts, isGeneratingAllExercises, isIdentifyingChapters, isRecognizingAll, isSortingConcepts, onProcessingComplete, processingPage, sortAllConcepts, sortAllConceptsRequest]);
 
   useEffect((): void => {
     if (
@@ -4616,6 +4705,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
       processingPage !== undefined ||
       isGeneratingAllConcepts ||
       isFixingConcepts ||
+      isEmbeddingConcepts ||
       isDeduplicatingConcepts ||
       isSortingConcepts ||
       isRefiningChapters ||
@@ -4630,7 +4720,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
     refineAllChapters(generateAllConceptsModel)
       .catch((refineError) => setError(refineError instanceof Error ? refineError.message : 'Unable to refine chapters.'))
       .finally(onProcessingComplete);
-  }, [conceptChapters.length, generateAllConceptsModel, isDeduplicatingConcepts, isFixingConcepts, isGeneratingAllConcepts, isGeneratingAllExercises, isIdentifyingChapters, isRecognizingAll, isRefiningChapters, isSortingConcepts, onProcessingComplete, processingPage, refineAllChapters, refineAllChaptersRequest]);
+  }, [conceptChapters.length, generateAllConceptsModel, isDeduplicatingConcepts, isEmbeddingConcepts, isFixingConcepts, isGeneratingAllConcepts, isGeneratingAllExercises, isIdentifyingChapters, isRecognizingAll, isRefiningChapters, isSortingConcepts, onProcessingComplete, processingPage, refineAllChapters, refineAllChaptersRequest]);
 
   useEffect((): void => {
     if (
@@ -4683,6 +4773,11 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
       return;
     }
 
+    if (!isBookProcessingStageComplete(book, 'embeddings')) {
+      setError('Complete Embedings before identifying Standards.');
+      return;
+    }
+
     setError('');
     setIsAssigningStandards(true);
     setStandardsAssignedChapterCount(0);
@@ -4706,9 +4801,17 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
         maxRetries: 0
       });
       const catalogs = await loadStandardsCatalogsForBookSubject(book.subject);
-      const standardEmbeddings = await ensureStandardEmbeddingCache(client, DEFAULT_STANDARDS_EMBEDDER, catalogs, addStandardsCost);
       const conceptInventory = await getBookConceptInventory(book.id, pages.keys());
-      const conceptEmbeddings = await ensureConceptEmbeddingCache(client, DEFAULT_STANDARDS_EMBEDDER, conceptInventory, addStandardsCost);
+      const conceptEmbeddings = await cachedConceptEmbeddingMap(embeddingModel, conceptInventory);
+      const missingConceptEmbeddings = conceptInventory.filter(({ id, title, description }) => (
+        id !== undefined && Number.isSafeInteger(id) && id > 0 && (title.trim() || description.trim()) && !conceptEmbeddings.has(id)
+      ));
+
+      if (missingConceptEmbeddings.length) {
+        throw new Error('Concept Embedings are missing or stale for the selected model. Run Embedings again before Standards.');
+      }
+
+      const standardEmbeddings = await ensureStandardEmbeddingCache(client, embeddingModel, catalogs, addStandardsCost);
 
       setConceptEmbeddingsRefreshToken((token) => token + 1);
       const results = await mapConcurrent(conceptChapters, OPENROUTER_CONCURRENCY, async (chapter: ConceptChapterNavigationItem) => {
@@ -4758,7 +4861,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
     } finally {
       setIsAssigningStandards(false);
     }
-  }, [addStandardsCost, completeStage, book, book.id, book.subject, conceptChapters, isAssigningStandards, pages, revealPane, standardsByChapter, standardsModel]);
+  }, [addStandardsCost, completeStage, book, book.id, book.subject, conceptChapters, embeddingModel, isAssigningStandards, pages, revealPane, standardsByChapter, standardsModel]);
 
   useEffect((): void => {
     if (
@@ -4904,7 +5007,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
         await reorderBookConcepts(orderedIds, currentConceptChapter.chapterId);
       }
 
-      await invalidateDeduplicateConceptsStage();
+      await invalidateEmbeddingsStage();
       await reloadCurrentChapterConcepts();
       await Promise.all([refreshEntityCounts(), refreshConceptCounts()]);
       setNewConceptAfterIndex(-1);
@@ -4920,7 +5023,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
     } finally {
       setIsSavingNewConcept(false);
     }
-  }, [book.id, concepts, currentConceptChapter, isSavingNewConcept, loadCurrentChapterConcepts, newConceptAfterIndex, newConceptDescription, newConceptPage, newConceptTitle, pages, refreshConceptCounts, refreshEntityCounts, reloadCurrentChapterConcepts, invalidateDeduplicateConceptsStage]);
+  }, [book.id, concepts, currentConceptChapter, isSavingNewConcept, loadCurrentChapterConcepts, newConceptAfterIndex, newConceptDescription, newConceptPage, newConceptTitle, pages, refreshConceptCounts, refreshEntityCounts, reloadCurrentChapterConcepts, invalidateEmbeddingsStage]);
 
   const reorderConcepts = useCallback(async (fromIndex: number, toIndex: number): Promise<void> => {
     if (fromIndex === toIndex || fromIndex < 0 || toIndex < 0 || fromIndex >= concepts.length || toIndex >= concepts.length || isReorderingConcepts || isApplyingFixConceptsReview) {
@@ -5287,7 +5390,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
         }
       }
 
-      await invalidateDeduplicateConceptsStage();
+      await invalidateEmbeddingsStage();
       await reloadCurrentChapterConcepts();
       await refreshConceptCounts();
       setSkillsRefreshToken((value) => value + 1);
@@ -5298,7 +5401,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
       setError(message);
       throw caught;
     }
-  }, [book.id, conceptChapterIndex, conceptChapters, invalidateDeduplicateConceptsStage, pages, refreshConceptCounts, reloadCurrentChapterConcepts]);
+  }, [book.id, conceptChapterIndex, conceptChapters, invalidateEmbeddingsStage, pages, refreshConceptCounts, reloadCurrentChapterConcepts]);
   const deleteConcept = useCallback(async (concept: BookConcept): Promise<void> => {
     if (concept.id === undefined) {
       return;
@@ -5306,7 +5409,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
 
     try {
       await deleteConceptAndDependencies(book.id, concept, Array.from(pages.keys()));
-      await invalidateDeduplicateConceptsStage();
+      await invalidateEmbeddingsStage();
       const referenceKey = conceptReferenceKey(concept);
 
       setConcepts((current) => current.filter(({ id }) => id !== concept.id));
@@ -5326,7 +5429,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
       setError(message);
       throw caught;
     }
-  }, [book.id, invalidateDeduplicateConceptsStage, pages, refreshConceptCounts, refreshEntityCounts]);
+  }, [book.id, invalidateEmbeddingsStage, pages, refreshConceptCounts, refreshEntityCounts]);
 
   const saveExercise = useCallback(async (exerciseId: number, value: ExerciseEditableFields): Promise<void> => {
     if (!currentExerciseChapter) {
@@ -5835,7 +5938,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
 
   const conceptHeatmap = (entries: ConceptEmbeddingHeatmapEntry[], distances: Array<Array<number | undefined>>): React.ReactNode => {
     if (!entries.length) {
-      return <p className='emptyOutput'>No cached concept embeddings are available for this view. Run Standards again to create or refresh them.</p>;
+      return <p className='emptyOutput'>No cached concept embeddings are available for this view. Run Embedings again to create or refresh them.</p>;
     }
 
     return <div className='embeddingHeatmapScroller'>
@@ -6062,14 +6165,14 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
     {concept.description && <p><KatexSpan content={concept.description} /></p>}
   </div>;
 
-  const processingTotal = isDetectingBookLanguage || isDetectingBookSubject || isDetectingBookAge || processingPage !== undefined || isDeduplicatingConcepts || pendingProcessingAction === 'deduplicateConcepts'
+  const processingTotal = isDetectingBookLanguage || isDetectingBookSubject || isDetectingBookAge || processingPage !== undefined || isEmbeddingConcepts || pendingProcessingAction === 'embeddings' || isDeduplicatingConcepts || pendingProcessingAction === 'deduplicateConcepts'
     ? 1
     : isFixingConcepts || pendingProcessingAction === 'fixConcepts'
       ? Math.max(1, fixConceptsTargetChapterCount || conceptChapters.length)
       : isGeneratingAllConcepts || pendingProcessingAction === 'concepts' || isSortingConcepts || pendingProcessingAction === 'sortConcepts' || isRefiningChapters || pendingProcessingAction === 'refineChapters' || isAssigningStandards || pendingProcessingAction === 'standards'
         ? Math.max(1, conceptChapters.length)
         : Math.max(1, totalPages);
-  const processingValue = isDetectingBookLanguage || isDetectingBookSubject || isDetectingBookAge || processingPage !== undefined || isDeduplicatingConcepts || pendingProcessingAction === 'deduplicateConcepts'
+  const processingValue = isDetectingBookLanguage || isDetectingBookSubject || isDetectingBookAge || processingPage !== undefined || isEmbeddingConcepts || pendingProcessingAction === 'embeddings' || isDeduplicatingConcepts || pendingProcessingAction === 'deduplicateConcepts'
     ? 0
     : isRecognizingAll || pendingProcessingAction === 'recognize'
       ? recognizedPageCount
@@ -6102,17 +6205,19 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
                 ? chapterIdentificationLabel
                 : isFixingConcepts || pendingProcessingAction === 'fixConcepts'
                   ? 'Finding missing chapter concepts'
-                  : isDeduplicatingConcepts || pendingProcessingAction === 'deduplicateConcepts'
-                    ? 'Finding duplicate concepts across the book'
-                    : isSortingConcepts || pendingProcessingAction === 'sortConcepts'
-                      ? 'Sorting concepts by ZPD'
-                      : isRefiningChapters || pendingProcessingAction === 'refineChapters'
-                        ? 'Clustering concepts into thematic chapters'
-                        : isAssigningStandards || pendingProcessingAction === 'standards'
-                          ? 'Matching standards to chapter concepts'
-                          : isGeneratingAllExercises || pendingProcessingAction === 'exercises'
-                            ? 'Generating exercises'
-                            : 'Extracting concepts by chapter';
+                  : isEmbeddingConcepts || pendingProcessingAction === 'embeddings'
+                    ? 'Calculating concept Embedings'
+                    : isDeduplicatingConcepts || pendingProcessingAction === 'deduplicateConcepts'
+                      ? 'Finding duplicate concepts across the book'
+                      : isSortingConcepts || pendingProcessingAction === 'sortConcepts'
+                        ? 'Sorting concepts by ZPD'
+                        : isRefiningChapters || pendingProcessingAction === 'refineChapters'
+                          ? 'Clustering concepts into thematic chapters'
+                          : isAssigningStandards || pendingProcessingAction === 'standards'
+                            ? 'Matching standards to chapter concepts'
+                            : isGeneratingAllExercises || pendingProcessingAction === 'exercises'
+                              ? 'Generating exercises'
+                              : 'Extracting concepts by chapter';
 
   const readerProcessingStage: BookStageSpendKey | undefined = confirmedProcessingStage
     ?? (isGeneratingChapterConcepts
@@ -6131,17 +6236,19 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
                   ? 'concepts'
                   : isFixingConcepts
                     ? 'fixConcepts'
-                    : isDeduplicatingConcepts
-                      ? 'deduplicateConcepts'
-                      : isSortingConcepts
-                        ? 'sortConcepts'
-                        : isRefiningChapters
-                          ? REFINE_CHAPTERS_SPEND_STAGE
-                          : isAssigningStandards
-                            ? 'standards'
-                            : isGeneratingAllExercises
-                              ? 'exercises'
-                              : pendingProcessingAction ?? (processingPage !== undefined ? 'recognize' : undefined));
+                    : isEmbeddingConcepts
+                      ? 'embeddings'
+                      : isDeduplicatingConcepts
+                        ? 'deduplicateConcepts'
+                        : isSortingConcepts
+                          ? 'sortConcepts'
+                          : isRefiningChapters
+                            ? REFINE_CHAPTERS_SPEND_STAGE
+                            : isAssigningStandards
+                              ? 'standards'
+                              : isGeneratingAllExercises
+                                ? 'exercises'
+                                : pendingProcessingAction ?? (processingPage !== undefined ? 'recognize' : undefined));
 
   useBookStageTimer(book.id, readerProcessingStage);
 
@@ -6155,6 +6262,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
     isIdentifyingChapters ||
     isGeneratingAllConcepts ||
     isFixingConcepts ||
+    isEmbeddingConcepts ||
     isDeduplicatingConcepts ||
     isSortingConcepts ||
     isRefiningChapters ||
@@ -6506,10 +6614,10 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
           ['age', 'Age', revealedPanes.has('age') || book.age !== undefined, undefined],
           ['chapters', 'Chapters', revealedPanes.has('chapters') || isBookProcessingStageComplete(book, 'chapters'), chapters.length],
           ['textConcepts', 'Concepts', revealedPanes.has('textConcepts') || isBookProcessingStageComplete(book, 'concepts'), entityCounts.concepts],
+          ['embeddings', 'Embedings', revealedPanes.has('embeddings') || isBookProcessingStageComplete(book, 'embeddings'), undefined],
           ['conceptExercises', 'Exercises', revealedPanes.has('conceptExercises') || isBookProcessingStageComplete(book, 'exercises'), entityCounts.exercises],
           ['preExercisesExercises', 'Abilities', revealedPanes.has('preExercisesExercises') || isBookProcessingStageComplete(book, 'abilities'), entityCounts.abilities],
           ['standards', 'Standards', revealedPanes.has('standards') || isBookProcessingStageComplete(book, 'standards'), undefined],
-          ['embeddings', 'Embeddings', isBookProcessingStageComplete(book, 'standards'), undefined],
           ['skillsCourse', 'Course', revealedPanes.has('skillsCourse') || isBookProcessingStageComplete(book, 'abilities'), undefined]
         ] as Array<[ReaderPane, string, boolean, number | undefined]>).filter(([, , isVisible]) => isVisible).map(([pane, label, , count]) => (
           <button

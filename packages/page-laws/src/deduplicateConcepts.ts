@@ -17,6 +17,15 @@ export interface DeduplicateConceptPair {
   keptConceptId: number;
 }
 
+export interface DeduplicateConceptCandidatePair {
+  conceptIdA: number;
+  conceptIdB: number;
+  cosineDistance: number;
+}
+
+export const DEDUPLICATION_MAX_COSINE_DISTANCE = 0.3;
+export const DEDUPLICATION_MAX_NEIGHBORS_PER_CONCEPT = 5;
+
 interface DeduplicateConceptResponsePair {
   conceptIdA: number;
   conceptIdB: number;
@@ -42,30 +51,108 @@ function parseResponse (content: string): unknown {
 
 export function deduplicateConceptsPrompt (
   concepts: DeduplicateConceptInput[],
+  candidates: DeduplicateConceptCandidatePair[],
   bookSubject: BookSubject | undefined,
   bookLanguage: string | undefined,
   learnerAge: number | undefined
 ): string {
-  return `Find clear duplicate concepts across the entire book.
+  const candidateIds = new Set(candidates.flatMap(({ conceptIdA, conceptIdB }) => [conceptIdA, conceptIdB]));
+  const candidateConcepts = concepts.filter(({ conceptId }) => candidateIds.has(conceptId));
+
+  return `Confirm clear duplicate concepts from an embedding-generated candidate list.
 
 The book language is ${bookLanguage || 'unknown'}, the book topic/subject is ${bookSubject || 'unknown'}, and the learner age is ${Number.isSafeInteger(learnerAge) ? learnerAge : 'unknown'}.
 
-A duplicate means two concepts anywhere in the book that teach essentially the same independently learnable knowledge unit. They may be in the same chapter or in different chapters. Be conservative. Report a pair only when the concepts are near-equivalent in meaning, not merely related, prerequisite/dependent, examples of one another, broader/narrower versions, neighboring skills, or concepts that share vocabulary. Different mathematical procedures, cases, properties, representations, or levels of generality are not duplicates unless they truly express the same learning target.
+The embedding stage already compared the entire book and selected semantically close candidate pairs. Review ONLY the supplied candidate pairs. A candidate is not automatically a duplicate: confirm a pair only when both concepts teach essentially the same independently learnable knowledge unit. Be conservative. Reject pairs that are merely related, prerequisite/dependent, examples of one another, broader/narrower versions, neighboring skills, or concepts that share vocabulary. Different mathematical procedures, cases, properties, representations, or levels of generality are not duplicates unless they truly express the same learning target.
 
-Compare title AND description. Ignore superficial wording differences. Do not rewrite, merge, add, or otherwise modify concepts.
+Compare title AND description. Ignore superficial wording differences. Do not rewrite, merge, add, or otherwise modify concepts. Do not return a pair that is absent from candidatePairs.
 
-The application, not you, decides which duplicate is deleted. For every connected duplicate set, it keeps one canonical concept: the concept with the LOWEST chapterId, breaking ties by the LOWEST conceptId. Every other concept in that duplicate set is proposed for deletion. Your job is only to identify duplicate pairs.
+The application, not you, decides which confirmed duplicate is deleted. For every connected confirmed duplicate set, it keeps one canonical concept: the concept with the LOWEST chapterId, breaking ties by the LOWEST conceptId. Every other concept in that duplicate set is proposed for deletion. Your job is only to confirm which embedding candidates are true duplicate pairs.
 
-Concept inventory:
-${JSON.stringify(concepts.map(({ chapterId, chapterTitle, conceptId, description, pageNumber, title }) => ({ chapterId, chapterTitle, conceptId, pageNumber: pageNumber ?? null, title, description })))}
+Candidate concept inventory:
+${JSON.stringify(candidateConcepts.map(({ chapterId, chapterTitle, conceptId, description, pageNumber, title }) => ({ chapterId, chapterTitle, conceptId, pageNumber: pageNumber ?? null, title, description })))}
+
+Candidate pairs (smaller cosineDistance means semantically closer):
+${JSON.stringify(candidates.map(({ conceptIdA, conceptIdB, cosineDistance }) => ({ conceptIdA, conceptIdB, cosineDistance: Number(cosineDistance.toFixed(4)) })))}
 
 Return only valid JSON in this exact shape:
 {"duplicatePairs":[{"conceptIdA":12,"conceptIdB":45}]}
 
-Return {"duplicatePairs":[]} when no clear duplicates exist. Each id must be a conceptId from the supplied inventory.`;
+Return {"duplicatePairs":[]} when none of the candidate pairs are clear duplicates. Each id must be a conceptId from the supplied candidate inventory, and every returned pair must exactly match one of the supplied candidatePairs.`;
 }
 
-export function parseDeduplicateConceptPairs (content: string, concepts: DeduplicateConceptInput[]): DeduplicateConceptPair[] {
+function vectorNorm (embedding: number[]): number {
+  return Math.sqrt(embedding.reduce((sum, value) => sum + value * value, 0));
+}
+
+function cosineDistance (left: number[], right: number[]): number | undefined {
+  if (!left.length || left.length !== right.length) {
+    return undefined;
+  }
+
+  const leftNorm = vectorNorm(left);
+  const rightNorm = vectorNorm(right);
+
+  if (!leftNorm || !rightNorm) {
+    return undefined;
+  }
+
+  let dot = 0;
+
+  for (let index = 0; index < left.length; index++) {
+    dot += left[index] * right[index];
+  }
+
+  const similarity = dot / (leftNorm * rightNorm);
+
+  return Number.isFinite(similarity) ? Math.max(0, Math.min(2, 1 - similarity)) : undefined;
+}
+
+export function deduplicateConceptCandidates (
+  concepts: DeduplicateConceptInput[],
+  embeddings: ReadonlyMap<number, number[]>,
+  maxDistance = DEDUPLICATION_MAX_COSINE_DISTANCE,
+  maxNeighborsPerConcept = DEDUPLICATION_MAX_NEIGHBORS_PER_CONCEPT
+): DeduplicateConceptCandidatePair[] {
+  const byPair = new Map<string, DeduplicateConceptCandidatePair>();
+
+  concepts.forEach((concept, conceptIndex) => {
+    const sourceEmbedding = embeddings.get(concept.conceptId);
+
+    if (!sourceEmbedding?.length) {
+      return;
+    }
+
+    const nearest = concepts.flatMap((other, otherIndex) => {
+      if (otherIndex === conceptIndex) {
+        return [];
+      }
+
+      const otherEmbedding = embeddings.get(other.conceptId);
+      const distance = otherEmbedding ? cosineDistance(sourceEmbedding, otherEmbedding) : undefined;
+
+      return distance !== undefined && distance <= maxDistance
+        ? [{ distance, other }]
+        : [];
+    }).sort((a, b) => a.distance - b.distance || a.other.conceptId - b.other.conceptId)
+      .slice(0, Math.max(1, maxNeighborsPerConcept));
+
+    nearest.forEach(({ distance, other }) => {
+      const conceptIdA = Math.min(concept.conceptId, other.conceptId);
+      const conceptIdB = Math.max(concept.conceptId, other.conceptId);
+      const key = `${conceptIdA}:${conceptIdB}`;
+      const existing = byPair.get(key);
+
+      if (!existing || distance < existing.cosineDistance) {
+        byPair.set(key, { conceptIdA, conceptIdB, cosineDistance: distance });
+      }
+    });
+  });
+
+  return Array.from(byPair.values()).sort((a, b) => a.cosineDistance - b.cosineDistance || a.conceptIdA - b.conceptIdA || a.conceptIdB - b.conceptIdB);
+}
+
+export function parseDeduplicateConceptPairs (content: string, concepts: DeduplicateConceptInput[], candidates?: DeduplicateConceptCandidatePair[]): DeduplicateConceptPair[] {
   const parsed = parseResponse(content);
 
   if (!isRecord(parsed) || !Array.isArray(parsed.duplicatePairs)) {
@@ -83,6 +170,7 @@ export function parseDeduplicateConceptPairs (content: string, concepts: Dedupli
   });
 
   const adjacency = new Map<number, Set<number>>();
+  const allowedPairs = candidates ? new Set(candidates.map(({ conceptIdA, conceptIdB }) => `${Math.min(conceptIdA, conceptIdB)}:${Math.max(conceptIdA, conceptIdB)}`)) : undefined;
 
   parsed.duplicatePairs.forEach((value: unknown): void => {
     if (
@@ -101,6 +189,10 @@ export function parseDeduplicateConceptPairs (content: string, concepts: Dedupli
 
     if (!conceptA || !conceptB) {
       throw new Error('OpenRouter returned a duplicate Concept pair containing a concept outside the supplied inventory.');
+    }
+
+    if (allowedPairs && !allowedPairs.has(`${Math.min(value.conceptIdA, value.conceptIdB)}:${Math.max(value.conceptIdA, value.conceptIdB)}`)) {
+      throw new Error('OpenRouter returned a duplicate Concept pair outside the embedding candidate list.');
     }
 
     adjacency.set(value.conceptIdA, new Set([...(adjacency.get(value.conceptIdA) ?? []), value.conceptIdB]));

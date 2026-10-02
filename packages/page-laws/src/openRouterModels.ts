@@ -305,6 +305,12 @@ export function openRouterModelSupportsInputModalities (option: OpenRouterModelO
   return requiredInputModalities.every((modality) => option.inputModalities!.includes(modality));
 }
 
+export function cacheOpenRouterModelPricePerMillion (modelId: string, inputPricePerMillion: number, outputPricePerMillion = 0): void {
+  if (Number.isFinite(inputPricePerMillion) && inputPricePerMillion >= 0 && Number.isFinite(outputPricePerMillion) && outputPricePerMillion >= 0) {
+    livePricesPerMillion.set(modelId, [inputPricePerMillion, outputPricePerMillion]);
+  }
+}
+
 export function getOpenRouterModelPricePerMillion (modelId: string): [number, number] | undefined {
   readSessionCatalog();
 

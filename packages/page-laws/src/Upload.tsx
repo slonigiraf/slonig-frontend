@@ -13,11 +13,12 @@ import type { AiInputEstimate } from './aiEstimate.js';
 
 import { estimateAiInput, estimateAiRequests } from './aiEstimate.js';
 import { DEFAULT_PROCESSING_MODEL, DEFAULT_STANDARDS_EMBEDDER, DEFAULT_STANDARDS_MODEL, MATHPIX_PDF_PAGE_PRICE_USD } from './constants.js';
+import OpenRouterEmbeddingModelSelector from './OpenRouterEmbeddingModelSelector.js';
 import OpenRouterModelSelector from './OpenRouterModelSelector.js';
 import { bookLanguageLabel } from './bookLanguage.js';
 import { exerciseGenerationRequestEstimate } from './bookProcessing.js';
 import { conceptChaptersFromPages } from './conceptRecognition.js';
-import { conceptDeduplicationInput, deduplicateConceptsPrompt, type DeduplicateConceptInput } from './deduplicateConcepts.js';
+import { conceptDeduplicationInput, deduplicateConceptCandidates, deduplicateConceptsPrompt, type DeduplicateConceptInput } from './deduplicateConcepts.js';
 import { fixChapterConceptsPrompt } from './fixConcepts.js';
 import { conceptsForSortChapter, sortChapterConceptsPrompt } from './sortConcepts.js';
 import { conceptBelongsToChapter, conceptsForRefinementChapter, isRefineChaptersComplete, REFINE_CHAPTERS_SPEND_STAGE, refineChapterPrompt, sortConceptsByDisplayOrder, withRefineChaptersIncomplete } from './refineChapters.js';
@@ -55,6 +56,7 @@ const PRICE_STAGES: Array<{ detail?: string; key: BookStageSpendKey; label: stri
   { key: 'chapters', label: 'Chapters' },
   { key: 'concepts', label: 'Concepts' },
   { key: 'fixConcepts', label: 'Fix concepts' },
+  { key: 'embeddings', label: 'Embedings' },
   { key: 'deduplicateConcepts', label: 'Deduplicate concepts' },
   { key: 'sortConcepts', label: 'Sort concepts' },
   { key: REFINE_CHAPTERS_SPEND_STAGE, label: 'Refine chapters' },
@@ -145,6 +147,7 @@ function Upload (): React.ReactElement {
   const [isBusy, setIsBusy] = useState(false);
   const [assignAllStandardsRequest, setAssignAllStandardsRequest] = useState(0);
   const [fixAllConceptsRequest, setFixAllConceptsRequest] = useState(0);
+  const [embedAllConceptsRequest, setEmbedAllConceptsRequest] = useState(0);
   const [deduplicateAllConceptsRequest, setDeduplicateAllConceptsRequest] = useState(0);
   const [sortAllConceptsRequest, setSortAllConceptsRequest] = useState(0);
   const [refineAllChaptersRequest, setRefineAllChaptersRequest] = useState(0);
@@ -157,10 +160,12 @@ function Upload (): React.ReactElement {
   const [isIdentifyChaptersConfirmationOpen, setIsIdentifyChaptersConfirmationOpen] = useState(false);
   const [generateAllConceptsModel, setGenerateAllConceptsModel] = useState(DEFAULT_PROCESSING_MODEL);
   const [standardsModel, setStandardsModel] = useState(DEFAULT_STANDARDS_MODEL);
+  const [embeddingModel, setEmbeddingModel] = useState(DEFAULT_STANDARDS_EMBEDDER);
   const [generateConceptsEstimate, setGenerateConceptsEstimate] = useState<AiInputEstimate | string>();
   const [generateOnlyMissingConcepts, setGenerateOnlyMissingConcepts] = useState(false);
   const [hasChaptersMissingConcepts, setHasChaptersMissingConcepts] = useState(false);
   const [fixConceptsEstimate, setFixConceptsEstimate] = useState<AiInputEstimate | string>();
+  const [embeddingsEstimate, setEmbeddingsEstimate] = useState<AiInputEstimate | string>();
   const [deduplicateConceptsEstimate, setDeduplicateConceptsEstimate] = useState<AiInputEstimate | string>();
   const [sortConceptsEstimate, setSortConceptsEstimate] = useState<AiInputEstimate | string>();
   const [refineChaptersEstimate, setRefineChaptersEstimate] = useState<AiInputEstimate | string>();
@@ -168,6 +173,7 @@ function Upload (): React.ReactElement {
   const [hasFailedFixConceptChapters, setHasFailedFixConceptChapters] = useState(false);
   const [isGenerateConceptsConfirmationOpen, setIsGenerateConceptsConfirmationOpen] = useState(false);
   const [isFixConceptsConfirmationOpen, setIsFixConceptsConfirmationOpen] = useState(false);
+  const [isEmbeddingsConfirmationOpen, setIsEmbeddingsConfirmationOpen] = useState(false);
   const [isDeduplicateConceptsConfirmationOpen, setIsDeduplicateConceptsConfirmationOpen] = useState(false);
   const [isSortConceptsConfirmationOpen, setIsSortConceptsConfirmationOpen] = useState(false);
   const [isRefineChaptersConfirmationOpen, setIsRefineChaptersConfirmationOpen] = useState(false);
@@ -182,7 +188,7 @@ function Upload (): React.ReactElement {
   const [isFastForwardRunning, setIsFastForwardRunning] = useState(false);
   const [fastForwardStartKey, setFastForwardStartKey] = useState<string>();
   const [fastForwardEstimate, setFastForwardEstimate] = useState<{ aiUsd: number; pageCount: number; recognitionUsd: number; remainingStages: number; totalUsd: number }>();
-  const [pendingProcessingAction, setPendingProcessingAction] = useState<'chapters' | 'concepts' | 'fixConcepts' | 'deduplicateConcepts' | 'sortConcepts' | 'refineChapters' | 'recognize' | 'standards' | 'exercises'>();
+  const [pendingProcessingAction, setPendingProcessingAction] = useState<'chapters' | 'concepts' | 'fixConcepts' | 'embeddings' | 'deduplicateConcepts' | 'sortConcepts' | 'refineChapters' | 'recognize' | 'standards' | 'exercises'>();
   const [generateAllExercisesRequest, setGenerateAllExercisesRequest] = useState(0);
   const [generateExercisesEstimate, setGenerateExercisesEstimate] = useState<AiInputEstimate>();
   const [generateOnlyMissingExercises, setGenerateOnlyMissingExercises] = useState(false);
@@ -193,6 +199,16 @@ function Upload (): React.ReactElement {
   const [readerFile, setReaderFile] = useState<File>();
   const [selectedId, setSelectedId] = useState<number | undefined>(getSessionBookId);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    getSetting(SettingKey.CONCEPTS_EMBEDDER)
+      .then((storedModel) => {
+        if (storedModel) {
+          setEmbeddingModel(storedModel);
+        }
+      })
+      .catch(() => undefined);
+  }, []);
 
   const loadBooks = useCallback(async (): Promise<void> => {
     let storedBooks = await getBooks();
@@ -332,20 +348,26 @@ function Upload (): React.ReactElement {
         ? recordedStageCosts[Math.floor(recordedStageCosts.length / 2)]
         : 0;
       const syntheticInputLength = Math.min(120_000, Math.max(4_000, pageCount * 900));
+      const embeddingStages = remainingAiStages.filter(({ key }) => key === 'embeddings');
       const standardStages = remainingAiStages.filter(({ key }) => key === 'standards');
-      const regularStages = remainingAiStages.filter(({ key }) => key !== 'standards');
+      const regularStages = remainingAiStages.filter(({ key }) => key !== 'standards' && key !== 'embeddings');
       const regularFallback = regularStages.length
         ? estimateAiInput(DEFAULT_PROCESSING_MODEL, regularStages.map(() => 'x'.repeat(syntheticInputLength)), 1_200).totalPriceUsd / regularStages.length
         : 0;
+      const embeddingsFallback = embeddingStages.length
+        ? estimateAiInput(embeddingModel, embeddingStages.map(() => 'x'.repeat(syntheticInputLength)), 0).totalPriceUsd / embeddingStages.length
+        : 0;
       const standardsFallback = standardStages.length
-        ? (estimateAiInput(DEFAULT_STANDARDS_EMBEDDER, standardStages.map(() => 'x'.repeat(syntheticInputLength)), 0).totalPriceUsd +
+        ? (estimateAiInput(embeddingModel, standardStages.map(() => 'x'.repeat(syntheticInputLength)), 0).totalPriceUsd +
           estimateAiInput(DEFAULT_STANDARDS_MODEL, standardStages.flatMap(() => Array.from({ length: STANDARDS_MATCH_RUNS }, () => 'x'.repeat(Math.min(24_000, syntheticInputLength)))), 300).totalPriceUsd) / standardStages.length
         : 0;
       const aiUsd = remainingAiStages.reduce((total, { key }) => {
         const recorded = selectedBook.stageSpend?.[key] ?? 0;
-        const fallback = key === 'standards' ? standardsFallback : regularFallback;
+        const fallback = key === 'standards' ? standardsFallback : key === 'embeddings' ? embeddingsFallback : regularFallback;
 
-        return total + (recorded > 0 ? recorded : typicalRecordedCost > 0 ? typicalRecordedCost : fallback);
+        const useSpecializedFallback = key === 'embeddings' || key === 'standards';
+
+        return total + (recorded > 0 ? recorded : !useSpecializedFallback && typicalRecordedCost > 0 ? typicalRecordedCost : fallback);
       }, 0);
 
       setFastForwardEstimate({
@@ -360,7 +382,7 @@ function Upload (): React.ReactElement {
     calculate()
       .catch(() => setError(t('Unable to estimate the fast-forward processing cost.')))
       .finally(() => document?.destroy().catch(console.error));
-  }, [isFastForwardRunning, readerFile, selectedBook, t]);
+  }, [embeddingModel, isFastForwardRunning, readerFile, selectedBook, t]);
 
   const closeFastForwardConfirmation = useCallback((): void => {
     setIsFastForwardConfirmationOpen(false);
@@ -894,6 +916,85 @@ function Upload (): React.ReactElement {
     setFixAllConceptsRequest((request) => request + 1);
   }, [selectedBook]);
 
+  const onEmbeddings = useCallback((): void => {
+    if (!selectedBook) {
+      return;
+    }
+
+    if (!isBookProcessingStageComplete(selectedBook, 'fixConcepts')) {
+      setError(t('Complete Fix concepts before calculating Embedings.'));
+      return;
+    }
+
+    setEmbeddingsEstimate(undefined);
+    setIsEmbeddingsConfirmationOpen(true);
+  }, [selectedBook, t]);
+
+  useEffect(() => {
+    if (!isEmbeddingsConfirmationOpen || !selectedBook) {
+      return;
+    }
+
+    getBookPages(selectedBook.id).then(async (pages) => {
+      const conceptRows = [
+        ...(await Promise.all(pages.map(({ pageNumber }) => getBookConceptsForBookPage(selectedBook.id, pageNumber)))).flat(),
+        ...await getBookConceptsForBookPage(selectedBook.id, 0)
+      ];
+      const conceptsById = new Map(conceptRows.flatMap((concept) => concept.id === undefined ? [] : [[concept.id, concept] as const]));
+      const configuredModel = await getSetting(SettingKey.CONCEPTS_EMBEDDER);
+      const cachedRows = configuredModel === embeddingModel
+        ? await getConceptEmbeddings(Array.from(conceptsById.keys()))
+        : [];
+      const cachedIds = new Set(cachedRows.flatMap(({ embedding, id, input }) => {
+        const concept = conceptsById.get(id);
+
+        return concept && input === conceptEmbeddingInput(concept) && Array.isArray(embedding) && embedding.length ? [id] : [];
+      }));
+      const missingInputs = Array.from(conceptsById.values()).flatMap((concept) => {
+        const input = conceptEmbeddingInput(concept);
+
+        return input && !cachedIds.has(concept.id as number) ? [input] : [];
+      });
+      const requests: string[] = [];
+
+      for (let index = 0; index < missingInputs.length; index += 100) {
+        requests.push(missingInputs.slice(index, index + 100).join('\n\n'));
+      }
+
+      setEmbeddingsEstimate(requests.length
+        ? estimateAiInput(embeddingModel, requests, 0)
+        : t('All current concept Embedings are already cached for this model.'));
+    }).catch(() => setError(t('Unable to estimate Embedings cost.')));
+  }, [embeddingModel, isEmbeddingsConfirmationOpen, selectedBook, t]);
+
+  const closeEmbeddingsConfirmation = useCallback((): void => {
+    setIsEmbeddingsConfirmationOpen(false);
+    setPendingProcessingAction(undefined);
+    getSetting(SettingKey.CONCEPTS_EMBEDDER)
+      .then((storedModel) => setEmbeddingModel(storedModel || DEFAULT_STANDARDS_EMBEDDER))
+      .catch(() => setEmbeddingModel(DEFAULT_STANDARDS_EMBEDDER));
+  }, []);
+
+  const confirmEmbeddings = useCallback((): void => {
+    setIsEmbeddingsConfirmationOpen(false);
+
+    if (!selectedBook) {
+      return;
+    }
+
+    setPendingProcessingAction('embeddings');
+    resetBookProcessingStagesFrom(selectedBook.id, 'embeddings').then((updatedBook) => {
+      if (updatedBook) {
+        setBooks((current) => current.map((book) => book.id === updatedBook.id ? updatedBook : book));
+      }
+
+      setEmbedAllConceptsRequest((request) => request + 1);
+    }).catch(() => {
+      setPendingProcessingAction(undefined);
+      setError(t('Unable to reset the book processing stage.'));
+    });
+  }, [selectedBook, t]);
+
   const onDeduplicateConcepts = useCallback((): void => {
     if (!selectedBook) {
       return;
@@ -901,6 +1002,11 @@ function Upload (): React.ReactElement {
 
     if (!selectedBook.language || !selectedBook.subject || selectedBook.age === undefined) {
       setError(t('Set the book language, subject, and learner age before running Deduplicate concepts.'));
+      return;
+    }
+
+    if (!isBookProcessingStageComplete(selectedBook, 'embeddings')) {
+      setError(t('Run Embedings before Deduplicate concepts.'));
       return;
     }
 
@@ -915,11 +1021,40 @@ function Upload (): React.ReactElement {
 
     getBookPages(selectedBook.id).then(async (pages) => {
       const concepts = await loadDeduplicateConceptInputs(selectedBook.id, pages);
-      setDeduplicateConceptsEstimate(concepts.length > 1
-        ? estimateAiInput(generateAllConceptsModel, [deduplicateConceptsPrompt(concepts, selectedBook.subject, selectedBook.language, selectedBook.age)], 1_600)
-        : t('At least two concepts are required for deduplication.'));
+
+      if (concepts.length < 2) {
+        setDeduplicateConceptsEstimate(t('At least two concepts are required for deduplication.'));
+        return;
+      }
+
+      const configuredModel = await getSetting(SettingKey.CONCEPTS_EMBEDDER);
+
+      if (configuredModel !== embeddingModel) {
+        setDeduplicateConceptsEstimate(t('Run Embedings with the selected embedding model before deduplication.'));
+        return;
+      }
+
+      const cachedRows = await getConceptEmbeddings(concepts.map(({ conceptId }) => conceptId));
+      const embeddings = new Map<number, number[]>(cachedRows.flatMap(({ embedding, id, input }) => {
+        const concept = concepts.find(({ conceptId }) => conceptId === id);
+
+        return concept && input === conceptEmbeddingInput(concept) && Array.isArray(embedding) && embedding.length
+          ? [[id, embedding] as const]
+          : [];
+      }));
+
+      if (concepts.some(({ conceptId }) => !embeddings.has(conceptId))) {
+        setDeduplicateConceptsEstimate(t('Run Embedings again because one or more concept embeddings are missing or stale.'));
+        return;
+      }
+
+      const candidates = deduplicateConceptCandidates(concepts, embeddings);
+
+      setDeduplicateConceptsEstimate(candidates.length
+        ? estimateAiInput(generateAllConceptsModel, [deduplicateConceptsPrompt(concepts, candidates, selectedBook.subject, selectedBook.language, selectedBook.age)], Math.max(300, candidates.length * 30))
+        : t('No close embedding candidates require AI confirmation.'));
     }).catch(() => setError(t('Unable to estimate Deduplicate concepts cost.')));
-  }, [generateAllConceptsModel, isDeduplicateConceptsConfirmationOpen, selectedBook, t]);
+  }, [embeddingModel, generateAllConceptsModel, isDeduplicateConceptsConfirmationOpen, selectedBook, t]);
 
   const closeDeduplicateConceptsConfirmation = useCallback((): void => {
     setIsDeduplicateConceptsConfirmationOpen(false);
@@ -1078,6 +1213,11 @@ function Upload (): React.ReactElement {
       return;
     }
 
+    if (!isBookProcessingStageComplete(selectedBook, 'embeddings')) {
+      setError(t('Complete Embedings before identifying Standards.'));
+      return;
+    }
+
     setStandardsEstimate(undefined);
     setIsStandardsConfirmationOpen(true);
   }, [selectedBook, t]);
@@ -1093,7 +1233,7 @@ function Upload (): React.ReactElement {
       const catalogs = (await loadStandardsCatalogsForBookSubject(selectedBook.subject)).filter(({ standards }) => standards.length);
       const allStandards = catalogs.flatMap(({ standards }) => standards);
       const cachedEmbedder = await getSetting(SettingKey.STANDARDS_EMBEDDER);
-      const cachedStandardRows = cachedEmbedder === DEFAULT_STANDARDS_EMBEDDER
+      const cachedStandardRows = cachedEmbedder === embeddingModel
         ? await getStandardEmbeddings(allStandards.map(({ code }) => code))
         : [];
       const standardEmbeddings = new Map<string, number[]>(cachedStandardRows.flatMap(({ embedding, id }) => Array.isArray(embedding) && embedding.length ? [[id, embedding] as const] : []));
@@ -1109,7 +1249,7 @@ function Upload (): React.ReactElement {
       ];
       const conceptsById = new Map(conceptRows.flatMap((concept) => concept.id === undefined ? [] : [[concept.id, concept] as const]));
       const cachedConceptEmbedder = await getSetting(SettingKey.CONCEPTS_EMBEDDER);
-      const cachedConceptRows = cachedConceptEmbedder === DEFAULT_STANDARDS_EMBEDDER
+      const cachedConceptRows = cachedConceptEmbedder === embeddingModel
         ? await getConceptEmbeddings(Array.from(conceptsById.keys()))
         : [];
       const currentConceptEmbeddings = new Map<number, number[]>(cachedConceptRows.flatMap(({ embedding, id, input }) => {
@@ -1119,14 +1259,13 @@ function Upload (): React.ReactElement {
           ? [[id, embedding] as const]
           : [];
       }));
-      const missingConceptInputs = Array.from(conceptsById.values()).flatMap((concept) => {
-        const input = conceptEmbeddingInput(concept);
+      const missingConceptEmbeddingCount = Array.from(conceptsById.values()).filter((concept) => (
+        conceptEmbeddingInput(concept) && !currentConceptEmbeddings.has(concept.id as number)
+      )).length;
 
-        return input && !currentConceptEmbeddings.has(concept.id as number) ? [input] : [];
-      });
-
-      for (let index = 0; index < missingConceptInputs.length; index += 100) {
-        embeddingRequests.push(missingConceptInputs.slice(index, index + 100).join('\n\n'));
+      if (missingConceptEmbeddingCount) {
+        setStandardsEstimate(t('Run Embedings again with the selected embedding model before identifying Standards.'));
+        return;
       }
 
       for (const chapter of conceptChaptersFromPages(pages)) {
@@ -1162,9 +1301,9 @@ function Upload (): React.ReactElement {
           if (chapterEmbeddings.length && catalog.standards.every(({ code }) => standardEmbeddings.has(code))) {
             candidateCatalog = standardsCandidatesFromEmbeddings(chapterEmbeddings, catalog, standardEmbeddings).catalog;
           } else {
-            // Before the missing embeddings are generated we cannot know the exact
-            // nearest standards. Use the same upper bound on candidate count (one
-            // nearest standard per concept) for a useful pre-run token estimate.
+            // Before missing standard embeddings are generated we cannot know the
+            // exact nearest standards. Use the same upper bound on candidate count
+            // (one nearest standard per concept) for a useful pre-run token estimate.
             candidateCatalog = {
               ...catalog,
               standards: catalog.standards.slice(0, Math.min(catalog.standards.length, Math.max(1, concepts.length)))
@@ -1194,7 +1333,7 @@ function Upload (): React.ReactElement {
       }
 
       const estimates = [
-        ...(embeddingRequests.length ? [estimateAiInput(DEFAULT_STANDARDS_EMBEDDER, embeddingRequests, 0)] : []),
+        ...(embeddingRequests.length ? [estimateAiInput(embeddingModel, embeddingRequests, 0)] : []),
         ...(aiRequests.length ? [estimateAiInput(standardsModel, aiRequests, 300)] : [])
       ];
 
@@ -1202,7 +1341,7 @@ function Upload (): React.ReactElement {
         ? combineAiEstimates(...estimates)
         : t('No OpenRouter cost is expected.'));
     }).catch(() => setError(t('Unable to estimate standards assignment cost.')));
-  }, [isStandardsConfirmationOpen, selectedBook, standardsModel, t]);
+  }, [embeddingModel, isStandardsConfirmationOpen, selectedBook, standardsModel, t]);
 
   const closeStandardsConfirmation = useCallback((): void => {
     setIsStandardsConfirmationOpen(false);
@@ -1356,6 +1495,8 @@ function Upload (): React.ReactElement {
       confirmGenerateConcepts();
     } else if (isFixConceptsConfirmationOpen) {
       confirmFixConcepts();
+    } else if (isEmbeddingsConfirmationOpen) {
+      confirmEmbeddings();
     } else if (isDeduplicateConceptsConfirmationOpen) {
       confirmDeduplicateConcepts();
     } else if (isSortConceptsConfirmationOpen) {
@@ -1367,7 +1508,7 @@ function Upload (): React.ReactElement {
     } else if (isStandardsConfirmationOpen) {
       confirmAssignStandards();
     }
-  }, [confirmAssignStandards, confirmDeduplicateConcepts, confirmFixConcepts, confirmGenerateConcepts, confirmGenerateExercises, confirmIdentifyChapters, confirmRecognize, confirmRefineChapters, confirmSortConcepts, isDeduplicateConceptsConfirmationOpen, isFastForwardRunning, isFixConceptsConfirmationOpen, isGenerateConceptsConfirmationOpen, isGenerateExercisesConfirmationOpen, isIdentifyChaptersConfirmationOpen, isRecognizeConfirmationOpen, isRefineChaptersConfirmationOpen, isSortConceptsConfirmationOpen, isStandardsConfirmationOpen]);
+  }, [confirmAssignStandards, confirmDeduplicateConcepts, confirmEmbeddings, confirmFixConcepts, confirmGenerateConcepts, confirmGenerateExercises, confirmIdentifyChapters, confirmRecognize, confirmRefineChapters, confirmSortConcepts, isDeduplicateConceptsConfirmationOpen, isEmbeddingsConfirmationOpen, isFastForwardRunning, isFixConceptsConfirmationOpen, isGenerateConceptsConfirmationOpen, isGenerateExercisesConfirmationOpen, isIdentifyChaptersConfirmationOpen, isRecognizeConfirmationOpen, isRefineChaptersConfirmationOpen, isSortConceptsConfirmationOpen, isStandardsConfirmationOpen]);
 
   const onDelete = useCallback(async (): Promise<void> => {
     if (!selectedBook) {
@@ -1588,13 +1729,28 @@ function Upload (): React.ReactElement {
           value={generateAllConceptsModel}
         />
       </StageRunPricePopup>}
+      {isEmbeddingsConfirmationOpen && !isFastForwardRunning && <StageRunPricePopup
+        header={t('Embedings')}
+        onClose={closeEmbeddingsConfirmation}
+        onRun={confirmEmbeddings}
+        runLabel={t('Run')}
+      >
+        <p>{t('Calculate and cache embeddings for every current concept after Fix concepts. These vectors are used to shortlist likely duplicates before AI confirmation and are reused later when matching standards.')}</p>
+        <AiPriceEstimate estimate={embeddingsEstimate} />
+        <OpenRouterEmbeddingModelSelector
+          className='batchModelSelect'
+          label={t('Embedding model')}
+          onChange={setEmbeddingModel}
+          value={embeddingModel}
+        />
+      </StageRunPricePopup>}
       {isDeduplicateConceptsConfirmationOpen && !isFastForwardRunning && <StageRunPricePopup
         header={t('Deduplicate concepts')}
         onClose={closeDeduplicateConceptsConfirmation}
         onRun={confirmDeduplicateConcepts}
         runLabel={t('Run')}
       >
-        <p>{t('Compare concepts across the entire book and identify only very close semantic duplicates, whether they occur in the same chapter or different chapters. Nothing is deleted until you review the proposed duplicate groups. For every duplicate group, the concept with the lowest chapter id is kept; ties inside the same chapter are broken by the lowest concept id, and every other concept in the group is proposed for deletion.')}</p>
+        <p>{t('Use the cached concept Embedings to generate a small set of semantically close deletion candidates, then send only those candidates to the selected AI model for confirmation. Nothing is deleted until you review the confirmed duplicate groups. For every confirmed duplicate group, the concept with the lowest chapter id is kept; ties inside the same chapter are broken by the lowest concept id, and every other concept in the group is proposed for deletion.')}</p>
         <AiPriceEstimate estimate={deduplicateConceptsEstimate} />
         <OpenRouterModelSelector
           className='batchModelSelect'
@@ -1642,7 +1798,7 @@ function Upload (): React.ReactElement {
         onRun={confirmAssignStandards}
         runLabel={t('Run')}
       >
-        <p>{t('Match standards for every chapter from its extracted concepts? Embeddings first reduce every standards framework to the nearest candidates for the chapter. Only those candidates are sent to the selected AI model three times, and a standard is kept when at least two runs agree. Standard and concept embeddings are cached in this browser.')}</p>
+        <p>{t('Match standards for every chapter from its extracted concepts? The same embedding model selected in Embedings is used to embed the standards catalogs, while the cached concept vectors are reused to reduce every framework to the nearest candidates. Only those candidates are sent to the selected AI model three times, and a standard is kept when at least two runs agree.')}</p>
         <AiPriceEstimate estimate={standardsEstimate} />
         <OpenRouterModelSelector
           className='batchModelSelect'
@@ -1722,6 +1878,8 @@ function Upload (): React.ReactElement {
             autoRunStartKey={fastForwardStartKey}
             book={selectedBook}
             deduplicateAllConceptsRequest={deduplicateAllConceptsRequest}
+            embedAllConceptsRequest={embedAllConceptsRequest}
+            embeddingModel={embeddingModel}
             fixAllConceptsRequest={fixAllConceptsRequest}
             fixOnlyFailedConcepts={fixOnlyFailedConcepts}
             sortAllConceptsRequest={sortAllConceptsRequest}
@@ -1796,10 +1954,17 @@ function Upload (): React.ReactElement {
                 onClick: onFixConcepts
               },
               {
+                key: 'embeddings',
+                label: t('Embedings'),
+                isDone: isBookProcessingStageComplete(selectedBook, 'embeddings'),
+                isDisabled: !readerFile || isBusy || !isBookProcessingStageComplete(selectedBook, 'fixConcepts'),
+                onClick: onEmbeddings
+              },
+              {
                 key: 'deduplicateConcepts',
                 label: t('Deduplicate concepts'),
                 isDone: isBookProcessingStageComplete(selectedBook, 'deduplicateConcepts'),
-                isDisabled: !readerFile || isBusy || !isBookProcessingStageComplete(selectedBook, 'fixConcepts') || !selectedBook.language || !selectedBook.subject || selectedBook.age === undefined,
+                isDisabled: !readerFile || isBusy || !isBookProcessingStageComplete(selectedBook, 'embeddings') || !selectedBook.language || !selectedBook.subject || selectedBook.age === undefined,
                 onClick: onDeduplicateConcepts
               },
               {
@@ -1830,7 +1995,7 @@ function Upload (): React.ReactElement {
                 key: 'standards',
                 label: t('Standards'),
                 isDone: isBookProcessingStageComplete(selectedBook, 'standards'),
-                isDisabled: !readerFile || isBusy || !isBookProcessingStageComplete(selectedBook, 'fixImages') || !selectedBook.language || !selectedBook.subject,
+                isDisabled: !readerFile || isBusy || !isBookProcessingStageComplete(selectedBook, 'fixImages') || !isBookProcessingStageComplete(selectedBook, 'embeddings') || !selectedBook.language || !selectedBook.subject,
                 onClick: onAssignStandards
               }
             ]}

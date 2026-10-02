@@ -4,7 +4,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { deduplicateConceptsPrompt, parseDeduplicateConceptPairs, type DeduplicateConceptInput } from './deduplicateConcepts.js';
+import { deduplicateConceptCandidates, deduplicateConceptsPrompt, parseDeduplicateConceptPairs, type DeduplicateConceptCandidatePair, type DeduplicateConceptInput } from './deduplicateConcepts.js';
 
 const concepts: DeduplicateConceptInput[] = [
   { chapterId: 2, chapterTitle: 'Earlier', conceptId: 10, description: 'Understand equivalent fractions.', title: 'Equivalent fractions' },
@@ -13,14 +13,40 @@ const concepts: DeduplicateConceptInput[] = [
 ];
 
 describe('Deduplicate concepts', (): void => {
-  it('tells the model to find near-equivalent concepts across the entire book', (): void => {
-    const prompt = deduplicateConceptsPrompt(concepts, 'en-math', 'en', 10);
+  const candidates: DeduplicateConceptCandidatePair[] = [
+    { conceptIdA: 10, conceptIdB: 20, cosineDistance: 0.08 },
+    { conceptIdA: 20, conceptIdB: 30, cosineDistance: 0.12 }
+  ];
 
-    assert.match(prompt, /across the entire book/i);
-    assert.match(prompt, /same chapter or in different chapters/i);
+  it('asks the model only to confirm embedding-generated candidate pairs', (): void => {
+    const prompt = deduplicateConceptsPrompt(concepts, candidates, 'en-math', 'en', 10);
+
+    assert.match(prompt, /embedding-generated candidate list/i);
+    assert.match(prompt, /Review ONLY the supplied candidate pairs/i);
     assert.match(prompt, /LOWEST chapterId/i);
     assert.match(prompt, /LOWEST conceptId/i);
     assert.match(prompt, /"conceptId":10/);
+    assert.match(prompt, /"cosineDistance":0.08/);
+  });
+
+  it('creates only close embedding neighbors as AI confirmation candidates', (): void => {
+    const embeddings = new Map<number, number[]>([
+      [10, [1, 0]],
+      [20, [0.99, 0.1]],
+      [30, [0, 1]]
+    ]);
+    const generated = deduplicateConceptCandidates(concepts, embeddings, 0.1, 2);
+
+    assert.equal(generated.length, 1);
+    assert.equal(generated[0].conceptIdA, 10);
+    assert.equal(generated[0].conceptIdB, 20);
+  });
+
+  it('rejects AI pairs that were not selected by embeddings', (): void => {
+    assert.throws(
+      () => parseDeduplicateConceptPairs('{"duplicatePairs":[{"conceptIdA":10,"conceptIdB":30}]}', concepts, candidates),
+      /outside the embedding candidate list/
+    );
   });
 
   it('always keeps the concept from the lowest chapter id regardless of pair order', (): void => {
