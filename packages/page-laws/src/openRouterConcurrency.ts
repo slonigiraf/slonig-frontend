@@ -1,7 +1,7 @@
 // Copyright 2021-2026 @polkadot/app-laws authors & contributors
 // SPDX-License-Identifier: Apache-2.0
 
-export const OPENROUTER_CONCURRENCY = 20;
+export const OPENROUTER_CONCURRENCY = 100;
 
 export interface RequestGate {
   pause: (milliseconds: number) => void;
