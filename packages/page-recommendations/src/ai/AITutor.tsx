@@ -90,7 +90,7 @@ function textFromDataUrl(dataUrl: string, name: string, t: Translate): string {
   }
 }
 
-function TikzPreview({ sent = false, value }: { sent?: boolean; value: string }): React.ReactElement {
+function TikzPreview({ large = false, sent = false, value }: { large?: boolean; sent?: boolean; value: string }): React.ReactElement {
   const { t } = useTranslation();
   const [preview, setPreview] = useState<{ source: string; src?: string; error?: string }>();
 
@@ -118,7 +118,9 @@ function TikzPreview({ sent = false, value }: { sent?: boolean; value: string })
   if (current?.error) return <span role='status' title={current.error}>{t('TikZ preview unavailable')}</span>;
 
   return current?.src
-    ? <Image alt={t('TikZ drawing')} src={current.src} title={t('TikZ drawing — click to enlarge')} style={{ background: 'white', objectFit: 'contain' }} />
+    ? <Image alt={t('TikZ drawing')} src={current.src} title={t('TikZ drawing — click to enlarge')} style={large
+      ? { background: 'white', height: 'auto', maxHeight: '280px', maxWidth: '100%', objectFit: 'contain', width: 'min(360px, 100%)' }
+      : { background: 'white', objectFit: 'contain' }} />
     : <span role='status' aria-label={t('Rendering TikZ drawing')}><Spinner noLabel /></span>;
 }
 
@@ -337,6 +339,32 @@ function isCreateSimilarExerciseStage(stage: AlgorithmStage): boolean {
   return stage.getType() === StageType.begin_ask_to_create_similar_exercise
     || stage.getType() === StageType.ask_to_create_similar_exercise
     || stage.getType() === StageType.cycle_ask_to_create_similar_exercise;
+}
+
+function isRepeatStage(stage: AlgorithmStage | undefined): boolean {
+  return stage?.getType() === StageType.ask_to_repeat_example_solution
+    || stage?.getType() === StageType.ask_to_repeat_similar_exercise;
+}
+
+type TutorMessagePart = { type: 'text' | 'tikz'; value: string };
+
+function tutorMessageParts(value: string): TutorMessagePart[] {
+  const parts: TutorMessagePart[] = [];
+  const tikz = /```[A-Za-z0-9_+-]*\s*(\\begin\s*\{tikzpicture\}[\s\S]*?\\end\s*\{tikzpicture\})\s*```|(\\begin\s*\{tikzpicture\}[\s\S]*?\\end\s*\{tikzpicture\})/gi;
+  let cursor = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = tikz.exec(value)) !== null) {
+    const before = value.slice(cursor, match.index).trim();
+    if (before) parts.push({ type: 'text', value: before });
+    parts.push({ type: 'tikz', value: match[1] || match[2] });
+    cursor = tikz.lastIndex;
+  }
+
+  const after = value.slice(cursor).trim();
+  if (after) parts.push({ type: 'text', value: after });
+
+  return parts.length > 0 ? parts : [{ type: 'text', value }];
 }
 
 function stageRequiresStudentImageWhenReferenceHasImage(stage: AlgorithmStage): boolean {
@@ -1054,7 +1082,9 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
   const canSubmit = !loading
     && !recording
     && Boolean(answer.trim() || attachments.length > 0 || audioBlob || tikz);
-  const isTypingReply = shouldBlurTutorReply;
+  const blurEntireHistory = shouldBlurTutorReply && isRepeatStage(algorithmStage);
+  const isTypingReply = shouldBlurTutorReply && !blurEntireHistory;
+  const renderedTutorMessageParts = useMemo(() => tutorMessageParts(currentAiText), [currentAiText]);
 
   return (
     <FullFindow>
@@ -1065,13 +1095,18 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
           <CloseButton onClick={onClose} icon='close' />
           <Spacer />
         </Progress>
+        {skill && <CurrentSkillLabel title={skill.title}>{skill.title}</CurrentSkillLabel>}
         <Pane>
           {isOpenRouterKeyLoaded && !openRouterKey && <KeySettings><Button label={t('Set OpenRouter key')} onClick={() => setKeyDialogOpen(true)} /></KeySettings>}
           {error && <ErrorText>{error}</ErrorText>}
           {!skill && !error && <Spinner label={t('Loading skills')} />}
           {skill && <>
-            <Conversation>
-              {lastStudentMessage && <StudentMessage>
+            <Conversation
+              className={blurEntireHistory ? 'is-history-blurred' : ''}
+              onCopy={(event) => event.preventDefault()}
+              onCut={(event) => event.preventDefault()}
+            >
+              {lastStudentMessage && <StudentMessage className='history-blurrable'>
                 <StudentBubble>
                   <MessageRole>{t('You')}</MessageRole>
                   {lastStudentMessage.text && <MessageBody><KatexSpan content={lastStudentMessage.text} /></MessageBody>}
@@ -1084,10 +1119,12 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
                   </SentMedia>}
                 </StudentBubble>
               </StudentMessage>}
-              {!loading && (currentAiText || currentStageImageCids.length > 0) && <TutorMessage>
+              {!loading && (currentAiText || currentStageImageCids.length > 0) && <TutorMessage className='history-blurrable'>
                 <TutorBubble className={isTypingReply ? 'is-replying' : ''}>
                   <MessageRole>{t('AI Tutor')}</MessageRole>
-                  {currentAiText && <MessageBody><KatexSpan content={currentAiText} /></MessageBody>}
+                  {renderedTutorMessageParts.map((part, index) => part.type === 'tikz'
+                    ? <TutorTikz key={`tutor-tikz-${index}`}><TikzPreview large sent value={part.value} /></TutorTikz>
+                    : <MessageBody key={`tutor-text-${index}`}><KatexSpan content={part.value} /></MessageBody>)}
                   {currentStageImageCids.map((cid, index) => <QuestionImage key={`${cid}-${index}`}>
                     <ResizableImage cid={cid} />
                   </QuestionImage>)}
@@ -1115,6 +1152,7 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
                     setShouldBlurTutorReply(e.target.value.length > 0);
                     resizeAnswerInput(e.currentTarget);
                   }}
+                  onPaste={(e) => e.preventDefault()}
                   onKeyDown={(e) => {
                     if (e.key !== 'Enter' || e.shiftKey || e.nativeEvent.isComposing) return;
                     e.preventDefault();
@@ -1396,6 +1434,23 @@ const Progress = styled.div`
   }
 `;
 const Spacer = styled.div`width: 20px; flex: 0 0 20px;`;
+const CurrentSkillLabel = styled.div`
+  max-width: calc(100% - 80px);
+  margin: 8px auto 0;
+  padding: 5px 12px;
+  box-sizing: border-box;
+  overflow: hidden;
+  border: 1px solid #F39200;
+  border-radius: 999px;
+  background: rgb(243 146 0 / 8%);
+  color: #c17000;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.3;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+`;
 const CloseButton = styled(Button)`
   position: relative;
   right: 0;
@@ -1403,7 +1458,7 @@ const CloseButton = styled(Button)`
 `;
 const Pane = styled.div`
   width: 100%;
-  min-height: calc(100dvh - 82px);
+  min-height: calc(100dvh - 118px);
   padding: 0 0 18px;
   box-sizing: border-box;
   display: flex;
@@ -1423,6 +1478,15 @@ const Conversation = styled.div`
   flex-direction: column;
   justify-content: flex-end;
   gap: 22px;
+  user-select: none;
+  -webkit-user-select: none;
+  transition: filter 140ms ease, opacity 140ms ease;
+
+  &.is-history-blurred > .history-blurrable {
+    filter: blur(5px);
+    opacity: .62;
+    pointer-events: none;
+  }
 `;
 const MessageBase = styled.div`
   width: 100%;
@@ -1498,6 +1562,9 @@ const SentFile = styled.div`
   overflow-wrap: anywhere;
 `;
 const QuestionImage = styled.div`
+  margin-top: 12px;
+`;
+const TutorTikz = styled.div`
   margin-top: 12px;
 `;
 const ComposerDock = styled.div`

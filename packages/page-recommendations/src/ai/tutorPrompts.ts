@@ -317,7 +317,7 @@ const GENERATED_MESSAGE_KATEX_REQUIREMENTS = String.raw`KaTeX formatting require
 - Keep ordinary prose outside <kx> tags. Do not put whole sentences inside <kx> tags.
 
 Code formatting requirements for the returned message:
-- If the fake or correct solution contains programming/source code, put every code snippet in a fenced Markdown code block, even when the snippet is short.
+- If the fake or correct solution contains programming/source code, put every code snippet in a fenced Markdown code block, even when the snippet is short, except TikZ blocks explicitly requested as raw TikZ.
 - The opening fence MUST include the actual language identifier immediately after the three backticks, for example ${CODE_FENCE}python, ${CODE_FENCE}javascript, ${CODE_FENCE}typescript, ${CODE_FENCE}java, ${CODE_FENCE}cpp, ${CODE_FENCE}sql, or ${CODE_FENCE}bash.
 - Never return source code as plain prose, inline backticks, or an unlabeled ${CODE_FENCE} fence.
 - Choose the language that matches the exercise/code. If it truly cannot be determined, use ${CODE_FENCE}text rather than an unlabeled fence.`;
@@ -383,6 +383,7 @@ function provideFakeSolutionPrompt(skill: AiSkill, stage: AlgorithmStage, studen
     'Give an intentionally WRONG answer/solution to exactly the student-created exercise below.',
     'Return only the wrong solution itself in message. Do not add an introduction or ask the student to correct it; the UI adds the required wording around the solution.',
     'The wrong answer must actually be wrong but plausible. Do not create a different exercise. Do not explain why the answer is wrong. Do not add generic tutoring feedback.',
+    String.raw`If the student-created exercise requires a visual, diagram, drawing, graph, geometry construction, or other image as part of the answer, the fake solution MUST include a plausible but intentionally WRONG TikZ visual. Return one complete \begin{tikzpicture}...\end{tikzpicture} block whose visual mistake is relevant to the exercise. Do not merely describe the wrong visual in prose, do not reuse the student visual unchanged, and do not wrap the TikZ block in a Markdown code fence.`,
     ...generatedStageContext(skill, stage, studentExercise),
   ].join('\n\n');
 }
@@ -400,6 +401,10 @@ export function formatGeneratedStageMessage(stage: AlgorithmStage, message: stri
   if (/```\s*$/.test(fakeSolution)) {
     const separator = fakeSolution.startsWith('```') ? '\n' : ' ';
     return `I think the solution is:${separator}${fakeSolution}\nPlease, correct mistakes.`;
+  }
+
+  if (/\\end\s*\{tikzpicture\}\s*$/.test(fakeSolution)) {
+    return `I think the solution is: ${fakeSolution}\nPlease, correct mistakes.`;
   }
 
   return `I think the solution is: ${fakeSolution}. Please, correct mistakes.`;

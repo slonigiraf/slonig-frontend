@@ -124,6 +124,16 @@ describe('AI Tutor generated fake solution wording', (): void => {
     assert.match(prompt, /Return only the wrong solution itself in message/i);
     assert.match(prompt, /UI adds the required wording around the solution/i);
   });
+
+  it('requires a deliberately wrong TikZ visual when the answer needs a visual', (): void => {
+    const stage = nextStage(StageType.provide_fake_solution, 'Fake solution');
+    const prompt = generatedStagePrompt(skill, stage, studentExercise);
+
+    assert.match(prompt, /requires a visual, diagram, drawing, graph, geometry construction/i);
+    assert.match(prompt, /intentionally WRONG TikZ visual/i);
+    assert.match(prompt, /one complete \\begin\{tikzpicture\}/i);
+    assert.match(prompt, /do not wrap the TikZ block in a Markdown code fence/i);
+  });
   it('requires language-tagged fenced code in both fake and correct solution prompts', (): void => {
     const fakeStage = nextStage(StageType.provide_fake_solution, 'Fake solution');
     const correctStage = nextStage(StageType.correct_fake_solution, 'Correct solution');
@@ -155,6 +165,16 @@ describe('AI Tutor generated fake solution wording', (): void => {
     assert.equal(
       formatGeneratedStageMessage(stage, generated),
       'I think the solution is:\n```javascript\nfunction Report() {\n  return null;\n}\n```\nPlease, correct mistakes.',
+    );
+  });
+
+  it('does not add a standalone period after a generated TikZ visual', (): void => {
+    const stage = nextStage(StageType.provide_fake_solution, 'Fake solution');
+    const generated = '\\begin{tikzpicture}\\draw (0,0)--(2,0);\\end{tikzpicture}';
+
+    assert.equal(
+      formatGeneratedStageMessage(stage, generated),
+      'I think the solution is: \\begin{tikzpicture}\\draw (0,0)--(2,0);\\end{tikzpicture}\nPlease, correct mistakes.',
     );
   });
 
