@@ -1372,8 +1372,8 @@ function Upload (): React.ReactElement {
                   <tr>
                     <th scope='col'>{t('Stage')}</th>
                     <th scope='col'>{t('External calls')}</th>
-                    <th scope='col'>{t('Price')}</th>
-                    <th scope='col'>{t('Time')}</th>
+                    <th scope='col'>{t('Price, $')}</th>
+                    <th scope='col'>{t('Time, s')}</th>
                   </tr>
                 </thead>
                 <tbody>

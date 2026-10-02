@@ -32,5 +32,5 @@ export function reportOpenRouterCost (response: unknown, reporter?: OpenRouterCo
 }
 
 export function formatOpenRouterSpend (costUsd: number): string {
-  return `$${Math.max(0, costUsd).toFixed(6)}`;
+  return `${Math.max(0, costUsd).toFixed(6)}`;
 }

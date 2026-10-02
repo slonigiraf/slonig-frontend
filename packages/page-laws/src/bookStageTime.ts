@@ -123,25 +123,8 @@ export function useBookStageTimer (bookId: number, stage?: BookStageSpendKey): v
 
 export function formatBookStageTime (elapsedMs: number): string {
   if (!Number.isFinite(elapsedMs) || elapsedMs <= 0) {
-    return '0s';
+    return '0';
   }
-
-  if (elapsedMs < 1_000) {
-    return '<1s';
-  }
-
   const totalSeconds = Math.round(elapsedMs / 1_000);
-  const hours = Math.floor(totalSeconds / 3_600);
-  const minutes = Math.floor((totalSeconds % 3_600) / 60);
-  const seconds = totalSeconds % 60;
-
-  if (hours) {
-    return `${hours}h ${minutes}m ${seconds}s`;
-  }
-
-  if (minutes) {
-    return `${minutes}m ${seconds}s`;
-  }
-
-  return `${seconds}s`;
+  return `${totalSeconds}`;
 }
