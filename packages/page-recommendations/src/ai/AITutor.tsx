@@ -2064,7 +2064,7 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
           <CloseButton onClick={onClose} icon='close' />
           <Spacer />
         </Progress>
-        {skill && <CurrentSkillLabel title={skill.title}>{skill.title}</CurrentSkillLabel>}
+        {skill && <CurrentSkillLabel><KatexSpan content={skill.title}/></CurrentSkillLabel>}
         <Pane>
           {isOpenRouterKeyLoaded && !openRouterKey && <KeySettings><Button label={t('Set OpenRouter key')} onClick={() => setKeyDialogOpen(true)} /></KeySettings>}
           {error && <ErrorText>{error}</ErrorText>}
