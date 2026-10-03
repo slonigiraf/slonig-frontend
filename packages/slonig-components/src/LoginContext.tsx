@@ -74,17 +74,19 @@ export const LoginProvider: React.FC<LoginProviderProps> = ({ children }) => {
       currentPair, isLoginReady, accountState, isAddingAccount, isLoggedIn,
       setIsLoggedIn, isLoginRequired, setLoginIsRequired, _onChangeAccount, setIsAddingAccount, setDefaultAccount, onCreateAccount
     }}>
-      <div className='ui--row' style={{ display: 'none' }}>
-        <InputAddress
-          key={defaultAccount ? defaultAccount : 'login-account-selector'}
-          className='full'
-          isInput={false}
-          label={'account'}
-          type='account'
-          onChange={_onChangeAccount}
-          value={defaultAccount}
-        />
-      </div>
+      {isLoginReady && (
+        <div className='ui--row' style={{ display: 'none' }}>
+          <InputAddress
+            key={defaultAccount ? defaultAccount : 'login-account-selector'}
+            className='full'
+            isInput={false}
+            label={'account'}
+            type='account'
+            onChange={_onChangeAccount}
+            value={defaultAccount}
+          />
+        </div>
+      )}
 
       {isLoginReady && isAddingAccount && (
         <CreateAccountModal
