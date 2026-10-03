@@ -44,6 +44,12 @@ const VOICE_MIN_SPEECH_MS = 220;
 const VOICE_SPEECH_START_MIN_RMS = 0.018;
 const VOICE_SPEECH_CONTINUE_MIN_RMS = 0.011;
 const VOICE_NOISE_START_MULTIPLIER = 2.8;
+const MICROPHONE_AUDIO_CONSTRAINTS: MediaTrackConstraints = {
+  autoGainControl: true,
+  channelCount: 1,
+  echoCancellation: true,
+  noiseSuppression: true,
+};
 const VOICE_LANGUAGE_SAMPLE_COUNT = 5;
 const MINI_CONFETTI_PIECES = Array.from({ length: 24 }, (_, index) => index + 1);
 const APP_TUTOR_LANGUAGE_CODES = new Set(['ar', 'bn', 'de', 'en', 'es', 'fr', 'hi', 'id', 'it', 'ja', 'ko', 'ky', 'pt', 'ru', 'sr', 'ur', 'zh']);
@@ -110,6 +116,60 @@ function isSvgAttachment(attachment: Pick<ComposerAttachment, 'mimeType' | 'data
 }
 
 type Translate = ReturnType<typeof useTranslation>['t'];
+
+type ClientPlatform = 'ios-chrome' | 'ios-safari' | 'ios-other' | 'android' | 'macos' | 'windows' | 'other';
+
+function detectClientPlatform(): ClientPlatform {
+  if (typeof navigator === 'undefined') return 'other';
+
+  const userAgent = navigator.userAgent || '';
+  const platform = navigator.platform || '';
+  const isIOS = /iPhone|iPad|iPod/i.test(userAgent)
+    || (platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+  if (isIOS) {
+    if (/CriOS/i.test(userAgent)) return 'ios-chrome';
+
+    const isSafari = /Safari/i.test(userAgent)
+      && !/CriOS|FxiOS|EdgiOS|OPiOS|GSA/i.test(userAgent);
+
+    return isSafari ? 'ios-safari' : 'ios-other';
+  }
+
+  if (/Android/i.test(userAgent)) return 'android';
+  if (/Macintosh|Mac OS X/i.test(userAgent) || platform.startsWith('Mac')) return 'macos';
+  if (/Windows/i.test(userAgent) || platform.startsWith('Win')) return 'windows';
+
+  return 'other';
+}
+
+function microphoneAccessErrorMessage(error: unknown, t: Translate): string {
+  let errorName = '';
+  if (error instanceof DOMException) {
+    errorName = error.name;
+  } else if (typeof error === 'object' && error !== null && 'name' in error) {
+    errorName = String((error as { name?: unknown }).name || '');
+  }
+
+  if (errorName !== 'NotAllowedError') return t('Unable to access the microphone.');
+
+  switch (detectClientPlatform()) {
+    case 'ios-chrome':
+      return t('Microphone access is blocked. Open iPhone Settings → Apps → Chrome → Microphone and enable it, then return here and try again.');
+    case 'ios-safari':
+      return t('Microphone access is blocked. Check Safari microphone permission in iPhone Settings, then return here and try again.');
+    case 'ios-other':
+      return t('Microphone access is blocked. Open iPhone Settings and enable microphone access for your browser, then return here and try again.');
+    case 'android':
+      return t('Microphone access is blocked. Open Android Settings → Apps → your browser → Permissions → Microphone and allow access, then try again.');
+    case 'macos':
+      return t('Microphone access is blocked. Allow microphone access for your browser in System Settings → Privacy & Security → Microphone, then try again.');
+    case 'windows':
+      return t('Microphone access is blocked. Check Windows Settings → Privacy & security → Microphone and allow microphone access for your browser, then try again.');
+    default:
+      return t('Microphone access is blocked. Enable microphone permission for this browser or website, then try again.');
+  }
+}
 
 function textFromDataUrl(dataUrl: string, name: string, t: Translate): string {
   const separator = dataUrl.indexOf(',');
@@ -633,6 +693,7 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
   const modelControlRef = useRef<HTMLDetailsElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder>();
   const mediaStreamRef = useRef<MediaStream>();
+  const voiceMicrophoneStreamRef = useRef<MediaStream>();
   const mediaChunksRef = useRef<Blob[]>([]);
   const audioBlobRef = useRef<Blob>();
   const recordingLanguageRef = useRef<string>();
@@ -1278,6 +1339,13 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
     voiceSilenceStartedAtRef.current = undefined;
   }, []);
 
+  const stopVoiceMicrophone = useCallback((): void => {
+    const stream = voiceMicrophoneStreamRef.current;
+    voiceMicrophoneStreamRef.current = undefined;
+    stream?.getTracks().forEach((track) => track.stop());
+    if (mediaStreamRef.current === stream) mediaStreamRef.current = undefined;
+  }, []);
+
   const stopTutorSpeech = useCallback((): void => {
     tutorSpeechRequestRef.current += 1;
     tutorSpeechAbortRef.current?.abort();
@@ -1314,7 +1382,8 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
       recorder.stop();
     }
     mediaStreamRef.current?.getTracks().forEach((track) => track.stop());
-  }, [stopTutorSpeech, stopVoiceAnalyser]);
+    stopVoiceMicrophone();
+  }, [stopTutorSpeech, stopVoiceAnalyser, stopVoiceMicrophone]);
 
   const stopRecording = useCallback((): Promise<Blob | undefined> => {
     if (recordingStopPromiseRef.current) return recordingStopPromiseRef.current;
@@ -1354,14 +1423,11 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
     setRecordingSeconds(0);
 
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          autoGainControl: true,
-          channelCount: 1,
-          echoCancellation: true,
-          noiseSuppression: true,
-        },
-      });
+      let stream = voiceModeRef.current ? voiceMicrophoneStreamRef.current : undefined;
+      if (!stream?.active || stream.getAudioTracks().every((track) => track.readyState === 'ended')) {
+        stream = await navigator.mediaDevices.getUserMedia({ audio: MICROPHONE_AUDIO_CONSTRAINTS });
+        if (voiceModeRef.current) voiceMicrophoneStreamRef.current = stream;
+      }
       mediaStreamRef.current = stream;
       const candidates = ['audio/webm;codecs=opus', 'audio/mp4', 'audio/webm', 'audio/ogg;codecs=opus'];
       const mimeType = candidates.find((candidate) => MediaRecorder.isTypeSupported(candidate));
@@ -1385,8 +1451,9 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
           if (!hasLevelAnalysis) setShouldBlurTutorReply(true);
         }
         mediaChunksRef.current = [];
-        mediaStreamRef.current?.getTracks().forEach((track) => track.stop());
-        mediaStreamRef.current = undefined;
+        const keepForVoiceMode = voiceModeRef.current && voiceMicrophoneStreamRef.current === stream;
+        if (!keepForVoiceMode) stream.getTracks().forEach((track) => track.stop());
+        if (mediaStreamRef.current === stream) mediaStreamRef.current = undefined;
         mediaRecorderRef.current = undefined;
         setRecording(false);
         recordingStopResolveRef.current?.(recordedBlob);
@@ -1478,14 +1545,17 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
         // that fallback, a non-empty clip is blurred when recording stops.
       }
     } catch (e) {
-      mediaStreamRef.current?.getTracks().forEach((track) => track.stop());
+      const stream = mediaStreamRef.current;
+      if (stream && stream !== voiceMicrophoneStreamRef.current) stream.getTracks().forEach((track) => track.stop());
       mediaStreamRef.current = undefined;
-      // Safari/WebKit uses a very technical NotAllowedError message for both
-      // denied permission and platform contexts where capture is blocked (for
-      // example some in-app WKWebViews). Do not expose that browser-specific
-      // text to learners; the exact error is still available to developers.
-      console.warn('Unable to access the microphone.', e);
-      setError(t('Unable to access the microphone.'));
+      console.warn('Unable to access the microphone.', {
+        error: e,
+        name: e instanceof DOMException ? e.name : undefined,
+        message: e instanceof Error ? e.message : String(e),
+        secureContext: window.isSecureContext,
+        userAgent: navigator.userAgent,
+      });
+      setError(microphoneAccessErrorMessage(e, t));
     }
   }, [loading, stopRecording, stopVoiceAnalyser, t]);
 
@@ -1673,11 +1743,15 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
     };
 
     if (mediaRecorderRef.current?.state === 'recording') {
-      void stopRecording().then(clearVoiceDraft);
+      void stopRecording().then(() => {
+        stopVoiceMicrophone();
+        clearVoiceDraft();
+      });
     } else {
+      stopVoiceMicrophone();
       clearVoiceDraft();
     }
-  }, [answer, attachments.length, stopRecording, stopTutorSpeech, stopVoiceAnalyser, tikz]);
+  }, [answer, attachments.length, stopRecording, stopTutorSpeech, stopVoiceAnalyser, stopVoiceMicrophone, tikz]);
 
   const startVoiceMode = useCallback((): void => {
     if (!openRouterKey) {
@@ -1693,12 +1767,13 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
       return;
     }
 
-    // Start the permission request synchronously from the button click. Some
-    // WebKit/iOS contexts reject getUserMedia when the first microphone request
-    // happens only after async language detection and tutor audio playback, once
-    // the original user activation has been lost. We only use this stream to
-    // prime permission, then close it immediately; recording opens a fresh stream.
-    const microphonePermissionRequest = navigator.mediaDevices.getUserMedia({ audio: true });
+    // Start microphone access synchronously from the button click. Some iOS/WebKit
+    // contexts reject a first getUserMedia call after async language detection or
+    // tutor playback because the original user activation has been lost. Keep the
+    // granted stream alive for voice mode so later turns do not request permission
+    // a second time outside the original user gesture.
+    stopVoiceMicrophone();
+    const microphonePermissionRequest = navigator.mediaDevices.getUserMedia({ audio: MICROPHONE_AUDIO_CONSTRAINTS });
 
     voiceModeRef.current = true;
     voiceAutoSubmitRef.current = false;
@@ -1717,19 +1792,27 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
     void (async () => {
       try {
         const permissionStream = await microphonePermissionRequest;
-        permissionStream.getTracks().forEach((track) => track.stop());
+        if (!voiceModeRef.current || requestId !== voiceLanguageRequestRef.current) {
+          permissionStream.getTracks().forEach((track) => track.stop());
+          return;
+        }
+        voiceMicrophoneStreamRef.current = permissionStream;
       } catch (e) {
         if (!voiceModeRef.current || requestId !== voiceLanguageRequestRef.current) return;
         voiceModeRef.current = false;
         setVoiceMode(false);
         setVoiceStatus('off');
         setPendingVoiceLanguageCode(undefined);
-        console.warn('Unable to access the microphone.', e);
-        setError(t('Unable to access the microphone.'));
+        console.warn('Unable to access the microphone.', {
+          error: e,
+          name: e instanceof DOMException ? e.name : undefined,
+          message: e instanceof Error ? e.message : String(e),
+          secureContext: window.isSecureContext,
+          userAgent: navigator.userAgent,
+        });
+        setError(microphoneAccessErrorMessage(e, t));
         return;
       }
-
-      if (!voiceModeRef.current || requestId !== voiceLanguageRequestRef.current) return;
 
       try {
         const code = cachedCode || parseDetectedVoiceLanguageCode((await askOpenRouter(
@@ -1759,10 +1842,11 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
         setVoiceMode(false);
         setVoiceStatus('off');
         setPendingVoiceLanguageCode(undefined);
+        stopVoiceMicrophone();
         setError(e instanceof Error ? e.message : t('Unable to identify the module language for voice mode.'));
       }
     })();
-  }, [appVoiceLanguage.code, model, moduleCid, moduleId, openRouterKey, skillRefsKey, skills, t]);
+  }, [appVoiceLanguage.code, model, moduleCid, moduleId, openRouterKey, skillRefsKey, skills, stopVoiceMicrophone, t]);
 
   const handleVoiceControl = useCallback((): void => {
     if (!voiceModeRef.current) return;
