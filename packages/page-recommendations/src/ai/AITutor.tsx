@@ -1777,6 +1777,20 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
         ? await transcribeOpenRouter({ apiKey: openRouterKey }, submittedAudioBlob, undefined, recordingLanguageRef.current)
         : '';
       const typedAnswer = answer.trim();
+      if (submittedAudioBlob && !audioTranscript && !typedAnswer && attachments.length === 0 && !tikz) {
+        // Empty transcriptions occasionally happen for very short/silent clips.
+        // Treat that as a recoverable input issue instead of surfacing the raw
+        // provider error or sending an empty answer to the tutoring model.
+        setLastStudentMessage(previousStudentMessage);
+        audioBlobRef.current = undefined;
+        setAudioBlob(undefined);
+        setRecordingSeconds(0);
+        setShouldBlurTutorReply(false);
+        setTutorValidationMessage(t('I could not hear any speech in that recording. Please try again.'));
+        setVoiceValidationRevision((revision) => revision + 1);
+        if (voiceModeRef.current) setVoiceStatus('waiting');
+        return;
+      }
       if (!typedAnswer && audioTranscript) {
         submittedMessage.text = audioTranscript;
         setLastStudentMessage({ ...submittedMessage });
@@ -2050,7 +2064,7 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
           <CloseButton onClick={onClose} icon='close' />
           <Spacer />
         </Progress>
-        {skill && <CurrentSkillLabel title={skill.title}>{skill.title}</CurrentSkillLabel>}
+        {skill && <CurrentSkillLabel title={skill.title}><KatexSpan content={skill.title} /></CurrentSkillLabel>}
         <Pane>
           {isOpenRouterKeyLoaded && !openRouterKey && <KeySettings><Button label={t('Set OpenRouter key')} onClick={() => setKeyDialogOpen(true)} /></KeySettings>}
           {error && <ErrorText>{error}</ErrorText>}

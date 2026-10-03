@@ -255,24 +255,34 @@ export async function transcribeOpenRouter(
   signal?: AbortSignal,
   language?: string,
 ): Promise<string> {
-  const response = await fetch('https://openrouter.ai/api/v1/audio/transcriptions', {
-    method: 'POST',
-    signal,
-    headers: headers(settings),
-    body: JSON.stringify({
-      model: DEFAULT_TRANSCRIPTION_MODEL,
-      input_audio: {
-        data: await blobToBase64(audio),
-        format: audioFormatFromMime(audio.type),
-      },
-      ...(language ? { language } : {}),
-    }),
+  const body = JSON.stringify({
+    model: DEFAULT_TRANSCRIPTION_MODEL,
+    input_audio: {
+      data: await blobToBase64(audio),
+      format: audioFormatFromMime(audio.type),
+    },
+    ...(language ? { language } : {}),
   });
 
-  if (!response.ok) throw await responseError(response);
-  const payload = await response.json() as { text?: string };
-  if (!payload.text?.trim()) throw new Error('OpenRouter returned an empty audio transcription.');
-  return payload.text.trim();
+  // OpenRouter/provider routing can occasionally return a successful response
+  // with an empty transcript for a valid short recording. Retry that corner
+  // case once, then let the caller decide whether an empty transcript is usable
+  // alongside typed text or attachments.
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const response = await fetch('https://openrouter.ai/api/v1/audio/transcriptions', {
+      method: 'POST',
+      signal,
+      headers: headers(settings),
+      body,
+    });
+
+    if (!response.ok) throw await responseError(response);
+    const payload = await response.json() as { text?: string };
+    const transcript = payload.text?.trim() || '';
+    if (transcript) return transcript;
+  }
+
+  return '';
 }
 
 export async function synthesizeOpenRouterSpeech(
