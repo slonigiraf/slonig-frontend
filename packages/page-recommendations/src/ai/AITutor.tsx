@@ -44,6 +44,15 @@ const VOICE_MIN_SPEECH_MS = 220;
 const VOICE_SPEECH_START_MIN_RMS = 0.018;
 const VOICE_SPEECH_CONTINUE_MIN_RMS = 0.011;
 const VOICE_NOISE_START_MULTIPLIER = 2.8;
+const TUTOR_AUDIO_STALL_MS = 4000;
+const TUTOR_AUDIO_MIN_TIMEOUT_MS = 12000;
+const TUTOR_AUDIO_MAX_TIMEOUT_MS = 60000;
+const TUTOR_AUDIO_MS_PER_CHARACTER = 180;
+// WebKit grants programmatic audio playback per media element after that
+// element has played inside a user gesture. Voice mode starts from a button
+// click, so use that gesture to unlock the single audio element that will be
+// reused for every later (asynchronous) TTS chunk on iOS.
+const IOS_AUDIO_UNLOCK_SRC = 'data:audio/wav;base64,UklGRnQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YVAAAACAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgA==';
 const MICROPHONE_AUDIO_CONSTRAINTS: MediaTrackConstraints = {
   autoGainControl: true,
   channelCount: 1,
@@ -169,6 +178,88 @@ function microphoneAccessErrorMessage(error: unknown, t: Translate): string {
     default:
       return t('Microphone access is blocked. Enable microphone permission for this browser or website, then try again.');
   }
+}
+
+function tutorAudioPlaybackTimeoutMs(text: string): number {
+  return Math.min(
+    TUTOR_AUDIO_MAX_TIMEOUT_MS,
+    Math.max(TUTOR_AUDIO_MIN_TIMEOUT_MS, text.length * TUTOR_AUDIO_MS_PER_CHARACTER),
+  );
+}
+
+function playTutorAudioElement(audio: HTMLAudioElement, text: string, signal: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    let playStarted = false;
+    const playbackRequestedAt = Date.now();
+    let lastProgressAt = Date.now();
+    let lastCurrentTime = audio.currentTime;
+    let stallTimer: number | undefined;
+    let timeoutTimer: number | undefined;
+
+    const cleanup = (): void => {
+      audio.onended = null;
+      audio.onerror = null;
+      audio.ontimeupdate = null;
+      signal.removeEventListener('abort', handleAbort);
+      if (stallTimer !== undefined) window.clearInterval(stallTimer);
+      if (timeoutTimer !== undefined) window.clearTimeout(timeoutTimer);
+    };
+    const finish = (): void => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      resolve();
+    };
+    const fail = (error: unknown): void => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      reject(error);
+    };
+    const handleAbort = (): void => fail(new DOMException('Speech was interrupted.', 'AbortError'));
+
+    if (signal.aborted) {
+      handleAbort();
+      return;
+    }
+
+    signal.addEventListener('abort', handleAbort, { once: true });
+    audio.onended = finish;
+    audio.onerror = () => fail(new Error('Tutor speech audio could not be played.'));
+    audio.ontimeupdate = () => {
+      if (audio.currentTime > lastCurrentTime + 0.01) {
+        lastCurrentTime = audio.currentTime;
+        lastProgressAt = Date.now();
+      }
+
+      // WebKit has had regressions where blob-backed media reaches its duration
+      // but never dispatches `ended`. Treat reaching the end as completion too.
+      if (Number.isFinite(audio.duration)
+        && audio.duration > 0
+        && audio.currentTime >= Math.max(0, audio.duration - 0.12)) {
+        finish();
+      }
+    };
+
+    stallTimer = window.setInterval(() => {
+      const now = Date.now();
+      if (!playStarted && now - playbackRequestedAt >= TUTOR_AUDIO_STALL_MS) {
+        fail(new Error('Tutor speech audio playback did not start.'));
+      } else if (playStarted && now - lastProgressAt >= TUTOR_AUDIO_STALL_MS) {
+        fail(new Error('Tutor speech audio playback stalled.'));
+      }
+    }, 500);
+    timeoutTimer = window.setTimeout(
+      () => fail(new Error('Tutor speech audio playback timed out.')),
+      tutorAudioPlaybackTimeoutMs(text),
+    );
+
+    void audio.play().then(() => {
+      playStarted = true;
+      lastProgressAt = Date.now();
+    }).catch(fail);
+  });
 }
 
 function textFromDataUrl(dataUrl: string, name: string, t: Translate): string {
@@ -1355,15 +1446,33 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
     if (audio) {
       audio.onended = null;
       audio.onerror = null;
+      audio.ontimeupdate = null;
       audio.pause();
-      audio.src = '';
-      tutorAudioRef.current = undefined;
+      audio.removeAttribute('src');
+      audio.load();
     }
     if (tutorAudioUrlRef.current) {
       URL.revokeObjectURL(tutorAudioUrlRef.current);
       tutorAudioUrlRef.current = undefined;
     }
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) window.speechSynthesis.cancel();
+  }, []);
+
+  const unlockTutorAudio = useCallback((): void => {
+    if (typeof window === 'undefined' || !detectClientPlatform().startsWith('ios')) return;
+
+    const audio = tutorAudioRef.current || new Audio();
+    tutorAudioRef.current = audio;
+    audio.preload = 'auto';
+    audio.src = IOS_AUDIO_UNLOCK_SRC;
+
+    // Do not await this: the important part is that play() itself is invoked in
+    // the voice-mode button's user-activation handler. The 10 ms silent WAV then
+    // finishes naturally and the same element is reused for real tutor speech.
+    void audio.play().catch(() => {
+      // A later real play() still has explicit error handling and a browser TTS
+      // fallback. Failing to pre-unlock should not prevent voice mode starting.
+    });
   }, []);
 
   useEffect(() => {
@@ -1559,13 +1668,48 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
     }
   }, [loading, stopRecording, stopVoiceAnalyser, t]);
 
-  const speakWithBrowserVoice = useCallback((text: string, requestId: number, languageCode?: string): Promise<void> => new Promise((resolve, reject) => {
+  const speakWithBrowserVoice = useCallback((text: string, requestId: number, languageCode: string | undefined, signal: AbortSignal): Promise<void> => new Promise((resolve, reject) => {
     if (!('speechSynthesis' in window) || typeof SpeechSynthesisUtterance === 'undefined') {
       reject(new Error(t('Speech playback is not supported by this browser.')));
       return;
     }
 
     const utterance = new SpeechSynthesisUtterance(text);
+    let settled = false;
+    const cleanup = (): void => {
+      window.clearTimeout(timeout);
+      utterance.onend = null;
+      utterance.onerror = null;
+      signal.removeEventListener('abort', handleAbort);
+    };
+    const fail = (error: unknown): void => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      reject(error);
+    };
+    const handleAbort = (): void => {
+      window.speechSynthesis.cancel();
+      fail(new DOMException('Speech was interrupted.', 'AbortError'));
+    };
+    const timeout = window.setTimeout(() => {
+      if (settled) return;
+      window.speechSynthesis.cancel();
+      fail(new Error(t('Browser speech playback failed.')));
+    }, tutorAudioPlaybackTimeoutMs(text));
+    const finish = (): void => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      resolve();
+    };
+
+    if (signal.aborted) {
+      handleAbort();
+      return;
+    }
+    signal.addEventListener('abort', handleAbort, { once: true });
+
     utterance.rate = 1;
     if (languageCode) {
       utterance.lang = languageCode;
@@ -1575,8 +1719,10 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
       });
       if (browserVoice) utterance.voice = browserVoice;
     }
-    utterance.onend = () => requestId === tutorSpeechRequestRef.current ? resolve() : reject(new DOMException('Speech was interrupted.', 'AbortError'));
-    utterance.onerror = () => reject(new Error(t('Browser speech playback failed.')));
+    utterance.onend = () => requestId === tutorSpeechRequestRef.current
+      ? finish()
+      : fail(new DOMException('Speech was interrupted.', 'AbortError'));
+    utterance.onerror = () => fail(new Error(t('Browser speech playback failed.')));
     window.speechSynthesis.cancel();
     window.speechSynthesis.speak(utterance);
   }), [t]);
@@ -1668,20 +1814,21 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
           pendingSpeech = chunks[index + 1] ? synthesizeChunk(chunks[index + 1]) : undefined;
 
           const url = URL.createObjectURL(result.speech);
-          const audio = new Audio(url);
-          tutorAudioUrlRef.current = url;
+          const audio = tutorAudioRef.current || new Audio();
+          audio.preload = 'auto';
+          audio.src = url;
           tutorAudioRef.current = audio;
+          tutorAudioUrlRef.current = url;
 
           try {
-            await new Promise<void>((resolve, reject) => {
-              audio.onended = () => resolve();
-              audio.onerror = () => reject(new Error('Tutor speech audio could not be played.'));
-              void audio.play().catch(reject);
-            });
+            await playTutorAudioElement(audio, chunks[index], controller.signal);
           } finally {
             audio.onended = null;
             audio.onerror = null;
-            if (tutorAudioRef.current === audio) tutorAudioRef.current = undefined;
+            audio.ontimeupdate = null;
+            audio.pause();
+            audio.removeAttribute('src');
+            audio.load();
             if (tutorAudioUrlRef.current === url) {
               URL.revokeObjectURL(url);
               tutorAudioUrlRef.current = undefined;
@@ -1698,14 +1845,17 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
         // If a later OpenRouter chunk fails, do not repeat audio the learner has
         // already heard. Fall back only for the remaining portion.
         const remainingText = chunks.slice(spokenChunkCount).join(' ').trim();
-        if (remainingText) await speakWithBrowserVoice(remainingText, requestId, language.code);
+        if (remainingText) await speakWithBrowserVoice(remainingText, requestId, language.code, controller.signal);
         played = Boolean(remainingText) || spokenChunkCount > 0;
       } finally {
         const audio = tutorAudioRef.current;
         if (audio) {
           audio.onended = null;
           audio.onerror = null;
-          tutorAudioRef.current = undefined;
+          audio.ontimeupdate = null;
+          audio.pause();
+          audio.removeAttribute('src');
+          audio.load();
         }
         if (tutorAudioUrlRef.current) {
           URL.revokeObjectURL(tutorAudioUrlRef.current);
@@ -1766,6 +1916,8 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
       setError(t('Unable to load the module skills.'));
       return;
     }
+
+    unlockTutorAudio();
 
     // Start microphone access synchronously from the button click. Some iOS/WebKit
     // contexts reject a first getUserMedia call after async language detection or
@@ -1846,7 +1998,7 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
         setError(e instanceof Error ? e.message : t('Unable to identify the module language for voice mode.'));
       }
     })();
-  }, [appVoiceLanguage.code, model, moduleCid, moduleId, openRouterKey, skillRefsKey, skills, stopVoiceMicrophone, t]);
+  }, [appVoiceLanguage.code, model, moduleCid, moduleId, openRouterKey, skillRefsKey, skills, stopVoiceMicrophone, t, unlockTutorAudio]);
 
   const handleVoiceControl = useCallback((): void => {
     if (!voiceModeRef.current) return;
