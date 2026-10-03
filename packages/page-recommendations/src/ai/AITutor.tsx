@@ -2285,6 +2285,12 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
       : voiceStatus === 'thinking'
         ? t('Your answer is being checked.')
         : t('Tap the circle to start listening.');
+  const tutorErrorMessage = error ? <TutorUnblurredMessage data-ai-tutor-hint='error' role='alert' aria-live='assertive'>
+    <TutorUnblurredBubble>
+      <MessageRole>{t('AI Tutor')}</MessageRole>
+      <MessageBody><KatexSpan content={error} /></MessageBody>
+    </TutorUnblurredBubble>
+  </TutorUnblurredMessage> : null;
 
   return (
     <FullFindow>
@@ -2301,7 +2307,7 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
         {skill && <CurrentSkillLabel><KatexSpan content={skill.title}/></CurrentSkillLabel>}
         <Pane>
           {isOpenRouterKeyLoaded && !openRouterKey && <KeySettings><Button label={t('Set OpenRouter key')} onClick={() => setKeyDialogOpen(true)} /></KeySettings>}
-          {error && <ErrorText>{error}</ErrorText>}
+          {!skill && error && <Conversation>{tutorErrorMessage}</Conversation>}
           {!skill && !error && <Spinner label={t('Loading skills')} />}
           {skill && <>
             <Conversation
@@ -2364,12 +2370,13 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
                   </MessageActions>}
                 </TutorBubble>
               </TutorMessage>}
-              {!loading && tutorValidationMessage && <TutorMessage>
-                <TutorBubble>
+              {!loading && tutorValidationMessage && <TutorUnblurredMessage data-ai-tutor-hint='validation' role='status' aria-live='polite'>
+                <TutorUnblurredBubble>
                   <MessageRole>{t('AI Tutor')}</MessageRole>
                   <MessageBody><KatexSpan content={tutorValidationMessage} /></MessageBody>
-                </TutorBubble>
-              </TutorMessage>}
+                </TutorUnblurredBubble>
+              </TutorUnblurredMessage>}
+              {tutorErrorMessage}
               {loading && <TutorMessage>
                 <ThinkingIndicator><Spinner noLabel /></ThinkingIndicator>
               </TutorMessage>}
@@ -2894,7 +2901,6 @@ const Pane = styled.div`
   flex-direction: column;
 `;
 const KeySettings = styled.div`display: flex; justify-content: flex-end; margin-bottom: 12px;`;
-const ErrorText = styled.div`color: #b00020; margin: 8px 0;`;
 const Conversation = styled.div`
   width: 100%;
   min-height: 0;
@@ -2915,6 +2921,13 @@ const Conversation = styled.div`
     filter: blur(5px);
     opacity: .62;
     pointer-events: none;
+  }
+
+  /* Tutor validation/error hints stay readable while earlier history is blurred. */
+  &.is-history-blurred > [data-ai-tutor-hint] {
+    filter: none !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
   }
 `;
 const MessageBase = styled.div`
@@ -2946,6 +2959,15 @@ const TutorBubble = styled(MessageBubble)`
   &.is-replying {
     filter: blur(5px);
   }
+`;
+const TutorUnblurredMessage = styled(TutorMessage)`
+  filter: none !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
+`;
+const TutorUnblurredBubble = styled(TutorBubble)`
+  filter: none !important;
+  opacity: 1 !important;
 `;
 const StudentBubble = styled(MessageBubble)`
   text-align: left;
