@@ -28,7 +28,13 @@ export interface GeneratedImage {
 }
 
 const DEFAULT_MODEL = 'openai/gpt-6-luna';
-const DEFAULT_TRANSCRIPTION_MODEL = 'openai/gpt-4o-mini-transcribe';
+// GPT Transcribe is OpenRouter's current high-accuracy general STT option and
+// keeps the tutor's broad language support without a second provider SDK.
+const DEFAULT_TRANSCRIPTION_MODEL = 'openai/gpt-transcribe';
+// OpenAI TTS is no longer in OpenRouter's live speech catalog. Grok Voice is a
+// current multilingual option with stable voice IDs and automatic language detection.
+const DEFAULT_SPEECH_MODEL = 'x-ai/grok-voice-tts-1.0';
+const DEFAULT_SPEECH_VOICE = 'eve';
 const DEFAULT_IMAGE_MODEL = 'openai/gpt-image-2';
 
 function extractJson(text: string, responseKind: 'message'): TutorMessageResponse;
@@ -247,28 +253,77 @@ async function blobToBase64(blob: Blob): Promise<string> {
   return btoa(binary);
 }
 
+export interface OpenRouterTranscriptionHints {
+  keywords?: string[];
+  languages?: string[];
+  prompt?: string;
+}
+
 export async function transcribeOpenRouter(
   settings: OpenRouterSettings,
   audio: Blob,
   signal?: AbortSignal,
+  hints?: OpenRouterTranscriptionHints,
 ): Promise<string> {
-  const response = await fetch('https://openrouter.ai/api/v1/audio/transcriptions', {
+  const body = JSON.stringify({
+    model: DEFAULT_TRANSCRIPTION_MODEL,
+    input_audio: {
+      data: await blobToBase64(audio),
+      format: audioFormatFromMime(audio.type),
+    },
+    ...(hints?.prompt ? { prompt: hints.prompt } : {}),
+    ...(hints?.keywords?.length ? { keywords: hints.keywords } : {}),
+    ...(hints?.languages?.length ? { languages: hints.languages } : {}),
+    // A deterministic transcription is preferable for grading/classification.
+    temperature: 0,
+  });
+
+  // OpenRouter/provider routing can occasionally return a successful response
+  // with an empty transcript for a valid short recording. Retry that corner
+  // case once, then let the caller decide whether an empty transcript is usable
+  // alongside typed text or attachments.
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const response = await fetch('https://openrouter.ai/api/v1/audio/transcriptions', {
+      method: 'POST',
+      signal,
+      headers: headers(settings),
+      body,
+    });
+
+    if (!response.ok) throw await responseError(response);
+    const payload = await response.json() as { text?: string };
+    const transcript = payload.text?.trim() || '';
+    if (transcript) return transcript;
+  }
+
+  return '';
+}
+
+export async function synthesizeOpenRouterSpeech(
+  settings: OpenRouterSettings,
+  text: string,
+  signal?: AbortSignal,
+  voice = DEFAULT_SPEECH_VOICE,
+): Promise<Blob> {
+  const input = text.trim();
+  if (!input) throw new Error('Cannot synthesize empty tutor speech.');
+
+  const response = await fetch('https://openrouter.ai/api/v1/audio/speech', {
     method: 'POST',
     signal,
     headers: headers(settings),
     body: JSON.stringify({
-      model: DEFAULT_TRANSCRIPTION_MODEL,
-      input_audio: {
-        data: await blobToBase64(audio),
-        format: audioFormatFromMime(audio.type),
-      },
+      model: DEFAULT_SPEECH_MODEL,
+      input,
+      voice,
+      response_format: 'mp3',
     }),
   });
 
   if (!response.ok) throw await responseError(response);
-  const payload = await response.json() as { text?: string };
-  if (!payload.text?.trim()) throw new Error('OpenRouter returned an empty audio transcription.');
-  return payload.text.trim();
+  const bytes = await response.blob();
+  if (bytes.size === 0) throw new Error('OpenRouter returned empty speech audio.');
+  return bytes.type ? bytes : new Blob([bytes], { type: 'audio/mpeg' });
 }
 
 export async function generateOpenRouterImage(
@@ -298,4 +353,4 @@ export async function generateOpenRouterImage(
   };
 }
 
-export { DEFAULT_MODEL, DEFAULT_IMAGE_MODEL, DEFAULT_TRANSCRIPTION_MODEL };
+export { DEFAULT_MODEL, DEFAULT_IMAGE_MODEL, DEFAULT_SPEECH_MODEL, DEFAULT_SPEECH_VOICE, DEFAULT_TRANSCRIPTION_MODEL };

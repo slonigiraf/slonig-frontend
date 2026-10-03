@@ -10,7 +10,10 @@ import { fileTypeFromBuffer } from 'file-type';
 interface BaseProps {
   alt?: string;
   className?: string;
+  id?: string;
+  style?: React.CSSProperties;
   title?: string;
+  'data-tikz-image-id'?: string;
 }
 
 type Props = BaseProps & (
@@ -18,7 +21,7 @@ type Props = BaseProps & (
   { cid?: never; src: string }
 );
 
-const ResizableImage: React.FC<Props> = ({ cid, alt, className, src: sourceSrc, title }) => {
+const ResizableImage: React.FC<Props> = ({ cid, alt, className, id, src: sourceSrc, style, title, 'data-tikz-image-id': tikzImageId }) => {
   const { t } = useTranslation();
   const { ipfs, isIpfsReady } = useIpfsContext();
   const [isBig, toggleSize] = useToggle();
@@ -96,7 +99,16 @@ const ResizableImage: React.FC<Props> = ({ cid, alt, className, src: sourceSrc, 
 
   return (imageSrc ?
     <>
-      <NormalImage className={className} src={imageSrc} alt={alt ? alt : t('Image')} onClick={toggleSize} title={title} />
+      <NormalImage
+        className={className}
+        data-tikz-image-id={tikzImageId}
+        id={id}
+        src={imageSrc}
+        alt={alt ? alt : t('Image')}
+        onClick={toggleSize}
+        style={style}
+        title={title}
+      />
       {isBig && (
         <ImageModal header=" " onClose={handleToggleSize} size="large">
           <Modal.Content>

@@ -77,6 +77,25 @@ i18next
     console.log('i18n: failure', error)
   );
 
+export async function setAppLanguage(language: string): Promise<void> {
+  const current = settings.get();
+
+  // Keep @polkadot/ui-settings as the source of truth, exactly like the app
+  // Settings screen does. Calling i18next.changeLanguage() on its own only
+  // changes the live i18n instance and can later be overwritten by the stored
+  // i18nLang value when settings are re-applied.
+  if (current.i18nLang !== language) {
+    settings.set({ ...current, i18nLang: language });
+  }
+
+  // settings.set emits the change event below, but awaiting the same language
+  // here gives callers a deterministic point at which translated resources are
+  // ready before they rebuild language-sensitive UI.
+  if ((i18next.resolvedLanguage || i18next.language || '').split(/[-_]/)[0] !== language) {
+    await i18next.changeLanguage(language);
+  }
+}
+
 settings.on('change', (settings): void => {
   (
     settings.i18nLang === LANGUAGE_DEFAULT
