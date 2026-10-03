@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Button, Input, LinearProgress, Modal, Spinner, styled } from '@polkadot/react-components';
+import { setAppLanguage } from '@polkadot/react-components/i18n';
 import { Bubble, Confirmation, FullFindow, getIPFSDataFromContentID, KatexSpan, loadFromSessionStorage, parseJson, ResizableImage, saveToSessionStorage, TikzEditor, useIpfsContext, useSettingValue, VerticalCenterItemsContainer } from '@slonigiraf/slonig-components';
 import { clearAiTutorGeneratedStageTexts, clearAiTutorStudentMessages, clearAiTutorTutorStageMessages, deleteAiTutorStudentMessage, getAiTutorStudentMessage, getAiTutorTutorStageMessage, getSetting, putAiTutorCurrentStageType, putAiTutorGeneratedStageText, putAiTutorStudentExercise, putAiTutorStudentMessage, putAiTutorTutorStageMessage, putAiTutorVisualDraft, SettingKey, storeSetting } from '@slonigiraf/db';
 import type { AiTutorStudentMessage } from '@slonigiraf/db';
@@ -676,6 +677,17 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
   const tutorSpokenTextCacheRef = useRef(new Map<string, string>());
   const [voiceValidationRevision, setVoiceValidationRevision] = useState(0);
 
+  // Once voice mode has identified the module language, keep all tutor-authored
+  // content pinned to that language for the rest of the tutoring conversation.
+  // The global app locale can briefly change while Settings/i18next propagate;
+  // generated messages and programmed tutor stages must not follow that transient
+  // locale or a later turn can unexpectedly switch back to another language.
+  const tutorLocaleCode = voiceLanguage?.code || appVoiceLanguage.code;
+  const tutorT = useMemo(
+    () => i18n.getFixedT(tutorLocaleCode, 'app-recommendations') as unknown as Translate,
+    [i18n, tutorLocaleCode],
+  );
+
   const skill = skills[lessonStep];
   const lessonId = useMemo(() => aiLessonId(moduleId, studentId), [moduleId, studentId]);
   const answerScope = `${lessonId}:${lessonStep}`;
@@ -686,10 +698,10 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
     hasTuteeUsedSlonig: true,
     skill: makeAlgorithmSkill(skill),
     stake: '0',
-    studentName: t('student'),
-    t,
+    studentName: tutorT('student'),
+    t: tutorT,
     variation: 'regular',
-  }) : undefined, [appVoiceLanguage.code, skill, t]);
+  }) : undefined, [skill, tutorLocaleCode, tutorT]);
   const [algorithmStage, setAlgorithmStage] = useState<AlgorithmStage>();
   const submitInFlightRef = useRef(false);
   const stageTextRequestRef = useRef(0);
@@ -808,7 +820,7 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
       // so reveal them only when every attached TikZ is already usable. The
       // stage-generation effect below rebuilds anything incomplete.
       const canHydrateTutorMessage = Boolean(persistedTutorMessage?.text)
-        && persistedTutorMessage?.locale === appVoiceLanguage.code
+        && persistedTutorMessage?.locale === tutorLocaleCode
         && hasRenderableTutorTikzPreviews(persistedTutorMessage.text, persistedTutorMessage.tikzPreviews);
       setCurrentAiText(canHydrateTutorMessage ? persistedTutorMessage?.text || '' : '');
       setCurrentAiTikzPreviews(canHydrateTutorMessage ? persistedTutorMessage?.tikzPreviews || {} : {});
@@ -832,7 +844,7 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
     })();
 
     return () => { cancelled = true; };
-  }, [algorithm, answerScope, appVoiceLanguage.code, lessonId, lessonStep, startMode]);
+  }, [algorithm, answerScope, lessonId, lessonStep, startMode, tutorLocaleCode]);
 
   useEffect(() => {
     if (visualDraftScopeRef.current !== answerScope) return;
@@ -873,8 +885,8 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
           loaded.forEach((_skill, step) => {
             saveToSessionStorage(AI_TUTOR_SESSION, algorithmStageSessionKey(lessonId, step), '');
             saveToSessionStorage(AI_TUTOR_SESSION, studentExerciseSessionKey(lessonId, step), '');
-            saveToSessionStorage(AI_TUTOR_SESSION, generatedStageTextSessionKey(lessonId, step, StageType.provide_fake_solution, appVoiceLanguage.code), '');
-            saveToSessionStorage(AI_TUTOR_SESSION, generatedStageTextSessionKey(lessonId, step, StageType.correct_fake_solution, appVoiceLanguage.code), '');
+            saveToSessionStorage(AI_TUTOR_SESSION, generatedStageTextSessionKey(lessonId, step, StageType.provide_fake_solution, tutorLocaleCode), '');
+            saveToSessionStorage(AI_TUTOR_SESSION, generatedStageTextSessionKey(lessonId, step, StageType.correct_fake_solution, tutorLocaleCode), '');
           });
           setStudentExerciseMedia([]);
           setLastStudentMessage(undefined);
@@ -900,7 +912,7 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
   // Depend on the refs' content rather than the array identity. Some callers
   // recreate `skillRefs` on render; re-fetching in that case rebuilt the
   // algorithm and could reset transient UI state while the student was typing.
-  }, [appVoiceLanguage.code, ipfs, isIpfsReady, skillRefsKey, lessonId, moduleCid, moduleId, startMode, studentId, t]);
+  }, [ipfs, isIpfsReady, skillRefsKey, lessonId, moduleCid, moduleId, startMode, studentId, t, tutorLocaleCode]);
 
   useEffect(() => {
     if (!isLessonLoaded) return;
@@ -925,7 +937,7 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
     if (!forceRegenerate) {
       try {
         persistedTutorMessage = await getAiTutorTutorStageMessage<PersistedTutorStageMessage>(lessonId, lessonStep, stage.getType());
-        saved = persistedTutorMessage?.locale === appVoiceLanguage.code
+        saved = persistedTutorMessage?.locale === tutorLocaleCode
           ? persistedTutorMessage.text
           : undefined;
       } catch {
@@ -933,7 +945,7 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
       }
       saved ||= loadFromSessionStorage(
         AI_TUTOR_SESSION,
-        generatedStageTextSessionKey(lessonId, lessonStep, stage.getType(), appVoiceLanguage.code),
+        generatedStageTextSessionKey(lessonId, lessonStep, stage.getType(), tutorLocaleCode),
       ) || undefined;
     }
     if (saved && (!requiresCorrectSolutionTikz || isTikzCode(saved))) {
@@ -953,7 +965,7 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
               await putAiTutorTutorStageMessage<PersistedTutorStageMessage>(lessonId, lessonStep, stage.getType(), {
                 text: saved,
                 tikzPreviews: prepared,
-                locale: appVoiceLanguage.code,
+                locale: tutorLocaleCode,
               });
             } catch {
               // Keep the legacy/session cache path functional if IndexedDB fails.
@@ -974,7 +986,7 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
         persistedTutorMessage = undefined;
         saveToSessionStorage(
           AI_TUTOR_SESSION,
-          generatedStageTextSessionKey(lessonId, lessonStep, stage.getType(), appVoiceLanguage.code),
+          generatedStageTextSessionKey(lessonId, lessonStep, stage.getType(), tutorLocaleCode),
           '',
         );
         try {
@@ -1017,8 +1029,8 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
         : [];
       const generationAttachments = [...studentExerciseMedia, ...skillSolutionImages];
       const prompt = generatedStagePrompt(skill, stage, studentExercise, {
-        code: appVoiceLanguage.code,
-        name: voiceLanguageInstructionName(appVoiceLanguage.code),
+        code: tutorLocaleCode,
+        name: voiceLanguageInstructionName(tutorLocaleCode),
       });
       let text = '';
       let prepared: Record<string, PreparedTikzPreview> = {};
@@ -1045,7 +1057,7 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
             : t('Unable to preview TikZ drawing.'));
         }
 
-        text = formatGeneratedStageMessage(stage, generatedMessage, t);
+        text = formatGeneratedStageMessage(stage, generatedMessage, tutorT);
         try {
           prepared = await prepareTutorTikzPreviews(text, t('Unable to preview TikZ drawing.'), true);
           break;
@@ -1065,7 +1077,7 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
         await putAiTutorTutorStageMessage<PersistedTutorStageMessage>(lessonId, lessonStep, stage.getType(), {
           text,
           tikzPreviews: prepared,
-          locale: appVoiceLanguage.code,
+          locale: tutorLocaleCode,
         });
         await putAiTutorGeneratedStageText(lessonId, lessonStep, stage.getType(), text);
       } catch {
@@ -1077,7 +1089,7 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
       setCurrentAiText(text);
       saveToSessionStorage(
         AI_TUTOR_SESSION,
-        generatedStageTextSessionKey(lessonId, lessonStep, stage.getType(), appVoiceLanguage.code),
+        generatedStageTextSessionKey(lessonId, lessonStep, stage.getType(), tutorLocaleCode),
         text,
       );
       localStorage.setItem(MODEL_STORAGE, model.trim() || DEFAULT_MODEL);
@@ -1093,7 +1105,7 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
     } finally {
       if (stageTextRequestRef.current === requestId) setLoading(false);
     }
-  }, [algorithm, appVoiceLanguage, currentSkillSolutionImageCids, lessonId, lessonStep, loadSkillSolutionImageAttachments, model, openRouterKey, skill, studentExercise, studentExerciseMedia, t]);
+  }, [algorithm, currentSkillSolutionImageCids, lessonId, lessonStep, loadSkillSolutionImageAttachments, model, openRouterKey, skill, studentExercise, studentExerciseMedia, t, tutorLocaleCode, tutorT]);
 
   const regenerateCurrentAnswer = useCallback(async (): Promise<void> => {
     if (!algorithmStage || !stageNeedsGeneratedText(algorithmStage) || loading) return;
@@ -1106,7 +1118,7 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
     setCurrentAiTikzPreviews({});
     saveToSessionStorage(
       AI_TUTOR_SESSION,
-      generatedStageTextSessionKey(lessonId, lessonStep, stageType, appVoiceLanguage.code),
+      generatedStageTextSessionKey(lessonId, lessonStep, stageType, tutorLocaleCode),
       '',
     );
     try {
@@ -1121,7 +1133,7 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
 
     if (stageTextRequestRef.current !== requestId) return;
     await generateStageText(algorithmStage, requestId, true);
-  }, [algorithmStage, appVoiceLanguage.code, generateStageText, lessonId, lessonStep, loading]);
+  }, [algorithmStage, generateStageText, lessonId, lessonStep, loading, tutorLocaleCode]);
 
   useEffect(() => {
     if (!skill || !algorithmStage) return;
@@ -1142,7 +1154,7 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
         void putAiTutorTutorStageMessage<PersistedTutorStageMessage>(lessonId, lessonStep, algorithmStage.getType(), {
           text,
           tikzPreviews: {},
-          locale: appVoiceLanguage.code,
+          locale: tutorLocaleCode,
         }).catch(() => {});
       } else {
         setLoading(true);
@@ -1152,7 +1164,7 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
             void putAiTutorTutorStageMessage<PersistedTutorStageMessage>(lessonId, lessonStep, algorithmStage.getType(), {
               text,
               tikzPreviews: prepared,
-              locale: appVoiceLanguage.code,
+              locale: tutorLocaleCode,
             }).catch(() => {});
             setCurrentAiTikzPreviews(prepared);
             setCurrentAiText(text);
@@ -1167,7 +1179,7 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
           });
       }
     }
-  }, [appVoiceLanguage.code, skill, algorithmStage, generateStageText, lessonId, lessonStep, t]);
+  }, [skill, algorithmStage, generateStageText, lessonId, lessonStep, t, tutorLocaleCode]);
 
   useEffect(() => {
     const closeMenusOnOutsidePointer = (event: PointerEvent): void => {
@@ -1239,13 +1251,13 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
         setAttachments((current) => [...current, ...allowed].slice(0, MAX_ATTACHMENTS));
       }
       if (duplicateImages.length > 0) {
-        setTutorValidationMessage(t('You attached some of mine images, you need to create your own'));
+        setTutorValidationMessage(tutorT('You attached some of mine images, you need to create your own'));
         setVoiceValidationRevision((revision) => revision + 1);
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : t('Unable to attach that file.'));
     }
-  }, [attachments.length, loadSkillExerciseImageAttachments, t]);
+  }, [attachments.length, loadSkillExerciseImageAttachments, t, tutorT]);
 
   const removeAttachment = useCallback((id: string): void => {
     setAttachments((current) => current.filter((attachment) => attachment.id !== id));
@@ -1351,6 +1363,7 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
       const candidates = ['audio/webm;codecs=opus', 'audio/mp4', 'audio/webm', 'audio/ogg;codecs=opus'];
       const mimeType = candidates.find((candidate) => MediaRecorder.isTypeSupported(candidate));
       const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+      let hasLevelAnalysis = false;
       mediaChunksRef.current = [];
       mediaRecorderRef.current = recorder;
 
@@ -1361,7 +1374,13 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
         const blob = new Blob(mediaChunksRef.current, { type: recorder.mimeType || 'audio/webm' });
         const recordedBlob = blob.size > 0 ? blob : undefined;
         audioBlobRef.current = recordedBlob;
-        if (recordedBlob) setAudioBlob(recordedBlob);
+        if (recordedBlob) {
+          setAudioBlob(recordedBlob);
+          // AudioContext speech detection is preferred because it blurs at the
+          // first spoken sound. Only use stop-time blur as a fallback when level
+          // analysis itself could not be started.
+          if (!hasLevelAnalysis) setShouldBlurTutorReply(true);
+        }
         mediaChunksRef.current = [];
         mediaStreamRef.current?.getTracks().forEach((track) => track.stop());
         mediaStreamRef.current = undefined;
@@ -1376,80 +1395,84 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
       // without changing the final audio container sent to OpenRouter.
       recorder.start(250);
       setRecording(true);
-      setShouldBlurTutorReply(true);
 
-      if (autoStopOnSilence) {
-        try {
-          const context = new AudioContext();
-          const analyser = context.createAnalyser();
-          const source = context.createMediaStreamSource(stream);
-          analyser.fftSize = 1024;
-          analyser.smoothingTimeConstant = 0.25;
-          source.connect(analyser);
-          voiceAudioContextRef.current = context;
-          voiceSpeechDetectedRef.current = false;
-          voiceSilenceStartedAtRef.current = undefined;
-          const samples = new Float32Array(analyser.fftSize);
-          const analyserStartedAt = performance.now();
-          let ambientRmsTotal = 0;
-          let ambientRmsSamples = 0;
-          let speechStartedAt: number | undefined;
+      try {
+        const context = new AudioContext();
+        const analyser = context.createAnalyser();
+        const source = context.createMediaStreamSource(stream);
+        analyser.fftSize = 1024;
+        analyser.smoothingTimeConstant = 0.25;
+        source.connect(analyser);
+        voiceAudioContextRef.current = context;
+        hasLevelAnalysis = true;
+        voiceSpeechDetectedRef.current = false;
+        voiceSilenceStartedAtRef.current = undefined;
+        const samples = new Float32Array(analyser.fftSize);
+        const analyserStartedAt = performance.now();
+        let ambientRmsTotal = 0;
+        let ambientRmsSamples = 0;
+        let speechStartedAt: number | undefined;
 
-          const watchLevel = (): void => {
-            if (recorder.state === 'inactive' || !voiceModeRef.current) {
-              stopVoiceAnalyser();
+        const watchLevel = (): void => {
+          if (recorder.state === 'inactive') {
+            stopVoiceAnalyser();
+            return;
+          }
+
+          analyser.getFloatTimeDomainData(samples);
+          let sum = 0;
+          for (let i = 0; i < samples.length; i++) sum += samples[i] * samples[i];
+          const rms = Math.sqrt(sum / samples.length);
+          const now = performance.now();
+
+          // Calibrate briefly against the learner's actual room/microphone.
+          // Hysteresis then uses a lower threshold once speech has started,
+          // which avoids chopping quiet syllables while still ignoring fans
+          // and background noise better than one fixed RMS threshold.
+          if (!voiceSpeechDetectedRef.current && now - analyserStartedAt <= VOICE_NOISE_CALIBRATION_MS) {
+            ambientRmsTotal += rms;
+            ambientRmsSamples += 1;
+          }
+          const ambientRms = ambientRmsSamples > 0 ? ambientRmsTotal / ambientRmsSamples : 0;
+          const speechStartThreshold = Math.max(
+            VOICE_SPEECH_START_MIN_RMS,
+            Math.min(0.06, ambientRms * VOICE_NOISE_START_MULTIPLIER),
+          );
+          const speechContinueThreshold = Math.max(
+            VOICE_SPEECH_CONTINUE_MIN_RMS,
+            speechStartThreshold * 0.55,
+          );
+
+          if (!voiceSpeechDetectedRef.current && rms >= speechStartThreshold) {
+            voiceSpeechDetectedRef.current = true;
+            speechStartedAt = now;
+            voiceSilenceStartedAtRef.current = undefined;
+            // Keep the complete conversation readable after the tutor stops.
+            // Blur only when the learner actually starts speaking, not when
+            // the microphone merely enters listening mode.
+            setShouldBlurTutorReply(true);
+          } else if (voiceSpeechDetectedRef.current && rms >= speechContinueThreshold) {
+            voiceSilenceStartedAtRef.current = undefined;
+          } else if (autoStopOnSilence
+            && voiceSpeechDetectedRef.current
+            && speechStartedAt !== undefined
+            && now - speechStartedAt >= VOICE_MIN_SPEECH_MS) {
+            voiceSilenceStartedAtRef.current ??= now;
+            if (now - voiceSilenceStartedAtRef.current >= VOICE_SILENCE_MS) {
+              voiceAutoSubmitRef.current = true;
+              setVoiceStatus('thinking');
+              void stopRecording();
               return;
             }
-
-            analyser.getFloatTimeDomainData(samples);
-            let sum = 0;
-            for (let i = 0; i < samples.length; i++) sum += samples[i] * samples[i];
-            const rms = Math.sqrt(sum / samples.length);
-            const now = performance.now();
-
-            // Calibrate briefly against the learner's actual room/microphone.
-            // Hysteresis then uses a lower threshold once speech has started,
-            // which avoids chopping quiet syllables while still ignoring fans
-            // and background noise better than one fixed RMS threshold.
-            if (!voiceSpeechDetectedRef.current && now - analyserStartedAt <= VOICE_NOISE_CALIBRATION_MS) {
-              ambientRmsTotal += rms;
-              ambientRmsSamples += 1;
-            }
-            const ambientRms = ambientRmsSamples > 0 ? ambientRmsTotal / ambientRmsSamples : 0;
-            const speechStartThreshold = Math.max(
-              VOICE_SPEECH_START_MIN_RMS,
-              Math.min(0.06, ambientRms * VOICE_NOISE_START_MULTIPLIER),
-            );
-            const speechContinueThreshold = Math.max(
-              VOICE_SPEECH_CONTINUE_MIN_RMS,
-              speechStartThreshold * 0.55,
-            );
-
-            if (!voiceSpeechDetectedRef.current && rms >= speechStartThreshold) {
-              voiceSpeechDetectedRef.current = true;
-              speechStartedAt = now;
-              voiceSilenceStartedAtRef.current = undefined;
-            } else if (voiceSpeechDetectedRef.current && rms >= speechContinueThreshold) {
-              voiceSilenceStartedAtRef.current = undefined;
-            } else if (voiceSpeechDetectedRef.current
-              && speechStartedAt !== undefined
-              && now - speechStartedAt >= VOICE_MIN_SPEECH_MS) {
-              voiceSilenceStartedAtRef.current ??= now;
-              if (now - voiceSilenceStartedAtRef.current >= VOICE_SILENCE_MS) {
-                voiceAutoSubmitRef.current = true;
-                setVoiceStatus('thinking');
-                void stopRecording();
-                return;
-              }
-            }
-
-            voiceAnalyserFrameRef.current = window.requestAnimationFrame(watchLevel);
-          };
+          }
 
           voiceAnalyserFrameRef.current = window.requestAnimationFrame(watchLevel);
-        } catch {
-          // Voice mode still works as push-to-finish if Web Audio analysis is unavailable.
-        }
+        };
+
+        voiceAnalyserFrameRef.current = window.requestAnimationFrame(watchLevel);
+      } catch {
+        // Recording still works if Web Audio level analysis is unavailable. In
+        // that fallback, a non-empty clip is blurred when recording stops.
       }
     } catch (e) {
       mediaStreamRef.current?.getTracks().forEach((track) => track.stop());
@@ -1693,8 +1716,12 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
           // voice mode from speaking one stale English turn before localization.
           setCurrentAiText('');
           setCurrentAiTikzPreviews({});
-          await i18n.changeLanguage(code);
         }
+
+        // Persist the detected module language even when the live i18n instance
+        // already happens to use it (for example through browser-language
+        // detection). Settings must remain authoritative for every later turn.
+        await setAppLanguage(code);
       } catch (e) {
         if (!voiceModeRef.current || requestId !== voiceLanguageRequestRef.current) return;
         voiceModeRef.current = false;
@@ -1704,7 +1731,7 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
         setError(e instanceof Error ? e.message : t('Unable to identify the module language for voice mode.'));
       }
     })();
-  }, [appVoiceLanguage.code, i18n, model, moduleCid, moduleId, openRouterKey, skillRefsKey, skills, t]);
+  }, [appVoiceLanguage.code, model, moduleCid, moduleId, openRouterKey, skillRefsKey, skills, t]);
 
   const handleVoiceControl = useCallback((): void => {
     if (!voiceModeRef.current) return;
@@ -1790,7 +1817,7 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
       && stageImageCids(algorithmStage).length > 0;
     const studentHasVisual = attachments.some((attachment) => attachment.kind === 'image') || isTikzCode(tikz);
     if (referenceRequiresStudentImage && !studentHasVisual) {
-      setTutorValidationMessage(t('You forgot to attach an image or add a drawing.'));
+      setTutorValidationMessage(tutorT('You forgot to attach an image or add a drawing.'));
       setVoiceValidationRevision((revision) => revision + 1);
       if (voiceModeRef.current) setVoiceStatus('waiting');
       submitInFlightRef.current = false;
@@ -1859,7 +1886,7 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
         setAudioBlob(undefined);
         setRecordingSeconds(0);
         setShouldBlurTutorReply(false);
-        setTutorValidationMessage(t('I could not hear any speech in that recording. Please try again.'));
+        setTutorValidationMessage(tutorT('I could not hear any speech in that recording. Please try again.'));
         setVoiceValidationRevision((revision) => revision + 1);
         if (voiceModeRef.current) setVoiceStatus('waiting');
         return;
@@ -1959,8 +1986,8 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
           // Keep session storage as a fallback if IndexedDB is unavailable.
         }
         saveToSessionStorage(AI_TUTOR_SESSION, studentExerciseSessionKey(lessonId, lessonStep), studentAnswer);
-        saveToSessionStorage(AI_TUTOR_SESSION, generatedStageTextSessionKey(lessonId, lessonStep, StageType.provide_fake_solution, appVoiceLanguage.code), '');
-        saveToSessionStorage(AI_TUTOR_SESSION, generatedStageTextSessionKey(lessonId, lessonStep, StageType.correct_fake_solution, appVoiceLanguage.code), '');
+        saveToSessionStorage(AI_TUTOR_SESSION, generatedStageTextSessionKey(lessonId, lessonStep, StageType.provide_fake_solution, tutorLocaleCode), '');
+        saveToSessionStorage(AI_TUTOR_SESSION, generatedStageTextSessionKey(lessonId, lessonStep, StageType.correct_fake_solution, tutorLocaleCode), '');
       }
 
       if (candidate.getType() === StageType.skip) {
@@ -2002,7 +2029,7 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
       submitInFlightRef.current = false;
       setLoading(false);
     }
-  }, [algorithm, algorithmStage, answer, appVoiceLanguage.code, attachments, audioBlob, currentAiText, finishSkill, lastStudentMessage, lessonId, lessonStep, loadStageImageAttachments, model, openRouterKey, recording, recordingSeconds, resetComposer, skill, stopRecording, studentExercise, studentExerciseMedia, t, tikz, tikzDataUrl]);
+  }, [algorithm, algorithmStage, answer, attachments, audioBlob, currentAiText, finishSkill, lastStudentMessage, lessonId, lessonStep, loadStageImageAttachments, model, openRouterKey, recording, recordingSeconds, resetComposer, skill, stopRecording, studentExercise, studentExerciseMedia, t, tikz, tikzDataUrl, tutorLocaleCode, tutorT]);
 
   useEffect(() => {
     voiceModeRef.current = voiceMode;
@@ -2030,10 +2057,10 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
 
     // Once talk mode starts, keep the detected module language authoritative
     // for the visible tutor UI as well as transcription and speech playback.
-    void i18n.changeLanguage(voiceLanguage.code).catch(() => {
+    void setAppLanguage(voiceLanguage.code).catch(() => {
       setError(t('Unable to apply the module language to the tutor.'));
     });
-  }, [appVoiceLanguage.code, i18n, t, voiceLanguage, voiceMode]);
+  }, [appVoiceLanguage.code, t, voiceLanguage, voiceMode]);
 
   useEffect(() => {
     if (!voiceMode || recording || loading || !audioBlob || !voiceAutoSubmitRef.current) return;

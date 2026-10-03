@@ -14,6 +14,8 @@
   "AI Tutor is speaking": "AIチューターが話しています",
   "AI model: {{model}}": "AIモデル：{{model}}",
   "AI tutor model": "AIチューターのモデル",
+  "I think the solution is:": "解答はこうだと思います：",
+  "Please, correct mistakes.": "間違いを直してください。",
   "Abilities:": "能力：",
   "Active": "アクティブ",
   "Add": "追加",

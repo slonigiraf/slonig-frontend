@@ -14,6 +14,8 @@
   "AI Tutor is speaking": "AI 튜터가 말하고 있어요",
   "AI model: {{model}}": "AI 모델: {{model}}",
   "AI tutor model": "AI 튜터 모델",
+  "I think the solution is:": "제 생각에 풀이는 다음과 같습니다:",
+  "Please, correct mistakes.": "틀린 부분을 고쳐 주세요.",
   "Abilities:": "기술:",
   "Active": "활성",
   "Add": "추가",
