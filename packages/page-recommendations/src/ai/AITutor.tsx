@@ -538,6 +538,9 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
   const mediaRecorderRef = useRef<MediaRecorder>();
   const mediaStreamRef = useRef<MediaStream>();
   const mediaChunksRef = useRef<Blob[]>([]);
+  const audioBlobRef = useRef<Blob>();
+  const recordingStopPromiseRef = useRef<Promise<Blob | undefined>>();
+  const recordingStopResolveRef = useRef<(blob: Blob | undefined) => void>();
   const [attachments, setAttachments] = useState<ComposerAttachment[]>([]);
   const [audioBlob, setAudioBlob] = useState<Blob>();
   const [recording, setRecording] = useState(false);
@@ -704,6 +707,7 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
         setAnswer('');
         setShouldBlurTutorReply(false);
         setAttachments((visualDraft?.attachments || []).map((attachment) => ({ ...attachment })));
+        audioBlobRef.current = undefined;
         setAudioBlob(undefined);
         setRecordingSeconds(0);
         setTikz(visualDraft?.tikz || '');
@@ -1066,6 +1070,7 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
     setAnswer('');
     setShouldBlurTutorReply(false);
     setAttachments([]);
+    audioBlobRef.current = undefined;
     setAudioBlob(undefined);
     setRecordingSeconds(0);
     setTikz('');
@@ -1141,11 +1146,27 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
     mediaStreamRef.current?.getTracks().forEach((track) => track.stop());
   }, []);
 
-  const stopRecording = useCallback((): void => {
+  const stopRecording = useCallback((): Promise<Blob | undefined> => {
+    if (recordingStopPromiseRef.current) return recordingStopPromiseRef.current;
+
     const recorder = mediaRecorderRef.current;
-    if (!recorder || recorder.state === 'inactive') return;
-    recorder.stop();
-    setRecording(false);
+    if (!recorder || recorder.state === 'inactive') return Promise.resolve(audioBlobRef.current);
+
+    const stopPromise = new Promise<Blob | undefined>((resolve) => {
+      recordingStopResolveRef.current = resolve;
+    });
+    recordingStopPromiseRef.current = stopPromise;
+
+    try {
+      recorder.stop();
+      setRecording(false);
+    } catch {
+      recordingStopResolveRef.current?.(audioBlobRef.current);
+      recordingStopResolveRef.current = undefined;
+      recordingStopPromiseRef.current = undefined;
+    }
+
+    return stopPromise;
   }, []);
 
   const startRecording = useCallback(async (): Promise<void> => {
@@ -1156,6 +1177,7 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
     }
 
     setError('');
+    audioBlobRef.current = undefined;
     setAudioBlob(undefined);
     setRecordingSeconds(0);
 
@@ -1173,16 +1195,22 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
       };
       recorder.onstop = () => {
         const blob = new Blob(mediaChunksRef.current, { type: recorder.mimeType || 'audio/webm' });
-        if (blob.size > 0) setAudioBlob(blob);
+        const recordedBlob = blob.size > 0 ? blob : undefined;
+        audioBlobRef.current = recordedBlob;
+        if (recordedBlob) setAudioBlob(recordedBlob);
         mediaChunksRef.current = [];
         mediaStreamRef.current?.getTracks().forEach((track) => track.stop());
         mediaStreamRef.current = undefined;
         mediaRecorderRef.current = undefined;
         setRecording(false);
+        recordingStopResolveRef.current?.(recordedBlob);
+        recordingStopResolveRef.current = undefined;
+        recordingStopPromiseRef.current = undefined;
       };
 
       recorder.start();
       setRecording(true);
+      setShouldBlurTutorReply(true);
     } catch (e) {
       mediaStreamRef.current?.getTracks().forEach((track) => track.stop());
       mediaStreamRef.current = undefined;
@@ -1214,8 +1242,15 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
   const submitAnswer = useCallback(async (): Promise<void> => {
     // React state updates are asynchronous, so `loading` alone cannot prevent two
     // rapid Enter/click events from starting concurrent decisions for one stage.
-    if (!skill || !algorithmStage || recording || submitInFlightRef.current) return;
-    if (!answer.trim() && attachments.length === 0 && !audioBlob && !tikz) return;
+    if (!skill || !algorithmStage || submitInFlightRef.current) return;
+    submitInFlightRef.current = true;
+
+    const submittedAudioBlob = recording ? await stopRecording() : audioBlobRef.current;
+    if (!answer.trim() && attachments.length === 0 && !submittedAudioBlob && !tikz) {
+      setShouldBlurTutorReply(answer.length > 0);
+      submitInFlightRef.current = false;
+      return;
+    }
 
     if (stageUsesStudentExerciseMedia(algorithmStage)
       && studentExercise.includes('Attached student files:')
@@ -1227,6 +1262,7 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
       setCurrentAiTikzPreviews({});
       setAlgorithmStage(algorithm?.getBegin());
       setError(t('The student-created exercise media is no longer available. Please create the similar exercise again so the AI tutor can inspect it.'));
+      submitInFlightRef.current = false;
       return;
     }
 
@@ -1244,6 +1280,7 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
     const studentHasVisual = attachments.some((attachment) => attachment.kind === 'image') || isTikzCode(tikz);
     if (referenceRequiresStudentImage && !studentHasVisual) {
       setTutorValidationMessage(t('You forgot to attach an image or add a drawing.'));
+      submitInFlightRef.current = false;
       return;
     }
 
@@ -1251,6 +1288,7 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
 
     if (!openRouterKey) {
       setKeyDialogOpen(true);
+      submitInFlightRef.current = false;
       return;
     }
 
@@ -1279,7 +1317,7 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
     const submittedMessage: SubmittedStudentMessage = {
       text: answer.trim(),
       attachments: attachments.map((attachment) => ({ ...attachment })),
-      hasAudio: Boolean(audioBlob),
+      hasAudio: Boolean(submittedAudioBlob),
       audioSeconds: recordingSeconds,
       stageType: submittedStageType,
       tikzImageId: submittedTikzImageId,
@@ -1290,13 +1328,12 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
     const previousStudentMessage = lastStudentMessage;
     let composerCommitted = false;
 
-    submitInFlightRef.current = true;
     setLastStudentMessage(submittedMessage);
     setLoading(true);
     setError('');
     try {
-      const audioTranscript = audioBlob
-        ? await transcribeOpenRouter({ apiKey: openRouterKey }, audioBlob)
+      const audioTranscript = submittedAudioBlob
+        ? await transcribeOpenRouter({ apiKey: openRouterKey }, submittedAudioBlob)
         : '';
       const typedAnswer = answer.trim();
       const svgAttachments = attachments.filter(isSvgAttachment);
@@ -1431,7 +1468,7 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
       submitInFlightRef.current = false;
       setLoading(false);
     }
-  }, [algorithm, algorithmStage, answer, attachments, audioBlob, currentAiText, finishSkill, lastStudentMessage, lessonId, lessonStep, loadStageImageAttachments, model, openRouterKey, recording, recordingSeconds, resetComposer, skill, studentExercise, studentExerciseMedia, t, tikz, tikzDataUrl]);
+  }, [algorithm, algorithmStage, answer, attachments, audioBlob, currentAiText, finishSkill, lastStudentMessage, lessonId, lessonStep, loadStageImageAttachments, model, openRouterKey, recording, recordingSeconds, resetComposer, skill, stopRecording, studentExercise, studentExerciseMedia, t, tikz, tikzDataUrl]);
 
   const resizeAnswerInput = useCallback((element: HTMLTextAreaElement | null): void => {
     if (!element) return;
@@ -1474,8 +1511,7 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
   }, [finishSkill, loading, recording, skill, t]);
 
   const canSubmit = !loading
-    && !recording
-    && Boolean(answer.trim() || attachments.length > 0 || audioBlob || tikz);
+    && Boolean(recording || answer.trim() || attachments.length > 0 || audioBlob || tikz);
   const blurEntireHistory = shouldBlurTutorReply && isRepeatStage(algorithmStage);
   const isTypingReply = shouldBlurTutorReply && !blurEntireHistory;
   const renderedTutorMessageParts = useMemo(() => tutorMessageParts(currentAiText), [currentAiText]);
@@ -1575,7 +1611,7 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
                   value={loading ? '' : answer}
                   onChange={(e) => {
                     setAnswer(e.target.value);
-                    setShouldBlurTutorReply(e.target.value.length > 0);
+                    setShouldBlurTutorReply(e.target.value.length > 0 || Boolean(audioBlob) || recording);
                     resizeAnswerInput(e.currentTarget);
                   }}
                   onPaste={(e) => e.preventDefault()}
@@ -1602,14 +1638,16 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
                   {recording && <AudioChip className='recording'>
                     <RecordingDot aria-hidden='true' />
                     <AttachmentLabel>{t('Recording')} {formatRecordingTime(recordingSeconds)}</AttachmentLabel>
-                    <AudioStopButton type='button' onClick={stopRecording}>{t('Stop')}</AudioStopButton>
+                    <AudioStopButton type='button' onClick={() => void stopRecording()}>{t('Stop')}</AudioStopButton>
                   </AudioChip>}
                   {audioBlob && !recording && <AudioChip>
                     <MicMini aria-hidden='true'>●</MicMini>
                     <AttachmentLabel>{t('Voice message')} · {formatRecordingTime(recordingSeconds)}</AttachmentLabel>
                     <RemoveAttachmentButton type='button' aria-label={t('Remove voice message')} onClick={() => {
+                      audioBlobRef.current = undefined;
                       setAudioBlob(undefined);
                       setRecordingSeconds(0);
+                      setShouldBlurTutorReply(answer.length > 0);
                     }}>×</RemoveAttachmentButton>
                   </AudioChip>}
                   {tikz && <AttachmentChip>
@@ -1705,7 +1743,7 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
                       aria-label={recording ? t('Stop recording') : t('Record voice answer')}
                       title={recording ? t('Stop recording') : t('Record voice answer')}
                       disabled={loading}
-                      onClick={() => recording ? stopRecording() : void startRecording()}
+                      onClick={() => recording ? void stopRecording() : void startRecording()}
                     >
                       {recording
                         ? <StopGlyph aria-hidden='true' />
