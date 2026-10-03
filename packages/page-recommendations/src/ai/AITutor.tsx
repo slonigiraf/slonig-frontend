@@ -14,6 +14,7 @@ import type { OpenRouterAttachment } from './openRouter.js';
 import { getLesson } from '@slonigiraf/db';
 import { decisionPrompt, formatGeneratedStageMessage, generatedStagePrompt } from './tutorPrompts.js';
 import { tutorSpeechChunks, tutorSpeechFallbackText, tutorSpeechHasKatex, tutorSpeechRewriteIsSafe, tutorSpeechRewritePrompt, tutorSpeechSourceText } from './tutorSpeech.js';
+import { skillTranscriptionKeywords, transcriptionLanguages } from './transcriptionHints.js';
 import { useTranslation } from '../translate.js';
 
 export interface AiTutorSkillRef {
@@ -1874,7 +1875,15 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
     setError('');
     try {
       const audioTranscript = submittedAudioBlob
-        ? await transcribeOpenRouter({ apiKey: openRouterKey }, submittedAudioBlob, undefined, recordingLanguageRef.current)
+        ? await transcribeOpenRouter(
+          { apiKey: openRouterKey },
+          submittedAudioBlob,
+          undefined,
+          {
+            keywords: skillTranscriptionKeywords(skill),
+            languages: transcriptionLanguages(recordingLanguageRef.current),
+          },
+        )
         : '';
       const typedAnswer = answer.trim();
       if (submittedAudioBlob && !audioTranscript && !typedAnswer && attachments.length === 0 && !tikz) {

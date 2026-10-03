@@ -25,12 +25,17 @@ describe('OpenRouter audio transcription', (): void => {
       { apiKey: 'test-key' },
       new Blob(['audio'], { type: 'audio/webm' }),
       undefined,
-      'en',
+      {
+        keywords: ['ATP', 'mitochondria'],
+        languages: ['ru', 'en'],
+      },
     );
 
     assert.equal(DEFAULT_TRANSCRIPTION_MODEL, 'openai/gpt-transcribe');
     assert.equal(requestBody?.model, DEFAULT_TRANSCRIPTION_MODEL);
-    assert.equal(requestBody?.language, 'en');
+    assert.deepEqual(requestBody?.keywords, ['ATP', 'mitochondria']);
+    assert.deepEqual(requestBody?.languages, ['ru', 'en']);
+    assert.equal(requestBody?.language, undefined);
     assert.equal(requestBody?.temperature, 0);
   });
   it('retries one successful-but-empty transcription and returns the retry text', async (): Promise<void> => {

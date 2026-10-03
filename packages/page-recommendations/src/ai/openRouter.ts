@@ -253,11 +253,17 @@ async function blobToBase64(blob: Blob): Promise<string> {
   return btoa(binary);
 }
 
+export interface OpenRouterTranscriptionHints {
+  keywords?: string[];
+  languages?: string[];
+  prompt?: string;
+}
+
 export async function transcribeOpenRouter(
   settings: OpenRouterSettings,
   audio: Blob,
   signal?: AbortSignal,
-  language?: string,
+  hints?: OpenRouterTranscriptionHints,
 ): Promise<string> {
   const body = JSON.stringify({
     model: DEFAULT_TRANSCRIPTION_MODEL,
@@ -265,7 +271,9 @@ export async function transcribeOpenRouter(
       data: await blobToBase64(audio),
       format: audioFormatFromMime(audio.type),
     },
-    ...(language ? { language } : {}),
+    ...(hints?.prompt ? { prompt: hints.prompt } : {}),
+    ...(hints?.keywords?.length ? { keywords: hints.keywords } : {}),
+    ...(hints?.languages?.length ? { languages: hints.languages } : {}),
     // A deterministic transcription is preferable for grading/classification.
     temperature: 0,
   });
