@@ -1,4 +1,4 @@
-import { katexToSpeechFallback, tutorSpeechFallbackText, tutorSpeechHasKatex, tutorSpeechRewriteIsSafe, tutorSpeechRewritePrompt, tutorSpeechSourceText } from './tutorSpeech.js';
+import { katexToSpeechFallback, tutorSpeechChunks, tutorSpeechFallbackText, tutorSpeechHasKatex, tutorSpeechRewriteIsSafe, tutorSpeechRewritePrompt, tutorSpeechSourceText } from './tutorSpeech.js';
 
 describe('AI Tutor speech text', (): void => {
   it('keeps kx formulas in the rewrite source while removing markdown and code', (): void => {
@@ -33,4 +33,20 @@ describe('AI Tutor speech text', (): void => {
     expect(spoken).not.toContain('\\frac');
     expect(spoken).not.toContain('\\leq');
   });
+
+  it('splits long speech at natural boundaries for low-latency TTS prefetching', (): void => {
+    const chunks = tutorSpeechChunks(
+      'First sentence is short. Second sentence is also short. Third sentence closes the explanation.',
+      45,
+    );
+
+    expect(chunks.length).toBeGreaterThan(1);
+    expect(chunks.every((chunk) => chunk.length <= 45)).toBe(true);
+    expect(chunks.join(' ')).toBe('First sentence is short. Second sentence is also short. Third sentence closes the explanation.');
+  });
+
+  it('keeps short tutor speech in one TTS request', (): void => {
+    expect(tutorSpeechChunks('Try the next example.')).toEqual(['Try the next example.']);
+  });
+
 });

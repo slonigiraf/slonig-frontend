@@ -12,7 +12,7 @@ import { askOpenRouter, DEFAULT_MODEL, synthesizeOpenRouterSpeech, transcribeOpe
 import type { OpenRouterAttachment } from './openRouter.js';
 import { getLesson } from '@slonigiraf/db';
 import { decisionPrompt, formatGeneratedStageMessage, generatedStagePrompt } from './tutorPrompts.js';
-import { tutorSpeechFallbackText, tutorSpeechHasKatex, tutorSpeechRewriteIsSafe, tutorSpeechRewritePrompt, tutorSpeechSourceText } from './tutorSpeech.js';
+import { tutorSpeechChunks, tutorSpeechFallbackText, tutorSpeechHasKatex, tutorSpeechRewriteIsSafe, tutorSpeechRewritePrompt, tutorSpeechSourceText } from './tutorSpeech.js';
 import { useTranslation } from '../translate.js';
 
 export interface AiTutorSkillRef {
@@ -36,8 +36,12 @@ const MODEL_STORAGE = 'slonig:ai-tutor:model';
 const AI_TUTOR_SESSION = 'ai-tutor';
 const MAX_ATTACHMENTS = 6;
 const MAX_ATTACHMENT_BYTES = 20 * 1024 * 1024;
-const VOICE_SILENCE_MS = 1350;
-const VOICE_SPEECH_RMS_THRESHOLD = 0.028;
+const VOICE_SILENCE_MS = 1650;
+const VOICE_NOISE_CALIBRATION_MS = 450;
+const VOICE_MIN_SPEECH_MS = 220;
+const VOICE_SPEECH_START_MIN_RMS = 0.018;
+const VOICE_SPEECH_CONTINUE_MIN_RMS = 0.011;
+const VOICE_NOISE_START_MULTIPLIER = 2.8;
 const VOICE_LANGUAGE_SAMPLE_COUNT = 5;
 const APP_TUTOR_LANGUAGE_CODES = new Set(['ar', 'bn', 'de', 'en', 'es', 'fr', 'hi', 'id', 'it', 'ja', 'ko', 'ky', 'pt', 'ru', 'sr', 'ur', 'zh']);
 type VoiceStatus = 'off' | 'detecting' | 'speaking' | 'listening' | 'thinking' | 'waiting';
@@ -1335,7 +1339,14 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
     setRecordingSeconds(0);
 
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          autoGainControl: true,
+          channelCount: 1,
+          echoCancellation: true,
+          noiseSuppression: true,
+        },
+      });
       mediaStreamRef.current = stream;
       const candidates = ['audio/webm;codecs=opus', 'audio/mp4', 'audio/webm', 'audio/ogg;codecs=opus'];
       const mimeType = candidates.find((candidate) => MediaRecorder.isTypeSupported(candidate));
@@ -1361,7 +1372,9 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
         recordingStopPromiseRef.current = undefined;
       };
 
-      recorder.start();
+      // Small recorder chunks make stop/submit more reliable across browsers
+      // without changing the final audio container sent to OpenRouter.
+      recorder.start(250);
       setRecording(true);
       setShouldBlurTutorReply(true);
 
@@ -1377,6 +1390,10 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
           voiceSpeechDetectedRef.current = false;
           voiceSilenceStartedAtRef.current = undefined;
           const samples = new Float32Array(analyser.fftSize);
+          const analyserStartedAt = performance.now();
+          let ambientRmsTotal = 0;
+          let ambientRmsSamples = 0;
+          let speechStartedAt: number | undefined;
 
           const watchLevel = (): void => {
             if (recorder.state === 'inactive' || !voiceModeRef.current) {
@@ -1390,10 +1407,33 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
             const rms = Math.sqrt(sum / samples.length);
             const now = performance.now();
 
-            if (rms >= VOICE_SPEECH_RMS_THRESHOLD) {
+            // Calibrate briefly against the learner's actual room/microphone.
+            // Hysteresis then uses a lower threshold once speech has started,
+            // which avoids chopping quiet syllables while still ignoring fans
+            // and background noise better than one fixed RMS threshold.
+            if (!voiceSpeechDetectedRef.current && now - analyserStartedAt <= VOICE_NOISE_CALIBRATION_MS) {
+              ambientRmsTotal += rms;
+              ambientRmsSamples += 1;
+            }
+            const ambientRms = ambientRmsSamples > 0 ? ambientRmsTotal / ambientRmsSamples : 0;
+            const speechStartThreshold = Math.max(
+              VOICE_SPEECH_START_MIN_RMS,
+              Math.min(0.06, ambientRms * VOICE_NOISE_START_MULTIPLIER),
+            );
+            const speechContinueThreshold = Math.max(
+              VOICE_SPEECH_CONTINUE_MIN_RMS,
+              speechStartThreshold * 0.55,
+            );
+
+            if (!voiceSpeechDetectedRef.current && rms >= speechStartThreshold) {
               voiceSpeechDetectedRef.current = true;
+              speechStartedAt = now;
               voiceSilenceStartedAtRef.current = undefined;
-            } else if (voiceSpeechDetectedRef.current) {
+            } else if (voiceSpeechDetectedRef.current && rms >= speechContinueThreshold) {
+              voiceSilenceStartedAtRef.current = undefined;
+            } else if (voiceSpeechDetectedRef.current
+              && speechStartedAt !== undefined
+              && now - speechStartedAt >= VOICE_MIN_SPEECH_MS) {
               voiceSilenceStartedAtRef.current ??= now;
               if (now - voiceSilenceStartedAtRef.current >= VOICE_SILENCE_MS) {
                 voiceAutoSubmitRef.current = true;
@@ -1500,32 +1540,65 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
       }
 
       let played = false;
+      const chunks = tutorSpeechChunks(spokenText);
+      let spokenChunkCount = 0;
+
+      const synthesizeChunk = async (chunk: string): Promise<{ speech?: Blob; error?: unknown }> => {
+        try {
+          return { speech: await synthesizeOpenRouterSpeech({ apiKey: openRouterKey }, chunk, controller.signal) };
+        } catch (error) {
+          return { error };
+        }
+      };
+
       try {
-        const speech = await synthesizeOpenRouterSpeech(
-          { apiKey: openRouterKey },
-          spokenText,
-          controller.signal,
-          undefined,
-          voiceLanguageInstructionName(language.code),
-        );
-        if (!voiceModeRef.current || requestId !== tutorSpeechRequestRef.current) return;
+        // OpenRouter returns a byte stream, but standard browser <audio> playback
+        // cannot consume the fetch stream portably. Splitting at sentence
+        // boundaries gets most of the latency benefit: synthesize a short first
+        // chunk, then prefetch the next chunk while the current audio is playing.
+        let pendingSpeech = chunks[0] ? synthesizeChunk(chunks[0]) : undefined;
 
-        const url = URL.createObjectURL(speech);
-        const audio = new Audio(url);
-        tutorAudioUrlRef.current = url;
-        tutorAudioRef.current = audio;
+        for (let index = 0; index < chunks.length && pendingSpeech; index++) {
+          const result = await pendingSpeech;
+          if (result.error) throw result.error;
+          if (!result.speech) throw new Error('OpenRouter returned empty tutor speech.');
+          if (!voiceModeRef.current || requestId !== tutorSpeechRequestRef.current) return;
 
-        await new Promise<void>((resolve, reject) => {
-          audio.onended = () => resolve();
-          audio.onerror = () => reject(new Error('Tutor speech audio could not be played.'));
-          void audio.play().catch(reject);
-        });
-        played = true;
+          pendingSpeech = chunks[index + 1] ? synthesizeChunk(chunks[index + 1]) : undefined;
+
+          const url = URL.createObjectURL(result.speech);
+          const audio = new Audio(url);
+          tutorAudioUrlRef.current = url;
+          tutorAudioRef.current = audio;
+
+          try {
+            await new Promise<void>((resolve, reject) => {
+              audio.onended = () => resolve();
+              audio.onerror = () => reject(new Error('Tutor speech audio could not be played.'));
+              void audio.play().catch(reject);
+            });
+          } finally {
+            audio.onended = null;
+            audio.onerror = null;
+            if (tutorAudioRef.current === audio) tutorAudioRef.current = undefined;
+            if (tutorAudioUrlRef.current === url) {
+              URL.revokeObjectURL(url);
+              tutorAudioUrlRef.current = undefined;
+            }
+          }
+
+          spokenChunkCount = index + 1;
+        }
+        played = chunks.length > 0;
       } catch (error) {
         if (error instanceof DOMException && error.name === 'AbortError') return;
         if (controller.signal.aborted || requestId !== tutorSpeechRequestRef.current || !voiceModeRef.current) return;
-        await speakWithBrowserVoice(spokenText, requestId, language.code);
-        played = true;
+
+        // If a later OpenRouter chunk fails, do not repeat audio the learner has
+        // already heard. Fall back only for the remaining portion.
+        const remainingText = chunks.slice(spokenChunkCount).join(' ').trim();
+        if (remainingText) await speakWithBrowserVoice(remainingText, requestId, language.code);
+        played = Boolean(remainingText) || spokenChunkCount > 0;
       } finally {
         const audio = tutorAudioRef.current;
         if (audio) {

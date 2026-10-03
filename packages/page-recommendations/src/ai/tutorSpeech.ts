@@ -210,3 +210,68 @@ Rules:
 Source tutor message as a JSON string:
 ${JSON.stringify(sourceText)}`;
 }
+
+/**
+ * Split long tutor speech at natural punctuation so the first TTS request is
+ * small enough to start quickly. The caller can prefetch the next chunk while
+ * the current one is playing. This intentionally operates on already-cleaned
+ * spoken text, not on the visible tutor message/KaTeX source.
+ */
+export function tutorSpeechChunks(value: string, maxChars = 280): string[] {
+  const input = value.replace(/\s+/g, ' ').trim();
+  if (!input) return [];
+  if (input.length <= maxChars) return [input];
+
+  const sentences = input.match(/[^.!?。！？]+(?:[.!?。！？]+["'”’）)\]]*|$)/gu)
+    ?.map((part) => part.trim())
+    .filter(Boolean) || [input];
+
+  const pieces: string[] = [];
+  const pushLongPart = (part: string): void => {
+    if (part.length <= maxChars) {
+      pieces.push(part);
+      return;
+    }
+
+    const words = part.split(/\s+/);
+    let current = '';
+    words.forEach((word) => {
+      if (word.length > maxChars) {
+        if (current) {
+          pieces.push(current);
+          current = '';
+        }
+        for (let offset = 0; offset < word.length; offset += maxChars) {
+          pieces.push(word.slice(offset, offset + maxChars));
+        }
+        return;
+      }
+
+      const candidate = current ? `${current} ${word}` : word;
+      if (candidate.length > maxChars && current) {
+        pieces.push(current);
+        current = word;
+      } else {
+        current = candidate;
+      }
+    });
+    if (current) pieces.push(current);
+  };
+
+  sentences.forEach(pushLongPart);
+
+  const chunks: string[] = [];
+  let current = '';
+  pieces.forEach((piece) => {
+    const candidate = current ? `${current} ${piece}` : piece;
+    if (candidate.length > maxChars && current) {
+      chunks.push(current);
+      current = piece;
+    } else {
+      current = candidate;
+    }
+  });
+  if (current) chunks.push(current);
+
+  return chunks;
+}

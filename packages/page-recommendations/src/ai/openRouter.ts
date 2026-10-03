@@ -28,9 +28,13 @@ export interface GeneratedImage {
 }
 
 const DEFAULT_MODEL = 'openai/gpt-6-luna';
-const DEFAULT_TRANSCRIPTION_MODEL = 'openai/gpt-4o-mini-transcribe';
-const DEFAULT_SPEECH_MODEL = 'openai/gpt-4o-mini-tts-2025-12-15';
-const DEFAULT_SPEECH_VOICE = 'alloy';
+// GPT Transcribe is OpenRouter's current high-accuracy general STT option and
+// keeps the tutor's broad language support without a second provider SDK.
+const DEFAULT_TRANSCRIPTION_MODEL = 'openai/gpt-transcribe';
+// OpenAI TTS is no longer in OpenRouter's live speech catalog. Grok Voice is a
+// current multilingual option with stable voice IDs and automatic language detection.
+const DEFAULT_SPEECH_MODEL = 'x-ai/grok-voice-tts-1.0';
+const DEFAULT_SPEECH_VOICE = 'eve';
 const DEFAULT_IMAGE_MODEL = 'openai/gpt-image-2';
 
 function extractJson(text: string, responseKind: 'message'): TutorMessageResponse;
@@ -262,6 +266,8 @@ export async function transcribeOpenRouter(
       format: audioFormatFromMime(audio.type),
     },
     ...(language ? { language } : {}),
+    // A deterministic transcription is preferable for grading/classification.
+    temperature: 0,
   });
 
   // OpenRouter/provider routing can occasionally return a successful response
@@ -290,7 +296,6 @@ export async function synthesizeOpenRouterSpeech(
   text: string,
   signal?: AbortSignal,
   voice = DEFAULT_SPEECH_VOICE,
-  languageName?: string,
 ): Promise<Blob> {
   const input = text.trim();
   if (!input) throw new Error('Cannot synthesize empty tutor speech.');
@@ -304,17 +309,6 @@ export async function synthesizeOpenRouterSpeech(
       input,
       voice,
       response_format: 'mp3',
-      speed: 1,
-      provider: {
-        options: {
-          openai: {
-            instructions: [
-              'Speak naturally as a patient, encouraging tutor. Keep mathematical expressions clear and unhurried.',
-              languageName ? `Speak in ${languageName} throughout this utterance and do not switch languages.` : '',
-            ].filter(Boolean).join(' '),
-          },
-        },
-      },
     }),
   });
 
