@@ -774,6 +774,21 @@ export async function replaceBookChapterAssignments(bookId: number, boundaries: 
         }
 
         for (const page of pages) {
+            // A first chapter boundary after page 1 means the preceding pages
+            // are front matter. Do not synthesize a chapter for them: excluding
+            // the pages here keeps them out of Concepts and every downstream
+            // processing stage while preserving the recognized page content.
+            if (page.pageNumber < normalized[0].startPage) {
+                await db.bookPages.update([bookId, page.pageNumber], {
+                    chapter: '',
+                    chapterId: undefined,
+                    conceptsProcessed: false,
+                    excludedFromAnalysis: true
+                });
+                await db.bookConcepts.where('bookPage').equals([bookId, page.pageNumber]).modify({ chapterId: undefined });
+                continue;
+            }
+
             let boundaryIndex = 0;
 
             for (let index = 1; index < normalized.length && normalized[index].startPage <= page.pageNumber; index++) {

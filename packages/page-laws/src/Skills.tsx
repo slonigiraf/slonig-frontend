@@ -661,7 +661,7 @@ async function requestValidatedJson<T> (client: OpenAI, model: string, systemPro
   throw new Error(`AI output remained invalid after local validation/repair: ${detail}`);
 }
 
-function ChapterNavigation ({ chapters, index, matchExercises = false, missingAbilityCounts, onChange }: { chapters: BookChapter[]; index: number; matchExercises?: boolean; missingAbilityCounts?: number[]; onChange: (index: number) => void }): React.ReactElement | null {
+function ChapterNavigation ({ chapters, index, matchExercises = false, missingAbilityCounts, onChange, onEdit }: { chapters: BookChapter[]; index: number; matchExercises?: boolean; missingAbilityCounts?: number[]; onChange: (index: number) => void; onEdit: () => void }): React.ReactElement | null {
   const previous = useCallback((): void => onChange(index - 1), [index, onChange]);
   const next = useCallback((): void => onChange(index + 1), [index, onChange]);
 
@@ -676,20 +676,29 @@ function ChapterNavigation ({ chapters, index, matchExercises = false, missingAb
         isDisabled={index <= 0}
         onClick={previous}
       />
-      <label>Chapter <select
-        aria-label='Navigate chapters'
-        onChange={({ target }) => onChange(Number(target.value))}
-        value={index}
-                     >
-        {chapters.map(({ id, title }, chapterIndex) => {
-          const missingCount = missingAbilityCounts?.[chapterIndex] ?? 0;
+      <div className='chapterSelectGroup'>
+        <label>Chapter <select
+          aria-label='Navigate chapters'
+          onChange={({ target }) => onChange(Number(target.value))}
+          value={index}
+                       >
+          {chapters.map(({ id, title }, chapterIndex) => {
+            const missingCount = missingAbilityCounts?.[chapterIndex] ?? 0;
 
-          return <option
-            key={id ?? `${title}:${chapterIndex}`}
-            value={chapterIndex}
-          >{title || 'Chapter not identified'}{missingCount ? ` (${missingCount} exercise${missingCount === 1 ? '' : 's'} missing abilities)` : ''}</option>;
-        })}
-      </select><span>{index + 1} of {chapters.length}</span></label>
+            return <option
+              key={id ?? `${title}:${chapterIndex}`}
+              value={chapterIndex}
+            >{title || 'Chapter not identified'}{missingCount ? ` (${missingCount} exercise${missingCount === 1 ? '' : 's'} missing abilities)` : ''}</option>;
+          })}
+        </select></label>
+        <Button
+          aria-label='Edit chapter name'
+          icon='edit'
+          isDisabled={chapters[index]?.id === undefined}
+          onClick={onEdit}
+        />
+      </div>
+      <span>{index + 1} of {chapters.length}</span>
       <Button
         icon='arrow-right'
         isDisabled={index >= chapters.length - 1}
@@ -709,6 +718,12 @@ function ChapterNavigation ({ chapters, index, matchExercises = false, missingAb
       options={chapters.map(({ id, title }, chapterIndex) => ({ key: id ?? chapterIndex, text: title, value: chapterIndex }))}
       value={index}
     />
+    <Button
+      aria-label='Edit chapter name'
+      icon='edit'
+      isDisabled={chapters[index]?.id === undefined}
+      onClick={onEdit}
+    />
     <input
       aria-label='Navigate chapters'
       max={Math.max(1, chapters.length - 1)}
@@ -726,30 +741,50 @@ function ChapterNavigation ({ chapters, index, matchExercises = false, missingAb
   </div>;
 }
 
-function ChapterTitleEditor ({ chapter, onError, onSaved }: { chapter: BookChapter; onError: (error: string) => void; onSaved: () => void }): React.ReactElement {
+function ChapterTitleEditor ({ chapter, onClose, onError, onSaved }: { chapter: BookChapter; onClose: () => void; onError: (error: string) => void; onSaved: () => void }): React.ReactElement {
   const [title, setTitle] = useState(chapter.title);
   const save = useCallback((): void => {
     if (chapter.id === undefined || !title.trim()) {
       return;
     }
 
-    updateBookChapterTitle(chapter.id, title.trim()).then(onSaved).catch((error) => onError(error instanceof Error ? error.message : 'Unable to rename the chapter.'));
-  }, [chapter.id, onError, onSaved, title]);
+    updateBookChapterTitle(chapter.id, title.trim())
+      .then(() => {
+        onSaved();
+        onClose();
+      })
+      .catch((error) => onError(error instanceof Error ? error.message : 'Unable to rename the chapter.'));
+  }, [chapter.id, onClose, onError, onSaved, title]);
 
-  return <div className='chapterEditor'>
-    <Input
-      label='Chapter name'
-      onChange={setTitle}
-      onEnter={save}
-      value={title}
-    />
-    <Button
-      icon='save'
-      isDisabled={!title.trim() || title.trim() === chapter.title}
-      label='Save'
-      onClick={save}
-    />
-  </div>;
+  return <Modal
+    header='Edit chapter name'
+    onClose={onClose}
+    size='small'
+  >
+    <Modal.Content>
+      <div className='chapterEditor'>
+        <Input
+          label='Chapter name'
+          onChange={setTitle}
+          onEnter={save}
+          value={title}
+        />
+        <Button.Group>
+          <Button
+            icon='times'
+            label='Cancel'
+            onClick={onClose}
+          />
+          <Button
+            icon='save'
+            isDisabled={!title.trim() || title.trim() === chapter.title}
+            label='Save'
+            onClick={save}
+          />
+        </Button.Group>
+      </div>
+    </Modal.Content>
+  </Modal>;
 }
 
 type ExerciseEditableFields = Pick<Exercise, 'description' | 'imageDescription' | 'solution' | 'solutionImageDescription' | 'title'>;
@@ -1441,6 +1476,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalAutoRunBus
   const [chapterContent, setChapterContent] = useState<ChapterContent[]>([]);
   const [bookPageContent, setBookPageContent] = useState<BookPageContent[]>([]);
   const [chapterIndex, setChapterIndex] = useState(() => getSessionChapter(book.id, view));
+  const [editingChapter, setEditingChapter] = useState<BookChapter>();
   const [error, setError] = useState('');
   const [fixReview, setFixReview] = useState<FixReviewResult | null>(null);
   const [exerciseFixReview, setExerciseFixReview] = useState<ExerciseFixReviewResult | null>(null);
@@ -1581,6 +1617,12 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalAutoRunBus
   }), [book.id, chapters]);
 
   const current = chapterContent[chapterIndex];
+  const openChapterEditor = useCallback((): void => {
+    if (current?.chapter.id !== undefined) {
+      setEditingChapter(current.chapter);
+    }
+  }, [current]);
+  const closeChapterEditor = useCallback((): void => setEditingChapter(undefined), []);
   useLayoutEffect(() => {
     if (!pendingChapterFocusRef.current || !current) {
       return;
@@ -3023,9 +3065,9 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalAutoRunBus
 
     // Fast Forward is sequential even when a stage persists a coarse "done"
     // flag after partial success. Once a run settles, inspect its finer-grained
-    // completeness signal. Retry only the missing subset at most twice, then
-    // allow the pipeline to advance instead of repeatedly regenerating content
-    // that was already stored successfully.
+    // completeness signal. Retry only the missing subset at most twice; if the
+    // detailed result is still incomplete, stop here rather than advancing to
+    // a downstream stage with missing inputs.
     for (let scan = 0; scan <= autoRunStageKeys.length; scan++) {
       const nextKey = autoRunStageKeys.find((key) => !autoRunFinishedStageKeysRef.current.has(key));
 
@@ -3107,13 +3149,11 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalAutoRunBus
             return;
           }
 
-          if (!nextAction.isDone) {
-            setError(`Fast Forward stopped at ${nextAction.label}: the stage is still incomplete after two targeted retries.`);
-            autoRunTriggeredKeyRef.current = '';
-            autoRunRunStartedRef.current = false;
-            onAbortAutoRun?.();
-            return;
-          }
+          setError(`Fast Forward stopped at ${nextAction.label}: the stage is still incomplete after two targeted retries.`);
+          autoRunTriggeredKeyRef.current = '';
+          autoRunRunStartedRef.current = false;
+          onAbortAutoRun?.();
+          return;
         }
       } else if (!nextAction.isDone) {
         return;
@@ -3181,6 +3221,12 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalAutoRunBus
   }, [selectedPipelineAction]);
 
   return <StyledSkills className={pipelineOnly ? 'pipelineOnly' : undefined}>
+    {editingChapter && <ChapterTitleEditor
+      chapter={editingChapter}
+      onClose={closeChapterEditor}
+      onError={setError}
+      onSaved={refresh}
+                       />}
     {exerciseFixReview && !autoRunAll && (
       <Modal
         header='Fix exercises results'
@@ -3503,15 +3549,11 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalAutoRunBus
         matchExercises={view === 'preExercisesExercises'}
         missingAbilityCounts={view === 'preExercisesExercises' ? missingAbilityCountsByChapter : undefined}
         onChange={changeChapter}
+        onEdit={openChapterEditor}
       />
       {!current && <p>No chapters have been generated for this book.</p>}
       {current && (
         <>
-          <ChapterTitleEditor
-            chapter={current.chapter}
-            onError={setError}
-            onSaved={refresh}
-          />
           {view === 'conceptsSkills' && (
             <div
               className='columns'
@@ -3888,13 +3930,13 @@ const StyledSkills = styled.div`
     margin-right: 0.25rem !important;
   }
   .modelSelect { min-width: 11rem; }
-  .chapterNavigation { align-items: center; display: grid; gap: 0.5rem; grid-template-columns: auto minmax(14rem, 1fr) minmax(8rem, 1fr) auto auto; margin-bottom: 1rem; }
-  .exercisesChapterNavigation { display: flex; gap: 0.75rem; }
+  .chapterNavigation { align-items: center; display: grid; gap: 0.5rem; grid-template-columns: auto minmax(14rem, 1fr) auto minmax(8rem, 1fr) auto auto; margin-bottom: 1rem; }
+  .exercisesChapterNavigation { background: var(--bg-page); display: flex; gap: 0.75rem; padding: 0.5rem 0; position: sticky; top: 0; z-index: 2; }
+  .chapterSelectGroup { align-items: center; display: flex; flex: 1; gap: 0.5rem; min-width: 0; }
   .exercisesChapterNavigation label { align-items: center; display: flex; flex: 1; gap: 0.5rem; min-width: 0; }
   .exercisesChapterNavigation select { background: var(--bg-input); border: 1px solid #dde1eb; border-radius: 0.25rem; color: var(--color-text); flex: 1; min-width: 0; padding: 0.55rem; }
   .exercisesChapterNavigation span { white-space: nowrap; }
-  .chapterEditor { align-items: flex-end; display: flex; gap: 0.5rem; margin-bottom: 1rem; }
-  .chapterEditor > :first-child { flex: 1; }
+  .chapterEditor { display: grid; gap: 1rem; }
   .columns { display: grid; gap: 1rem; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
   .columns > section, .singlePane { border: 1px solid var(--border-table); border-radius: 0.4rem; min-width: 0; overflow: auto; padding: 1rem; }
   .contentCard { border-bottom: 1px solid var(--border-table); box-sizing: border-box; min-width: 0; padding: 0.75rem 16rem 0.75rem 10px; position: relative; }
@@ -3939,7 +3981,7 @@ const StyledSkills = styled.div`
   .tikzDiffGrid > section > h5 { margin-top: 0; }
   .tikzCodeDiff, .tikzDiagnostics { background: var(--bg-input); border: 1px solid var(--border-table); border-radius: 0.3rem; box-sizing: border-box; font-size: 0.78rem; max-height: 16rem; overflow: auto; padding: 0.6rem; white-space: pre-wrap; word-break: break-word; }
   .tikzDiagnostics { color: #9f3a38; max-height: 8rem; }
-  @media only screen and (max-width: 900px) { .columns, .duplicatePairComparison, .tikzDiffGrid { grid-template-columns: 1fr; } .chapterEditor { align-items: stretch; flex-direction: column; } }
+  @media only screen and (max-width: 900px) { .columns, .duplicatePairComparison, .tikzDiffGrid { grid-template-columns: 1fr; } }
   @media only screen and (max-width: 600px) {
     .contentCard { padding-right: 10px; padding-top: 4.1rem; }
     .contentCardActions { left: 10px; max-width: none; right: 10px; }

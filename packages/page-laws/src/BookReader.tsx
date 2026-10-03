@@ -79,6 +79,52 @@ function conceptsForNavigationChapter (concepts: BookConcept[], chapter: Concept
   return sortConceptsForDisplay(concepts.filter((concept) => conceptBelongsToChapter(concept, chapter)));
 }
 
+function ChapterTitleEditor ({ chapter, onClose, onError, onSaved }: { chapter: BookChapter; onClose: () => void; onError: (error: string) => void; onSaved: () => void }): React.ReactElement {
+  const [title, setTitle] = useState(chapter.title);
+  const save = useCallback((): void => {
+    if (chapter.id === undefined || !title.trim()) {
+      return;
+    }
+
+    updateBookChapterTitle(chapter.id, title.trim())
+      .then(() => {
+        onSaved();
+        onClose();
+      })
+      .catch((error) => onError(error instanceof Error ? error.message : 'Unable to rename the chapter.'));
+  }, [chapter.id, onClose, onError, onSaved, title]);
+
+  return <Modal
+    header='Edit chapter name'
+    onClose={onClose}
+    size='small'
+  >
+    <Modal.Content>
+      <div className='chapterTitleEditor'>
+        <Input
+          label='Chapter name'
+          onChange={setTitle}
+          onEnter={save}
+          value={title}
+        />
+        <Button.Group>
+          <Button
+            icon='times'
+            label='Cancel'
+            onClick={onClose}
+          />
+          <Button
+            icon='save'
+            isDisabled={!title.trim() || title.trim() === chapter.title}
+            label='Save'
+            onClick={save}
+          />
+        </Button.Group>
+      </div>
+    </Modal.Content>
+  </Modal>;
+}
+
 function conceptInsertionDisplayOrder (concepts: BookConcept[], insertionIndex: number): number {
   const previousIndex = insertionIndex - 1;
   const previousOrder = previousIndex >= 0
@@ -1688,6 +1734,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
   const [selectedChapterIds, setSelectedChapterIds] = useState<Set<number>>(new Set());
   const [isDeletingChapters, setIsDeletingChapters] = useState(false);
   const [isDeleteChaptersConfirmationOpen, setIsDeleteChaptersConfirmationOpen] = useState(false);
+  const [editingChapter, setEditingChapter] = useState<BookChapter>();
   const [chapterTitleDraft, setChapterTitleDraft] = useState('');
   const [newChapterTitle, setNewChapterTitle] = useState('');
   const [concepts, setConcepts] = useState<BookConcept[]>([]);
@@ -2604,6 +2651,23 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
     setPages(new Map(storedPages.map((page) => [page.pageNumber, page])));
     setChapters(storedChapters);
   }, [book.id]);
+  const openChapterEditor = useCallback((chapterId?: number): void => {
+    if (chapterId === undefined) {
+      return;
+    }
+
+    const chapter = chapters.find(({ id }) => id === chapterId);
+
+    if (chapter) {
+      setEditingChapter(chapter);
+    }
+  }, [chapters]);
+  const closeChapterEditor = useCallback((): void => setEditingChapter(undefined), []);
+  const refreshAfterChapterRename = useCallback((): void => {
+    refreshChapterAssignments()
+      .then(() => setSkillsRefreshToken((value) => value + 1))
+      .catch((caught) => setError(caught instanceof Error ? caught.message : 'Unable to refresh chapters.'));
+  }, [refreshChapterAssignments]);
 
   useEffect(() => {
     const availableIds = new Set(chapters.flatMap(({ id }) => id === undefined ? [] : [id]));
@@ -6431,6 +6495,12 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
 
   return (
     <StyledReader className={`bookReader${isMaximized ? ' isMaximized' : ''}`}>
+      {editingChapter && <ChapterTitleEditor
+        chapter={editingChapter}
+        onClose={closeChapterEditor}
+        onError={setError}
+        onSaved={refreshAfterChapterRename}
+      />}
       {deduplicateConceptsReview && !autoRunAll && <Modal
         header='Review Deduplicate concepts changes'
         onClose={discardDeduplicateConceptsReview}
@@ -6786,17 +6856,26 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
             isDisabled={standardsChapterIndex <= 0}
             onClick={() => changeStandardsChapter(standardsChapterIndex - 1)}
           />
-          <label>Chapter <select
-            aria-label={activePane === 'embeddings' ? 'Navigate embedding chapters' : 'Navigate standards chapters'}
-            disabled={!conceptChapters.length}
-            onChange={({ target }) => changeStandardsChapter(Number(target.value))}
-            value={conceptChapters.length ? standardsChapterIndex : ''}
-          >
-            {conceptChapters.map(({ chapterId, pageNumbers, title }, index) => <option
-              key={standardsChapterKey(chapterId, title, pageNumbers)}
-              value={index}
-            >{title || 'Chapter not identified'}</option>)}
-          </select><span>{conceptChapters.length ? `${standardsChapterIndex + 1} of ${conceptChapters.length}` : 'No chapters'}</span></label>
+          <div className='chapterSelectGroup'>
+            <label>Chapter <select
+              aria-label={activePane === 'embeddings' ? 'Navigate embedding chapters' : 'Navigate standards chapters'}
+              disabled={!conceptChapters.length}
+              onChange={({ target }) => changeStandardsChapter(Number(target.value))}
+              value={conceptChapters.length ? standardsChapterIndex : ''}
+            >
+              {conceptChapters.map(({ chapterId, pageNumbers, title }, index) => <option
+                key={standardsChapterKey(chapterId, title, pageNumbers)}
+                value={index}
+              >{title || 'Chapter not identified'}</option>)}
+            </select></label>
+            <Button
+              aria-label='Edit chapter name'
+              icon='edit'
+              isDisabled={conceptChapters[standardsChapterIndex]?.chapterId === undefined}
+              onClick={() => openChapterEditor(conceptChapters[standardsChapterIndex]?.chapterId)}
+            />
+          </div>
+          <span>{conceptChapters.length ? `${standardsChapterIndex + 1} of ${conceptChapters.length}` : 'No chapters'}</span>
           <Button
             icon='arrow-right'
             isDisabled={!conceptChapters.length || standardsChapterIndex >= conceptChapters.length - 1}
@@ -6809,22 +6888,31 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
             isDisabled={exerciseChapterIndex <= 0}
             onClick={() => changeExerciseChapter(exerciseChapterIndex - 1)}
           />
-          <label>Chapter <select
-            aria-label='Navigate chapters'
-            disabled={!exerciseChapters.length}
-            onChange={({ target }) => changeExerciseChapter(Number(target.value))}
-            value={exerciseChapters.length ? exerciseChapterIndex : ''}
-          >
-            {exerciseChapters.map((chapter, index) => {
-              const missingCount = exerciseChapterMissingCounts.get(exerciseChapterNavigationKey(chapter));
-              const title = chapter.title || 'Chapter not identified';
+          <div className='chapterSelectGroup'>
+            <label>Chapter <select
+              aria-label='Navigate chapters'
+              disabled={!exerciseChapters.length}
+              onChange={({ target }) => changeExerciseChapter(Number(target.value))}
+              value={exerciseChapters.length ? exerciseChapterIndex : ''}
+            >
+              {exerciseChapters.map((chapter, index) => {
+                const missingCount = exerciseChapterMissingCounts.get(exerciseChapterNavigationKey(chapter));
+                const title = chapter.title || 'Chapter not identified';
 
-              return <option
-              key={`${chapter.title}:${index}`}
-              value={index}
-            >{title}{missingCount ? ` (${missingCount} exercise${missingCount === 1 ? '' : 's'} missing)` : ''}</option>;
-            })}
-          </select><span>{exerciseChapters.length ? `${exerciseChapterIndex + 1} of ${exerciseChapters.length}` : 'No chapters'}</span></label>
+                return <option
+                  key={`${chapter.title}:${index}`}
+                  value={index}
+                >{title}{missingCount ? ` (${missingCount} exercise${missingCount === 1 ? '' : 's'} missing)` : ''}</option>;
+              })}
+            </select></label>
+            <Button
+              aria-label='Edit chapter name'
+              icon='edit'
+              isDisabled={exerciseChapters[exerciseChapterIndex]?.id === undefined}
+              onClick={() => openChapterEditor(exerciseChapters[exerciseChapterIndex]?.id)}
+            />
+          </div>
+          <span>{exerciseChapters.length ? `${exerciseChapterIndex + 1} of ${exerciseChapters.length}` : 'No chapters'}</span>
           <Button
             icon='arrow-right'
             isDisabled={!exerciseChapters.length || exerciseChapterIndex >= exerciseChapters.length - 1}
@@ -6899,22 +6987,31 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
                           isDisabled={!conceptChapters.length || conceptChapterIndex <= 0}
                           onClick={() => changeConceptChapter(conceptChapterIndex - 1)}
                         />
-                        <label>Chapter <select
-                          aria-label='Navigate chapters'
-                          disabled={!conceptChapters.length}
-                          onChange={({ target }) => changeConceptChapter(Number(target.value))}
-                          value={conceptChapters.length ? conceptChapterIndex : ''}
-                        >
-                          {conceptChapters.map(({ chapterId, pageNumbers, title }, index) => {
-                            const chapterKey = standardsChapterKey(chapterId, title, pageNumbers);
-                            const conceptCount = conceptCountsByChapter.get(chapterKey) ?? 0;
+                        <div className='chapterSelectGroup'>
+                          <label>Chapter <select
+                            aria-label='Navigate chapters'
+                            disabled={!conceptChapters.length}
+                            onChange={({ target }) => changeConceptChapter(Number(target.value))}
+                            value={conceptChapters.length ? conceptChapterIndex : ''}
+                          >
+                            {conceptChapters.map(({ chapterId, pageNumbers, title }, index) => {
+                              const chapterKey = standardsChapterKey(chapterId, title, pageNumbers);
+                              const conceptCount = conceptCountsByChapter.get(chapterKey) ?? 0;
 
-                            return <option
-                              key={chapterKey}
-                              value={index}
-                            >{fixConceptsChapterStatuses[fixConceptsChapterKey({ chapterId, pageNumbers, title })] === 'fixed' ? '✓ ' : ''}{title || 'Chapter not identified'} {'('}{conceptCount}{')'}</option>;
-                          })}
-                        </select><span>{conceptChapters.length ? `${conceptChapterIndex + 1} of ${conceptChapters.length}` : 'No chapters'}</span></label>
+                              return <option
+                                key={chapterKey}
+                                value={index}
+                              >{fixConceptsChapterStatuses[fixConceptsChapterKey({ chapterId, pageNumbers, title })] === 'fixed' ? '✓ ' : ''}{title || 'Chapter not identified'} {'('}{conceptCount}{')'}</option>;
+                            })}
+                          </select></label>
+                          <Button
+                            aria-label='Edit chapter name'
+                            icon='edit'
+                            isDisabled={conceptChapters[conceptChapterIndex]?.chapterId === undefined}
+                            onClick={() => openChapterEditor(conceptChapters[conceptChapterIndex]?.chapterId)}
+                          />
+                        </div>
+                        <span>{conceptChapters.length ? `${conceptChapterIndex + 1} of ${conceptChapters.length}` : 'No chapters'}</span>
                         <Button
                           icon='arrow-right'
                           isDisabled={!conceptChapters.length || conceptChapterIndex >= conceptChapters.length - 1}
@@ -7045,6 +7142,14 @@ const StyledReader = styled.div`
     grid-template-columns: auto auto auto;
   }
 
+  .chapterSelectGroup {
+    align-items: center;
+    display: flex;
+    flex: 1;
+    gap: 0.5rem;
+    min-width: 0;
+  }
+
   .chapterNavigation label {
     align-items: center;
     display: flex;
@@ -7052,6 +7157,8 @@ const StyledReader = styled.div`
     gap: 0.5rem;
     min-width: 0;
   }
+
+  .chapterTitleEditor { display: grid; gap: 1rem; }
 
   .chapterNavigation select {
     background: var(--bg-input);

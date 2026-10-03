@@ -947,9 +947,8 @@ export function chapterAssignmentsFromBoundaries (boundaries: ChapterBoundaryPro
     return [{ confidence: 0, startPage: 1, title: 'Book' }];
   }
 
-  if (sorted[0].startPage > 1) {
-    return [{ confidence: 1, startPage: 1, title: 'Front matter' }, ...sorted];
-  }
-
+  // Pages before the first detected chapter are front matter. Keep them out of
+  // the chapter list; replaceBookChapterAssignments marks those pages excluded
+  // so Concepts and every later processing stage skip them entirely.
   return sorted;
 }

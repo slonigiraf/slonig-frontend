@@ -64,7 +64,7 @@ describe('chapter segmentation', (): void => {
     ]);
   });
 
-  it('deduplicates boundary pages by confidence and adds front matter', (): void => {
+  it('deduplicates boundary pages by confidence without creating a front-matter chapter', (): void => {
     const parsed = parseChapterBoundaries(JSON.stringify({ chapters: [
       { confidence: 0.6, startPage: 8, title: 'Chapter 1' },
       { confidence: 0.9, startPage: 8, title: 'Chapter One' },
@@ -72,7 +72,6 @@ describe('chapter segmentation', (): void => {
     ] }), 100);
 
     assert.deepEqual(chapterAssignmentsFromBoundaries(parsed, 100), [
-      { confidence: 1, startPage: 1, title: 'Front matter' },
       { confidence: 0.9, startPage: 8, title: 'Chapter One' },
       { confidence: 0.8, startPage: 40, title: 'Chapter 2' }
     ]);
