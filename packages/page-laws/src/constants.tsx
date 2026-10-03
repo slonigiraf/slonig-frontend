@@ -55,7 +55,7 @@ Do not include concepts that the chapter assumes the reader already knows, merel
 Return only valid JSON in this exact shape, keeping the original language of the input:
 {"concepts":[{"title":"New concept","description":"One focused explanation of that concept","pageNumber":12}]}
 
-Every pageNumber must be one of the supplied page numbers. Use an empty array when no new concepts are present. Keep each concept description focused on the explanation of the concept itself; do not turn an exercise statement into a concept description. Use <kx>...</kx> to surround KaTeX for every mathematical formula or expression, never dollar-delimited LaTeX. Escape every backslash in mathematical notation so the result remains valid JSON. Do not add markdown or any text outside the JSON.`;
+Every pageNumber must be one of the supplied page numbers. Use an empty array when no new concepts are present. Keep each concept description focused on the explanation of the concept itself; do not turn an exercise statement into a concept description. Use only <kx>...</kx> as mathematical delimiters. Do not use \\(...\\), \\[...\\], $...$, or $$...$$ anywhere in the returned text. For example, write "<kx>n</kx>", never "\\(<kx>n</kx>\\)" or "\\(n\\)". Escape every backslash in mathematical notation so the result remains valid JSON. Do not add markdown or any text outside the JSON.`;
 
 // Compatibility alias for callers that still import the older name. Concept
 // extraction itself is chapter-scoped; the request prompt below supplies all
