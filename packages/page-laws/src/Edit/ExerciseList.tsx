@@ -3,6 +3,7 @@ import { Button, styled } from '@polkadot/react-components';
 import { useTranslation } from '../translate.js';
 import { Exercise, KatexSpan, useLog } from '@slonigiraf/slonig-components';
 import ExerciseImage, { isLocalOrRemoteImageUrl } from './ExerciseImage.js';
+import KnowledgeResizableImage from './KnowledgeResizableImage.js';
 import { isTikzCode } from './tikz.js';
 
 const TikzDisplay = React.lazy(() => import('./TikzDisplay.js'));
@@ -48,8 +49,12 @@ const ExerciseVisual: React.FC<{ alt: string; hasCompileError?: boolean; isAbili
     }
 
     if (isGeneratedAbilityVisual(value)) {
+        const imageValue = value.trim();
+
         return <>
-            <ExerciseImage alt={alt} value={value} />
+            {isLocalOrRemoteImageUrl(imageValue)
+                ? <ExerciseImage alt={alt} value={imageValue} />
+                : <KnowledgeResizableImage alt={alt} cid={imageValue} />}
             {visiblePrompt && <VisualPrompt><strong>{label}:</strong> <KatexSpan content={visiblePrompt} /></VisualPrompt>}
         </>;
     }

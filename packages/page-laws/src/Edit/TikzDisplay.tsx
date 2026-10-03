@@ -8,6 +8,7 @@ import { getCachedTikzEditorSvg, isRetryableTikzEditorError, renderTikzWithEdito
 
 interface Props {
   alt: string;
+  displayMode?: 'default' | 'modal' | 'thumbnail';
   hasCompileError?: boolean;
   onCompileStateChange?: (hasError: boolean, renderedValue: string) => Promise<void> | void;
   recompileToken?: number;
@@ -74,7 +75,7 @@ export async function renderTikzToSvg (value: string): Promise<string> {
   return embedTikzSourceInSvg(result.renderedSvg, value);
 }
 
-export default function TikzDisplay ({ alt, hasCompileError = false, onCompileStateChange, recompileToken = 0, value }: Props): React.ReactElement {
+export default function TikzDisplay ({ alt, displayMode = 'default', hasCompileError = false, onCompileStateChange, recompileToken = 0, value }: Props): React.ReactElement {
   const hostRef = useRef<HTMLDivElement>(null);
   const lastRecompileTokenRef = useRef(recompileToken);
   const onCompileStateChangeRef = useRef(onCompileStateChange);
@@ -174,6 +175,7 @@ export default function TikzDisplay ({ alt, hasCompileError = false, onCompileSt
   return <>
     <TikzHost
       aria-label={alt}
+      className={displayMode === 'default' ? undefined : `tikzDisplay--${displayMode}`}
       ref={hostRef}
       role='img'
     />
@@ -202,6 +204,45 @@ const TikzHost = styled.div`
     max-height: 30rem;
     max-width: 100%;
     width: auto;
+  }
+
+  &.tikzDisplay--thumbnail {
+    border: 0;
+    cursor: zoom-in;
+    margin-inline: 0;
+    max-height: 18rem;
+    max-width: min(100%, 32rem);
+    min-height: 0;
+    overflow: hidden;
+    padding: 5px 0 0;
+    width: 150px;
+
+    > svg,
+    > * > svg {
+      height: auto;
+      max-height: 18rem;
+      max-width: 100%;
+      width: 100%;
+    }
+  }
+
+  &.tikzDisplay--modal {
+    border: 0;
+    margin-inline: auto;
+    max-height: calc(100dvh - 9rem);
+    max-width: 100%;
+    min-height: 0;
+    overflow: auto;
+    padding: 5px 0 0;
+    width: 100%;
+
+    > svg,
+    > * > svg {
+      height: auto;
+      max-height: calc(100dvh - 9rem);
+      max-width: 100%;
+      width: auto;
+    }
   }
 `;
 

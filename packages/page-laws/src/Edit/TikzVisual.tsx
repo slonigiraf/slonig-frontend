@@ -3,7 +3,7 @@
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Button, styled } from '@polkadot/react-components';
+import { Button, Modal, styled } from '@polkadot/react-components';
 import TikzDisplay from './TikzDisplay.js';
 import { TIKZ_EDITOR_ORIGIN, TIKZ_EDITOR_URL, cacheTikzEditorSvg, parseTikzEditorMessage } from './tikzEditorBridge.js';
 
@@ -32,16 +32,19 @@ export default function TikzVisual ({ alt, editorTitle, hasCompileError = false,
   const [draft, setDraft] = useState(value);
   const [rendered, setRendered] = useState(value);
   const [isDetailsShown, setIsDetailsShown] = useState(false);
+  const [isPreviewBig, setIsPreviewBig] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isVisualEditorShown, setIsVisualEditorShown] = useState(isEditorShownInitially);
   const [message, setMessage] = useState('');
   const [recompileToken, setRecompileToken] = useState(0);
+  const [previewScale, setPreviewScale] = useState(1);
   const [retrySource, setRetrySource] = useState<string | undefined>(undefined);
   const editorRef = useRef<HTMLIFrameElement>(null);
   const draftRef = useRef(draft);
   const editStartValueRef = useRef(draft);
   const retrySourceRef = useRef<string | undefined>(undefined);
   const pendingEditorSaveRef = useRef<PendingEditorSave | undefined>(undefined);
+  const lastPinchDistanceRef = useRef(0);
 
   useEffect(() => {
     draftRef.current = draft;
@@ -280,6 +283,28 @@ export default function TikzVisual ({ alt, editorTitle, hasCompileError = false,
   const toggleDetails = useCallback((): void => {
     setIsDetailsShown((shown) => !shown);
   }, []);
+  const closePreview = useCallback((): void => {
+    setPreviewScale(1);
+    lastPinchDistanceRef.current = 0;
+    setIsPreviewBig(false);
+  }, []);
+  const handlePreviewTouchMove = useCallback((event: React.TouchEvent<HTMLDivElement>): void => {
+    if (event.touches.length !== 2) {
+      return;
+    }
+
+    const dx = event.touches[0].pageX - event.touches[1].pageX;
+    const dy = event.touches[0].pageY - event.touches[1].pageY;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+
+    if (lastPinchDistanceRef.current !== 0) {
+      const distanceChange = distance - lastPinchDistanceRef.current;
+
+      setPreviewScale((previous) => Math.max(1, previous + distanceChange / 200));
+    }
+
+    lastPinchDistanceRef.current = distance;
+  }, []);
   const openVisualEditor = useCallback((): void => {
     editStartValueRef.current = draftRef.current;
     setIsVisualEditorShown(true);
@@ -297,26 +322,59 @@ export default function TikzVisual ({ alt, editorTitle, hasCompileError = false,
   }, [onEditorClose]);
 
   return <TikzEditor>
-    {showPreview && <TikzDisplay
-      alt={`${alt} TikZ preview`}
-      hasCompileError={hasCompileError && rendered === value && retrySource !== rendered}
-      onCompileStateChange={handleCompileStateChange}
-      recompileToken={recompileToken}
-      value={rendered}
-    />}
-    {showPreview && <Button.Group>
-      {onSave && <Button
-        icon='edit'
-        isDisabled={isSaving || !draft.trim()}
-        label='Edit'
-        onClick={openVisualEditor}
-      />}
-      {prompt?.trim() && <Button
-        icon={isDetailsShown ? 'eye-slash' : 'eye'}
-        label={isDetailsShown ? 'Hide visual prompt' : 'Show visual prompt'}
-        onClick={toggleDetails}
-      />}
-    </Button.Group>}
+    {showPreview && <PreviewBlock>
+      <ZoomablePreview
+        aria-label={`Open ${alt} TikZ preview`}
+        onClick={() => setIsPreviewBig(true)}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            setIsPreviewBig(true);
+          }
+        }}
+        role='button'
+        tabIndex={0}
+      >
+        <TikzDisplay
+          alt={`${alt} TikZ preview`}
+          displayMode='thumbnail'
+          hasCompileError={hasCompileError && rendered === value && retrySource !== rendered}
+          onCompileStateChange={handleCompileStateChange}
+          recompileToken={recompileToken}
+          value={rendered}
+        />
+      </ZoomablePreview>
+      <PreviewActions>
+        {onSave && <Button
+          icon='edit'
+          isDisabled={isSaving || !draft.trim()}
+          label='Edit'
+          onClick={openVisualEditor}
+        />}
+        {prompt?.trim() && <Button
+          icon={isDetailsShown ? 'eye-slash' : 'eye'}
+          label={isDetailsShown ? 'Hide visual prompt' : 'Show visual prompt'}
+          onClick={toggleDetails}
+        />}
+      </PreviewActions>
+    </PreviewBlock>}
+    {showPreview && isPreviewBig && <ImageModal header=' ' onClose={closePreview} size='large'>
+      <Modal.Content>
+        <PreviewViewport
+          onTouchMove={handlePreviewTouchMove}
+          onTouchStart={() => { lastPinchDistanceRef.current = 0; }}
+        >
+          <ScaledPreview style={{ transform: `scale(${previewScale})` }}>
+            <TikzDisplay
+              alt={`${alt} TikZ preview`}
+              displayMode='modal'
+              hasCompileError={hasCompileError && rendered === value && retrySource !== rendered}
+              value={rendered}
+            />
+          </ScaledPreview>
+        </PreviewViewport>
+      </Modal.Content>
+    </ImageModal>}
     {showPreview && !isVisualEditorShown && message && <EditorMessage>{message}</EditorMessage>}
     {isVisualEditorShown && createPortal(
       <VisualEditorOverlay role='dialog' aria-label={`${alt} visual TikZ editor`} aria-modal='true'>
@@ -357,11 +415,72 @@ export default function TikzVisual ({ alt, editorTitle, hasCompileError = false,
 }
 
 const TikzEditor = styled.div`
+  align-items: flex-start;
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
   margin-top: 0.5rem;
-  max-width: 72rem;
+  max-width: 100%;
+  width: fit-content;
+`;
+
+const PreviewBlock = styled.div`
+  align-items: stretch;
+  display: inline-flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  max-width: 100%;
+  width: 150px;
+`;
+
+const PreviewActions = styled.div`
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  justify-content: flex-end;
+  max-width: 100%;
+  width: 100%;
+
+  .ui--Button {
+    margin: 0;
+  }
+`;
+
+const ZoomablePreview = styled.div`
+  cursor: zoom-in;
+  display: inline-block;
+  max-width: 100%;
+  width: fit-content;
+
+  &:focus-visible {
+    outline: 2px solid currentColor;
+    outline-offset: 2px;
+  }
+`;
+
+const ImageModal = styled(Modal)`
+  .ui--Modal__body {
+    box-sizing: border-box;
+    max-height: calc(100dvh - 16px);
+    max-width: calc(100vw - 16px);
+    overflow: auto;
+  }
+`;
+
+const PreviewViewport = styled.div`
+  align-items: center;
+  display: flex;
+  justify-content: center;
+  min-height: 0;
+  overflow: auto;
+  width: 100%;
+`;
+
+const ScaledPreview = styled.div`
+  max-height: calc(100dvh - 9rem);
+  max-width: 100%;
+  transform-origin: center center;
   width: 100%;
 `;
 

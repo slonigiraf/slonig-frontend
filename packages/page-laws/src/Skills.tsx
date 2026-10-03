@@ -1586,14 +1586,25 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalAutoRunBus
       return;
     }
 
+    const output = view === 'preExercisesExercises'
+      ? abilitiesOutputRef.current
+      : chapterContentOutputRef.current;
     const first = view === 'preExercisesExercises'
-      ? abilitiesOutputRef.current?.querySelector<HTMLElement>('.abilityExerciseCard')
-      : chapterContentOutputRef.current?.querySelector<HTMLElement>('.contentCard');
+      ? output?.querySelector<HTMLElement>('.abilityExerciseCard')
+      : output?.querySelector<HTMLElement>('.contentCard');
 
-    if (first) {
+    if (first && output) {
       pendingChapterFocusRef.current = false;
+      // Reset the tab's own scroll position so the heading/context above the
+      // first card is visible as well. Then bring the tab itself into view and
+      // keep keyboard focus on the first card without pulling the scroll down.
+      const scrollContainer = view === 'preExercisesExercises'
+        ? output
+        : first.closest<HTMLElement>('section');
+
+      scrollContainer?.scrollTo({ behavior: 'smooth', top: 0 });
+      output.scrollIntoView({ behavior: 'smooth', block: 'start' });
       first.focus({ preventScroll: true });
-      first.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
   }, [current, view]);
 
@@ -2045,8 +2056,8 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalAutoRunBus
       await Promise.all(Array.from(generatedByExerciseId, ([exerciseId, abilities]) => replaceAbilities(exerciseAbilityModuleId(book.id, exerciseId), abilities.map((ability) => JSON.stringify(ability)))));
 
       if (generatedByExerciseId.size) {
-        // Any newly generated Ability invalidates Fix abilities and every later stage.
-        await completeStage(ABILITIES_STAGE, true);
+        // Keep downstream stage completion intact when filling or regenerating Abilities.
+        await completeStage(ABILITIES_STAGE);
       } else if (allAbilities.length && !stageDone(ABILITIES_STAGE)) {
         // Existing Abilities can still make this pipeline stage available even
         // when this attempt produced no replacement rows.
@@ -2362,7 +2373,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalAutoRunBus
       const hasChanges = fixReview.items.length > 0 || fixReview.duplicatePairs.length > 0;
 
       if (hasChanges || !stageDone(FIX_ABILITIES_STAGE)) {
-        await completeStage(FIX_ABILITIES_STAGE, hasChanges);
+        await completeStage(FIX_ABILITIES_STAGE);
       }
 
       const deleted = fixReview.duplicatePairs.length;
@@ -2454,11 +2465,11 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalAutoRunBus
 
       const hasChanges = replacements.size > 0 || duplicateIds.size > 0;
 
-      // Correcting Exercises invalidates generated Abilities, so a committed
-      // change intentionally returns the pipeline to the Fix exercises checkpoint.
-      // A no-op review only advances when this step had not yet been completed.
+      // Content corrections may leave a few downstream rows stale or missing,
+      // but preserve their completed-stage history so small edits do not force a
+      // full pipeline rerun. Result-completeness checks still expose gaps.
       if (hasChanges || !stageDone(FIX_EXERCISES_STAGE)) {
-        await completeStage(FIX_EXERCISES_STAGE, hasChanges);
+        await completeStage(FIX_EXERCISES_STAGE);
       }
 
       const fixed = replacements.size;

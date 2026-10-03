@@ -4,7 +4,7 @@
 import type { Book, BookChapter, BookConcept, BookPage, BookProcessingStageKey, BookStageSpendKey, Exercise, MathpixHeading } from '@slonigiraf/db';
 import type { PDFDocumentLoadingTask, PDFDocumentProxy, RenderTask } from 'pdfjs-dist';
 
-import { addBookStageSpend, applyBookChapterRefinements, assignBookConceptsToChapters, assignBookPageChapter, completeBookProcessingStage, createBookConcept, deleteAbilities, deleteBookChapters, deleteBookConcept, deleteExercise, getAbilities, getBookChapters, getBookConceptsForBookPage, getBookPages, getExercisesForBookPage, getSetting, incrementBookFixConceptsAttempts, isBookProcessingStageComplete, mergeBookChapterWithPrevious, putBookPage, reorderBookConcepts, replaceAbilities, replaceBookChapterAssignments, replaceExercisesForBookPage, replaceParsedBookPageContent, resetBookProcessingStagesFrom, SettingKey, splitBookChapterAtPage, storeSetting, updateBookChapterTitle, updateBookConcept, updateBookFieldsAndStages, withBookProcessingStagesResetFrom, withCompletedBookProcessingStage } from '@slonigiraf/db';
+import { addBookStageSpend, applyBookChapterRefinements, assignBookConceptsToChapters, assignBookPageChapter, completeBookProcessingStage, createBookConcept, deleteAbilities, deleteBookChapters, deleteBookConcept, deleteExercise, getAbilities, getBookChapters, getBookConceptsForBookPage, getBookPages, getExercisesForBookPage, getSetting, incrementBookFixConceptsAttempts, isBookProcessingStageComplete, mergeBookChapterWithPrevious, putBookPage, reorderBookConcepts, replaceAbilities, replaceBookChapterAssignments, replaceExercisesForBookPage, replaceParsedBookPageContent, SettingKey, splitBookChapterAtPage, storeSetting, updateBookChapterTitle, updateBookConcept, updateBookFieldsAndStages, withBookProcessingStagesResetFrom, withCompletedBookProcessingStage } from '@slonigiraf/db';
 import { Confirmation, KatexSpan, SelectableList } from '@slonigiraf/slonig-components';
 import { strFromU8, unzipSync } from 'fflate';
 import MathpixLoader from 'mathpix-markdown-it/lib/components/mathpix-loader/index.js';
@@ -2316,11 +2316,6 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
 
     onBookChange(updatedBook ?? withCompletedBookProcessingStage(book, stage));
   }, [book, onBookChange]);
-  const invalidateEmbeddingsStage = useCallback(async (): Promise<void> => {
-    const updatedBook = await resetBookProcessingStagesFrom(book.id, 'embeddings');
-
-    onBookChange(updatedBook ?? withBookProcessingStagesResetFrom(book, 'embeddings'));
-  }, [book, onBookChange]);
   const completeStageRef = useRef(completeStage);
 
   completeStageRef.current = completeStage;
@@ -3220,11 +3215,6 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
     setError('');
 
     try {
-      const resetBook = await resetBookProcessingStagesFrom(book.id, 'fixConcepts');
-      const bookAfterReset = resetBook ?? withBookProcessingStagesResetFrom(book, 'fixConcepts');
-
-      onBookChange(bookAfterReset);
-
       const attempt = await incrementBookFixConceptsAttempts(book.id);
       const nextStatuses: FixConceptsChapterStatuses = { ...fixConceptsReview.baseStatuses };
       const failureDetails = fixConceptsReview.failedChapters.map(({ chapter, reason }) => {
@@ -3280,7 +3270,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
       if (allChaptersFixed) {
         const completedBook = await completeBookProcessingStage(book.id, 'fixConcepts');
 
-        onBookChange(completedBook ?? withCompletedBookProcessingStage(bookAfterReset, 'fixConcepts'));
+        onBookChange(completedBook ?? withCompletedBookProcessingStage(book, 'fixConcepts'));
         setError('');
       } else {
         const failureCount = conceptChapters.filter((chapter) => nextStatuses[fixConceptsChapterKey(chapter)] === 'failed').length;
@@ -3441,11 +3431,6 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
     setError('');
 
     try {
-      const resetBook = await resetBookProcessingStagesFrom(book.id, 'deduplicateConcepts');
-      const bookAfterReset = resetBook ?? withBookProcessingStagesResetFrom(book, 'deduplicateConcepts');
-
-      onBookChange(bookAfterReset);
-
       const selectedPairs = deduplicateConceptsReview.pairs.filter(({ selected }) => selected);
       const pageNumbers = Array.from(pages.keys());
       const deletionFailures: string[] = [];
@@ -3487,7 +3472,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
 
       const completedBook = await completeBookProcessingStage(book.id, 'deduplicateConcepts');
 
-      onBookChange(completedBook ?? withCompletedBookProcessingStage(bookAfterReset, 'deduplicateConcepts'));
+      onBookChange(completedBook ?? withCompletedBookProcessingStage(book, 'deduplicateConcepts'));
       setError('');
     } catch (applyError) {
       setError(applyError instanceof Error ? applyError.message : 'Unable to apply the reviewed Deduplicate concepts changes.');
@@ -5025,7 +5010,6 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
         await reorderBookConcepts(orderedIds, currentConceptChapter.chapterId);
       }
 
-      await invalidateEmbeddingsStage();
       await reloadCurrentChapterConcepts();
       await Promise.all([refreshEntityCounts(), refreshConceptCounts()]);
       setNewConceptAfterIndex(-1);
@@ -5041,7 +5025,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
     } finally {
       setIsSavingNewConcept(false);
     }
-  }, [book.id, concepts, currentConceptChapter, isSavingNewConcept, loadCurrentChapterConcepts, newConceptAfterIndex, newConceptDescription, newConceptPage, newConceptTitle, pages, refreshConceptCounts, refreshEntityCounts, reloadCurrentChapterConcepts, invalidateEmbeddingsStage]);
+  }, [book.id, concepts, currentConceptChapter, isSavingNewConcept, loadCurrentChapterConcepts, newConceptAfterIndex, newConceptDescription, newConceptPage, newConceptTitle, pages, refreshConceptCounts, refreshEntityCounts, reloadCurrentChapterConcepts]);
 
   const reorderConcepts = useCallback(async (fromIndex: number, toIndex: number): Promise<void> => {
     if (fromIndex === toIndex || fromIndex < 0 || toIndex < 0 || fromIndex >= concepts.length || toIndex >= concepts.length || isReorderingConcepts || isApplyingFixConceptsReview) {
@@ -5408,7 +5392,6 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
         }
       }
 
-      await invalidateEmbeddingsStage();
       await reloadCurrentChapterConcepts();
       await refreshConceptCounts();
       setSkillsRefreshToken((value) => value + 1);
@@ -5419,7 +5402,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
       setError(message);
       throw caught;
     }
-  }, [book.id, conceptChapterIndex, conceptChapters, invalidateEmbeddingsStage, pages, refreshConceptCounts, reloadCurrentChapterConcepts]);
+  }, [book.id, conceptChapterIndex, conceptChapters, pages, refreshConceptCounts, reloadCurrentChapterConcepts]);
   const fixConceptWithAi = useCallback(async (concept: BookConcept): Promise<void> => {
     try {
       if (concept.id === undefined || !currentConceptChapter) {
@@ -5467,7 +5450,6 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
 
     try {
       await deleteConceptAndDependencies(book.id, concept, Array.from(pages.keys()));
-      await invalidateEmbeddingsStage();
       const referenceKey = conceptReferenceKey(concept);
 
       setConcepts((current) => current.filter(({ id }) => id !== concept.id));
@@ -5487,7 +5469,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
       setError(message);
       throw caught;
     }
-  }, [book.id, invalidateEmbeddingsStage, pages, refreshConceptCounts, refreshEntityCounts]);
+  }, [book.id, pages, refreshConceptCounts, refreshEntityCounts]);
 
   const saveExercise = useCallback(async (exerciseId: number, value: ExerciseEditableFields): Promise<void> => {
     if (!currentExerciseChapter) {
