@@ -114,6 +114,20 @@ function textFromDataUrl(dataUrl: string, name: string, t: Translate): string {
 async function renderTikzDataUrl(value: string): Promise<string> {
   const { renderTikzToSvg } = await import('../../../page-laws/src/Edit/TikzDisplay.js');
   const svg = await renderTikzToSvg(value);
+
+  // A syntactically valid SVG can still be visually empty (for example, an
+  // empty tikzpicture). Do not let an AI reply become visible unless its TikZ
+  // contains at least one drawable element outside definition-only containers.
+  if (typeof DOMParser !== 'undefined') {
+    const documentResult = new DOMParser().parseFromString(svg, 'image/svg+xml');
+    const drawable = Array.from(documentResult.querySelectorAll('path, line, polyline, polygon, rect, circle, ellipse, text, image, use, foreignObject'))
+      .some((element) => !element.closest('defs, clipPath, mask, pattern, symbol'));
+
+    if (!drawable) throw new Error('Rendered TikZ drawing is empty.');
+  } else if (!/<(?:path|line|polyline|polygon|rect|circle|ellipse|text|image|use|foreignObject)\b/i.test(svg)) {
+    throw new Error('Rendered TikZ drawing is empty.');
+  }
+
   const src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
 
   // Do not commit an AI reply while the browser is still decoding its visual.
@@ -121,7 +135,9 @@ async function renderTikzDataUrl(value: string): Promise<string> {
   if (typeof window !== 'undefined') {
     await new Promise<void>((resolve, reject) => {
       const image = new window.Image();
-      image.onload = () => resolve();
+      image.onload = () => image.naturalWidth > 1 && image.naturalHeight > 1
+        ? resolve()
+        : reject(new Error('Rendered TikZ drawing has no visible size.'));
       image.onerror = () => reject(new Error('Unable to load rendered TikZ drawing.'));
       image.src = src;
     });
@@ -426,7 +442,7 @@ function tutorMessageParts(value: string): TutorMessagePart[] {
   return parts.length > 0 ? parts : [{ type: 'text', value }];
 }
 
-async function prepareTutorTikzPreviews(value: string, fallbackError: string): Promise<Record<string, PreparedTikzPreview>> {
+async function prepareTutorTikzPreviews(value: string, fallbackError: string, requireRenderable = false): Promise<Record<string, PreparedTikzPreview>> {
   const sources = Array.from(new Set(tutorMessageParts(value)
     .filter((part): part is TutorMessagePart & { type: 'tikz' } => part.type === 'tikz')
     .map((part) => part.value)));
@@ -434,7 +450,8 @@ async function prepareTutorTikzPreviews(value: string, fallbackError: string): P
   const prepared = await Promise.all(sources.map(async (source): Promise<[string, PreparedTikzPreview]> => {
     try {
       return [source, { src: await renderTikzDataUrl(source) }];
-    } catch {
+    } catch (error) {
+      if (requireRenderable) throw error;
       return [source, { error: fallbackError }];
     }
   }));
@@ -442,12 +459,12 @@ async function prepareTutorTikzPreviews(value: string, fallbackError: string): P
   return Object.fromEntries(prepared);
 }
 
-function hasCompleteTutorTikzPreviews(value: string, previews: Record<string, PreparedTikzPreview> | undefined): boolean {
+function hasRenderableTutorTikzPreviews(value: string, previews: Record<string, PreparedTikzPreview> | undefined): boolean {
   const sources = tutorMessageParts(value)
     .filter((part): part is TutorMessagePart & { type: 'tikz' } => part.type === 'tikz')
     .map((part) => part.value);
 
-  return sources.every((source) => Boolean(previews?.[source]?.src || previews?.[source]?.error));
+  return sources.every((source) => Boolean(previews?.[source]?.src));
 }
 
 function stageRequiresStudentImageWhenReferenceHasImage(stage: AlgorithmStage): boolean {
@@ -517,6 +534,7 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const addControlRef = useRef<HTMLDetailsElement>(null);
+  const modelControlRef = useRef<HTMLDetailsElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder>();
   const mediaStreamRef = useRef<MediaStream>();
   const mediaChunksRef = useRef<Blob[]>([]);
@@ -527,6 +545,7 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
   const [tikz, setTikz] = useState('');
   const [tikzDataUrl, setTikzDataUrl] = useState('');
   const [tikzEditorOpen, setTikzEditorOpen] = useState(false);
+  const [tikzEditorInitialValue, setTikzEditorInitialValue] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [tutorValidationMessage, setTutorValidationMessage] = useState('');
@@ -666,8 +685,14 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
       setStudentExerciseMedia(restoredStudentExerciseMedia);
       setLastStudentMessage(persistedMessage);
       setAlgorithmStage(safeStage);
-      setCurrentAiText(persistedTutorMessage?.text || '');
-      setCurrentAiTikzPreviews(persistedTutorMessage?.tikzPreviews || {});
+      // Never hydrate text first and leave its TikZ compiling afterward. Old
+      // records may predate prepared previews (or may contain a failed render),
+      // so reveal them only when every attached TikZ is already usable. The
+      // stage-generation effect below rebuilds anything incomplete.
+      const canHydrateTutorMessage = Boolean(persistedTutorMessage?.text)
+        && hasRenderableTutorTikzPreviews(persistedTutorMessage.text, persistedTutorMessage.tikzPreviews);
+      setCurrentAiText(canHydrateTutorMessage ? persistedTutorMessage?.text || '' : '');
+      setCurrentAiTikzPreviews(canHydrateTutorMessage ? persistedTutorMessage?.tikzPreviews || {} : {});
 
       // Restore uploaded files and student-authored TikZ once per lesson step.
       // They live in IndexedDB rather than component/session state, so a hard
@@ -773,6 +798,7 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
 
     const requiresCorrectSolutionTikz = stage.getType() === StageType.correct_fake_solution
       && currentSkillSolutionImageCids.length > 0;
+    let requiresGeneratedTikz = requiresCorrectSolutionTikz;
 
     let saved: string | undefined;
     let persistedTutorMessage: PersistedTutorStageMessage | undefined;
@@ -794,31 +820,54 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
       ) || undefined;
     }
     if (saved && (!requiresCorrectSolutionTikz || isTikzCode(saved))) {
+      requiresGeneratedTikz ||= isTikzCode(saved);
       setLoading(true);
       const canReusePrepared = persistedTutorMessage?.text === saved
-        && hasCompleteTutorTikzPreviews(saved, persistedTutorMessage.tikzPreviews);
-      const prepared = canReusePrepared
-        ? persistedTutorMessage.tikzPreviews
-        : await prepareTutorTikzPreviews(saved, t('Unable to preview TikZ drawing.'));
-      if (stageTextRequestRef.current === requestId) {
-        if (!canReusePrepared) {
-          try {
-            // Backfill records written by older builds so the next reload can
-            // hydrate both text and the already-rendered TikZ in one read.
-            await putAiTutorTutorStageMessage<PersistedTutorStageMessage>(lessonId, lessonStep, stage.getType(), {
-              text: saved,
-              tikzPreviews: prepared,
-            });
-          } catch {
-            // Keep the legacy/session cache path functional if IndexedDB fails.
+        && hasRenderableTutorTikzPreviews(saved, persistedTutorMessage.tikzPreviews);
+      try {
+        const prepared = canReusePrepared
+          ? persistedTutorMessage.tikzPreviews
+          : await prepareTutorTikzPreviews(saved, t('Unable to preview TikZ drawing.'), true);
+        if (stageTextRequestRef.current === requestId) {
+          if (!canReusePrepared) {
+            try {
+              // Backfill records written by older builds so the next reload can
+              // hydrate both text and the already-rendered TikZ in one read.
+              await putAiTutorTutorStageMessage<PersistedTutorStageMessage>(lessonId, lessonStep, stage.getType(), {
+                text: saved,
+                tikzPreviews: prepared,
+              });
+            } catch {
+              // Keep the legacy/session cache path functional if IndexedDB fails.
+            }
           }
+          if (stageTextRequestRef.current !== requestId) return;
+          setCurrentAiTikzPreviews(prepared);
+          setCurrentAiText(saved);
+          setLoading(false);
         }
-        if (stageTextRequestRef.current !== requestId) return;
-        setCurrentAiTikzPreviews(prepared);
-        setCurrentAiText(saved);
+        return;
+      } catch {
+        // A cached AI answer with broken/empty TikZ must never be shown. Drop the
+        // stale generated-stage caches and continue below to ask the model for a
+        // fresh answer whose visual can be built successfully.
         setLoading(false);
+        saved = undefined;
+        persistedTutorMessage = undefined;
+        saveToSessionStorage(
+          AI_TUTOR_SESSION,
+          generatedStageTextSessionKey(lessonId, lessonStep, stage.getType()),
+          '',
+        );
+        try {
+          await Promise.all([
+            clearAiTutorGeneratedStageTexts(lessonId, lessonStep, [stage.getType()]),
+            clearAiTutorTutorStageMessages(lessonId, lessonStep, [stage.getType()]),
+          ]);
+        } catch {
+          // The fresh request below is still authoritative for this render.
+        }
       }
-      return;
     }
 
     if (!studentExercise) {
@@ -850,30 +899,42 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
         : [];
       const generationAttachments = [...studentExerciseMedia, ...skillSolutionImages];
       const prompt = generatedStagePrompt(skill, stage, studentExercise);
-      let generated = await askOpenRouter(
-        { apiKey: openRouterKey, model: model.trim() || DEFAULT_MODEL },
-        prompt,
-        undefined,
-        generationAttachments,
-      );
-      let generatedMessage = generated.message.trim();
+      let text = '';
+      let prepared: Record<string, PreparedTikzPreview> = {};
+      let retryReason = '';
 
-      if (requiresCorrectSolutionTikz && generatedMessage && !isTikzCode(generatedMessage)) {
-        generated = await askOpenRouter(
+      for (let attempt = 0; attempt < 2; attempt++) {
+        const requestPrompt = attempt === 0
+          ? prompt
+          : `${prompt}\n\nCRITICAL RETRY REQUIREMENT: ${retryReason} Return the complete answer again. Every TikZ drawing must be one complete \\begin{tikzpicture}...\\end{tikzpicture} block, must render successfully, and must contain visible drawing content rather than an empty picture.`;
+        const generated = await askOpenRouter(
           { apiKey: openRouterKey, model: model.trim() || DEFAULT_MODEL },
-          `${prompt}\n\nCRITICAL RETRY REQUIREMENT: Your previous answer omitted the required TikZ solution visual. Return the complete correct solution again, and this time include one complete \\begin{tikzpicture}...\\end{tikzpicture} block that is a genuine, correct part of the solution to the student's generated exercise.`,
+          requestPrompt,
           undefined,
           generationAttachments,
         );
-        generatedMessage = generated.message.trim();
-      }
+        const generatedMessage = generated.message.trim();
 
-      if (!generatedMessage) throw new Error(t('The AI tutor returned no stage text.'));
-      if (requiresCorrectSolutionTikz && !isTikzCode(generatedMessage)) {
-        throw new Error(t('The AI tutor returned a correct solution without the required TikZ drawing.'));
+        if (!generatedMessage) throw new Error(t('The AI tutor returned no stage text.'));
+        if (requiresGeneratedTikz && !isTikzCode(generatedMessage)) {
+          retryReason = 'Your previous answer omitted the required TikZ visual.';
+          if (attempt === 0) continue;
+          throw new Error(requiresCorrectSolutionTikz
+            ? t('The AI tutor returned a correct solution without the required TikZ drawing.')
+            : t('Unable to preview TikZ drawing.'));
+        }
+
+        text = formatGeneratedStageMessage(stage, generatedMessage);
+        try {
+          prepared = await prepareTutorTikzPreviews(text, t('Unable to preview TikZ drawing.'), true);
+          break;
+        } catch {
+          requiresGeneratedTikz = true;
+          retryReason = 'Your previous TikZ drawing could not be rendered or was visually empty.';
+          if (attempt === 0) continue;
+          throw new Error(t('Unable to preview TikZ drawing.'));
+        }
       }
-      const text = formatGeneratedStageMessage(stage, generatedMessage);
-      const prepared = await prepareTutorTikzPreviews(text, t('Unable to preview TikZ drawing.'));
 
       if (stageTextRequestRef.current !== requestId) return;
 
@@ -962,19 +1023,44 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
         }).catch(() => {});
       } else {
         setLoading(true);
-        void prepareTutorTikzPreviews(text, t('Unable to preview TikZ drawing.')).then((prepared) => {
-          if (stageTextRequestRef.current !== requestId) return;
-          void putAiTutorTutorStageMessage<PersistedTutorStageMessage>(lessonId, lessonStep, algorithmStage.getType(), {
-            text,
-            tikzPreviews: prepared,
-          }).catch(() => {});
-          setCurrentAiTikzPreviews(prepared);
-          setCurrentAiText(text);
-          setLoading(false);
-        });
+        void prepareTutorTikzPreviews(text, t('Unable to preview TikZ drawing.'), true)
+          .then((prepared) => {
+            if (stageTextRequestRef.current !== requestId) return;
+            void putAiTutorTutorStageMessage<PersistedTutorStageMessage>(lessonId, lessonStep, algorithmStage.getType(), {
+              text,
+              tikzPreviews: prepared,
+            }).catch(() => {});
+            setCurrentAiTikzPreviews(prepared);
+            setCurrentAiText(text);
+            setLoading(false);
+          })
+          .catch(() => {
+            if (stageTextRequestRef.current !== requestId) return;
+            setCurrentAiTikzPreviews({});
+            setCurrentAiText('');
+            setError(t('Unable to preview TikZ drawing.'));
+            setLoading(false);
+          });
       }
     }
   }, [skill, algorithmStage, generateStageText, t]);
+
+  useEffect(() => {
+    const closeMenusOnOutsidePointer = (event: PointerEvent): void => {
+      const target = event.target;
+      if (!(target instanceof Node)) return;
+
+      if (addControlRef.current?.open && !addControlRef.current.contains(target)) {
+        addControlRef.current.open = false;
+      }
+      if (modelControlRef.current?.open && !modelControlRef.current.contains(target)) {
+        modelControlRef.current.open = false;
+      }
+    };
+
+    document.addEventListener('pointerdown', closeMenusOnOutsidePointer);
+    return () => document.removeEventListener('pointerdown', closeMenusOnOutsidePointer);
+  }, []);
 
   const resetComposer = useCallback((): void => {
     setAnswer('');
@@ -1556,6 +1642,10 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
                         </AddMenuButton>
                         <AddMenuButton type='button' disabled={loading} onClick={() => {
                           if (addControlRef.current) addControlRef.current.open = false;
+                          const tutorWrongTikz = algorithmStage?.getType() === StageType.provide_fake_solution
+                            ? tutorMessageParts(currentAiText).find((part) => part.type === 'tikz')?.value || ''
+                            : '';
+                          setTikzEditorInitialValue(tikz || tutorWrongTikz);
                           setTikzEditorOpen(true);
                         }}>
                           <MenuGlyph aria-hidden='true'>✎</MenuGlyph>
@@ -1595,7 +1685,7 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
                     >
                       <span>{t('Skip')}</span>
                     </SkipAction>
-                    <ModelControl>
+                    <ModelControl ref={modelControlRef}>
                       <ModelControlSummary aria-label={t('AI model: {{model}}', { replace: { model: modelDisplayName(model) } })}>
                         <ModelName>{modelDisplayName(model)}</ModelName>
                         <Chevron aria-hidden='true' />
@@ -1691,7 +1781,7 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
         }}
         onSaved={() => setTikzEditorOpen(false)}
         title={t('Draw image')}
-        value={tikz}
+        value={tikzEditorInitialValue}
       />}
     </FullFindow>
   );
