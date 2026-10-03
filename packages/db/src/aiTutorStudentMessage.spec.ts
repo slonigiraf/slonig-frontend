@@ -94,10 +94,11 @@ describe('AI tutor student message persistence', (): void => {
       }
     };
 
+    const studentTikzDataUrl = 'data:image/svg+xml;charset=utf-8,%3Csvg%3Estudent%3C%2Fsvg%3E';
     await putAiTutorStudentMessage<Message, Media>(lessonId, 3, {
       text: 'Student answer',
       tikz: studentTikz,
-      tikzDataUrl: 'data:image/svg+xml;charset=utf-8,%3Csvg%3Estudent%3C%2Fsvg%3E'
+      tikzDataUrl: studentTikzDataUrl
     }, []);
     await putAiTutorStudentExercise(lessonId, 3, `Student TikZ drawing:\n${studentTikz}`);
     await putAiTutorCurrentStageType(lessonId, 3, stageType);
@@ -106,10 +107,31 @@ describe('AI tutor student message persistence', (): void => {
     const stored = await getAiTutorStudentMessage<Message, Media, unknown, typeof tutorMessage>(lessonId, 3);
 
     assert.equal(stored?.message?.tikz, studentTikz);
+    assert.equal(stored?.message?.tikzDataUrl, studentTikzDataUrl);
     assert.equal(stored?.studentExercise, `Student TikZ drawing:\n${studentTikz}`);
     assert.equal(stored?.currentTutorStageType, stageType);
     assert.deepEqual(stored?.tutorStageMessages?.[stageType], tutorMessage);
     assert.deepEqual(await getAiTutorTutorStageMessage(lessonId, 3, stageType), tutorMessage);
+
+    const updatedTutorMessage = {
+      text: `Updated.\n${aiTikz}`,
+      tikzPreviews: {
+        [aiTikz]: { src: 'data:image/svg+xml;charset=utf-8,%3Csvg%3Eai-updated%3C%2Fsvg%3E' }
+      }
+    };
+    await putAiTutorTutorStageMessage(lessonId, 3, stageType, updatedTutorMessage);
+    const afterTutorUpdate = await getAiTutorStudentMessage<Message, Media, unknown, typeof updatedTutorMessage>(lessonId, 3);
+    assert.equal(afterTutorUpdate?.message?.tikzDataUrl, studentTikzDataUrl);
+    assert.deepEqual(afterTutorUpdate?.tutorStageMessages?.[stageType], updatedTutorMessage);
+
+    await putAiTutorStudentMessage<Message, Media>(lessonId, 3, {
+      text: 'Student answer',
+      tikz: studentTikz,
+      tikzDataUrl: studentTikzDataUrl
+    }, []);
+    const afterStudentUpdate = await getAiTutorStudentMessage<Message, Media, unknown, typeof updatedTutorMessage>(lessonId, 3);
+    assert.equal(afterStudentUpdate?.message?.tikzDataUrl, studentTikzDataUrl);
+    assert.deepEqual(afterStudentUpdate?.tutorStageMessages?.[stageType], updatedTutorMessage);
 
     await clearAiTutorTutorStageMessages(lessonId, 3, [stageType]);
     assert.equal(await getAiTutorTutorStageMessage(lessonId, 3, stageType), undefined);

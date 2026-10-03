@@ -49,6 +49,10 @@ interface SubmittedStudentMessage {
   attachments: ComposerAttachment[];
   hasAudio: boolean;
   audioSeconds: number;
+  /** Tutor algorithm stage on which this student image was submitted. */
+  stageType?: string;
+  /** Stable persisted identity: student + lesson + submission stage. */
+  tikzImageId?: string;
   tikz?: string;
   tikzDataUrl?: string;
 }
@@ -126,7 +130,18 @@ async function renderTikzDataUrl(value: string): Promise<string> {
   return src;
 }
 
-function TikzPreview({ large = false, prepared, sent = false, value }: { large?: boolean; prepared?: PreparedTikzPreview; sent?: boolean; value: string }): React.ReactElement {
+function tikzImageId(role: 'ai' | 'student', lessonId: string, stageType: string, occurrence = 0): string {
+  // Keep the browser identity deliberately simple and deterministic:
+  // (ai/student) + lesson + stage.
+  const raw = `${role}-${lessonId}-${stageType}`;
+  const base = raw.replace(/[^A-Za-z0-9_-]/g, '_');
+
+  // Tutor output normally contains one TikZ image. Keep the requested exact
+  // role+lesson+stage ID for that image; only disambiguate additional images.
+  return occurrence === 0 ? base : `${base}-${occurrence + 1}`;
+}
+
+function TikzPreview({ imageId, prepared, sent = false, value }: { imageId: string; prepared?: PreparedTikzPreview; sent?: boolean; value: string }): React.ReactElement {
   const { t } = useTranslation();
   const [preview, setPreview] = useState<{ source: string; src?: string; error?: string }>();
 
@@ -152,13 +167,19 @@ function TikzPreview({ large = false, prepared, sent = false, value }: { large?:
   // preview is already complete, so text and TikZ can appear in one paint.
   const current = prepared || (preview?.source === value ? preview : undefined);
   const Image = sent ? SentImage : AttachmentImage;
+  const displaySrc = current?.src;
 
   if (current?.error) return <span role='status' title={current.error}>{t('TikZ preview unavailable')}</span>;
 
-  return current?.src
-    ? <Image alt={t('TikZ drawing')} src={current.src} title={t('TikZ drawing — click to enlarge')} style={large
-      ? { background: 'white', height: 'auto', maxHeight: '280px', maxWidth: '100%', objectFit: 'contain', width: 'min(360px, 100%)' }
-      : { background: 'white', objectFit: 'contain' }} />
+  // Keep the message layout controlled by SentImage/AttachmentImage.
+  // ResizableImage now forwards `style`, so putting tutor sizing here would
+  // override SentImage's compact dimensions and make AI drawings expand to
+  // the width of the bubble. TikZ only needs `contain` to avoid cropping; the
+  // role/message layout owns width and height.
+  const imageStyle: React.CSSProperties = { background: 'white', objectFit: 'contain' };
+
+  return displaySrc
+    ? <Image id={imageId} data-tikz-image-id={imageId} alt={t('TikZ drawing')} src={displaySrc} title={t('TikZ drawing — click to enlarge')} style={imageStyle} />
     : <span role='status' aria-label={t('Rendering TikZ drawing')}><Spinner noLabel /></span>;
 }
 
@@ -1127,15 +1148,6 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
     // validated/classified. Only a successful tutor result resets the composer
     // (and therefore removes the blur); validation/API errors leave it blurred.
 
-    const submittedMessage: SubmittedStudentMessage = {
-      text: answer.trim(),
-      attachments: attachments.map((attachment) => ({ ...attachment })),
-      hasAudio: Boolean(audioBlob),
-      audioSeconds: recordingSeconds,
-      tikz: tikz || undefined,
-      tikzDataUrl: tikzDataUrl || undefined,
-    };
-
     // Visual create-similar and "Repeat after me" stages require the student
     // to submit either an image or a TikZ drawing. Reject text-only, voice-only, and
     // non-image-file-only attempts locally so they do not consume either a
@@ -1155,6 +1167,39 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
       setKeyDialogOpen(true);
       return;
     }
+
+    const submittedStageType = algorithmStage.getType();
+    const submittedTikzImageId = tikz
+      ? tikzImageId('student', lessonId, submittedStageType)
+      : undefined;
+
+    // Freeze the submitted visual as one atomic snapshot. `tikz` is the
+    // canonical drawing, while `tikzDataUrl` is the exact SVG already shown to
+    // the student. In normal use the editor has already rendered it; the
+    // fallback below only fills a missing preview and never replaces an
+    // existing persisted/rendered SVG. This prevents the last submitted
+    // message from being written with TikZ source but no durable image.
+    let submittedTikzDataUrl = tikz ? (tikzDataUrl || undefined) : undefined;
+    if (tikz && !submittedTikzDataUrl) {
+      try {
+        submittedTikzDataUrl = await renderTikzDataUrl(tikz);
+        setTikzDataUrl(submittedTikzDataUrl);
+      } catch {
+        // Keep the source submit-able. TikzPreview can still compile it, but a
+        // successful render is persisted whenever one is available.
+      }
+    }
+
+    const submittedMessage: SubmittedStudentMessage = {
+      text: answer.trim(),
+      attachments: attachments.map((attachment) => ({ ...attachment })),
+      hasAudio: Boolean(audioBlob),
+      audioSeconds: recordingSeconds,
+      stageType: submittedStageType,
+      tikzImageId: submittedTikzImageId,
+      tikz: tikz || undefined,
+      tikzDataUrl: submittedTikzDataUrl,
+    };
 
     const previousStudentMessage = lastStudentMessage;
     let composerCommitted = false;
@@ -1379,20 +1424,35 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
                       ? <SentImage key={attachment.id} src={attachment.dataUrl} alt={attachment.name} title={attachment.name} />
                       : <SentFile key={attachment.id}>▤ {attachment.name}</SentFile>)}
                     {lastStudentMessage.hasAudio && <SentFile>● {t('Voice message')} · {formatRecordingTime(lastStudentMessage.audioSeconds)}</SentFile>}
-                    {lastStudentMessage.tikz && <TikzPreview
-                      prepared={lastStudentMessage.tikzDataUrl ? { src: lastStudentMessage.tikzDataUrl } : undefined}
-                      sent
-                      value={lastStudentMessage.tikz}
-                    />}
+                    {lastStudentMessage.tikz && (() => {
+                      const imageId = lastStudentMessage.tikzImageId
+                        || tikzImageId('student', lessonId, lastStudentMessage.stageType || algorithmStage?.getType() || 'stage');
+
+                      return <TikzPreview
+                        key={imageId}
+                        imageId={imageId}
+                        prepared={lastStudentMessage.tikzDataUrl ? { src: lastStudentMessage.tikzDataUrl } : undefined}
+                        sent
+                        value={lastStudentMessage.tikz}
+                      />;
+                    })()}
                   </SentMedia>}
                 </StudentBubble>
               </StudentMessage>}
               {!loading && (currentAiText || currentStageImageCids.length > 0) && <TutorMessage className='history-blurrable'>
                 <TutorBubble className={isTypingReply ? 'is-replying' : ''}>
                   <MessageRole>{t('AI Tutor')}</MessageRole>
-                  {renderedTutorMessageParts.map((part, index) => part.type === 'tikz'
-                    ? <TutorTikz key={`tutor-tikz-${index}`}><TikzPreview large prepared={currentAiTikzPreviews[part.value]} sent value={part.value} /></TutorTikz>
-                    : <MessageBody key={`tutor-text-${index}`}><KatexSpan content={part.value} /></MessageBody>)}
+                  {renderedTutorMessageParts.map((part, index) => {
+                    if (part.type !== 'tikz') return <MessageBody key={`tutor-text-${index}`}><KatexSpan content={part.value} /></MessageBody>;
+
+                    const occurrence = renderedTutorMessageParts
+                      .slice(0, index)
+                      .filter((previousPart) => previousPart.type === 'tikz')
+                      .length;
+                    const imageId = tikzImageId('ai', lessonId, algorithmStage?.getType() || 'stage', occurrence);
+
+                    return <TutorTikz key={imageId}><TikzPreview imageId={imageId} prepared={currentAiTikzPreviews[part.value]} sent value={part.value} /></TutorTikz>;
+                  })}
                   {currentStageImageCids.map((cid, index) => <QuestionImage key={`${cid}-${index}`}>
                     <ResizableImage cid={cid} />
                   </QuestionImage>)}
@@ -1467,7 +1527,7 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
                     }}>×</RemoveAttachmentButton>
                   </AudioChip>}
                   {tikz && <AttachmentChip>
-                    <TikzPreview prepared={tikzDataUrl ? { src: tikzDataUrl } : undefined} value={tikz} />
+                    <TikzPreview key={tikzImageId('student', lessonId, algorithmStage?.getType() || 'stage')} imageId={tikzImageId('student', lessonId, algorithmStage?.getType() || 'stage')} prepared={tikzDataUrl ? { src: tikzDataUrl } : undefined} value={tikz} />
                     <AttachmentLabel title={tikz}>{t('TikZ drawing')}</AttachmentLabel>
                     <RemoveAttachmentButton type='button' aria-label={t('Remove TikZ drawing')} onClick={() => {
                       setTikz('');
@@ -1614,9 +1674,17 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
       {tikzEditorOpen && <TikzEditor
         ariaLabel={t('Student drawing TikZ editor')}
         onCancel={() => setTikzEditorOpen(false)}
-        onSave={async (source) => {
+        onSave={async (source, editorSvg) => {
           if (!isTikzCode(source)) throw new Error(t('The drawing must contain one complete tikzpicture environment.'));
+
+          // Save the exact SVG returned by the visible editor. The previous
+          // flow re-rendered the source in a separate hidden iframe, which
+          // could race the editor and produce a blank/stale preview even
+          // though the drawing was visible before Save and exit.
+          const { cacheTikzEditorSvg } = await import('../../../page-laws/src/Edit/tikzEditorBridge.js');
+          cacheTikzEditorSvg(source, editorSvg);
           const rendered = await renderTikzDataUrl(source);
+
           setTikz(source);
           setTikzDataUrl(rendered);
           setTutorValidationMessage('');
