@@ -45,6 +45,7 @@ const VOICE_SPEECH_START_MIN_RMS = 0.018;
 const VOICE_SPEECH_CONTINUE_MIN_RMS = 0.011;
 const VOICE_NOISE_START_MULTIPLIER = 2.8;
 const VOICE_LANGUAGE_SAMPLE_COUNT = 5;
+const MINI_CONFETTI_PIECES = Array.from({ length: 24 }, (_, index) => index + 1);
 const APP_TUTOR_LANGUAGE_CODES = new Set(['ar', 'bn', 'de', 'en', 'es', 'fr', 'hi', 'id', 'it', 'ja', 'ko', 'ky', 'pt', 'ru', 'sr', 'ur', 'zh']);
 type VoiceStatus = 'off' | 'detecting' | 'speaking' | 'listening' | 'thinking' | 'waiting';
 
@@ -661,6 +662,7 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
   const [voiceTurnRevision, setVoiceTurnRevision] = useState(0);
   const [voiceLanguage, setVoiceLanguage] = useState<VoiceLanguage>();
   const [pendingVoiceLanguageCode, setPendingVoiceLanguageCode] = useState<string>();
+  const [successConfettiRevision, setSuccessConfettiRevision] = useState(0);
   const voiceModeRef = useRef(false);
   const voiceLanguageRef = useRef<VoiceLanguage>();
   const voiceLanguageRequestRef = useRef(0);
@@ -1950,6 +1952,14 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
         throw new Error(t('The AI tutor did not choose one of the programmed TutoringAlgorithm branches.'));
       }
 
+      // A successful autonomous correction advances out of the fake-solution
+      // retry branch. Celebrate that exact decision, not later guided repeats.
+      const correctedFakeSolution = algorithmStage.getType() === StageType.provide_fake_solution
+        && (candidate.getType() === StageType.decide_about_badge || candidate.getType() === StageType.next_skill);
+      if (correctedFakeSolution) {
+        setSuccessConfettiRevision((revision) => revision + 1);
+      }
+
       localStorage.setItem(MODEL_STORAGE, model.trim() || DEFAULT_MODEL);
 
       const finishesSkill = candidate.getType() === StageType.skip
@@ -2167,6 +2177,9 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
   return (
     <FullFindow>
       <TutorContainer>
+        {successConfettiRevision > 0 && <MiniConfetti key={successConfettiRevision} aria-hidden='true'>
+          {MINI_CONFETTI_PIECES.map((piece) => <i key={piece} />)}
+        </MiniConfetti>}
         <Progress>
           <Spacer />
           <LinearProgress total={Math.max(skills.length, 1)} value={Math.min(lessonStep, skills.length)} />
@@ -2593,9 +2606,128 @@ export function AITutorButton(props: Omit<Props, 'onClose' | 'persistedOpenRoute
 }
 
 const TutorContainer = styled(VerticalCenterItemsContainer)`
+  position: relative;
+  isolation: isolate;
   min-height: 100dvh;
   box-sizing: border-box;
   justify-content: flex-start;
+`;
+const MiniConfetti = styled.div`
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+
+  i {
+    --x: 0vw;
+    --y: 0vh;
+    --r: 0deg;
+    --delay: 0ms;
+    position: absolute;
+    top: 48%;
+    left: 50%;
+    width: 12px;
+    height: 7px;
+    border-radius: 2px;
+    background: #F39200;
+    opacity: 0;
+    will-change: transform, opacity;
+    animation: ai-tutor-mini-confetti 960ms cubic-bezier(.17, .76, .29, 1) var(--delay) both;
+  }
+
+  i:nth-child(6n + 1) {
+    background: #F39200;
+  }
+
+  i:nth-child(6n + 2) {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #ff5f6d;
+  }
+
+  i:nth-child(6n + 3) {
+    width: 8px;
+    height: 13px;
+    border-radius: 2px;
+    background: #29c3be;
+  }
+
+  i:nth-child(6n + 4) {
+    width: 14px;
+    height: 5px;
+    border-radius: 999px;
+    background: #5d8cff;
+  }
+
+  i:nth-child(6n + 5) {
+    width: 11px;
+    height: 11px;
+    border-radius: 3px;
+    background: #8a63d2;
+  }
+
+  i:nth-child(6n) {
+    width: 9px;
+    height: 14px;
+    border-radius: 2px;
+    background: #53b86c;
+  }
+
+  i:nth-child(1) { --x: -43vw; --y: -31vh; --r: -230deg; --delay: 0ms; }
+  i:nth-child(2) { --x: -35vw; --y: -38vh; --r: 190deg; --delay: 16ms; }
+  i:nth-child(3) { --x: -28vw; --y: -23vh; --r: -170deg; --delay: 34ms; }
+  i:nth-child(4) { --x: -46vw; --y: -10vh; --r: 250deg; --delay: 24ms; }
+  i:nth-child(5) { --x: -38vw; --y: 6vh; --r: -205deg; --delay: 48ms; }
+  i:nth-child(6) { --x: -30vw; --y: 21vh; --r: 165deg; --delay: 18ms; }
+  i:nth-child(7) { --x: -22vw; --y: 33vh; --r: -190deg; --delay: 56ms; }
+  i:nth-child(8) { --x: -12vw; --y: -35vh; --r: 210deg; --delay: 28ms; }
+  i:nth-child(9) { --x: -6vw; --y: -21vh; --r: -155deg; --delay: 42ms; }
+  i:nth-child(10) { --x: -17vw; --y: 18vh; --r: 235deg; --delay: 20ms; }
+  i:nth-child(11) { --x: -8vw; --y: 37vh; --r: -215deg; --delay: 62ms; }
+  i:nth-child(12) { --x: 4vw; --y: -40vh; --r: 185deg; --delay: 30ms; }
+  i:nth-child(13) { --x: 10vw; --y: -26vh; --r: -180deg; --delay: 10ms; }
+  i:nth-child(14) { --x: 19vw; --y: -34vh; --r: 225deg; --delay: 38ms; }
+  i:nth-child(15) { --x: 27vw; --y: -18vh; --r: -160deg; --delay: 22ms; }
+  i:nth-child(16) { --x: 36vw; --y: -28vh; --r: 245deg; --delay: 46ms; }
+  i:nth-child(17) { --x: 44vw; --y: -8vh; --r: -200deg; --delay: 14ms; }
+  i:nth-child(18) { --x: 47vw; --y: 11vh; --r: 205deg; --delay: 52ms; }
+  i:nth-child(19) { --x: 39vw; --y: 25vh; --r: -235deg; --delay: 26ms; }
+  i:nth-child(20) { --x: 30vw; --y: 35vh; --r: 175deg; --delay: 58ms; }
+  i:nth-child(21) { --x: 18vw; --y: 29vh; --r: -210deg; --delay: 32ms; }
+  i:nth-child(22) { --x: 8vw; --y: 40vh; --r: 195deg; --delay: 44ms; }
+  i:nth-child(23) { --x: 22vw; --y: 8vh; --r: -175deg; --delay: 36ms; }
+  i:nth-child(24) { --x: -1vw; --y: 27vh; --r: 220deg; --delay: 40ms; }
+
+  @keyframes ai-tutor-mini-confetti {
+    0% {
+      opacity: 0;
+      transform: translate(-50%, -50%) translate(0, 0) rotate(0deg) scale(.72);
+    }
+    12% {
+      opacity: .88;
+    }
+    70% {
+      opacity: .64;
+    }
+    100% {
+      opacity: 0;
+      transform: translate(-50%, -50%) translate(var(--x), var(--y)) rotate(var(--r)) scale(1.15);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    i {
+      transform: translate(-50%, -50%) translate(var(--x), var(--y)) rotate(var(--r));
+      animation: ai-tutor-mini-confetti-fade 340ms ease-out var(--delay) both;
+    }
+  }
+
+  @keyframes ai-tutor-mini-confetti-fade {
+    0%, 100% { opacity: 0; }
+    35% { opacity: .46; }
+  }
 `;
 const Progress = styled.div`
   margin-top: 20px;
