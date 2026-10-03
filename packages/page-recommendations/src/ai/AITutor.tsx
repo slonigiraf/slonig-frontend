@@ -1480,7 +1480,12 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
     } catch (e) {
       mediaStreamRef.current?.getTracks().forEach((track) => track.stop());
       mediaStreamRef.current = undefined;
-      setError(e instanceof Error ? e.message : t('Unable to access the microphone.'));
+      // Safari/WebKit uses a very technical NotAllowedError message for both
+      // denied permission and platform contexts where capture is blocked (for
+      // example some in-app WKWebViews). Do not expose that browser-specific
+      // text to learners; the exact error is still available to developers.
+      console.warn('Unable to access the microphone.', e);
+      setError(t('Unable to access the microphone.'));
     }
   }, [loading, stopRecording, stopVoiceAnalyser, t]);
 
@@ -1688,6 +1693,13 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
       return;
     }
 
+    // Start the permission request synchronously from the button click. Some
+    // WebKit/iOS contexts reject getUserMedia when the first microphone request
+    // happens only after async language detection and tutor audio playback, once
+    // the original user activation has been lost. We only use this stream to
+    // prime permission, then close it immediately; recording opens a fresh stream.
+    const microphonePermissionRequest = navigator.mediaDevices.getUserMedia({ audio: true });
+
     voiceModeRef.current = true;
     voiceAutoSubmitRef.current = false;
     voiceLastSpokenKeyRef.current = '';
@@ -1703,6 +1715,22 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
     const requestId = ++voiceLanguageRequestRef.current;
 
     void (async () => {
+      try {
+        const permissionStream = await microphonePermissionRequest;
+        permissionStream.getTracks().forEach((track) => track.stop());
+      } catch (e) {
+        if (!voiceModeRef.current || requestId !== voiceLanguageRequestRef.current) return;
+        voiceModeRef.current = false;
+        setVoiceMode(false);
+        setVoiceStatus('off');
+        setPendingVoiceLanguageCode(undefined);
+        console.warn('Unable to access the microphone.', e);
+        setError(t('Unable to access the microphone.'));
+        return;
+      }
+
+      if (!voiceModeRef.current || requestId !== voiceLanguageRequestRef.current) return;
+
       try {
         const code = cachedCode || parseDetectedVoiceLanguageCode((await askOpenRouter(
           { apiKey: openRouterKey, model: model.trim() || DEFAULT_MODEL },
