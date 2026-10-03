@@ -2030,8 +2030,8 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
     }
   }, [finishSkill, loading, recording, skill, t]);
 
-  const canSubmit = !loading
-    && Boolean(recording || answer.trim() || attachments.length > 0 || audioBlob || tikz);
+  const hasComposerContent = Boolean(recording || answer.trim() || attachments.length > 0 || audioBlob || tikz);
+  const canSubmit = !loading && hasComposerContent;
   const blurEntireHistory = shouldBlurTutorReply && isRepeatStage(algorithmStage);
   const isTypingReply = shouldBlurTutorReply && !blurEntireHistory;
   const renderedTutorMessageParts = useMemo(() => tutorMessageParts(currentAiText), [currentAiText]);
@@ -2064,7 +2064,7 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
           <CloseButton onClick={onClose} icon='close' />
           <Spacer />
         </Progress>
-        {skill && <CurrentSkillLabel title={skill.title}><KatexSpan content={skill.title} /></CurrentSkillLabel>}
+        {skill && <CurrentSkillLabel title={skill.title}>{skill.title}</CurrentSkillLabel>}
         <Pane>
           {isOpenRouterKeyLoaded && !openRouterKey && <KeySettings><Button label={t('Set OpenRouter key')} onClick={() => setKeyDialogOpen(true)} /></KeySettings>}
           {error && <ErrorText>{error}</ErrorText>}
@@ -2141,7 +2141,7 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
               </TutorMessage>}
             </Conversation>
             <ComposerDock>
-              <Composer className={loading ? 'is-disabled' : ''} aria-disabled={loading}>
+              <Composer className={loading && !voiceMode ? 'is-disabled' : ''} aria-disabled={loading}>
                 {voiceMode && <VoiceModePanel data-voice-mode-panel='true'>
                   <VoiceModeControl
                     type='button'
@@ -2163,7 +2163,6 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
                       ? `${t('Talk language')}: ${voiceLanguage.name} · ${voiceControlHint}`
                       : voiceControlHint}</span>
                   </VoiceModeCopy>
-                  <VoiceEndButton type='button' onClick={endVoiceMode}>{t('End')}</VoiceEndButton>
                 </VoiceModePanel>}
                 <ComposerTextarea
                   ref={answerInputRef}
@@ -2181,7 +2180,7 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
                     e.preventDefault();
                     if (canSubmit) void submitAnswer();
                   }}
-                  placeholder={t('Type your answer')}
+                  placeholder={voiceMode ? t('Type') : t('Type your answer')}
                   disabled={loading}
                 />
                 {!loading && (attachments.length > 0 || audioBlob || recording || tikz) && <AttachmentTray>
@@ -2304,41 +2303,59 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
                           </label>}
                       </ModelControlMenu>
                     </ModelControl>
-                    <VoiceModeButton
-                      type='button'
-                      className={voiceMode ? 'active' : ''}
-                      aria-label={voiceMode ? t('End voice mode') : t('Start voice mode')}
-                      title={voiceMode ? t('End voice mode') : t('Start voice mode')}
-                      onClick={voiceMode ? endVoiceMode : startVoiceMode}
-                    >
-                      <svg aria-hidden='true' viewBox='0 0 24 24'>
-                        <path d='M4 12a8 8 0 0 1 16 0M4 12v5a2 2 0 0 0 2 2h2v-7H4Zm16 0v5a2 2 0 0 1-2 2h-2v-7h4Z' />
-                      </svg>
-                    </VoiceModeButton>
                     <AudioButton
                       type='button'
-                      className={recording ? 'recording' : ''}
+                      className={[recording ? 'recording' : '', voiceMode ? 'voice-disabled' : ''].filter(Boolean).join(' ')}
                       aria-label={recording ? t('Stop recording') : t('Record voice answer')}
                       title={recording ? t('Stop recording') : t('Record voice answer')}
                       disabled={loading || voiceMode}
                       onClick={() => recording ? void stopRecording() : void startRecording()}
                     >
-                      {recording
+                      {voiceMode
+                        ? <svg aria-hidden='true' viewBox='0 0 24 24'>
+                          <path d='M9 5.7V12a3 3 0 0 0 4.9 2.3M15 10.2V5.7a3 3 0 0 0-5.6-1.5M5.5 11.5v.5a6.5 6.5 0 0 0 10.2 5.3M12 18.5V22M9 22h6M3 3l18 18' />
+                        </svg>
+                        : recording
                         ? <StopGlyph aria-hidden='true' />
                         : <svg aria-hidden='true' viewBox='0 0 24 24'>
                           <path d='M12 15.5a3.5 3.5 0 0 0 3.5-3.5V6a3.5 3.5 0 1 0-7 0v6a3.5 3.5 0 0 0 3.5 3.5Z' />
                           <path d='M5.5 11.5v.5a6.5 6.5 0 0 0 13 0v-.5M12 18.5V22M9 22h6' />
                         </svg>}
                     </AudioButton>
-                    <SendButton
-                      type='button'
-                      aria-label={t('Send answer')}
-                      title={t('Send answer (Enter)')}
-                      disabled={!canSubmit}
-                      onClick={() => void submitAnswer()}
-                    >
-                      ↑
-                    </SendButton>
+                    {voiceMode
+                      ? <VoiceExitButton
+                        type='button'
+                        aria-label={t('End voice mode')}
+                        title={t('End voice mode')}
+                        onClick={endVoiceMode}
+                      >
+                        <svg aria-hidden='true' viewBox='0 0 24 24'>
+                          <path d='M6 6l12 12M18 6 6 18' />
+                        </svg>
+                      </VoiceExitButton>
+                      : hasComposerContent
+                        ? <SendButton
+                          type='button'
+                          aria-label={t('Send answer')}
+                          title={t('Send answer (Enter)')}
+                          disabled={!canSubmit}
+                          onClick={() => void submitAnswer()}
+                        >
+                          <svg aria-hidden='true' viewBox='0 0 24 24'>
+                            <path d='M12 19V5M6.5 10.5 12 5l5.5 5.5' />
+                          </svg>
+                        </SendButton>
+                        : <VoiceStartButton
+                          type='button'
+                          aria-label={t('Start voice mode')}
+                          title={t('Start voice mode')}
+                          disabled={loading}
+                          onClick={startVoiceMode}
+                        >
+                          <svg aria-hidden='true' viewBox='0 0 24 24'>
+                            <path d='M4 10v4M8 7v10M12 4v16M16 7v10M20 10v4' />
+                          </svg>
+                        </VoiceStartButton>}
                   </ComposerActions>
                 </ComposerFooter>
               </Composer>
@@ -3057,48 +3074,6 @@ const VoiceModeCopy = styled.div`
     line-height: 1.35;
   }
 `;
-const VoiceEndButton = styled.button`
-  height: 32px;
-  flex: 0 0 auto;
-  padding: 0 11px;
-  border: 0;
-  border-radius: 16px;
-  background: rgb(0 0 0 / 6%);
-  color: rgb(0 0 0 / 66%);
-  font: inherit;
-  font-size: 13px;
-  cursor: pointer;
-
-  &:hover { background: rgb(0 0 0 / 9%); }
-`;
-const VoiceModeButton = styled.button`
-  width: 38px;
-  height: 38px;
-  flex: 0 0 38px;
-  padding: 7px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border: 0;
-  border-radius: 50%;
-  background: transparent;
-  color: rgb(0 0 0 / 70%);
-  cursor: pointer;
-
-  svg {
-    width: 22px;
-    height: 22px;
-    fill: none;
-    stroke: currentColor;
-    stroke-width: 1.9;
-    stroke-linecap: round;
-    stroke-linejoin: round;
-  }
-
-  &:hover { background: rgb(0 0 0 / 5%); }
-  &.active { background: rgb(243 146 0 / 12%); color: #c17000; }
-`;
-
 const AudioButton = styled.button`
   width: 38px;
   height: 38px;
@@ -3126,6 +3101,11 @@ const AudioButton = styled.button`
   &:hover:not(:disabled) { background: rgb(0 0 0 / 5%); }
   &.recording { background: rgb(220 38 38 / 9%); color: #dc2626; }
   &:disabled { cursor: default; opacity: .4; }
+  &.voice-disabled:disabled {
+    background: rgb(0 0 0 / 5%);
+    color: rgb(0 0 0 / 82%);
+    opacity: 1;
+  }
 `;
 const StopGlyph = styled.span`
   width: 11px;
@@ -3177,16 +3157,57 @@ const SendButton = styled.button`
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  padding: 0;
   border: 0;
   border-radius: 50%;
-  background: #F39200;
+  background: #3b82f6;
   color: #fff;
-  font-size: 25px;
-  line-height: 1;
   cursor: pointer;
 
-  &:hover:not(:disabled) { background: #d98200; }
+  svg {
+    width: 23px;
+    height: 23px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2.4;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  &:hover:not(:disabled) { background: #2563eb; }
   &:disabled { cursor: default; background: rgb(0 0 0 / 12%); color: rgb(0 0 0 / 32%); }
+`;
+const VoiceStartButton = styled(SendButton)`
+  svg {
+    width: 24px;
+    height: 24px;
+    stroke-width: 2;
+  }
+`;
+const VoiceExitButton = styled.button`
+  width: 40px;
+  height: 40px;
+  flex: 0 0 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: #0f0f0f;
+  color: #fff;
+  cursor: pointer;
+
+  svg {
+    width: 22px;
+    height: 22px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+  }
+
+  &:hover { background: #262626; }
 `;
 const ComposerMeta = styled.div`
   width: 100%;
