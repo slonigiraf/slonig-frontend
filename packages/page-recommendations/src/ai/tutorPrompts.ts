@@ -414,12 +414,13 @@ function provideFakeSolutionPrompt(skill: AiSkill, stage: AlgorithmStage, studen
   ].join('\n\n');
 }
 
-export function formatGeneratedStageMessage(stage: AlgorithmStage, message: string, translate: (key: string) => string = (key) => key): string {
+export function formatGeneratedStageMessage(stage: AlgorithmStage, message: string, t: (key: string) => string = (key) => key): string {
   const trimmed = ensureCodeFenceLanguages(message.trim());
   if (stage.getType() !== StageType.provide_fake_solution) return trimmed;
 
-  const solutionPrefix = translate('I think the solution is:');
-  const correctionPrompt = translate('Please, correct mistakes.');
+  // i18nBuild.cjs extracts literal t('...') calls when pruning locale files.
+  const solutionPrefix = t('I think the solution is:');
+  const correctionPrompt = t('Please, correct mistakes.');
   let fakeSolution = trimmed
     .replace(/^I think the solution is:\s*/i, '')
     .replace(/\s*\.?\s*Please,\s*correct mistakes\.?\s*$/i, '')
