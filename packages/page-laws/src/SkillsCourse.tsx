@@ -9,7 +9,7 @@ import type { DispatchError } from '@polkadot/types/interfaces';
 import type { GeneratedAbility } from './abilities.js';
 import { prepareAbilityForPublishing } from './abilities.js';
 
-import { deleteAbility, getAbilities, getBookChapters, getBookConceptsForBookPage, getBookPages, getExercisesForBookPage, getSetting, hydrateAbilityContent, putBook, putBookChapter, SettingKey, storeAbility, updateBookChapterTitle } from '@slonigiraf/db';
+import { deleteAbility, getAbilities, getBookChapters, getBookConceptsForBookPage, getBookPages, getExercisesForBookPage, getSetting, hydrateAbilityContent, putBookChapter, SettingKey, storeAbility, updateBookChapterTitle, updateBookFields } from '@slonigiraf/db';
 import { digestFromCIDv1, getCIDFromBytes, getIPFSContentIDAndPinIt, getIPFSContentIDForBytesAndPinIt, getIPFSDataFromContentID, KatexSpan, LawType, parseJson, useInfo, useIpfsContext, useLoginContext } from '@slonigiraf/slonig-components';
 import BN from 'bn.js';
 import { useLiveQuery } from 'dexie-react-hooks';
@@ -477,7 +477,7 @@ function SkillsCourse ({ book }: { book: Book }): React.ReactElement {
 
     setKnowledgeId(id);
     setStoredBook(updatedBook);
-    putBook(updatedBook).catch((error) => showInfo(`Unable to remember the publishing location: ${errorMessage(error)}`, 'error'));
+    updateBookFields(storedBook.id, { publishingLocationId: id || undefined }).catch((error) => showInfo(`Unable to remember the publishing location: ${errorMessage(error)}`, 'error'));
   }, [showInfo, storedBook]);
 
   const saveChapterName = useCallback(async (chapter: BookChapter, titleValue: string): Promise<void> => {
@@ -504,7 +504,7 @@ function SkillsCourse ({ book }: { book: Book }): React.ReactElement {
       await deleteAbility(recordId);
       const updatedBook = { ...storedBook, courseOrder: storedBook.courseOrder?.filter((key) => key !== templateOutlineKey(recordId)) };
 
-      await putBook(updatedBook);
+      await updateBookFields(storedBook.id, { courseOrder: updatedBook.courseOrder });
       setStoredBook(updatedBook);
     } catch (error) {
       showInfo(`Unable to delete the ability: ${errorMessage(error)}`, 'error');
@@ -543,7 +543,11 @@ function SkillsCourse ({ book }: { book: Book }): React.ReactElement {
     };
 
     try {
-      await putBook(updatedBook);
+      await updateBookFields(storedBook.id, {
+        chapterOrder: updatedBook.chapterOrder,
+        courseOrder: updatedBook.courseOrder,
+        excludedCourseChapterIds: updatedBook.excludedCourseChapterIds
+      });
       setStoredBook(updatedBook);
       setPublishStatus('Chapter removed from the course.');
     } catch (error) {
@@ -566,7 +570,7 @@ function SkillsCourse ({ book }: { book: Book }): React.ReactElement {
         courseOrder: [chapterOutlineKey(newChapterId), ...outline.map(({ key }) => key)]
       };
 
-      await putBook(updatedBook);
+      await updateBookFields(storedBook.id, { chapterOrder: updatedBook.chapterOrder, courseOrder: updatedBook.courseOrder });
       setStoredBook(updatedBook);
       setPublishStatus('Chapter inserted. Rename it or drag it between abilities.');
     } catch (error) {
@@ -608,7 +612,7 @@ function SkillsCourse ({ book }: { book: Book }): React.ReactElement {
 
     setStoredBook(updatedBook);
     setDragKey(undefined);
-    putBook(updatedBook)
+    updateBookFields(storedBook.id, { chapterOrder, courseOrder: keys })
       .then(() => setPublishStatus('Course order saved.'))
       .catch((error) => {
         setStoredBook(previousBook);
@@ -764,7 +768,7 @@ function SkillsCourse ({ book }: { book: Book }): React.ReactElement {
     setStoredBook(updatedBook);
 
     try {
-      await putBook(updatedBook);
+      await updateBookFields(storedBook.id, { courseOrder: keys });
       setPublishStatus('Course order saved.');
     } catch (error) {
       setStoredBook(previousBook);
@@ -870,7 +874,8 @@ function SkillsCourse ({ book }: { book: Book }): React.ReactElement {
         apiKey: key,
         baseURL: 'https://openrouter.ai/api/v1',
         dangerouslyAllowBrowser: true,
-        defaultHeaders: { 'HTTP-Referer': window.location.origin, 'X-OpenRouter-Title': 'Slonig' }
+        defaultHeaders: { 'HTTP-Referer': window.location.origin, 'X-OpenRouter-Title': 'Slonig' },
+        maxRetries: 0
       });
       const response = await openRouterRequestGate.run(() => client.chat.completions.create({
         messages: [{
@@ -898,7 +903,7 @@ function SkillsCourse ({ book }: { book: Book }): React.ReactElement {
       const updatedBook = { ...storedBook, name: suggestions.bookName };
 
       await Promise.all(suggestions.chapters.map(({ id, title }) => updateBookChapterTitle(id, title)));
-      await putBook(updatedBook);
+      await updateBookFields(storedBook.id, { name: suggestions.bookName });
       setStoredBook(updatedBook);
       setCourseName(suggestions.bookName);
       setPublishStatus('Book and editable chapter names fixed.');
@@ -985,7 +990,12 @@ function SkillsCourse ({ book }: { book: Book }): React.ReactElement {
         publishingLocationId: knowledgeId
       };
 
-      await putBook(updatedBook);
+      await updateBookFields(storedBook.id, {
+        courseOrder: updatedBook.courseOrder,
+        knowledgeId: savedCourseId,
+        name: courseName.trim(),
+        publishingLocationId: knowledgeId
+      });
       setStoredBook(updatedBook);
 
       const skillTransactions: SubmittableExtrinsic<'promise'>[] = [];

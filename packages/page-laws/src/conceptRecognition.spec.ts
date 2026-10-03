@@ -19,6 +19,18 @@ describe('chapter concept recognition', (): void => {
     ]);
   });
 
+  it('does not attach legacy title-only pages to an arbitrary duplicate chapter id', (): void => {
+    assert.deepEqual(conceptChaptersFromPages([
+      { chapter: 'Review', chapterId: 10, pageNumber: 1 },
+      { chapter: 'Review', chapterId: 11, pageNumber: 2 },
+      { chapter: 'Review', pageNumber: 3 }
+    ]), [
+      { chapterId: 10, pageNumbers: [1], title: 'Review' },
+      { chapterId: 11, pageNumbers: [2], title: 'Review' },
+      { chapterId: undefined, pageNumbers: [3], title: 'Review' }
+    ]);
+  });
+
   it('excludes pages whose deleted chapter was removed from later analysis', (): void => {
     assert.deepEqual(conceptChaptersFromPages([
       { chapter: 'Keep', chapterId: 10, pageNumber: 1 },

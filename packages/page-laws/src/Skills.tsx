@@ -86,103 +86,25 @@ const ABILITIES_STAGE: BookProcessingStageKey = 'abilities';
 const FIX_ABILITIES_STAGE: BookProcessingStageKey = 'fixAbilities';
 const IMAGES_STAGE: BookProcessingStageKey = 'images';
 const FIX_IMAGES_STAGE: BookProcessingStageKey = 'fixImages';
-const MAX_REQUEST_ATTEMPTS = 4;
-const RETRY_BASE_DELAY_MS = 1_000;
 const AI_REQUEST_TIMEOUT_MS = 60_000;
 const TIKZ_RENDER_CONCURRENCY = 4;
-const delay = (milliseconds: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, milliseconds));
-
-function getErrorStatus (error: unknown): number | undefined {
-  if (typeof error !== 'object' || error === null || !('status' in error)) {
-    return undefined;
-  }
-
-  const status = (error as { status?: unknown }).status;
-
-  return typeof status === 'number' ? status : undefined;
-}
-
-function getRetryAfterMs (error: unknown): number | undefined {
-  if (typeof error !== 'object' || error === null || !('headers' in error)) {
-    return undefined;
-  }
-
-  const headers = (error as { headers?: unknown }).headers;
-  let retryAfter: unknown;
-
-  if (typeof headers === 'object' && headers !== null && 'get' in headers && typeof (headers as { get?: unknown }).get === 'function') {
-    retryAfter = (headers as { get: (name: string) => unknown }).get('retry-after');
-  } else if (typeof headers === 'object' && headers !== null) {
-    const record = headers as Record<string, unknown>;
-
-    retryAfter = record['retry-after'] ?? record['Retry-After'];
-  }
-
-  if (typeof retryAfter === 'number' && Number.isFinite(retryAfter)) {
-    return Math.max(0, retryAfter * 1_000);
-  }
-
-  if (typeof retryAfter !== 'string' || !retryAfter.trim()) {
-    return undefined;
-  }
-
-  const seconds = Number(retryAfter);
-
-  if (Number.isFinite(seconds)) {
-    return Math.max(0, seconds * 1_000);
-  }
-
-  const date = Date.parse(retryAfter);
-
-  return Number.isNaN(date) ? undefined : Math.max(0, date - Date.now());
-}
-
-function isRetryableRequestError (error: unknown): boolean {
-  const status = getErrorStatus(error);
-
-  return status === 429 || (status !== undefined && status >= 500 && status <= 599);
-}
 
 async function requestChatContent (client: OpenAI, model: string, systemPrompt: string, userPrompt: string, jsonObject: boolean, onCost?: OpenRouterCostReporter, maxOutputTokens?: number, signal?: AbortSignal): Promise<string> {
-  let lastError: unknown;
-
-  for (let attempt = 0; attempt < MAX_REQUEST_ATTEMPTS; attempt++) {
-    if (signal?.aborted) {
-      throw new DOMException('Processing aborted.', 'AbortError');
-    }
-
-    try {
-      const makeRequest = () => client.chat.completions.create({
-        messages: [{ content: systemPrompt, role: 'system' as const }, { content: userPrompt, role: 'user' as const }],
-        model,
-        ...(maxOutputTokens ? { max_completion_tokens: maxOutputTokens } : {}),
-        ...(jsonObject ? { response_format: { type: 'json_object' as const } } : {})
-      }, { signal, timeout: AI_REQUEST_TIMEOUT_MS });
-      const response = await openRouterRequestGate.run(makeRequest);
-
-      reportOpenRouterCost(response, onCost);
-
-      return response.choices[0].message?.content?.trim() ?? '';
-    } catch (error) {
-      lastError = error;
-
-      if (!isRetryableRequestError(error) || attempt === MAX_REQUEST_ATTEMPTS - 1) {
-        throw error;
-      }
-
-      const retryAfter = getRetryAfterMs(error);
-      const backoff = retryAfter ?? RETRY_BASE_DELAY_MS * (2 ** attempt);
-
-      openRouterRequestGate.pause(backoff);
-      await delay(backoff);
-
-      if (signal?.aborted) {
-        throw new DOMException('Processing aborted.', 'AbortError');
-      }
-    }
+  if (signal?.aborted) {
+    throw new DOMException('Processing aborted.', 'AbortError');
   }
 
-  throw lastError instanceof Error ? lastError : new Error('OpenRouter request failed after retries.');
+  const makeRequest = () => client.chat.completions.create({
+    messages: [{ content: systemPrompt, role: 'system' as const }, { content: userPrompt, role: 'user' as const }],
+    model,
+    ...(maxOutputTokens ? { max_completion_tokens: maxOutputTokens } : {}),
+    ...(jsonObject ? { response_format: { type: 'json_object' as const } } : {})
+  }, { signal, timeout: AI_REQUEST_TIMEOUT_MS });
+  const response = await openRouterRequestGate.run(makeRequest, { signal });
+
+  reportOpenRouterCost(response, onCost);
+
+  return response.choices[0].message?.content?.trim() ?? '';
 }
 
 export type SkillsView = 'conceptsSkills' | 'preExercisesExercises';
@@ -2871,6 +2793,12 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalAutoRunBus
                 nextAction.onRetryMissing();
                 return;
               }
+
+              setError(`Fast Forward stopped at ${nextAction.label}: the stage is still incomplete after two targeted retries.`);
+              autoRunTriggeredKeyRef.current = '';
+              autoRunRunStartedRef.current = false;
+              onAbortAutoRun?.();
+              return;
             }
           }
 
@@ -2910,10 +2838,10 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalAutoRunBus
           }
 
           if (!nextAction.isDone) {
-            // Two targeted recovery runs are the ceiling for Fast Forward.
-            // Persist the coarse stage marker after that ceiling so a stubborn
-            // missing item does not permanently block every downstream stage.
-            void completeStage(nextKey as BookProcessingStageKey);
+            setError(`Fast Forward stopped at ${nextAction.label}: the stage is still incomplete after two targeted retries.`);
+            autoRunTriggeredKeyRef.current = '';
+            autoRunRunStartedRef.current = false;
+            onAbortAutoRun?.();
             return;
           }
         }
@@ -2925,7 +2853,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalAutoRunBus
       autoRunTriggeredKeyRef.current = '';
       autoRunRunStartedRef.current = false;
     }
-  }, [aiAction, autoRunAll, autoRunStageKeys, completeStage, exerciseFixReview, externalAutoRunBusy, fixReview, imageFixReview, isBusy, isContentSnapshotCurrent, onAutoRunComplete, pipelineActions]);
+  }, [aiAction, autoRunAll, autoRunStageKeys, exerciseFixReview, externalAutoRunBusy, fixReview, imageFixReview, isBusy, isContentSnapshotCurrent, onAbortAutoRun, onAutoRunComplete, pipelineActions]);
 
   const autoRunCompletedCount = autoRunStageKeys.reduce((count, key) => {
     if (autoRunFinishedStageKeysRef.current.has(key)) {

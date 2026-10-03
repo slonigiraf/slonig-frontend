@@ -47,7 +47,8 @@ const GenerateAbilities: React.FC<Props> = ({ className = '', moduleId }: Props)
       defaultHeaders: {
         'HTTP-Referer': window.location.origin,
         'X-OpenRouter-Title': 'Slonig'
-      }
+      },
+      maxRetries: 0
     });
     try {
       setLoading(true);

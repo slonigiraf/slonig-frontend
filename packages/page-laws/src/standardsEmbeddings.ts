@@ -3,7 +3,7 @@
 
 import type { BookConcept, ConceptEmbedding, StandardEmbedding } from '@slonigiraf/db';
 
-import { clearConceptEmbeddings, clearStandardEmbeddings, getConceptEmbeddings, getSetting, getStandardEmbeddings, putConceptEmbeddings, putStandardEmbeddings, SettingKey, storeSetting } from '@slonigiraf/db';
+import { getConceptEmbeddings, getSetting, getStandardEmbeddings, putConceptEmbeddings, putStandardEmbeddings, SettingKey, storeSetting } from '@slonigiraf/db';
 import OpenAI from 'openai';
 
 import { openRouterRequestGate } from './openRouterConcurrency.js';
@@ -64,19 +64,16 @@ export async function ensureStandardEmbeddingCache (client: OpenAI, embedder: st
   const embedderChanged = configuredEmbedder !== embedder;
   let embedderRecorded = !embedderChanged;
 
-  if (embedderChanged) {
-    await clearStandardEmbeddings();
-  }
-
   const cachedRows = await getStandardEmbeddings(ids);
-  const byId = new Map<string, number[]>(cachedRows.flatMap(({ embedding, id }) => isFiniteEmbedding(embedding) ? [[id, embedding] as const] : []));
+  const byId = new Map<string, number[]>(cachedRows.flatMap(({ embedding, id, model }) => model === embedder && isFiniteEmbedding(embedding) ? [[id, embedding] as const] : []));
   const missing = standards.filter(({ code }) => !byId.has(code));
 
   for (const batch of embeddingBatches(missing)) {
     const vectors = await requestTextEmbeddings(client, embedder, batch.map(standardEmbeddingInput), onCost);
     const rows: StandardEmbedding[] = batch.map(({ code }, index) => ({
       embedding: vectors[index],
-      id: code
+      id: code,
+      model: embedder
     }));
 
     await putStandardEmbeddings(rows);
@@ -108,18 +105,14 @@ function storableConcepts (concepts: BookConcept[]): Array<BookConcept & { id: n
 }
 
 export async function cachedConceptEmbeddingMap (embedder: string, concepts: BookConcept[]): Promise<Map<number, number[]>> {
-  if (await getSetting(SettingKey.CONCEPTS_EMBEDDER) !== embedder) {
-    return new Map<number, number[]>();
-  }
-
   const current = storableConcepts(concepts);
   const byConcept = new Map(current.map((concept) => [concept.id, concept] as const));
   const rows = await getConceptEmbeddings(current.map(({ id }) => id));
 
-  return new Map<number, number[]>(rows.flatMap(({ embedding, id, input }) => {
+  return new Map<number, number[]>(rows.flatMap(({ embedding, id, input, model }) => {
     const concept = byConcept.get(id);
 
-    return concept && input === conceptEmbeddingInput(concept) && isFiniteEmbedding(embedding)
+    return concept && model === embedder && input === conceptEmbeddingInput(concept) && isFiniteEmbedding(embedding)
       ? [[id, embedding] as const]
       : [];
   }));
@@ -131,16 +124,12 @@ export async function ensureConceptEmbeddingCache (client: OpenAI, embedder: str
   const embedderChanged = configuredEmbedder !== embedder;
   let embedderRecorded = !embedderChanged;
 
-  if (embedderChanged) {
-    await clearConceptEmbeddings();
-  }
-
   const byConcept = new Map(current.map((concept) => [concept.id, concept] as const));
   const cachedRows = await getConceptEmbeddings(current.map(({ id }) => id));
-  const byId = new Map<number, number[]>(cachedRows.flatMap(({ embedding, id, input }) => {
+  const byId = new Map<number, number[]>(cachedRows.flatMap(({ embedding, id, input, model }) => {
     const concept = byConcept.get(id);
 
-    return concept && input === conceptEmbeddingInput(concept) && isFiniteEmbedding(embedding)
+    return concept && model === embedder && input === conceptEmbeddingInput(concept) && isFiniteEmbedding(embedding)
       ? [[id, embedding] as const]
       : [];
   }));
@@ -153,7 +142,8 @@ export async function ensureConceptEmbeddingCache (client: OpenAI, embedder: str
       bookId: concept.bookPage[0],
       embedding: vectors[index],
       id: concept.id,
-      input: inputs[index]
+      input: inputs[index],
+      model: embedder
     }));
 
     await putConceptEmbeddings(rows);

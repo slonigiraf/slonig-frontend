@@ -4,7 +4,7 @@
 import type { Book, BookChapter, BookConcept, BookPage, BookProcessingStageKey, BookStageSpendKey, Exercise, MathpixHeading } from '@slonigiraf/db';
 import type { PDFDocumentLoadingTask, PDFDocumentProxy, RenderTask } from 'pdfjs-dist';
 
-import { addBookStageSpend, assignBookConceptsToChapters, assignBookPageChapter, completeBookProcessingStage, createBookConcept, deleteAbilities, deleteBookChapters, deleteBookConcept, deleteExercise, getAbilities, getBookChapters, getBookConceptsForBookPage, getBookPages, getExercisesForBookPage, getSetting, incrementBookFixConceptsAttempts, isBookProcessingStageComplete, mergeBookChapterWithPrevious, putBook, putBookPage, reorderBookConcepts, replaceAbilities, replaceBookChapterAssignments, replaceExercisesForBookPage, replaceParsedBookPageContent, resetBookProcessingStagesFrom, SettingKey, splitBookChapterAtPage, storeSetting, updateBookChapterTitle, updateBookConcept, withBookProcessingStagesResetFrom, withCompletedBookProcessingStage } from '@slonigiraf/db';
+import { addBookStageSpend, applyBookChapterRefinements, assignBookConceptsToChapters, assignBookPageChapter, completeBookProcessingStage, createBookConcept, deleteAbilities, deleteBookChapters, deleteBookConcept, deleteExercise, getAbilities, getBookChapters, getBookConceptsForBookPage, getBookPages, getExercisesForBookPage, getSetting, incrementBookFixConceptsAttempts, isBookProcessingStageComplete, mergeBookChapterWithPrevious, putBookPage, reorderBookConcepts, replaceAbilities, replaceBookChapterAssignments, replaceExercisesForBookPage, replaceParsedBookPageContent, resetBookProcessingStagesFrom, SettingKey, splitBookChapterAtPage, storeSetting, updateBookChapterTitle, updateBookConcept, updateBookFieldsAndStages, withBookProcessingStagesResetFrom, withCompletedBookProcessingStage } from '@slonigiraf/db';
 import { Confirmation, KatexSpan, SelectableList } from '@slonigiraf/slonig-components';
 import { strFromU8, unzipSync } from 'fflate';
 import MathpixLoader from 'mathpix-markdown-it/lib/components/mathpix-loader/index.js';
@@ -26,7 +26,7 @@ import OpenRouterModelSelector from './OpenRouterModelSelector.js';
 import { chapterLevelMissingConcept, fixChapterConceptsPrompt, parseMissingChapterConcepts, type MissingChapterConcept } from './fixConcepts.js';
 import { clearFixConceptsChapterStatuses, fixConceptsChapterKey, loadFixConceptsChapterStatuses, storeFixConceptsChapterStatuses, type FixConceptsChapterStatuses } from './fixConceptsProgress.js';
 import { assertDisjointSortChapterConcepts, conceptsForSortChapter, parseSortedChapterConceptIndexes, sortChapterConceptsPrompt } from './sortConcepts.js';
-import { conceptBelongsToChapter, conceptsForRefinementChapter, hasPersistedRefinedConceptMembership, parseRefinedChapterGroups, REFINE_CHAPTERS_SPEND_STAGE, refinedChapterSplitPages, refineChapterPrompt, type RefinedConceptPersistenceExpectation, withRefineChaptersComplete } from './refineChapters.js';
+import { conceptBelongsToChapter, conceptsForRefinementChapter, hasPersistedRefinedConceptMembership, parseRefinedChapterGroups, REFINE_CHAPTERS_SPEND_STAGE, refinedChapterSplitPages, refineChapterPrompt, withRefineChaptersComplete } from './refineChapters.js';
 import { formatOpenRouterSpend, reportOpenRouterCost, type OpenRouterCostReporter } from './openRouterCost.js';
 import { useBookStageTimer } from './bookStageTime.js';
 import { BOOK_AGE_DETECTION_PROMPT, BOOK_CHAPTER_EXTRACTION_REQUEST_PROMPT, BOOK_LANGUAGE_DETECTION_PROMPT, BOOK_SUBJECT_DETECTION_PROMPT, DEFAULT_PROCESSING_MODEL, DEFAULT_STANDARDS_MODEL, MATHPIX_PDF_PAGE_PRICE_USD, OPENAI_MODELS } from './constants.js';
@@ -587,70 +587,6 @@ const FixConceptsReviewContent = styled.div`
 `;
 
 
-const CONCEPT_REQUEST_MAX_ATTEMPTS = 4;
-const CONCEPT_RETRY_BASE_DELAY_MS = 1_000;
-
-function conceptRequestErrorStatus (error: unknown): number | undefined {
-  if (typeof error !== 'object' || error === null || !('status' in error)) {
-    return undefined;
-  }
-
-  const status = (error as { status?: unknown }).status;
-
-  return typeof status === 'number' ? status : undefined;
-}
-
-function conceptRetryAfterMs (error: unknown): number | undefined {
-  if (typeof error !== 'object' || error === null || !('headers' in error)) {
-    return undefined;
-  }
-
-  const headers = (error as { headers?: unknown }).headers;
-  let retryAfter: unknown;
-
-  if (typeof headers === 'object' && headers !== null && 'get' in headers && typeof (headers as { get?: unknown }).get === 'function') {
-    retryAfter = (headers as { get: (name: string) => unknown }).get('retry-after');
-  } else if (typeof headers === 'object' && headers !== null) {
-    const record = headers as Record<string, unknown>;
-
-    retryAfter = record['retry-after'] ?? record['Retry-After'];
-  }
-
-  if (typeof retryAfter === 'number' && Number.isFinite(retryAfter)) {
-    return Math.max(0, retryAfter * 1_000);
-  }
-
-  if (typeof retryAfter !== 'string' || !retryAfter.trim()) {
-    return undefined;
-  }
-
-  const seconds = Number(retryAfter);
-
-  if (Number.isFinite(seconds)) {
-    return Math.max(0, seconds * 1_000);
-  }
-
-  const date = Date.parse(retryAfter);
-
-  return Number.isNaN(date) ? undefined : Math.max(0, date - Date.now());
-}
-
-function isRetryableConceptRequestError (error: unknown): boolean {
-  const status = conceptRequestErrorStatus(error);
-
-  if (status !== undefined) {
-    return status === 408 || status === 409 || status === 429 || (status >= 500 && status <= 599);
-  }
-
-  if (typeof error !== 'object' || error === null || !('name' in error)) {
-    return false;
-  }
-
-  const name = (error as { name?: unknown }).name;
-
-  return name === 'APIConnectionError' || name === 'APITimeoutError';
-}
-
 function conceptGenerationErrorMessage (error: unknown): string {
   const message = error instanceof Error
     ? error.message
@@ -669,31 +605,8 @@ function isRetryableConceptContentError (error: unknown): boolean {
   return error instanceof Error && error.message === 'OpenRouter returned invalid chapter concept data.';
 }
 
-async function waitForConceptRetry (milliseconds: number): Promise<void> {
-  await new Promise((resolve) => setTimeout(resolve, milliseconds));
-}
-
 async function runConceptRequestWithRetry<T>(request: () => Promise<T>): Promise<T> {
-  let lastError: unknown;
-
-  for (let attempt = 0; attempt < CONCEPT_REQUEST_MAX_ATTEMPTS; attempt++) {
-    try {
-      return await openRouterRequestGate.run(request);
-    } catch (error) {
-      lastError = error;
-
-      if (!isRetryableConceptRequestError(error) || attempt === CONCEPT_REQUEST_MAX_ATTEMPTS - 1) {
-        throw error;
-      }
-
-      const backoff = conceptRetryAfterMs(error) ?? CONCEPT_RETRY_BASE_DELAY_MS * (2 ** attempt);
-
-      openRouterRequestGate.pause(backoff);
-      await waitForConceptRetry(backoff);
-    }
-  }
-
-  throw lastError instanceof Error ? lastError : new Error('OpenRouter concept request failed after retries.');
+  return openRouterRequestGate.run(request);
 }
 
 async function requestGeneratedChapterContent(client: OpenAI, model: string, chapterTitle: string, pages: ChapterConceptInputPage[], onCost?: OpenRouterCostReporter): Promise<GeneratedChapterConcepts> {
@@ -948,6 +861,76 @@ function storeSessionRecognitionAttempted(bookId: number): void {
 }
 
 const delay = (milliseconds: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, milliseconds));
+
+function abortError (): DOMException {
+  return new DOMException('Processing aborted.', 'AbortError');
+}
+
+async function abortableDelay (milliseconds: number, signal?: AbortSignal): Promise<void> {
+  if (!signal) {
+    await delay(milliseconds);
+    return;
+  }
+
+  if (signal.aborted) {
+    throw abortError();
+  }
+
+  await new Promise<void>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      signal.removeEventListener('abort', onAbort);
+      resolve();
+    }, milliseconds);
+    const onAbort = (): void => {
+      clearTimeout(timer);
+      signal.removeEventListener('abort', onAbort);
+      reject(abortError());
+    };
+
+    signal.addEventListener('abort', onAbort, { once: true });
+  });
+}
+
+async function fetchWithProcessingSignal (input: RequestInfo | URL, init: RequestInit | undefined, processingSignal?: AbortSignal): Promise<Response> {
+  const requestSignal = init?.signal;
+
+  if (!processingSignal) {
+    return fetch(input, init);
+  }
+
+  if (processingSignal.aborted || requestSignal?.aborted) {
+    throw abortError();
+  }
+
+  if (!requestSignal || requestSignal === processingSignal) {
+    return fetch(input, { ...init, signal: processingSignal });
+  }
+
+  const controller = new AbortController();
+  const onProcessingAbort = (): void => controller.abort();
+  const onRequestAbort = (): void => controller.abort();
+
+  processingSignal.addEventListener('abort', onProcessingAbort, { once: true });
+  requestSignal.addEventListener('abort', onRequestAbort, { once: true });
+
+  try {
+    return await fetch(input, { ...init, signal: controller.signal });
+  } finally {
+    processingSignal.removeEventListener('abort', onProcessingAbort);
+    requestSignal.removeEventListener('abort', onRequestAbort);
+  }
+}
+
+function createOpenRouterClient (apiKey: string, signal?: AbortSignal): OpenAI {
+  return new OpenAI({
+    apiKey,
+    baseURL: 'https://openrouter.ai/api/v1',
+    dangerouslyAllowBrowser: true,
+    defaultHeaders: { 'HTTP-Referer': window.location.origin, 'X-OpenRouter-Title': 'Slonig' },
+    maxRetries: 0,
+    ...(signal ? { fetch: (input: RequestInfo | URL, init?: RequestInit) => fetchWithProcessingSignal(input, init, signal) } : {})
+  });
+}
 
 type ExerciseEditableFields = Pick<Exercise, 'description' | 'imageDescription' | 'solution' | 'solutionImageDescription' | 'title'>;
 
@@ -1283,19 +1266,8 @@ async function storeGeneratedChapterConcepts(bookId: number, chapterPages: BookP
 
   for (const storedPage of [...chapterPages].sort((a, b) => a.pageNumber - b.pageNumber)) {
     const pageConcepts = conceptsByPageInput.get(storedPage.pageNumber) ?? [];
-    let storedConcepts: BookConcept[] = [];
-
-    try {
-      const stored = await replaceParsedBookPageContent(bookId, storedPage.pageNumber, storedPage.chapter, pageConcepts, []);
-
-      storedConcepts = stored.concepts;
-    } catch (error) {
-      // A page with no concepts can have nothing to replace. That is still a
-      // valid chapter-level extraction result. Non-empty writes must succeed.
-      if (pageConcepts.length) {
-        throw error;
-      }
-    }
+    const stored = await replaceParsedBookPageContent(bookId, storedPage.pageNumber, storedPage.chapter, pageConcepts, []);
+    const storedConcepts = stored.concepts;
 
     const processedPage: BookPage = {
       ...storedPage,
@@ -1344,7 +1316,7 @@ async function createSinglePagePdf (file: File, pageNumber: number): Promise<Blo
   return new Blob([buffer], { type: 'application/pdf' });
 }
 
-async function recognizePageWithMathpix (appId: string | undefined, apiKey: string, file: File, pageNumber: number, onExternalCall?: (provider: Exclude<BookExternalCallProvider, 'openrouter'>) => void): Promise<Pick<BookPage, 'mathpixHeadings' | 'pageMMD' | 'pageMMDZip'>> {
+async function recognizePageWithMathpix (appId: string | undefined, apiKey: string, file: File, pageNumber: number, onExternalCall?: (provider: Exclude<BookExternalCallProvider, 'openrouter'>) => void, signal?: AbortSignal): Promise<Pick<BookPage, 'mathpixHeadings' | 'pageMMD' | 'pageMMDZip'>> {
   const headers: Record<string, string> = { app_key: apiKey };
 
   if (appId?.trim()) {
@@ -1364,7 +1336,8 @@ async function recognizePageWithMathpix (appId: string | undefined, apiKey: stri
   const response = await fetch('https://api.mathpix.com/v3/pdf', {
     body,
     headers,
-    method: 'POST'
+    method: 'POST',
+    signal
   });
   const result = await response.json() as { error?: string; pdf_id?: string };
 
@@ -1374,7 +1347,7 @@ async function recognizePageWithMathpix (appId: string | undefined, apiKey: stri
 
   for (let attempt = 0; attempt < 120; attempt++) {
     onExternalCall?.('pdfv3');
-    const statusResponse = await fetch(`https://api.mathpix.com/v3/pdf/${result.pdf_id}`, { headers });
+    const statusResponse = await fetch(`https://api.mathpix.com/v3/pdf/${result.pdf_id}`, { headers, signal });
     const statusResult = await statusResponse.json() as {
       conversion_status?: Record<string, { error?: string; status?: string }>;
       error?: string;
@@ -1396,8 +1369,8 @@ async function recognizePageWithMathpix (appId: string | undefined, apiKey: stri
       onExternalCall?.('mmd');
       onExternalCall?.('pdfv3');
       const [mmdResponse, linesResponse] = await Promise.all([
-        fetch(`https://api.mathpix.com/v3/pdf/${result.pdf_id}.mmd`, { headers }),
-        fetch(`https://api.mathpix.com/v3/pdf/${result.pdf_id}.lines.json`, { headers })
+        fetch(`https://api.mathpix.com/v3/pdf/${result.pdf_id}.mmd`, { headers, signal }),
+        fetch(`https://api.mathpix.com/v3/pdf/${result.pdf_id}.lines.json`, { headers, signal })
       ]);
 
       if (!mmdResponse.ok) {
@@ -1419,7 +1392,7 @@ async function recognizePageWithMathpix (appId: string | undefined, apiKey: stri
       // MMD even when Mathpix reports that this optional conversion failed.
       if (zipStatus?.status === 'completed') {
         onExternalCall?.('mmd');
-        const zipResponse = await fetch(`https://api.mathpix.com/v3/pdf/${result.pdf_id}.mmd.zip`, { headers });
+        const zipResponse = await fetch(`https://api.mathpix.com/v3/pdf/${result.pdf_id}.mmd.zip`, { headers, signal });
 
         if (zipResponse.ok) {
           pageMMDZip = await zipResponse.blob();
@@ -1433,7 +1406,7 @@ async function recognizePageWithMathpix (appId: string | undefined, apiKey: stri
       };
     }
 
-    await delay(1000);
+    await abortableDelay(1000, signal);
   }
 
   throw new Error('Mathpix timed out while recognizing the PDF page.');
@@ -1754,6 +1727,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
   const [autoRunProgress, setAutoRunProgress] = useState<AutoRunProgress>();
   const [autoRunProcessing, setAutoRunProcessing] = useState<ProcessingStatus>();
   const [lastReaderProcessing, setLastReaderProcessing] = useState<ProcessingStatus>();
+  const readerProcessingAbortControllerRef = useRef<AbortController | null>(null);
   const skillsAutoRunAbortRef = useRef<(() => void) | null>(null);
   const [selectedPipelineKey, setSelectedPipelineKey] = useState('');
   const [ageInput, setAgeInput] = useState(book.age === undefined ? '' : String(book.age));
@@ -1785,6 +1759,16 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
   const conceptDragPointerYRef = useRef<number | undefined>(undefined);
   const conceptAutoScrollFrameRef = useRef<number | undefined>(undefined);
   const reorderedConceptFocusIdRef = useRef<BookConcept['id']>(undefined);
+
+  const currentReaderProcessingSignal = useCallback((): AbortSignal => {
+    if (!readerProcessingAbortControllerRef.current || readerProcessingAbortControllerRef.current.signal.aborted) {
+      readerProcessingAbortControllerRef.current = new AbortController();
+    }
+
+    return readerProcessingAbortControllerRef.current.signal;
+  }, []);
+
+  useEffect(() => () => readerProcessingAbortControllerRef.current?.abort(), []);
 
   useEffect((): void => {
     setHasRecognitionBeenAttempted(getSessionRecognitionAttempted(book.id));
@@ -2552,11 +2536,25 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
   const synchronizeChapterProcessingStage = useCallback(async (): Promise<void> => {
     const storedPages = await getBookPages(book.id);
     const complete = totalPages > 0 && storedPages.length === totalPages && storedPages.every(({ chapterId, chapter, excludedFromAnalysis }) => excludedFromAnalysis || chapterId !== undefined || Boolean(chapter.trim()));
-    const updated = complete
-      ? await completeBookProcessingStage(book.id, 'chapters')
-      : await resetBookProcessingStagesFrom(book.id, 'chapters');
+    let updated: Book | undefined;
 
-    onBookChange(updated ?? (complete ? withCompletedBookProcessingStage(book, 'chapters') : withBookProcessingStagesResetFrom(book, 'chapters')));
+    if (complete) {
+      // Manual chapter edits change the input partition for every downstream
+      // artifact. Keep Chapters complete, but invalidate Concepts and all later
+      // stages even when every page still has a syntactically valid chapter.
+      updated = await updateBookFieldsAndStages(book.id, {}, {
+        complete: ['chapters'],
+        resetFrom: 'concepts'
+      });
+    } else {
+      updated = await updateBookFieldsAndStages(book.id, {}, { resetFrom: 'chapters' });
+    }
+
+    const fallback = complete
+      ? withBookProcessingStagesResetFrom(withCompletedBookProcessingStage(book, 'chapters'), 'concepts')
+      : withBookProcessingStagesResetFrom(book, 'chapters');
+
+    onBookChange(updated ?? fallback);
   }, [book, onBookChange, totalPages]);
 
   const deleteSelectedChapters = useCallback(async (): Promise<void> => {
@@ -2600,10 +2598,11 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
     try {
       await updateBookChapterTitle(currentChapter.id, title);
       await refreshChapterAssignments();
+      await synchronizeChapterProcessingStage();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Unable to rename chapter.');
     }
-  }, [chapterTitleDraft, currentChapter?.id, refreshChapterAssignments]);
+  }, [chapterTitleDraft, currentChapter?.id, refreshChapterAssignments, synchronizeChapterProcessingStage]);
 
   const assignCurrentPageToChapter = useCallback(async (chapterId: number): Promise<void> => {
     setError('');
@@ -2705,15 +2704,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
         throw new Error('No OpenRouter token found. Add it in Settings.');
       }
 
-      const client = new OpenAI({
-        apiKey: key,
-        baseURL: 'https://openrouter.ai/api/v1',
-        dangerouslyAllowBrowser: true,
-        defaultHeaders: {
-          'HTTP-Referer': window.location.origin,
-          'X-OpenRouter-Title': 'Slonig'
-        }
-      });
+      const client = createOpenRouterClient(key, currentReaderProcessingSignal());
       const windows = chapterEvidenceWindows(recognizedPages);
       const windowResults = await mapConcurrent(windows, Math.min(3, OPENROUTER_CONCURRENCY), async (window) => {
         const result = await requestChapterBoundaries(client, generateAllConceptsModel, chapterWindowPrompt(window), totalPages, addChaptersCost);
@@ -2740,7 +2731,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
       setIsIdentifyingChapters(false);
       onProcessingComplete();
     }
-  }, [addChaptersCost, completeStage, book.id, book.language, generateAllConceptsModel, isGeneratingAllConcepts, isGeneratingAllExercises, isIdentifyingChapters, isRecognizingAll, onProcessingComplete, pages, pdf, processingPage, refreshChapterAssignments, revealPane, totalPages]);
+  }, [currentReaderProcessingSignal, addChaptersCost, completeStage, book.id, book.language, generateAllConceptsModel, isGeneratingAllConcepts, isGeneratingAllExercises, isIdentifyingChapters, isRecognizingAll, onProcessingComplete, pages, pdf, processingPage, refreshChapterAssignments, revealPane, totalPages]);
 
   const generateConcepts = useCallback(async (): Promise<void> => {
     const storedPage = pages.get(pageNumber);
@@ -2777,15 +2768,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
         throw new Error('No OpenRouter token found. Add it in Settings.');
       }
 
-      const client = new OpenAI({
-        apiKey: key,
-        baseURL: 'https://openrouter.ai/api/v1',
-        dangerouslyAllowBrowser: true,
-        defaultHeaders: {
-          'HTTP-Referer': window.location.origin,
-          'X-OpenRouter-Title': 'Slonig'
-        }
-      });
+      const client = createOpenRouterClient(key, currentReaderProcessingSignal());
       const chapterInputs = await getChapterConceptInputs(chapterPages);
       const generatedConcepts = await generateChapterContentWithEmptyConceptRetry(client, selectedModel, currentConceptChapter.title, chapterInputs, chapterInputs.length > 0, addConceptsCost);
       const stored = await storeGeneratedChapterConcepts(book.id, chapterPages, generatedConcepts);
@@ -2814,7 +2797,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
       setIsGeneratingChapterConcepts(false);
       setProcessingPage(undefined);
     }
-  }, [addConceptsCost, completeStage, book.id, currentConceptChapter, isGeneratingAllConcepts, isIdentifyingChapters, isRecognizingAll, pageNumber, pages, processingPage, refreshConceptCounts, refreshEntityCounts, revealPane, selectedModel, totalPages]);
+  }, [currentReaderProcessingSignal, addConceptsCost, completeStage, book.id, currentConceptChapter, isGeneratingAllConcepts, isIdentifyingChapters, isRecognizingAll, pageNumber, pages, processingPage, refreshConceptCounts, refreshEntityCounts, revealPane, selectedModel, totalPages]);
   const closePageGenerationConfirmation = useCallback((): void => setIsPageGenerationConfirmationOpen(false), []);
   const confirmPageGeneration = useCallback((): void => {
     setIsPageGenerationConfirmationOpen(false);
@@ -2903,15 +2886,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
       return;
     }
 
-    const client = new OpenAI({
-      apiKey: key,
-      baseURL: 'https://openrouter.ai/api/v1',
-      dangerouslyAllowBrowser: true,
-      defaultHeaders: {
-        'HTTP-Referer': window.location.origin,
-        'X-OpenRouter-Title': 'Slonig'
-      }
-    });
+    const client = createOpenRouterClient(key, currentReaderProcessingSignal());
 
     try {
       const generationResults = await mapConcurrent(chapterTasks, OPENROUTER_CONCURRENCY, async ({ chapter, pages: chapterPages }) => {
@@ -2997,7 +2972,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
       setIsGeneratingAllConcepts(false);
       onProcessingComplete();
     }
-  }, [addConceptsCost, completeStage, book.id, conceptChapters, generateAllConceptsModel, generateOnlyMissingConcepts, isGeneratingAllConcepts, isIdentifyingChapters, isRecognizingAll, loadConceptCountsByChapter, onProcessingComplete, pageNumber, pages, processingPage, refreshConceptCounts, refreshEntityCounts, revealPane, totalPages]);
+  }, [currentReaderProcessingSignal, addConceptsCost, completeStage, book.id, conceptChapters, generateAllConceptsModel, generateOnlyMissingConcepts, isGeneratingAllConcepts, isIdentifyingChapters, isRecognizingAll, loadConceptCountsByChapter, onProcessingComplete, pageNumber, pages, processingPage, refreshConceptCounts, refreshEntityCounts, revealPane, totalPages]);
 
   const fixAllConcepts = useCallback(async (model = generateAllConceptsModel, onlyFailed = false): Promise<void> => {
     if (!conceptChapters.length || isFixingConcepts || isDeduplicatingConcepts || isGeneratingAllConcepts || isRecognizingAll || isIdentifyingChapters || isGeneratingAllExercises || fixConceptsReview || deduplicateConceptsReview) {
@@ -3032,13 +3007,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
         throw new Error('No OpenRouter token found. Add it in Settings.');
       }
 
-      const client = new OpenAI({
-        apiKey: key,
-        baseURL: 'https://openrouter.ai/api/v1',
-        dangerouslyAllowBrowser: true,
-        defaultHeaders: { 'HTTP-Referer': window.location.origin, 'X-OpenRouter-Title': 'Slonig' },
-        maxRetries: 0
-      });
+      const client = createOpenRouterClient(key, currentReaderProcessingSignal());
       const pageLessConcepts = await getBookConceptsForBookPage(book.id, 0);
       const results = await mapConcurrent(targetChapters, OPENROUTER_CONCURRENCY, async (chapter) => {
         try {
@@ -3086,7 +3055,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
     } finally {
       setIsFixingConcepts(false);
     }
-  }, [addFixConceptsCost, book, conceptChapters, deduplicateConceptsReview, fixConceptsReview, generateAllConceptsModel, isDeduplicatingConcepts, isEmbeddingConcepts, isFixingConcepts, isGeneratingAllConcepts, isGeneratingAllExercises, isIdentifyingChapters, isRecognizingAll, pages, revealPane]);
+  }, [currentReaderProcessingSignal, addFixConceptsCost, book, conceptChapters, deduplicateConceptsReview, fixConceptsReview, generateAllConceptsModel, isDeduplicatingConcepts, isEmbeddingConcepts, isFixingConcepts, isGeneratingAllConcepts, isGeneratingAllExercises, isIdentifyingChapters, isRecognizingAll, pages, revealPane]);
 
   const discardFixConceptsReview = useCallback((): void => {
     if (isApplyingFixConceptsReview) {
@@ -3253,13 +3222,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
         throw new Error('No OpenRouter token found. Add it in Settings.');
       }
 
-      const client = new OpenAI({
-        apiKey: key,
-        baseURL: 'https://openrouter.ai/api/v1',
-        dangerouslyAllowBrowser: true,
-        defaultHeaders: { 'HTTP-Referer': window.location.origin, 'X-OpenRouter-Title': 'Slonig' },
-        maxRetries: 0
-      });
+      const client = createOpenRouterClient(key, currentReaderProcessingSignal());
       const inventory = await getBookConceptInventory(book.id, pages.keys());
       const byId = await ensureConceptEmbeddingCache(client, embeddingModel, inventory, addEmbeddingsCost);
 
@@ -3271,7 +3234,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
     } finally {
       setIsEmbeddingConcepts(false);
     }
-  }, [addEmbeddingsCost, book, completeStage, deduplicateConceptsReview, embeddingModel, fixConceptsReview, isDeduplicatingConcepts, isEmbeddingConcepts, isFixingConcepts, isGeneratingAllConcepts, isGeneratingAllExercises, isIdentifyingChapters, isRecognizingAll, isSortingConcepts, pages, revealPane]);
+  }, [currentReaderProcessingSignal, addEmbeddingsCost, book, completeStage, deduplicateConceptsReview, embeddingModel, fixConceptsReview, isDeduplicatingConcepts, isEmbeddingConcepts, isFixingConcepts, isGeneratingAllConcepts, isGeneratingAllExercises, isIdentifyingChapters, isRecognizingAll, isSortingConcepts, pages, revealPane]);
 
   const deduplicateAllConcepts = useCallback(async (model = generateAllConceptsModel): Promise<void> => {
     if (isDeduplicatingConcepts || isEmbeddingConcepts || isFixingConcepts || isSortingConcepts || isGeneratingAllConcepts || isRecognizingAll || isIdentifyingChapters || isGeneratingAllExercises || fixConceptsReview || deduplicateConceptsReview) {
@@ -3306,13 +3269,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
         throw new Error('No OpenRouter token found. Add it in Settings.');
       }
 
-      const client = new OpenAI({
-        apiKey: key,
-        baseURL: 'https://openrouter.ai/api/v1',
-        dangerouslyAllowBrowser: true,
-        defaultHeaders: { 'HTTP-Referer': window.location.origin, 'X-OpenRouter-Title': 'Slonig' },
-        maxRetries: 0
-      });
+      const client = createOpenRouterClient(key, currentReaderProcessingSignal());
       const embeddings = await cachedConceptEmbeddingMap(embeddingModel, Array.from(conceptsById.values()));
       const missingEmbeddingIds = inputs.filter(({ conceptId }) => !embeddings.has(conceptId)).map(({ conceptId }) => conceptId);
 
@@ -3351,7 +3308,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
     } finally {
       setIsDeduplicatingConcepts(false);
     }
-  }, [addDeduplicateConceptsCost, book, deduplicateConceptsReview, embeddingModel, fixConceptsReview, generateAllConceptsModel, isDeduplicatingConcepts, isEmbeddingConcepts, isFixingConcepts, isGeneratingAllConcepts, isGeneratingAllExercises, isIdentifyingChapters, isRecognizingAll, isSortingConcepts, loadDeduplicateConceptInventory, revealPane]);
+  }, [currentReaderProcessingSignal, addDeduplicateConceptsCost, book, deduplicateConceptsReview, embeddingModel, fixConceptsReview, generateAllConceptsModel, isDeduplicatingConcepts, isEmbeddingConcepts, isFixingConcepts, isGeneratingAllConcepts, isGeneratingAllExercises, isIdentifyingChapters, isRecognizingAll, isSortingConcepts, loadDeduplicateConceptInventory, revealPane]);
 
   useEffect((): void => {
     if (autoRunAll && fixConceptsReview && !isApplyingFixConceptsReview) {
@@ -3477,13 +3434,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
             throw new Error('No OpenRouter token found. Add it in Settings.');
           }
 
-          return new OpenAI({
-            apiKey: key,
-            baseURL: 'https://openrouter.ai/api/v1',
-            dangerouslyAllowBrowser: true,
-            defaultHeaders: { 'HTTP-Referer': window.location.origin, 'X-OpenRouter-Title': 'Slonig' },
-            maxRetries: 0
-          });
+          return createOpenRouterClient(key, currentReaderProcessingSignal());
         });
 
         return clientPromise;
@@ -3564,7 +3515,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
     } finally {
       setIsSortingConcepts(false);
     }
-  }, [addSortConceptsCost, book, completeStage, conceptChapters, currentConceptChapter, deduplicateConceptsReview, fixConceptsReview, generateAllConceptsModel, isDeduplicatingConcepts, isEmbeddingConcepts, isFixingConcepts, isGeneratingAllConcepts, isGeneratingAllExercises, isIdentifyingChapters, isRecognizingAll, isSortingConcepts, pages, revealPane]);
+  }, [currentReaderProcessingSignal, addSortConceptsCost, book, completeStage, conceptChapters, currentConceptChapter, deduplicateConceptsReview, fixConceptsReview, generateAllConceptsModel, isDeduplicatingConcepts, isEmbeddingConcepts, isFixingConcepts, isGeneratingAllConcepts, isGeneratingAllExercises, isIdentifyingChapters, isRecognizingAll, isSortingConcepts, pages, revealPane]);
 
   const refineAllChapters = useCallback(async (model = generateAllConceptsModel): Promise<void> => {
     if (isRefiningChapters || isSortingConcepts || isDeduplicatingConcepts || isEmbeddingConcepts || isFixingConcepts || isGeneratingAllConcepts || isRecognizingAll || isIdentifyingChapters || isGeneratingAllExercises || fixConceptsReview || deduplicateConceptsReview) {
@@ -3593,13 +3544,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
         throw new Error('No OpenRouter token found. Add it in Settings.');
       }
 
-      const client = new OpenAI({
-        apiKey: key,
-        baseURL: 'https://openrouter.ai/api/v1',
-        dangerouslyAllowBrowser: true,
-        defaultHeaders: { 'HTTP-Referer': window.location.origin, 'X-OpenRouter-Title': 'Slonig' },
-        maxRetries: 0
-      });
+      const client = createOpenRouterClient(key, currentReaderProcessingSignal());
       const conceptInventory = [
         ...(await Promise.all(Array.from(pages.keys()).map((chapterPageNumber) => getBookConceptsForBookPage(book.id, chapterPageNumber)))).flat(),
         ...await getBookConceptsForBookPage(book.id, 0)
@@ -3643,49 +3588,20 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
       let stageBook = book;
 
       if (splits.length) {
-        stageBook = await resetBookProcessingStagesFrom(book.id, 'exercises') ?? book;
+        stageBook = withBookProcessingStagesResetFrom(book, 'exercises');
+        const expectedMembership = await applyBookChapterRefinements(book.id, splits.map(({ chapter, concepts, groups, splitPages }) => ({
+          groups: groups.map(({ conceptIndexes, title }) => ({
+            conceptIds: conceptIndexes.map((conceptIndex) => concepts[conceptIndex].id as number),
+            title
+          })),
+          sourceChapterId: chapter.chapterId as number,
+          sourcePageNumbers: chapter.pageNumbers,
+          splitPages
+        })));
+        const persistedConcepts = await getBookConceptInventory(book.id, pages.keys());
 
-        for (const { chapter, concepts, groups, splitPages } of splits) {
-          const sourceChapterId = chapter.chapterId as number;
-
-          await updateBookChapterTitle(sourceChapterId, groups[0].title);
-
-          for (let groupIndex = 1; groupIndex < groups.length; groupIndex++) {
-            await splitBookChapterAtPage(book.id, splitPages[groupIndex - 1], groups[groupIndex].title);
-          }
-
-          const refreshedPages = await getBookPages(book.id);
-          const anchorPages = [chapter.pageNumbers[0], ...splitPages];
-          const refinedChapterIds = anchorPages.map((anchorPage) => refreshedPages.find(({ pageNumber: storedPageNumber }) => storedPageNumber === anchorPage)?.chapterId);
-
-          if (refinedChapterIds.some((chapterId) => chapterId === undefined) || new Set(refinedChapterIds).size !== groups.length) {
-            throw new Error(`Unable to resolve the new chapter ids after splitting ${chapter.title || 'an untitled chapter'}.`);
-          }
-
-          const expectedMembership: RefinedConceptPersistenceExpectation[] = [];
-          const assignments = groups.flatMap((group, groupIndex) => {
-            const refinedChapterId = refinedChapterIds[groupIndex] as number;
-
-            return group.conceptIndexes.map((conceptIndex, displayOrder) => {
-              const sourceConcept = concepts[conceptIndex];
-              const conceptId = sourceConcept.id as number;
-
-              expectedMembership.push({ chapterId: refinedChapterId, conceptId, displayOrder });
-
-              return { chapterId: refinedChapterId, displayOrder, id: conceptId };
-            });
-          });
-
-          // BookConcept.chapterId is the authoritative learning-chapter membership.
-          // Keep the original bookPage as source provenance even when a thematic
-          // cluster crosses the page boundary used to create the real chapter row.
-          await assignBookConceptsToChapters(assignments);
-
-          const persistedConcepts = await getBookConceptInventory(book.id, pages.keys());
-
-          if (!hasPersistedRefinedConceptMembership(expectedMembership, persistedConcepts)) {
-            throw new Error(`Unable to persist thematic concept membership after splitting ${chapter.title || 'an untitled chapter'}.`);
-          }
+        if (!hasPersistedRefinedConceptMembership(expectedMembership, persistedConcepts)) {
+          throw new Error('Unable to persist the complete thematic chapter refinement plan.');
         }
 
         await refreshChapterAssignments();
@@ -3693,9 +3609,8 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
         setSkillsRefreshToken((value) => value + 1);
       }
 
-      const completedBook = withRefineChaptersComplete(stageBook);
+      const completedBook = await completeBookProcessingStage(book.id, 'refineChapters') ?? withRefineChaptersComplete(stageBook);
 
-      await putBook(completedBook);
       onBookChange(completedBook);
       revealPane('textConcepts');
       setError('');
@@ -3704,7 +3619,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
     } finally {
       setIsRefiningChapters(false);
     }
-  }, [addRefineChaptersCost, book, conceptChapters, deduplicateConceptsReview, fixConceptsReview, generateAllConceptsModel, isDeduplicatingConcepts, isEmbeddingConcepts, isFixingConcepts, isGeneratingAllConcepts, isGeneratingAllExercises, isIdentifyingChapters, isRecognizingAll, isRefiningChapters, isSortingConcepts, onBookChange, pages, refreshChapterAssignments, refreshConceptCounts, refreshEntityCounts, revealPane]);
+  }, [currentReaderProcessingSignal, addRefineChaptersCost, book, conceptChapters, deduplicateConceptsReview, fixConceptsReview, generateAllConceptsModel, isDeduplicatingConcepts, isEmbeddingConcepts, isFixingConcepts, isGeneratingAllConcepts, isGeneratingAllExercises, isIdentifyingChapters, isRecognizingAll, isRefiningChapters, isSortingConcepts, onBookChange, pages, refreshChapterAssignments, refreshConceptCounts, refreshEntityCounts, revealPane]);
 
   const generateAllExercises = useCallback(async (): Promise<void> => {
     if (!totalPages || processingPage !== undefined || isGeneratingAllConcepts || isRecognizingAll || isGeneratingAllExercises || isIdentifyingChapters || isRefiningChapters) {
@@ -3729,7 +3644,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
         throw new Error('No OpenRouter token found. Add it in Settings.');
       }
 
-      const client = new OpenAI({ apiKey: key, baseURL: 'https://openrouter.ai/api/v1', dangerouslyAllowBrowser: true, defaultHeaders: { 'HTTP-Referer': window.location.origin, 'X-OpenRouter-Title': 'Slonig' } });
+      const client = createOpenRouterClient(key, currentReaderProcessingSignal());
       const storedPages = (await getBookPages(book.id))
         .filter(({ chapter, chapterId, conceptsProcessed, excludedFromAnalysis }) => conceptsProcessed && !excludedFromAnalysis && (chapterId !== undefined || Boolean(chapter.trim())))
         .sort((a, b) => a.pageNumber - b.pageNumber);
@@ -3874,7 +3789,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
       setIsGeneratingAllExercises(false);
       onProcessingComplete();
     }
-  }, [addExercisesCost, completeStage, book.age, book.id, book.language, conceptChapters, generateAllConceptsModel, generateOnlyMissingExercises, isGeneratingAllConcepts, isIdentifyingChapters, isRecognizingAll, isRefiningChapters, isGeneratingAllExercises, onProcessingComplete, pages, processingPage, refreshEntityCounts, revealPane, totalPages]);
+  }, [currentReaderProcessingSignal, addExercisesCost, completeStage, book.age, book.id, book.language, conceptChapters, generateAllConceptsModel, generateOnlyMissingExercises, isGeneratingAllConcepts, isIdentifyingChapters, isRecognizingAll, isRefiningChapters, isGeneratingAllExercises, onProcessingComplete, pages, processingPage, refreshEntityCounts, revealPane, totalPages]);
 
   const detectAndStoreBookLanguage = useCallback(async (recognizedPages: Map<number, BookPage>, force = false): Promise<void> => {
     if ((!force && book.language) || isDetectingBookLanguageRef.current) {
@@ -3910,12 +3825,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
     setIsDetectingBookLanguage(true);
 
     try {
-      const client = new OpenAI({
-        apiKey: key,
-        baseURL: 'https://openrouter.ai/api/v1',
-        dangerouslyAllowBrowser: true,
-        defaultHeaders: { 'HTTP-Referer': window.location.origin, 'X-OpenRouter-Title': 'Slonig' }
-      });
+      const client = createOpenRouterClient(key, currentReaderProcessingSignal());
       const response = await openRouterRequestGate.run(() => client.chat.completions.create({
         messages: [{ content: BOOK_LANGUAGE_DETECTION_PROMPT(pageTexts), role: 'user' }],
         model: autoRunAll ? DEFAULT_PROCESSING_MODEL : selectedLanguageModel,
@@ -3927,26 +3837,31 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
       const language = parseDetectedBookLanguage(response.choices[0].message?.content?.trim() ?? '');
       const languageChanged = normalizeLanguageCode(book.language) !== language;
       const automaticSubject = automaticBookSubjectForLanguage(language);
-      let updatedBook: Book = { ...book, age: languageChanged ? undefined : book.age, language, subject: automaticSubject ?? (languageChanged ? undefined : book.subject) };
+      const changes: Partial<Pick<Book, 'age' | 'language' | 'subject'>> = { language };
 
       if (languageChanged) {
-        updatedBook = withBookProcessingStagesResetFrom(updatedBook, 'language');
+        changes.age = undefined;
+        changes.subject = automaticSubject;
+      } else if (automaticSubject) {
+        changes.subject = automaticSubject;
       }
 
-      updatedBook = withCompletedBookProcessingStage(updatedBook, 'language');
+      const updatedBook = await updateBookFieldsAndStages(book.id, changes, {
+        complete: automaticSubject ? ['language', 'subject'] : ['language'],
+        ...(languageChanged ? { resetFrom: 'language' as const } : {})
+      });
 
-      if (automaticSubject) {
-        updatedBook = withCompletedBookProcessingStage(updatedBook, 'subject');
+      if (!updatedBook) {
+        throw new Error('Book not found.');
       }
 
-      await putBook(updatedBook);
       onBookChange(updatedBook);
       revealPane('language');
     } finally {
       isDetectingBookLanguageRef.current = false;
       setIsDetectingBookLanguage(false);
     }
-  }, [addLanguageCost, autoRunAll, book, onBookChange, revealPane, selectedLanguageModel, totalPages]);
+  }, [currentReaderProcessingSignal, addLanguageCost, autoRunAll, book, onBookChange, revealPane, selectedLanguageModel, totalPages]);
 
   const saveManualBookLanguage = useCallback(async (languageValue: string): Promise<void> => {
     const language = normalizeLanguageCode(languageValue);
@@ -3961,19 +3876,24 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
     try {
       const languageChanged = normalizeLanguageCode(book.language) !== language;
       const automaticSubject = automaticBookSubjectForLanguage(language);
-      let updatedBook: Book = { ...book, age: languageChanged ? undefined : book.age, language, subject: automaticSubject ?? (languageChanged ? undefined : book.subject) };
+      const changes: Partial<Pick<Book, 'age' | 'language' | 'subject'>> = { language };
 
       if (languageChanged) {
-        updatedBook = withBookProcessingStagesResetFrom(updatedBook, 'language');
+        changes.age = undefined;
+        changes.subject = automaticSubject;
+      } else if (automaticSubject) {
+        changes.subject = automaticSubject;
       }
 
-      updatedBook = withCompletedBookProcessingStage(updatedBook, 'language');
+      const updatedBook = await updateBookFieldsAndStages(book.id, changes, {
+        complete: automaticSubject ? ['language', 'subject'] : ['language'],
+        ...(languageChanged ? { resetFrom: 'language' as const } : {})
+      });
 
-      if (automaticSubject) {
-        updatedBook = withCompletedBookProcessingStage(updatedBook, 'subject');
+      if (!updatedBook) {
+        throw new Error('Book not found.');
       }
 
-      await putBook(updatedBook);
       onBookChange(updatedBook);
       revealPane('language');
     } catch (caught) {
@@ -4052,14 +3972,18 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
 
     if (automaticSubject) {
       const subjectChanged = book.subject !== automaticSubject;
-      let updatedBook: Book = { ...book, age: subjectChanged ? undefined : book.age, subject: automaticSubject };
+      const updatedBook = await updateBookFieldsAndStages(book.id, {
+        ...(subjectChanged ? { age: undefined } : {}),
+        subject: automaticSubject
+      }, {
+        complete: ['subject'],
+        ...(subjectChanged ? { resetFrom: 'subject' as const } : {})
+      });
 
-      if (subjectChanged) {
-        updatedBook = withBookProcessingStagesResetFrom(updatedBook, 'subject');
+      if (!updatedBook) {
+        throw new Error('Book not found.');
       }
 
-      updatedBook = withCompletedBookProcessingStage(updatedBook, 'subject');
-      await putBook(updatedBook);
       onBookChange(updatedBook);
       revealPane('subject');
       return;
@@ -4094,12 +4018,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
     setIsDetectingBookSubject(true);
 
     try {
-      const client = new OpenAI({
-        apiKey: key,
-        baseURL: 'https://openrouter.ai/api/v1',
-        dangerouslyAllowBrowser: true,
-        defaultHeaders: { 'HTTP-Referer': window.location.origin, 'X-OpenRouter-Title': 'Slonig' }
-      });
+      const client = createOpenRouterClient(key, currentReaderProcessingSignal());
       const response = await openRouterRequestGate.run(() => client.chat.completions.create({
         messages: [{ content: BOOK_SUBJECT_DETECTION_PROMPT(book.language ?? 'unknown', pageTexts), role: 'user' }],
         model: autoRunAll ? DEFAULT_PROCESSING_MODEL : selectedSubjectModel,
@@ -4110,21 +4029,25 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
 
       const subject = parseDetectedBookSubject(response.choices[0].message?.content?.trim() ?? '');
       const subjectChanged = book.subject !== subject;
-      let updatedBook: Book = { ...book, age: subjectChanged ? undefined : book.age, subject };
+      const updatedBook = await updateBookFieldsAndStages(book.id, {
+        ...(subjectChanged ? { age: undefined } : {}),
+        subject
+      }, {
+        complete: ['subject'],
+        ...(subjectChanged ? { resetFrom: 'subject' as const } : {})
+      });
 
-      if (subjectChanged) {
-        updatedBook = withBookProcessingStagesResetFrom(updatedBook, 'subject');
+      if (!updatedBook) {
+        throw new Error('Book not found.');
       }
 
-      updatedBook = withCompletedBookProcessingStage(updatedBook, 'subject');
-      await putBook(updatedBook);
       onBookChange(updatedBook);
       revealPane('subject');
     } finally {
       isDetectingBookSubjectRef.current = false;
       setIsDetectingBookSubject(false);
     }
-  }, [addSubjectCost, autoRunAll, book, onBookChange, revealPane, selectedSubjectModel, totalPages]);
+  }, [currentReaderProcessingSignal, addSubjectCost, autoRunAll, book, onBookChange, revealPane, selectedSubjectModel, totalPages]);
 
   const saveManualBookSubject = useCallback(async (subjectValue: string): Promise<void> => {
     const subject = normalizeBookSubject(subjectValue);
@@ -4143,14 +4066,18 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
 
     try {
       const subjectChanged = book.subject !== subject;
-      let updatedBook: Book = { ...book, age: subjectChanged ? undefined : book.age, subject };
+      const updatedBook = await updateBookFieldsAndStages(book.id, {
+        ...(subjectChanged ? { age: undefined } : {}),
+        subject
+      }, {
+        complete: ['subject'],
+        ...(subjectChanged ? { resetFrom: 'subject' as const } : {})
+      });
 
-      if (subjectChanged) {
-        updatedBook = withBookProcessingStagesResetFrom(updatedBook, 'subject');
+      if (!updatedBook) {
+        throw new Error('Book not found.');
       }
 
-      updatedBook = withCompletedBookProcessingStage(updatedBook, 'subject');
-      await putBook(updatedBook);
       onBookChange(updatedBook);
       revealPane('subject');
     } catch (caught) {
@@ -4248,12 +4175,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
     setIsDetectingBookAge(true);
 
     try {
-      const client = new OpenAI({
-        apiKey: key,
-        baseURL: 'https://openrouter.ai/api/v1',
-        dangerouslyAllowBrowser: true,
-        defaultHeaders: { 'HTTP-Referer': window.location.origin, 'X-OpenRouter-Title': 'Slonig' }
-      });
+      const client = createOpenRouterClient(key, currentReaderProcessingSignal());
       const response = await openRouterRequestGate.run(() => client.chat.completions.create({
         messages: [{ content: BOOK_AGE_DETECTION_PROMPT(book.language ?? 'unknown', book.subject ?? 'unknown', pageTexts), role: 'user' }],
         model: autoRunAll ? DEFAULT_PROCESSING_MODEL : selectedAgeModel,
@@ -4264,21 +4186,22 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
 
       const age = parseDetectedBookAge(response.choices[0].message?.content?.trim() ?? '');
       const ageChanged = book.age !== age;
-      let updatedBook: Book = { ...book, age };
+      const updatedBook = await updateBookFieldsAndStages(book.id, { age }, {
+        complete: ['age'],
+        ...(ageChanged ? { resetFrom: 'age' as const } : {})
+      });
 
-      if (ageChanged) {
-        updatedBook = withBookProcessingStagesResetFrom(updatedBook, 'age');
+      if (!updatedBook) {
+        throw new Error('Book not found.');
       }
 
-      updatedBook = withCompletedBookProcessingStage(updatedBook, 'age');
-      await putBook(updatedBook);
       onBookChange(updatedBook);
       revealPane('age');
     } finally {
       isDetectingBookAgeRef.current = false;
       setIsDetectingBookAge(false);
     }
-  }, [addAgeCost, autoRunAll, book, onBookChange, revealPane, selectedAgeModel, totalPages]);
+  }, [currentReaderProcessingSignal, addAgeCost, autoRunAll, book, onBookChange, revealPane, selectedAgeModel, totalPages]);
 
   const saveManualBookAge = useCallback(async (): Promise<void> => {
     const age = normalizeBookAge(ageInput);
@@ -4292,14 +4215,15 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
 
     try {
       const ageChanged = book.age !== age;
-      let updatedBook: Book = { ...book, age };
+      const updatedBook = await updateBookFieldsAndStages(book.id, { age }, {
+        complete: ['age'],
+        ...(ageChanged ? { resetFrom: 'age' as const } : {})
+      });
 
-      if (ageChanged) {
-        updatedBook = withBookProcessingStagesResetFrom(updatedBook, 'age');
+      if (!updatedBook) {
+        throw new Error('Book not found.');
       }
 
-      updatedBook = withCompletedBookProcessingStage(updatedBook, 'age');
-      await putBook(updatedBook);
       onBookChange(updatedBook);
       revealPane('age');
     } catch (caught) {
@@ -4393,7 +4317,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
         return;
       }
 
-      const { mathpixHeadings, pageMMD, pageMMDZip } = await recognizePageWithMathpix(appId, apiKey, file, pageNumber, addRecognizeExternalCall);
+      const { mathpixHeadings, pageMMD, pageMMDZip } = await recognizePageWithMathpix(appId, apiKey, file, pageNumber, addRecognizeExternalCall, currentReaderProcessingSignal());
 
       addRecognizeCost(MATHPIX_PDF_PAGE_PRICE_USD);
 
@@ -4423,7 +4347,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
     } finally {
       setProcessingPage(undefined);
     }
-  }, [addRecognizeCost, addRecognizeExternalCall, completeStage, book.id, file, isGeneratingAllConcepts, isIdentifyingChapters, isRecognizingAll, pageNumber, pages, processingPage, totalPages]);
+  }, [currentReaderProcessingSignal, addRecognizeCost, addRecognizeExternalCall, completeStage, book.id, file, isGeneratingAllConcepts, isIdentifyingChapters, isRecognizingAll, pageNumber, pages, processingPage, totalPages]);
 
   const recognizeAllPages = useCallback(async (): Promise<void> => {
     if (!totalPages || processingPage !== undefined || isGeneratingAllConcepts || isRecognizingAll || isIdentifyingChapters) {
@@ -4454,12 +4378,13 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
     }
 
     let recognitionCompleted = false;
+    const processingSignal = currentReaderProcessingSignal();
 
     try {
       const pageNumbers = Array.from({ length: totalPages }, (_, index) => index + 1);
       const results = await mapConcurrent(pageNumbers, MATHPIX_PAGE_CONCURRENCY, async (currentPageNumber) => {
         try {
-          const { mathpixHeadings, pageMMD, pageMMDZip } = await recognizePageWithMathpix(appId, apiKey, file, currentPageNumber, addRecognizeExternalCall);
+          const { mathpixHeadings, pageMMD, pageMMDZip } = await recognizePageWithMathpix(appId, apiKey, file, currentPageNumber, addRecognizeExternalCall, processingSignal);
 
           addRecognizeCost(MATHPIX_PDF_PAGE_PRICE_USD);
 
@@ -4480,7 +4405,11 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
           setRecognizedPageCount((count) => count + 1);
 
           return true;
-        } catch {
+        } catch (error) {
+          if (processingSignal.aborted || (error instanceof DOMException && error.name === 'AbortError')) {
+            throw error;
+          }
+
           return false;
         }
       });
@@ -4502,7 +4431,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
         setActivePane('text');
       }
     }
-  }, [addRecognizeCost, addRecognizeExternalCall, completeStage, book.id, file, isGeneratingAllConcepts, isIdentifyingChapters, isRecognizingAll, onProcessingComplete, pages, processingPage, totalPages]);
+  }, [currentReaderProcessingSignal, addRecognizeCost, addRecognizeExternalCall, completeStage, book.id, file, isGeneratingAllConcepts, isIdentifyingChapters, isRecognizingAll, onProcessingComplete, pages, processingPage, totalPages]);
 
   const saveMathpixApiKey = useCallback(async (): Promise<void> => {
     const apiKey = mathpixApiKey.trim();
@@ -4790,16 +4719,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
         throw new Error('No OpenRouter token found. Add it in Settings.');
       }
 
-      const client = new OpenAI({
-        apiKey: key,
-        baseURL: 'https://openrouter.ai/api/v1',
-        dangerouslyAllowBrowser: true,
-        defaultHeaders: {
-          'HTTP-Referer': window.location.origin,
-          'X-OpenRouter-Title': 'Slonig'
-        },
-        maxRetries: 0
-      });
+      const client = createOpenRouterClient(key, currentReaderProcessingSignal());
       const catalogs = await loadStandardsCatalogsForBookSubject(book.subject);
       const conceptInventory = await getBookConceptInventory(book.id, pages.keys());
       const conceptEmbeddings = await cachedConceptEmbeddingMap(embeddingModel, conceptInventory);
@@ -4861,7 +4781,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
     } finally {
       setIsAssigningStandards(false);
     }
-  }, [addStandardsCost, completeStage, book, book.id, book.subject, conceptChapters, embeddingModel, isAssigningStandards, pages, revealPane, standardsByChapter, standardsModel]);
+  }, [currentReaderProcessingSignal, addStandardsCost, completeStage, book, book.id, book.subject, conceptChapters, embeddingModel, isAssigningStandards, pages, revealPane, standardsByChapter, standardsModel]);
 
   useEffect((): void => {
     if (
@@ -6307,6 +6227,8 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
   }, []);
 
   const abortProcessing = (): void => {
+    readerProcessingAbortControllerRef.current?.abort();
+    readerProcessingAbortControllerRef.current = null;
     setProcessingPage(undefined);
     setIsDetectingBookLanguage(false);
     setIsDetectingBookSubject(false);

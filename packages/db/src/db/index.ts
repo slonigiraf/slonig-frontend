@@ -580,6 +580,14 @@ export class SlonigDB extends Dexie {
     this.version(95).stores({
       conceptEmbeddings: '&id,bookId'
     });
+    // Embedding cache validity is model-specific. Keep model on each row so a
+    // model change for one book cannot invalidate vectors belonging to another
+    // book, and so Standards/Concept vectors can be checked against the exact
+    // model that produced them rather than a single global cache switch.
+    this.version(96).stores({
+      conceptEmbeddings: '&id,bookId,model',
+      standardEmbeddings: '&id,model'
+    });
 
   }
 }

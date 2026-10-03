@@ -3,5 +3,7 @@
 
 export interface StandardEmbedding {
   id: string;
+  /** Embedding model that produced this vector. Legacy rows may omit it. */
+  model?: string;
   embedding: number[];
 }

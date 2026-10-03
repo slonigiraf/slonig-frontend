@@ -64,19 +64,23 @@ export function parseGeneratedChapterConcepts (content: string, allowedPageNumbe
 
 export function conceptChaptersFromPages (bookPages: ChapterPageIdentity[]): ConceptChapterNavigationItem[] {
   const grouped = new Map<string, ConceptChapterNavigationItem>();
-  const titleToChapterId = new Map<string, number>();
+  const chapterIdsByTitle = new Map<string, Set<number>>();
 
   bookPages.filter(({ excludedFromAnalysis }) => !excludedFromAnalysis).forEach(({ chapter, chapterId }) => {
     const title = chapter.trim();
 
     if (chapterId !== undefined && title) {
-      titleToChapterId.set(title, chapterId);
+      const ids = chapterIdsByTitle.get(title) ?? new Set<number>();
+
+      ids.add(chapterId);
+      chapterIdsByTitle.set(title, ids);
     }
   });
 
   [...bookPages].filter(({ excludedFromAnalysis }) => !excludedFromAnalysis).sort((a, b) => a.pageNumber - b.pageNumber).forEach(({ chapter, chapterId, pageNumber }) => {
     const title = chapter.trim();
-    const resolvedChapterId = chapterId ?? titleToChapterId.get(title);
+    const titleMatches = chapterIdsByTitle.get(title);
+    const resolvedChapterId = chapterId ?? (titleMatches?.size === 1 ? Array.from(titleMatches)[0] : undefined);
 
     if (resolvedChapterId === undefined && !title) {
       return;

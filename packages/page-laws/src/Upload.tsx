@@ -4,7 +4,7 @@
 import type { Book, BookPage, BookProcessingStageKey, BookStageSpendKey } from '@slonigiraf/db';
 import type { PDFDocumentProxy } from 'pdfjs-dist';
 
-import { createBook, deleteBook, getBook, getBookByContentHash, getBookConceptsForBookPage, getBookPages, getBooks, getConceptEmbeddings, getExercisesForBookPage, getSetting, getStandardEmbeddings, isBookProcessingStageComplete, putBook, resetBookProcessingStagesFrom, SettingKey } from '@slonigiraf/db';
+import { createBook, deleteBook, getBook, getBookByContentHash, getBookConceptsForBookPage, getBookPages, getBooks, getConceptEmbeddings, getExercisesForBookPage, getSetting, getStandardEmbeddings, isBookProcessingStageComplete, resetBookProcessingStagesFrom, SettingKey, uncompleteBookProcessingStage, updateBookFields, updateBookFieldsAndStages } from '@slonigiraf/db';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { Button, Dropdown, Modal, Toggle, styled } from '@polkadot/react-components';
@@ -219,7 +219,7 @@ function Upload (): React.ReactElement {
           const file = await readPdf(book.opfsName);
           const contentHash = await getContentHash(new Uint8Array(await file.arrayBuffer()));
 
-          await putBook({ ...book, contentHash });
+          await updateBookFields(book.id, { contentHash });
         } catch {
           // A missing file or an existing duplicate should not prevent other books from loading.
         }
@@ -448,7 +448,7 @@ function Upload (): React.ReactElement {
       id = await createBook({ contentHash, created: Date.now(), name, opfsName: '', size: contents.byteLength });
       opfsName = `${id}.pdf`;
       await writePdf(opfsName, contents);
-      await putBook({ contentHash, created: Date.now(), id, name, opfsName, size: contents.byteLength });
+      await updateBookFields(id, { opfsName });
       await loadBooks();
       setSelectedId(id);
     } catch {
@@ -540,9 +540,11 @@ function Upload (): React.ReactElement {
 
     setPendingProcessingAction('recognize');
 
-    const resetBook: Book = { ...selectedBook, age: undefined, completedStages: [], language: undefined, subject: undefined };
+    updateBookFieldsAndStages(selectedBook.id, { age: undefined, language: undefined, subject: undefined }, { resetFrom: 'recognize' }).then((resetBook) => {
+      if (!resetBook) {
+        throw new Error('Book not found.');
+      }
 
-    putBook(resetBook).then(() => {
       setBooks((current) => current.map((book) => book.id === resetBook.id ? resetBook : book));
       setRecognizeAllRequest((request) => request + 1);
     }).catch(() => {
@@ -1135,8 +1137,13 @@ function Upload (): React.ReactElement {
 
     setBooks((current) => current.map((book) => book.id === invalidatedBook.id ? invalidatedBook : book));
     setPendingProcessingAction('sortConcepts');
-    putBook(invalidatedBook)
-      .then(() => setSortAllConceptsRequest((request) => request + 1))
+    uncompleteBookProcessingStage(selectedBook.id, 'refineChapters')
+      .then((storedBook) => {
+        if (storedBook) {
+          setBooks((current) => current.map((book) => book.id === storedBook.id ? storedBook : book));
+        }
+        setSortAllConceptsRequest((request) => request + 1);
+      })
       .catch(() => {
         setPendingProcessingAction(undefined);
         setError(t('Unable to invalidate the Refine chapters stage before sorting.'));
@@ -1232,11 +1239,8 @@ function Upload (): React.ReactElement {
       const aiRequests: string[] = [];
       const catalogs = (await loadStandardsCatalogsForBookSubject(selectedBook.subject)).filter(({ standards }) => standards.length);
       const allStandards = catalogs.flatMap(({ standards }) => standards);
-      const cachedEmbedder = await getSetting(SettingKey.STANDARDS_EMBEDDER);
-      const cachedStandardRows = cachedEmbedder === embeddingModel
-        ? await getStandardEmbeddings(allStandards.map(({ code }) => code))
-        : [];
-      const standardEmbeddings = new Map<string, number[]>(cachedStandardRows.flatMap(({ embedding, id }) => Array.isArray(embedding) && embedding.length ? [[id, embedding] as const] : []));
+      const cachedStandardRows = await getStandardEmbeddings(allStandards.map(({ code }) => code));
+      const standardEmbeddings = new Map<string, number[]>(cachedStandardRows.flatMap(({ embedding, id, model }) => model === embeddingModel && Array.isArray(embedding) && embedding.length ? [[id, embedding] as const] : []));
       const missingStandardInputs = allStandards.filter(({ code }) => !standardEmbeddings.has(code)).map(standardEmbeddingInput);
 
       for (let index = 0; index < missingStandardInputs.length; index += 100) {
@@ -1248,14 +1252,11 @@ function Upload (): React.ReactElement {
         ...await getBookConceptsForBookPage(selectedBook.id, 0)
       ];
       const conceptsById = new Map(conceptRows.flatMap((concept) => concept.id === undefined ? [] : [[concept.id, concept] as const]));
-      const cachedConceptEmbedder = await getSetting(SettingKey.CONCEPTS_EMBEDDER);
-      const cachedConceptRows = cachedConceptEmbedder === embeddingModel
-        ? await getConceptEmbeddings(Array.from(conceptsById.keys()))
-        : [];
-      const currentConceptEmbeddings = new Map<number, number[]>(cachedConceptRows.flatMap(({ embedding, id, input }) => {
+      const cachedConceptRows = await getConceptEmbeddings(Array.from(conceptsById.keys()));
+      const currentConceptEmbeddings = new Map<number, number[]>(cachedConceptRows.flatMap(({ embedding, id, input, model }) => {
         const concept = conceptsById.get(id);
 
-        return concept && input === conceptEmbeddingInput(concept) && Array.isArray(embedding) && embedding.length
+        return concept && model === embeddingModel && input === conceptEmbeddingInput(concept) && Array.isArray(embedding) && embedding.length
           ? [[id, embedding] as const]
           : [];
       }));

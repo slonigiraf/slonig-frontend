@@ -7,6 +7,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Dropdown } from '@polkadot/react-components';
 
 import { DEFAULT_STANDARDS_EMBEDDER } from './constants.js';
+import { openRouterFetch } from './openRouterConcurrency.js';
 import { cacheOpenRouterModelPricePerMillion } from './openRouterModels.js';
 
 interface Props {
@@ -178,7 +179,7 @@ export default function OpenRouterEmbeddingModelSelector ({ className, isDisable
         // The public compatible-model catalog can still be loaded without a key.
       }
 
-      const response = await fetch('https://openrouter.ai/api/v1/models?output_modalities=embeddings', {
+      const response = await openRouterFetch('https://openrouter.ai/api/v1/models?output_modalities=embeddings', {
         cache: 'no-store',
         headers: {
           Accept: 'application/json',

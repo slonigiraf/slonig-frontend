@@ -5,7 +5,7 @@
 
 import { strict as assert } from 'node:assert';
 
-import { createImage, deleteAbilities, getAbilities, getImage, getImages, hydrateAbilityContent, putImage, storeAbility } from './index.js';
+import { createBook, createImage, deleteAbilities, deleteBook, deleteExercise, getAbilities, getImage, getImages, hydrateAbilityContent, putImage, replaceAbilities, replaceExercisesForBookPage, storeAbility } from './index.js';
 
 describe('Ability images', (): void => {
   const moduleId = 'ability-images-spec';
@@ -188,4 +188,51 @@ describe('Ability images', (): void => {
     await deleteAbilities(otherModuleId);
     assert.equal(await getImage(imageId), undefined);
   });
+
+  it('cascades Exercise deletion into Ability rows and their orphan Images', async (): Promise<void> => {
+    const bookId = await createBook({ contentHash: `ability-exercise-cascade-${Date.now()}`, created: Date.now(), name: 'Ability cascade test', opfsName: 'ability-cascade.pdf', size: 1 });
+
+    try {
+      const [exercise] = await replaceExercisesForBookPage([bookId, 1], [{ description: '', solution: '', source: 'generated', title: 'Exercise' }]);
+
+      assert.notEqual(exercise.id, undefined);
+      const exerciseModuleId = `book-${bookId}-exercise-${exercise.id as number}`;
+
+      await replaceAbilities(exerciseModuleId, [JSON.stringify({
+        h: 'Visual exercise ability',
+        i: '',
+        q: [{ a: '1', h: 'Question', i: '', p: 'Owned prompt image' }],
+        t: 3
+      })]);
+      const [stored] = await getAbilities(exerciseModuleId);
+      const imageId = (JSON.parse(stored.content) as { q: Array<{ p: number | null }> }).q[0].p as number;
+
+      assert.ok(await getImage(imageId));
+      await deleteExercise(exercise.id as number);
+      assert.deepEqual(await getAbilities(exerciseModuleId), []);
+      assert.equal(await getImage(imageId), undefined);
+    } finally {
+      await deleteBook(bookId);
+    }
+  });
+
+  it('deletes every book-owned Ability module and orphan Image with the book', async (): Promise<void> => {
+    const bookId = await createBook({ contentHash: `ability-book-cascade-${Date.now()}`, created: Date.now(), name: 'Book ability cascade test', opfsName: 'book-ability-cascade.pdf', size: 1 });
+    const skillModuleId = `book-${bookId}-skill-999`;
+
+    await storeAbility(skillModuleId, JSON.stringify({
+      h: 'Book-owned skill ability',
+      i: '',
+      q: [{ a: '1', h: 'Question', i: '', p: 'Book-owned prompt image' }],
+      t: 3
+    }));
+    const [stored] = await getAbilities(skillModuleId);
+    const imageId = (JSON.parse(stored.content) as { q: Array<{ p: number | null }> }).q[0].p as number;
+
+    assert.ok(await getImage(imageId));
+    await deleteBook(bookId);
+    assert.deepEqual(await getAbilities(skillModuleId), []);
+    assert.equal(await getImage(imageId), undefined);
+  });
+
 });

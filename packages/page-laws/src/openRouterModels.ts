@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { OPENAI_MODELS } from './constants.js';
+import { openRouterFetch } from './openRouterConcurrency.js';
 
 export const OPENROUTER_MODEL_PROVIDERS = [
   { authors: ['openai'], text: 'OpenAI', value: 'openai' },
@@ -326,7 +327,7 @@ export function getFallbackOpenRouterModelCatalog (): OpenRouterModelCatalog {
 }
 
 async function fetchOpenRouterModelCatalog (apiKey?: string): Promise<OpenRouterModelCatalog> {
-  const response = await fetch('https://openrouter.ai/api/v1/models?output_modalities=text', {
+  const response = await openRouterFetch('https://openrouter.ai/api/v1/models?output_modalities=text', {
     cache: 'no-store',
     headers: {
       Accept: 'application/json',

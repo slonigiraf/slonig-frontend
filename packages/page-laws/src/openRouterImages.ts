@@ -9,7 +9,7 @@ import {
   renderMathVisualSvg,
   type MathVisualSpec
 } from './mathVisuals.js';
-import { openRouterRequestGate } from './openRouterConcurrency.js';
+import { openRouterFetch } from './openRouterConcurrency.js';
 import { reportOpenRouterCost, type OpenRouterCostReporter } from './openRouterCost.js';
 
 export const OPENROUTER_IMAGE_MODEL = 'bytedance-seed/seedream-4.5';
@@ -47,7 +47,7 @@ async function fetchWithTimeout (url: string, init: RequestInit, timeoutMs = OPE
   const timer = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
-    return await fetch(url, { ...init, signal: controller.signal });
+    return await openRouterFetch(url, init, controller.signal);
   } catch (error) {
     if (controller.signal.aborted) {
       throw new Error(`OpenRouter request timed out after ${Math.round(timeoutMs / 1_000)} seconds.`);
@@ -188,7 +188,7 @@ async function generateOpenRouterVector (
   referenceScene?: MathVisualSpec,
   onCost?: OpenRouterCostReporter
 ): Promise<VectorCandidate | null> {
-  const response = await openRouterRequestGate.run(() => fetchWithTimeout('https://openrouter.ai/api/v1/chat/completions', {
+  const response = await fetchWithTimeout('https://openrouter.ai/api/v1/chat/completions', {
     body: JSON.stringify({
       messages: [{
         content: OPEN_ROUTER_VISUAL_SPEC_PROMPT(prompt, purpose, referenceScene ? JSON.stringify(referenceScene) : ''),
@@ -204,7 +204,7 @@ async function generateOpenRouterVector (
       'X-OpenRouter-Title': 'Slonig'
     },
     method: 'POST'
-  }));
+  });
   const result = await response.json() as OpenRouterChatResponse;
 
   reportOpenRouterCost(result, onCost);
@@ -235,7 +235,7 @@ async function generateOpenRouterVector (
 }
 
 export async function generateOpenRouterImage (apiKey: string, prompt: string, onCost?: OpenRouterCostReporter): Promise<string> {
-  const response = await openRouterRequestGate.run(() => fetchWithTimeout('https://openrouter.ai/api/v1/images', {
+  const response = await fetchWithTimeout('https://openrouter.ai/api/v1/images', {
     body: JSON.stringify({ model: OPENROUTER_IMAGE_MODEL, n: 1, prompt }),
     headers: {
       Authorization: `Bearer ${apiKey}`,
@@ -244,7 +244,7 @@ export async function generateOpenRouterImage (apiKey: string, prompt: string, o
       'X-OpenRouter-Title': 'Slonig'
     },
     method: 'POST'
-  }));
+  });
   const result = await response.json() as OpenRouterImageResponse;
 
   reportOpenRouterCost(result, onCost);
@@ -437,7 +437,7 @@ async function verifyOpenRouterVisual (
     content.push({ image_url: { url: candidate }, type: 'image_url' });
   }
 
-  const response = await openRouterRequestGate.run(() => fetchWithTimeout('https://openrouter.ai/api/v1/chat/completions', {
+  const response = await fetchWithTimeout('https://openrouter.ai/api/v1/chat/completions', {
     body: JSON.stringify({
       max_tokens: 700,
       messages: [{ content, role: 'user' }],
@@ -451,7 +451,7 @@ async function verifyOpenRouterVisual (
       'X-OpenRouter-Title': 'Slonig'
     },
     method: 'POST'
-  }));
+  });
   const result = await response.json() as OpenRouterChatResponse;
 
   reportOpenRouterCost(result, onCost);

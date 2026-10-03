@@ -67,6 +67,20 @@ function exerciseIdFromAbilityModule(moduleId: string): number | undefined {
     return Number.isSafeInteger(exerciseId) ? exerciseId : undefined;
 }
 
+async function deleteAbilityRowsForExercises(exercises: Array<Pick<Exercise, 'bookPage' | 'id'>>): Promise<void> {
+    const moduleIds = Array.from(new Set(exercises.flatMap(({ bookPage, id }) => id === undefined ? [] : [exerciseAbilityModuleId(bookPage[0], id)])));
+
+    if (!moduleIds.length) {
+        return;
+    }
+
+    const rows = (await Promise.all(moduleIds.map((moduleId) => db.abilities.where('moduleId').equals(moduleId).toArray()))).flat() as Ability[];
+    const imageIds = Array.from(new Set(rows.flatMap(({ content }) => abilityImageIds(content))));
+
+    await Promise.all(moduleIds.map((moduleId) => db.abilities.where('moduleId').equals(moduleId).delete()));
+    await deleteUnreferencedAbilityImages(imageIds);
+}
+
 async function chapterIdForExercise(exercise: Exercise | undefined): Promise<number | undefined> {
     if (!exercise) {
         return undefined;
@@ -426,40 +440,89 @@ export async function createBook(book: Omit<Book, 'id'>): Promise<number> {
     return db.books.add(book as Book);
 }
 
+/**
+ * Update only the explicitly named Book fields. Callers should use the stage
+ * helpers for completedStages so an old UI snapshot cannot replace unrelated
+ * state written by another component in the meantime.
+ */
+export async function updateBookFields(id: number, changes: Partial<Omit<Book, 'completedStages' | 'id' | 'processingStage'>>): Promise<Book | undefined> {
+    return db.transaction('rw', db.books, async () => {
+        const storedBook = await db.books.get(id);
+
+        if (!storedBook) {
+            return undefined;
+        }
+
+        const nextChanges: Partial<Book> = { ...changes };
+
+        if (changes.stageSpend) {
+            const storedSpend = storedBook.stageSpend;
+            const incomingSpend = changes.stageSpend;
+
+            nextChanges.stageSpend = Object.fromEntries(
+                Array.from(new Set([...Object.keys(storedSpend ?? {}), ...Object.keys(incomingSpend)])).map((stage) => [
+                    stage,
+                    Math.max(storedSpend?.[stage as BookStageSpendKey] ?? 0, incomingSpend[stage as BookStageSpendKey] ?? 0)
+                ])
+            ) as BookStageSpend;
+        }
+
+        if (changes.fixConceptsAttempts !== undefined) {
+            nextChanges.fixConceptsAttempts = Math.max(storedBook.fixConceptsAttempts ?? 0, changes.fixConceptsAttempts);
+        }
+
+        await db.books.update(id, nextChanges);
+
+        return getBook(id);
+    });
+}
+
+export async function updateBookFieldsAndStages(
+    id: number,
+    changes: Partial<Omit<Book, 'completedStages' | 'fixConceptsAttempts' | 'id' | 'processingStage' | 'stageSpend'>>,
+    options: { complete?: BookProcessingStageKey[]; resetFrom?: BookProcessingStageKey; uncomplete?: BookProcessingStageKey[] } = {}
+): Promise<Book | undefined> {
+    return db.transaction('rw', db.books, async () => {
+        const storedBook = await db.books.get(id);
+
+        if (!storedBook) {
+            return undefined;
+        }
+
+        let updated: Book = { ...storedBook, ...changes, completedStages: getBookCompletedStages(storedBook) };
+
+        if (options.resetFrom) {
+            updated = withBookProcessingStagesResetFrom(updated, options.resetFrom);
+        }
+
+        if (options.uncomplete?.length) {
+            const removed = new Set(options.uncomplete);
+
+            updated = { ...updated, completedStages: getBookCompletedStages(updated).filter((stage) => !removed.has(stage)) };
+        }
+
+        for (const stage of options.complete ?? []) {
+            updated = withCompletedBookProcessingStage(updated, stage);
+        }
+
+        await db.books.update(id, { ...changes, completedStages: updated.completedStages });
+
+        return getBook(id);
+    });
+}
+
+/**
+ * @deprecated Replacing an existing Book from a caller-owned snapshot is not
+ * concurrency-safe. Use createBook() for inserts and updateBookFields()/the
+ * processing-stage helpers for updates.
+ */
 export async function putBook(book: Book): Promise<void> {
     await db.transaction('rw', db.books, async () => {
-        const storedBook = await db.books.get(book.id);
-        const storedSpend = storedBook?.stageSpend;
-        const incomingSpend = book.stageSpend;
-        const stageSpend = storedSpend || incomingSpend
-            ? {
-                recognize: Math.max(storedSpend?.recognize ?? 0, incomingSpend?.recognize ?? 0),
-                language: Math.max(storedSpend?.language ?? 0, incomingSpend?.language ?? 0),
-                subject: Math.max(storedSpend?.subject ?? 0, incomingSpend?.subject ?? 0),
-                age: Math.max(storedSpend?.age ?? 0, incomingSpend?.age ?? 0),
-                chapters: Math.max(storedSpend?.chapters ?? 0, incomingSpend?.chapters ?? 0),
-                concepts: Math.max(storedSpend?.concepts ?? 0, incomingSpend?.concepts ?? 0),
-                fixConcepts: Math.max(storedSpend?.fixConcepts ?? 0, incomingSpend?.fixConcepts ?? 0),
-                embeddings: Math.max(storedSpend?.embeddings ?? 0, incomingSpend?.embeddings ?? 0),
-                deduplicateConcepts: Math.max(storedSpend?.deduplicateConcepts ?? 0, incomingSpend?.deduplicateConcepts ?? 0),
-                sortConcepts: Math.max(storedSpend?.sortConcepts ?? 0, incomingSpend?.sortConcepts ?? 0),
-                refineChapters: Math.max(storedSpend?.refineChapters ?? 0, incomingSpend?.refineChapters ?? 0),
-                exercises: Math.max(storedSpend?.exercises ?? 0, incomingSpend?.exercises ?? 0),
-                splitExercises: Math.max(storedSpend?.splitExercises ?? 0, incomingSpend?.splitExercises ?? 0),
-                fixExercises: Math.max(storedSpend?.fixExercises ?? 0, incomingSpend?.fixExercises ?? 0),
-                abilities: Math.max(storedSpend?.abilities ?? 0, incomingSpend?.abilities ?? 0),
-                fixAbilities: Math.max(storedSpend?.fixAbilities ?? 0, incomingSpend?.fixAbilities ?? 0),
-                images: Math.max(storedSpend?.images ?? 0, incomingSpend?.images ?? 0),
-                fixImages: Math.max(storedSpend?.fixImages ?? 0, incomingSpend?.fixImages ?? 0),
-                standards: Math.max(storedSpend?.standards ?? 0, incomingSpend?.standards ?? 0),
-                fixStandards: Math.max(storedSpend?.fixStandards ?? 0, incomingSpend?.fixStandards ?? 0)
-            }
-            : undefined;
+        if (await db.books.get(book.id)) {
+            throw new Error('putBook() cannot replace an existing Book. Use updateBookFields() or a processing-stage helper.');
+        }
 
-        const completedStages = book.completedStages ?? storedBook?.completedStages ?? getBookCompletedStages(book);
-        const fixConceptsAttempts = Math.max(storedBook?.fixConceptsAttempts ?? 0, book.fixConceptsAttempts ?? 0);
-
-        await db.books.put({ ...book, completedStages, fixConceptsAttempts, ...(stageSpend ? { stageSpend } : {}) });
+        await db.books.add({ ...book, completedStages: book.completedStages ?? getBookCompletedStages(book) });
     });
 }
 
@@ -487,31 +550,51 @@ export async function updateBookProcessingStage(id: number, processingStage: num
 }
 
 export async function completeBookProcessingStage(id: number, stage: BookProcessingStageKey): Promise<Book | undefined> {
-    const book = await db.books.get(id);
+    return db.transaction('rw', db.books, async () => {
+        const book = await db.books.get(id);
 
-    if (!book) {
-        return undefined;
-    }
+        if (!book) {
+            return undefined;
+        }
 
-    const updated = withCompletedBookProcessingStage({ ...book, completedStages: getBookCompletedStages(book) }, stage);
+        const updated = withCompletedBookProcessingStage({ ...book, completedStages: getBookCompletedStages(book) }, stage);
 
-    await db.books.update(id, { completedStages: updated.completedStages });
+        await db.books.update(id, { completedStages: updated.completedStages });
 
-    return getBook(id);
+        return getBook(id);
+    });
+}
+
+export async function uncompleteBookProcessingStage(id: number, stage: BookProcessingStageKey): Promise<Book | undefined> {
+    return db.transaction('rw', db.books, async () => {
+        const book = await db.books.get(id);
+
+        if (!book) {
+            return undefined;
+        }
+
+        const completedStages = getBookCompletedStages(book).filter((completedStage) => completedStage !== stage);
+
+        await db.books.update(id, { completedStages });
+
+        return getBook(id);
+    });
 }
 
 export async function resetBookProcessingStagesFrom(id: number, stage: BookProcessingStageKey): Promise<Book | undefined> {
-    const book = await db.books.get(id);
+    return db.transaction('rw', db.books, async () => {
+        const book = await db.books.get(id);
 
-    if (!book) {
-        return undefined;
-    }
+        if (!book) {
+            return undefined;
+        }
 
-    const updated = withBookProcessingStagesResetFrom({ ...book, completedStages: getBookCompletedStages(book) }, stage);
+        const updated = withBookProcessingStagesResetFrom({ ...book, completedStages: getBookCompletedStages(book) }, stage);
 
-    await db.books.update(id, { completedStages: updated.completedStages });
+        await db.books.update(id, { completedStages: updated.completedStages });
 
-    return getBook(id);
+        return getBook(id);
+    });
 }
 
 export async function incrementBookFixConceptsAttempts(id: number): Promise<number> {
@@ -560,10 +643,22 @@ export async function getBookByContentHash(contentHash: string): Promise<Book | 
 }
 
 export async function deleteBook(id: number): Promise<void> {
-    await db.transaction('rw', db.books, db.bookPages, db.bookChapters, db.bookConcepts, db.conceptEmbeddings, db.exercises, db.skills, db.exerciseTemplates, async () => {
+    await db.transaction('rw', db.books, db.bookPages, db.bookChapters, db.bookConcepts, db.conceptEmbeddings, db.exercises, db.skills, db.exerciseTemplates, db.abilities, db.images, async () => {
         const pageKeys = await db.bookPages.where('bookId').equals(id).primaryKeys();
         const chapterIds = (await db.bookChapters.where('bookId').equals(id).primaryKeys()) as number[];
         const skillIds = (await Promise.all(chapterIds.map((chapterId) => db.skills.where('chapterId').equals(chapterId).primaryKeys()))).flat() as number[];
+        const exercises = await db.exercises.filter(({ bookPage }) => bookPage[0] === id).toArray();
+
+        await deleteAbilityRowsForExercises(exercises);
+        // Remove every remaining Ability module owned by this book (including
+        // skill modules and historical exercise orphans left by older builds).
+        const orphanAbilityRows = await db.abilities.where('moduleId').startsWith(`book-${id}-`).toArray() as Ability[];
+        const orphanImageIds = Array.from(new Set(orphanAbilityRows.flatMap(({ content }) => abilityImageIds(content))));
+
+        if (orphanAbilityRows.length) {
+            await db.abilities.bulkDelete(orphanAbilityRows.map(({ id: abilityId }) => abilityId));
+            await deleteUnreferencedAbilityImages(orphanImageIds);
+        }
 
         await db.books.delete(id);
         await db.bookPages.where('bookId').equals(id).delete();
@@ -574,6 +669,10 @@ export async function deleteBook(id: number): Promise<void> {
             ...skillIds.map((skillId) => db.exerciseTemplates.where('skillId').equals(skillId).delete()),
             ...chapterIds.map((chapterId) => db.skills.where('chapterId').equals(chapterId).delete())
         ]);
+        const exerciseIds = exercises.flatMap(({ id }) => id === undefined ? [] : [id]);
+        if (exerciseIds.length) {
+            await db.exercises.bulkDelete(exerciseIds);
+        }
         await db.bookChapters.where('bookId').equals(id).delete();
         await db.conceptEmbeddings.where('bookId').equals(id).delete();
     });
@@ -615,8 +714,13 @@ export async function updateBookChapterTitle(chapterId: number, title: string): 
             throw new Error('Book chapter not found.');
         }
 
+        const matchingTitleChapters = await db.bookChapters.where('bookId').equals(chapter.bookId).filter(({ title: chapterTitle }) => chapterTitle === chapter.title).toArray();
+        const canUseLegacyTitleFallback = matchingTitleChapters.length === 1;
+
         await db.bookChapters.update(chapterId, { source: 'manual', title });
-        await db.bookPages.where('bookId').equals(chapter.bookId).filter((page) => page.chapterId === chapterId || page.chapter === chapter.title).modify({ chapter: title, chapterId });
+        await db.bookPages.where('bookId').equals(chapter.bookId).filter((page) =>
+            page.chapterId === chapterId || (page.chapterId === undefined && canUseLegacyTitleFallback && page.chapter === chapter.title)
+        ).modify({ chapter: title, chapterId });
     });
 }
 
@@ -759,6 +863,180 @@ export async function splitBookChapterAtPage(bookId: number, pageNumber: number,
     });
 }
 
+export interface BookChapterRefinementInput {
+    groups: Array<{ conceptIds: number[]; title: string }>;
+    sourceChapterId: number;
+    sourcePageNumbers: number[];
+    splitPages: number[];
+}
+
+export interface BookChapterRefinementAssignment {
+    chapterId: number;
+    conceptId: number;
+    displayOrder: number;
+}
+
+/**
+ * Persist a complete Refine Chapters plan in one IndexedDB transaction. The AI
+ * proposal is computed before this call; from the first title change through
+ * the final concept membership update, either every refinement is committed or
+ * none of it is.
+ */
+export async function applyBookChapterRefinements(bookId: number, refinements: BookChapterRefinementInput[]): Promise<BookChapterRefinementAssignment[]> {
+    if (!refinements.length) {
+        return [];
+    }
+
+    return db.transaction('rw', db.books, db.bookPages, db.bookChapters, db.bookConcepts, db.exercises, db.abilities, async () => {
+        const storedBook = await db.books.get(bookId);
+
+        if (!storedBook) {
+            throw new Error('Book not found.');
+        }
+
+        // The structural mutation and its downstream-stage invalidation are one
+        // commit. A failed refinement therefore leaves both the chapter graph
+        // and the processing-stage invariant exactly as they were before.
+        const resetBook = withBookProcessingStagesResetFrom({ ...storedBook, completedStages: getBookCompletedStages(storedBook) }, 'exercises');
+
+        await db.books.update(bookId, { completedStages: resetBook.completedStages });
+
+        const expectations: BookChapterRefinementAssignment[] = [];
+        const affectedChapterIds = new Set<number>();
+
+        for (const refinement of refinements) {
+            if (!refinement.groups.length || refinement.splitPages.length !== refinement.groups.length - 1 || refinement.sourcePageNumbers.length === 0) {
+                throw new Error('Invalid chapter refinement plan.');
+            }
+
+            const sourceChapter = await db.bookChapters.get(refinement.sourceChapterId);
+
+            if (!sourceChapter || sourceChapter.bookId !== bookId) {
+                throw new Error('Refine Chapters source chapter was not found.');
+            }
+
+            const firstTitle = refinement.groups[0].title.trim();
+
+            if (!firstTitle) {
+                throw new Error('Refined chapter title is required.');
+            }
+
+            await db.bookChapters.update(refinement.sourceChapterId, { source: 'manual', title: firstTitle });
+            await db.bookPages.where('bookId').equals(bookId).filter(({ chapterId }) => chapterId === refinement.sourceChapterId).modify({ chapter: firstTitle });
+            affectedChapterIds.add(refinement.sourceChapterId);
+
+            for (let splitIndex = 0; splitIndex < refinement.splitPages.length; splitIndex++) {
+                const pageNumber = refinement.splitPages[splitIndex];
+                const title = refinement.groups[splitIndex + 1].title.trim();
+                const pages = await db.bookPages.where('bookId').equals(bookId).sortBy('pageNumber');
+                const startIndex = pages.findIndex((page) => page.pageNumber === pageNumber);
+
+                if (startIndex < 0 || !title) {
+                    throw new Error('Refine Chapters contains an invalid split.');
+                }
+
+                const originalChapterId = pages[startIndex].chapterId;
+
+                if (originalChapterId === undefined) {
+                    throw new Error('Refine Chapters cannot split a page without a chapter id.');
+                }
+
+                const newChapterId = await db.bookChapters.add({ bookId, confidence: 1, source: 'manual', title });
+
+                for (let index = startIndex; index < pages.length; index++) {
+                    const page = pages[index];
+                    const sameSegment = page.chapterId === originalChapterId;
+
+                    if (!sameSegment) {
+                        break;
+                    }
+
+                    await db.bookPages.update([bookId, page.pageNumber], { chapter: title, chapterId: newChapterId, excludedFromAnalysis: false });
+                    await db.bookConcepts
+                        .where('bookPage')
+                        .equals([bookId, page.pageNumber])
+                        .filter(({ chapterId }) => chapterId === undefined || chapterId === originalChapterId)
+                        .modify({ chapterId: newChapterId });
+                }
+
+                const storedBook = await db.books.get(bookId);
+                const order = storedBook?.chapterOrder ?? [];
+                const originalOrderIndex = order.indexOf(originalChapterId);
+                const nextOrder = originalOrderIndex >= 0
+                    ? [...order.slice(0, originalOrderIndex + 1), newChapterId, ...order.slice(originalOrderIndex + 1)]
+                    : [...order, newChapterId];
+
+                await db.books.update(bookId, { chapterOrder: Array.from(new Set(nextOrder)) });
+                affectedChapterIds.add(originalChapterId);
+                affectedChapterIds.add(newChapterId);
+
+            }
+
+            const refreshedPages = await db.bookPages.where('bookId').equals(bookId).toArray();
+            const anchorPages = [refinement.sourcePageNumbers[0], ...refinement.splitPages];
+            const refinedChapterIds = anchorPages.map((anchorPage) => refreshedPages.find(({ pageNumber }) => pageNumber === anchorPage)?.chapterId);
+
+            if (refinedChapterIds.some((chapterId) => chapterId === undefined) || new Set(refinedChapterIds).size !== refinement.groups.length) {
+                throw new Error('Unable to resolve refined chapter ids after splitting.');
+            }
+
+            const assignments = refinement.groups.flatMap((group, groupIndex) => group.conceptIds.map((conceptId, displayOrder) => ({
+                chapterId: refinedChapterIds[groupIndex] as number,
+                conceptId,
+                displayOrder
+            })));
+            const concepts = await db.bookConcepts.bulkGet(assignments.map(({ conceptId }) => conceptId));
+
+            if (concepts.some((concept) => !concept)) {
+                throw new Error('Refine Chapters contains an unknown concept id.');
+            }
+
+            for (let index = 0; index < assignments.length; index++) {
+                const assignment = assignments[index];
+                const concept = concepts[index] as BookConcept;
+
+                if (concept.bookPage[0] !== bookId) {
+                    throw new Error('Refine Chapters cannot move a concept from another book.');
+                }
+
+                if (concept.chapterId !== undefined) {
+                    affectedChapterIds.add(concept.chapterId);
+                }
+                affectedChapterIds.add(assignment.chapterId);
+                await db.bookConcepts.update(assignment.conceptId, { chapterId: assignment.chapterId, displayOrder: assignment.displayOrder });
+                expectations.push(assignment);
+            }
+        }
+
+        for (const chapterId of affectedChapterIds) {
+            await syncChapterLearningDisplayOrder(chapterId);
+        }
+
+        const verifiedConcepts = await db.bookConcepts.bulkGet(expectations.map(({ conceptId }) => conceptId));
+        const membershipPersisted = expectations.every(({ chapterId, displayOrder }, index) => {
+            const concept = verifiedConcepts[index];
+
+            return concept?.chapterId === chapterId && concept.displayOrder === displayOrder;
+        });
+
+        if (!membershipPersisted) {
+            throw new Error('Unable to persist the complete thematic chapter refinement plan.');
+        }
+
+        const refinedBook = await db.books.get(bookId);
+
+        if (!refinedBook) {
+            throw new Error('Book not found after chapter refinement.');
+        }
+
+        const completedBook = withCompletedBookProcessingStage({ ...refinedBook, completedStages: getBookCompletedStages(refinedBook) }, 'refineChapters');
+
+        await db.books.update(bookId, { completedStages: completedBook.completedStages });
+
+        return expectations;
+    });
+}
+
 export async function mergeBookChapterWithPrevious(bookId: number, chapterId: number): Promise<void> {
     await db.transaction('rw', db.books, db.bookPages, db.bookChapters, db.bookConcepts, async () => {
         const pages = await db.bookPages.where('bookId').equals(bookId).sortBy('pageNumber');
@@ -785,6 +1063,8 @@ export async function mergeBookChapterWithPrevious(bookId: number, chapterId: nu
         if (book?.chapterOrder) {
             await db.books.update(bookId, { chapterOrder: book.chapterOrder.filter((id) => id !== chapterId) });
         }
+
+        await db.bookChapters.delete(chapterId);
     });
 }
 
@@ -795,7 +1075,7 @@ export async function deleteBookChapters(bookId: number, chapterIds: number[]): 
         return;
     }
 
-    await db.transaction('rw', db.books, db.bookPages, db.bookChapters, db.bookConcepts, db.conceptEmbeddings, db.exercises, db.skills, db.exerciseTemplates, async () => {
+    await db.transaction('rw', db.books, db.bookPages, db.bookChapters, db.bookConcepts, db.conceptEmbeddings, db.exercises, db.skills, db.exerciseTemplates, db.abilities, db.images, async () => {
         const chapters = await db.bookChapters.bulkGet(uniqueIds);
 
         if (chapters.some((chapter) => !chapter || chapter.bookId !== bookId)) {
@@ -808,6 +1088,7 @@ export async function deleteBookChapters(bookId: number, chapterIds: number[]): 
 
         for (const page of pages) {
             const conceptIds = (await db.bookConcepts.where('bookPage').equals([bookId, page.pageNumber]).primaryKeys()) as number[];
+            const exercises = await db.exercises.where('bookPage').equals([bookId, page.pageNumber]).toArray();
 
             await db.bookPages.update([bookId, page.pageNumber], {
                 chapter: '',
@@ -819,6 +1100,7 @@ export async function deleteBookChapters(bookId: number, chapterIds: number[]): 
             if (conceptIds.length) {
                 await db.conceptEmbeddings.bulkDelete(conceptIds);
             }
+            await deleteAbilityRowsForExercises(exercises);
             await db.exercises.where('bookPage').equals([bookId, page.pageNumber]).delete();
         }
 
@@ -847,7 +1129,10 @@ export async function deleteBookChapters(bookId: number, chapterIds: number[]): 
 }
 
 export async function replaceExercisesForBookPage(bookPage: [number, number], exercises: Array<Omit<Exercise, 'bookPage' | 'id'>>): Promise<Exercise[]> {
-    return db.transaction('rw', db.exercises, db.bookConcepts, db.bookPages, db.abilities, async () => {
+    return db.transaction('rw', db.exercises, db.bookConcepts, db.bookPages, db.abilities, db.images, async () => {
+        const previousExercises = await db.exercises.where('bookPage').equals(bookPage).toArray();
+
+        await deleteAbilityRowsForExercises(previousExercises);
         await db.exercises.where('bookPage').equals(bookPage).delete();
         const rows = exercises.map((exercise) => ({ ...exercise, bookPage }));
         const ids = await db.exercises.bulkAdd(rows, { allKeys: true });
@@ -903,10 +1188,13 @@ export async function getExercisesForBookPage(bookPage: [number, number]): Promi
 }
 
 export async function deleteExercise(id: number): Promise<void> {
-    await db.transaction('rw', db.exercises, db.skills, db.bookConcepts, db.bookPages, db.abilities, async () => {
+    await db.transaction('rw', db.exercises, db.skills, db.bookConcepts, db.bookPages, db.abilities, db.images, async () => {
         const exercise = await db.exercises.get(id);
         const chapterId = await chapterIdForExercise(exercise);
 
+        if (exercise) {
+            await deleteAbilityRowsForExercises([exercise]);
+        }
         await db.exercises.delete(id);
         const linkedSkills = await db.skills.filter(({ exerciseIds }) => (exerciseIds ?? []).includes(id)).toArray();
 
@@ -919,7 +1207,7 @@ export async function deleteExercise(id: number): Promise<void> {
 }
 
 export async function replaceParsedBookPageContent(bookId: number, pageNumber: number, chapterTitle: string, concepts: Array<Omit<BookConcept, 'bookPage' | 'chapterId' | 'id'>>, exercises: Array<Omit<Exercise, 'bookPage' | 'conceptId' | 'id'> & { conceptIndex?: number }>): Promise<{ concepts: BookConcept[]; exercises: Exercise[] }> {
-    return db.transaction('rw', db.bookPages, db.bookChapters, db.bookConcepts, db.conceptEmbeddings, db.exercises, db.abilities, async () => {
+    return db.transaction('rw', db.bookPages, db.bookChapters, db.bookConcepts, db.conceptEmbeddings, db.exercises, db.abilities, db.images, async () => {
         const storedPage = await db.bookPages.get([bookId, pageNumber]);
         const previousPage = storedPage?.chapterId !== undefined || storedPage?.chapter.trim()
             ? undefined
@@ -930,7 +1218,13 @@ export async function replaceParsedBookPageContent(bookId: number, pageNumber: n
         const preferredChapterId = storedPage?.chapterId ?? previousPage?.chapterId;
         const preferredChapter = preferredChapterId === undefined ? undefined : await db.bookChapters.get(preferredChapterId);
         const resolvedChapterTitle = preferredChapter?.title || storedPage?.chapter.trim() || chapterTitle.trim() || previousPage?.chapter.trim() || 'Front matter';
-        const existingChapter = preferredChapter ?? await db.bookChapters.where('bookId').equals(bookId).filter(({ title }) => title === resolvedChapterTitle).first();
+        const titleMatches = preferredChapter
+            ? []
+            : await db.bookChapters.where('bookId').equals(bookId).filter(({ title }) => title === resolvedChapterTitle).toArray();
+        // A title is only a safe legacy fallback when it identifies exactly one
+        // chapter. Duplicate titles are valid, so never arbitrarily attach a
+        // page/concept to whichever matching row Dexie happens to return first.
+        const existingChapter = preferredChapter ?? (titleMatches.length === 1 ? titleMatches[0] : undefined);
         const chapterId = existingChapter?.id ?? await db.bookChapters.add({ bookId, source: 'legacy', title: resolvedChapterTitle });
         const conceptBookPage: [number, number] = [bookId, pageNumber];
         const exerciseBookPage: [number, number] = [bookId, pageNumber];
@@ -940,6 +1234,9 @@ export async function replaceParsedBookPageContent(bookId: number, pageNumber: n
         if (previousConceptIds.length) {
             await db.conceptEmbeddings.bulkDelete(previousConceptIds);
         }
+        const previousExercises = await db.exercises.where('bookPage').equals(exerciseBookPage).toArray();
+
+        await deleteAbilityRowsForExercises(previousExercises);
         await db.exercises.where('bookPage').equals(exerciseBookPage).delete();
 
         const conceptIds = await db.bookConcepts.bulkAdd(conceptRows, { allKeys: true });
@@ -966,14 +1263,16 @@ export async function getBookPages(bookId: number): Promise<BookPage[]> {
 }
 
 export async function deleteBookPage(bookId: number, pageNumber: number): Promise<void> {
-    await db.transaction('rw', db.bookPages, db.bookConcepts, db.conceptEmbeddings, db.exercises, async () => {
+    await db.transaction('rw', db.bookPages, db.bookConcepts, db.conceptEmbeddings, db.exercises, db.abilities, db.images, async () => {
         const conceptIds = (await db.bookConcepts.where('bookPage').equals([bookId, pageNumber]).primaryKeys()) as number[];
+        const exercises = await db.exercises.where('bookPage').equals([bookId, pageNumber]).toArray();
 
         await db.bookPages.delete([bookId, pageNumber]);
         await db.bookConcepts.where('bookPage').equals([bookId, pageNumber]).delete();
         if (conceptIds.length) {
             await db.conceptEmbeddings.bulkDelete(conceptIds);
         }
+        await deleteAbilityRowsForExercises(exercises);
         await db.exercises.where('bookPage').equals([bookId, pageNumber]).delete();
     });
 }
