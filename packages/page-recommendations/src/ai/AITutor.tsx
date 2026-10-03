@@ -12,6 +12,7 @@ import { askOpenRouter, DEFAULT_MODEL, synthesizeOpenRouterSpeech, transcribeOpe
 import type { OpenRouterAttachment } from './openRouter.js';
 import { getLesson } from '@slonigiraf/db';
 import { decisionPrompt, formatGeneratedStageMessage, generatedStagePrompt } from './tutorPrompts.js';
+import { tutorSpeechFallbackText, tutorSpeechHasKatex, tutorSpeechRewriteIsSafe, tutorSpeechRewritePrompt, tutorSpeechSourceText } from './tutorSpeech.js';
 import { useTranslation } from '../translate.js';
 
 export interface AiTutorSkillRef {
@@ -528,17 +529,6 @@ function tutorMessageParts(value: string): TutorMessagePart[] {
   return parts.length > 0 ? parts : [{ type: 'text', value }];
 }
 
-function tutorSpeechText(value: string): string {
-  return tutorMessageParts(value)
-    .filter((part) => part.type === 'text')
-    .map((part) => part.value)
-    .join('\n\n')
-    .replace(/```[\s\S]*?```/g, ' ')
-    .replace(/[*_#>`]/g, '')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-
 async function prepareTutorTikzPreviews(value: string, fallbackError: string, requireRenderable = false): Promise<Record<string, PreparedTikzPreview>> {
   const sources = Array.from(new Set(tutorMessageParts(value)
     .filter((part): part is TutorMessagePart & { type: 'tikz' } => part.type === 'tikz')
@@ -679,6 +669,7 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
   const tutorSpeechAbortRef = useRef<AbortController>();
   const tutorSpeechRequestRef = useRef(0);
   const voiceLastSpokenKeyRef = useRef('');
+  const tutorSpokenTextCacheRef = useRef(new Map<string, string>());
   const [voiceValidationRevision, setVoiceValidationRevision] = useState(0);
 
   const skill = skills[lessonStep];
@@ -1451,7 +1442,7 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
 
 
   const speakTutorMessage = useCallback(async (value: string): Promise<void> => {
-    const sourceSpokenText = tutorSpeechText(value);
+    const sourceSpokenText = tutorSpeechSourceText(value);
     const language = voiceLanguageRef.current;
     if (!voiceModeRef.current) return;
     if (!language) return;
@@ -1473,7 +1464,41 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
     setVoiceStatus('speaking');
 
     try {
-      const spokenText = sourceSpokenText;
+      let spokenText = tutorSpeechFallbackText(sourceSpokenText);
+
+      if (tutorSpeechHasKatex(sourceSpokenText)) {
+        const cacheKey = `${language.code}:${sourceSpokenText}`;
+        const cached = tutorSpokenTextCacheRef.current.get(cacheKey);
+
+        if (cached) {
+          spokenText = cached;
+        } else {
+          try {
+            const rewritten = await askOpenRouter(
+              { apiKey: openRouterKey, model: model.trim() || DEFAULT_MODEL },
+              tutorSpeechRewritePrompt(sourceSpokenText, voiceLanguageInstructionName(language.code)),
+              controller.signal,
+            );
+            const candidate = rewritten.message.replace(/<\/?kx>/gi, ' ').replace(/\s+/g, ' ').trim();
+            if (candidate && tutorSpeechRewriteIsSafe(candidate)) {
+              spokenText = candidate;
+              const cache = tutorSpokenTextCacheRef.current;
+              cache.set(cacheKey, candidate);
+              if (cache.size > 100) {
+                const oldest = cache.keys().next().value;
+                if (oldest) cache.delete(oldest);
+              }
+            }
+          } catch (error) {
+            if (error instanceof DOMException && error.name === 'AbortError') return;
+            if (controller.signal.aborted || requestId !== tutorSpeechRequestRef.current || !voiceModeRef.current) return;
+            // Keep voice mode usable if the speech rewrite request fails. The
+            // deterministic fallback removes KaTeX commands and leaves
+            // language-neutral mathematical symbols for the speech engine.
+          }
+        }
+      }
+
       let played = false;
       try {
         const speech = await synthesizeOpenRouterSpeech(
@@ -1523,7 +1548,7 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
       setVoiceStatus('waiting');
       setError(error instanceof Error ? error.message : t('Unable to play tutor voice.'));
     }
-  }, [openRouterKey, speakWithBrowserVoice, startRecording, stopTutorSpeech, t]);
+  }, [model, openRouterKey, speakWithBrowserVoice, startRecording, stopTutorSpeech, t]);
 
   const endVoiceMode = useCallback((): void => {
     voiceLanguageRequestRef.current += 1;
@@ -2013,7 +2038,7 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
       : voiceStatus === 'detecting'
         ? t('Checking the module language before the conversation starts.')
       : voiceStatus === 'thinking'
-        ? t('Your answer is being checked with the same tutoring algorithm.')
+        ? t('Your answer is being checked.')
         : t('Tap the circle to start listening.');
 
   return (
