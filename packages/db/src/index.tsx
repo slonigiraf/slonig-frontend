@@ -2664,22 +2664,169 @@ export function insuranceToUsageRight(insurance: Insurance): UsageRight {
 
 // AI tutor resume state
 
-export async function getAiTutorStudentMessage<TMessage, TMedia>(lessonId: string, lessonStep: number): Promise<AiTutorStudentMessage<TMessage, TMedia> | undefined> {
-    return await db.aiTutorStudentMessages.get(`${lessonId}:${lessonStep}`) as AiTutorStudentMessage<TMessage, TMedia> | undefined;
+function aiTutorStudentMessageKey(lessonId: string, lessonStep: number): string {
+    return `${lessonId}:${lessonStep}`;
+}
+
+async function updateAiTutorStudentMessageRecord(
+    lessonId: string,
+    lessonStep: number,
+    update: (record: AiTutorStudentMessage) => AiTutorStudentMessage
+): Promise<void> {
+    const key = aiTutorStudentMessageKey(lessonId, lessonStep);
+
+    await db.transaction('rw', db.aiTutorStudentMessages, async () => {
+        const existing = await db.aiTutorStudentMessages.get(key) ?? {
+            key,
+            lessonId,
+            lessonStep,
+            studentExerciseMedia: []
+        };
+
+        await db.aiTutorStudentMessages.put(update(existing));
+    });
+}
+
+export async function getAiTutorStudentMessage<TMessage, TMedia, TVisualDraft = unknown, TTutorStageMessage = unknown>(lessonId: string, lessonStep: number): Promise<AiTutorStudentMessage<TMessage, TMedia, TVisualDraft, TTutorStageMessage> | undefined> {
+    return await db.aiTutorStudentMessages.get(aiTutorStudentMessageKey(lessonId, lessonStep)) as AiTutorStudentMessage<TMessage, TMedia, TVisualDraft, TTutorStageMessage> | undefined;
 }
 
 export async function putAiTutorStudentMessage<TMessage, TMedia>(lessonId: string, lessonStep: number, message: TMessage, studentExerciseMedia: TMedia[]): Promise<void> {
-    await db.aiTutorStudentMessages.put({
-        key: `${lessonId}:${lessonStep}`,
-        lessonId,
-        lessonStep,
-        message,
-        studentExerciseMedia
+    await updateAiTutorStudentMessageRecord(lessonId, lessonStep, (record) => {
+        const next = {
+            ...record,
+            message,
+            studentExerciseMedia
+        } as AiTutorStudentMessage<TMessage, TMedia>;
+
+        // A submitted message supersedes the unsent visual draft. Generated tutor
+        // stage text is intentionally preserved until the exercise/stage changes.
+        delete next.visualDraft;
+
+        return next;
+    });
+}
+
+export async function putAiTutorVisualDraft<TVisualDraft>(lessonId: string, lessonStep: number, visualDraft: TVisualDraft | undefined): Promise<void> {
+    await updateAiTutorStudentMessageRecord(lessonId, lessonStep, (record) => {
+        const next = { ...record } as AiTutorStudentMessage<unknown, unknown, TVisualDraft>;
+
+        if (visualDraft === undefined) {
+            delete next.visualDraft;
+        } else {
+            next.visualDraft = visualDraft;
+        }
+
+        return next;
+    });
+}
+
+export async function putAiTutorStudentExercise(lessonId: string, lessonStep: number, studentExercise: string | undefined): Promise<void> {
+    await updateAiTutorStudentMessageRecord(lessonId, lessonStep, (record) => {
+        const next = { ...record };
+
+        if (studentExercise) {
+            next.studentExercise = studentExercise;
+        } else {
+            delete next.studentExercise;
+        }
+
+        return next;
+    });
+}
+
+export async function putAiTutorCurrentStageType(lessonId: string, lessonStep: number, stageType: string | undefined): Promise<void> {
+    await updateAiTutorStudentMessageRecord(lessonId, lessonStep, (record) => {
+        const next = { ...record };
+
+        if (stageType) {
+            next.currentTutorStageType = stageType;
+        } else {
+            delete next.currentTutorStageType;
+        }
+
+        return next;
+    });
+}
+
+export async function getAiTutorTutorStageMessage<TTutorStageMessage>(lessonId: string, lessonStep: number, stageType: string): Promise<TTutorStageMessage | undefined> {
+    const record = await db.aiTutorStudentMessages.get(aiTutorStudentMessageKey(lessonId, lessonStep));
+
+    return record?.tutorStageMessages?.[stageType] as TTutorStageMessage | undefined;
+}
+
+export async function putAiTutorTutorStageMessage<TTutorStageMessage>(lessonId: string, lessonStep: number, stageType: string, message: TTutorStageMessage): Promise<void> {
+    await updateAiTutorStudentMessageRecord(lessonId, lessonStep, (record) => ({
+        ...record,
+        tutorStageMessages: {
+            ...(record.tutorStageMessages ?? {}),
+            [stageType]: message
+        }
+    }));
+}
+
+export async function clearAiTutorTutorStageMessages(lessonId: string, lessonStep: number, stageTypes?: string[]): Promise<void> {
+    await updateAiTutorStudentMessageRecord(lessonId, lessonStep, (record) => {
+        const next = { ...record };
+
+        if (!stageTypes?.length) {
+            delete next.tutorStageMessages;
+            return next;
+        }
+
+        const tutorStageMessages = { ...(record.tutorStageMessages ?? {}) };
+        stageTypes.forEach((stageType) => delete tutorStageMessages[stageType]);
+
+        if (Object.keys(tutorStageMessages).length) {
+            next.tutorStageMessages = tutorStageMessages;
+        } else {
+            delete next.tutorStageMessages;
+        }
+
+        return next;
+    });
+}
+
+export async function getAiTutorGeneratedStageText(lessonId: string, lessonStep: number, stageType: string): Promise<string | undefined> {
+    const record = await db.aiTutorStudentMessages.get(aiTutorStudentMessageKey(lessonId, lessonStep));
+
+    return record?.generatedStageText?.[stageType];
+}
+
+export async function putAiTutorGeneratedStageText(lessonId: string, lessonStep: number, stageType: string, text: string): Promise<void> {
+    await updateAiTutorStudentMessageRecord(lessonId, lessonStep, (record) => ({
+        ...record,
+        generatedStageText: {
+            ...(record.generatedStageText ?? {}),
+            [stageType]: text
+        }
+    }));
+}
+
+export async function clearAiTutorGeneratedStageTexts(lessonId: string, lessonStep: number, stageTypes?: string[]): Promise<void> {
+    await updateAiTutorStudentMessageRecord(lessonId, lessonStep, (record) => {
+        const next = { ...record };
+
+        if (!stageTypes?.length) {
+            delete next.generatedStageText;
+            return next;
+        }
+
+        const generatedStageText = { ...(record.generatedStageText ?? {}) };
+        stageTypes.forEach((stageType) => delete generatedStageText[stageType]);
+
+        if (Object.keys(generatedStageText).length) {
+            next.generatedStageText = generatedStageText;
+        } else {
+            delete next.generatedStageText;
+        }
+
+        return next;
     });
 }
 
 export async function deleteAiTutorStudentMessage(lessonId: string, lessonStep: number): Promise<void> {
-    await db.aiTutorStudentMessages.delete(`${lessonId}:${lessonStep}`);
+    await db.aiTutorStudentMessages.delete(aiTutorStudentMessageKey(lessonId, lessonStep));
 }
 
 export async function clearAiTutorStudentMessages(lessonId: string): Promise<void> {

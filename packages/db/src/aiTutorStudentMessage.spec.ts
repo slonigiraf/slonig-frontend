@@ -5,10 +5,12 @@
 
 import { strict as assert } from 'node:assert';
 
-import { clearAiTutorStudentMessages, deleteAiTutorStudentMessage, getAiTutorStudentMessage, putAiTutorStudentMessage } from './index.js';
+import { clearAiTutorGeneratedStageTexts, clearAiTutorStudentMessages, clearAiTutorTutorStageMessages, deleteAiTutorStudentMessage, getAiTutorGeneratedStageText, getAiTutorStudentMessage, getAiTutorTutorStageMessage, putAiTutorCurrentStageType, putAiTutorGeneratedStageText, putAiTutorStudentExercise, putAiTutorStudentMessage, putAiTutorTutorStageMessage, putAiTutorVisualDraft } from './index.js';
 
 interface Message {
   text: string;
+  tikz?: string;
+  tikzDataUrl?: string;
 }
 
 interface Media {
@@ -30,7 +32,7 @@ describe('AI tutor student message persistence', (): void => {
 
     assert.equal(stored?.lessonId, lessonId);
     assert.equal(stored?.lessonStep, 0);
-    assert.equal(stored?.message.text, 'First answer');
+    assert.equal(stored?.message?.text, 'First answer');
     assert.deepEqual(stored?.studentExerciseMedia, [{ name: 'diagram.png' }]);
 
     await deleteAiTutorStudentMessage(lessonId, 0);
@@ -38,5 +40,78 @@ describe('AI tutor student message persistence', (): void => {
 
     await clearAiTutorStudentMessages(lessonId);
     assert.equal(await getAiTutorStudentMessage<Message, Media>(lessonId, 1), undefined);
+  });
+
+  it('persists uploaded visual drafts and generated TikZ stage text in IndexedDB', async (): Promise<void> => {
+    const visualDraft = {
+      attachments: [{
+        id: 'upload-1',
+        name: 'student-diagram.png',
+        mimeType: 'image/png',
+        dataUrl: 'data:image/png;base64,c3R1ZGVudC1pbWFnZQ==',
+        kind: 'image'
+      }],
+      tikz: '\\begin{tikzpicture}\\draw (0,0)--(1,0);\\end{tikzpicture}',
+      tikzDataUrl: 'data:image/svg+xml;charset=utf-8,%3Csvg%3Epreview%3C%2Fsvg%3E'
+    };
+    const generated = 'AI reply\n\\begin{tikzpicture}\\draw (0,0) circle (1);\\end{tikzpicture}';
+
+    await putAiTutorVisualDraft(lessonId, 2, visualDraft);
+    await putAiTutorGeneratedStageText(lessonId, 2, 'correct_fake_solution', generated);
+
+    const stored = await getAiTutorStudentMessage<Message, Media, typeof visualDraft>(lessonId, 2);
+
+    assert.deepEqual(stored?.visualDraft, visualDraft);
+    assert.equal(await getAiTutorGeneratedStageText(lessonId, 2, 'correct_fake_solution'), generated);
+
+    const submittedTikz = '\\begin{tikzpicture}\\draw (0,0)--(2,0);\\end{tikzpicture}';
+    const submittedTikzDataUrl = 'data:image/svg+xml;charset=utf-8,%3Csvg%3E%3C%2Fsvg%3E';
+    await putAiTutorStudentMessage<Message, Media>(lessonId, 2, {
+      text: 'Submitted answer',
+      tikz: submittedTikz,
+      tikzDataUrl: submittedTikzDataUrl
+    }, [{ name: 'diagram.png' }]);
+    const submitted = await getAiTutorStudentMessage<Message, Media, typeof visualDraft>(lessonId, 2);
+
+    assert.equal(submitted?.visualDraft, undefined);
+    assert.equal(submitted?.message?.text, 'Submitted answer');
+    assert.equal(submitted?.message?.tikz, submittedTikz);
+    assert.equal(submitted?.message?.tikzDataUrl, submittedTikzDataUrl);
+    assert.equal(await getAiTutorGeneratedStageText(lessonId, 2, 'correct_fake_solution'), generated);
+
+    await clearAiTutorGeneratedStageTexts(lessonId, 2, ['correct_fake_solution']);
+    assert.equal(await getAiTutorGeneratedStageText(lessonId, 2, 'correct_fake_solution'), undefined);
+  });
+
+  it('persists the displayed AI message, rendered TikZ, and resume context together with the student message', async (): Promise<void> => {
+    const stageType = 'correct_fake_solution';
+    const studentTikz = '\\begin{tikzpicture}\\draw (0,0)--(1,1);\\end{tikzpicture}';
+    const aiTikz = '\\begin{tikzpicture}\\draw (0,0) circle (1);\\end{tikzpicture}';
+    const tutorMessage = {
+      text: `Correct.\n${aiTikz}`,
+      tikzPreviews: {
+        [aiTikz]: { src: 'data:image/svg+xml;charset=utf-8,%3Csvg%3Eai%3C%2Fsvg%3E' }
+      }
+    };
+
+    await putAiTutorStudentMessage<Message, Media>(lessonId, 3, {
+      text: 'Student answer',
+      tikz: studentTikz,
+      tikzDataUrl: 'data:image/svg+xml;charset=utf-8,%3Csvg%3Estudent%3C%2Fsvg%3E'
+    }, []);
+    await putAiTutorStudentExercise(lessonId, 3, `Student TikZ drawing:\n${studentTikz}`);
+    await putAiTutorCurrentStageType(lessonId, 3, stageType);
+    await putAiTutorTutorStageMessage(lessonId, 3, stageType, tutorMessage);
+
+    const stored = await getAiTutorStudentMessage<Message, Media, unknown, typeof tutorMessage>(lessonId, 3);
+
+    assert.equal(stored?.message?.tikz, studentTikz);
+    assert.equal(stored?.studentExercise, `Student TikZ drawing:\n${studentTikz}`);
+    assert.equal(stored?.currentTutorStageType, stageType);
+    assert.deepEqual(stored?.tutorStageMessages?.[stageType], tutorMessage);
+    assert.deepEqual(await getAiTutorTutorStageMessage(lessonId, 3, stageType), tutorMessage);
+
+    await clearAiTutorTutorStageMessages(lessonId, 3, [stageType]);
+    assert.equal(await getAiTutorTutorStageMessage(lessonId, 3, stageType), undefined);
   });
 });

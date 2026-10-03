@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Button, Input, LinearProgress, Modal, Spinner, styled } from '@polkadot/react-components';
 import { Bubble, Confirmation, FullFindow, getIPFSDataFromContentID, KatexSpan, loadFromSessionStorage, parseJson, ResizableImage, saveToSessionStorage, TikzEditor, useIpfsContext, useSettingValue, VerticalCenterItemsContainer } from '@slonigiraf/slonig-components';
-import { clearAiTutorStudentMessages, deleteAiTutorStudentMessage, getAiTutorStudentMessage, getSetting, putAiTutorStudentMessage, SettingKey, storeSetting } from '@slonigiraf/db';
+import { clearAiTutorGeneratedStageTexts, clearAiTutorStudentMessages, clearAiTutorTutorStageMessages, deleteAiTutorStudentMessage, getAiTutorGeneratedStageText, getAiTutorStudentMessage, getAiTutorTutorStageMessage, getSetting, putAiTutorCurrentStageType, putAiTutorGeneratedStageText, putAiTutorStudentExercise, putAiTutorStudentMessage, putAiTutorTutorStageMessage, putAiTutorVisualDraft, SettingKey, storeSetting } from '@slonigiraf/db';
 import type { AiTutorStudentMessage } from '@slonigiraf/db';
 import type { ModelSelectorRenderer } from './modelSelector.js';
 import { AlgorithmStage, StageType } from '../Teach/AlgorithmStage.js';
@@ -50,9 +50,26 @@ interface SubmittedStudentMessage {
   hasAudio: boolean;
   audioSeconds: number;
   tikz?: string;
+  tikzDataUrl?: string;
 }
 
-type StoredStudentMessage = AiTutorStudentMessage<SubmittedStudentMessage, OpenRouterAttachment>;
+interface ComposerVisualDraft {
+  attachments: ComposerAttachment[];
+  tikz?: string;
+  tikzDataUrl?: string;
+}
+
+interface PreparedTikzPreview {
+  src?: string;
+  error?: string;
+}
+
+interface PersistedTutorStageMessage {
+  text: string;
+  tikzPreviews: Record<string, PreparedTikzPreview>;
+}
+
+type StoredStudentMessage = AiTutorStudentMessage<SubmittedStudentMessage, OpenRouterAttachment, ComposerVisualDraft, PersistedTutorStageMessage>;
 
 function attachmentId(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
@@ -90,29 +107,50 @@ function textFromDataUrl(dataUrl: string, name: string, t: Translate): string {
   }
 }
 
-function TikzPreview({ large = false, sent = false, value }: { large?: boolean; sent?: boolean; value: string }): React.ReactElement {
+async function renderTikzDataUrl(value: string): Promise<string> {
+  const { renderTikzToSvg } = await import('../../../page-laws/src/Edit/TikzDisplay.js');
+  const svg = await renderTikzToSvg(value);
+  const src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+
+  // Do not commit an AI reply while the browser is still decoding its visual.
+  // Waiting for load makes the text and already-built image appear together.
+  if (typeof window !== 'undefined') {
+    await new Promise<void>((resolve, reject) => {
+      const image = new window.Image();
+      image.onload = () => resolve();
+      image.onerror = () => reject(new Error('Unable to load rendered TikZ drawing.'));
+      image.src = src;
+    });
+  }
+
+  return src;
+}
+
+function TikzPreview({ large = false, prepared, sent = false, value }: { large?: boolean; prepared?: PreparedTikzPreview; sent?: boolean; value: string }): React.ReactElement {
   const { t } = useTranslation();
   const [preview, setPreview] = useState<{ source: string; src?: string; error?: string }>();
 
   useEffect(() => {
+    if (prepared) return;
+
     let cancelled = false;
 
     // Load the compiler only when a drawing is attached. Standalone SVGs also
     // include outlined fonts, so labels survive rendering in the image viewer.
-    void import('../../../page-laws/src/Edit/TikzDisplay.js')
-      .then(({ renderTikzToSvg }) => renderTikzToSvg(value))
-      .then((svg) => {
-        if (!cancelled) setPreview({ source: value, src: `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}` });
+    void renderTikzDataUrl(value)
+      .then((src) => {
+        if (!cancelled) setPreview({ source: value, src });
       })
       .catch(() => {
         if (!cancelled) setPreview({ source: value, error: t('Unable to preview TikZ drawing.') });
       });
 
     return () => { cancelled = true; };
-  }, [t, value]);
+  }, [prepared, t, value]);
 
-  // Never show an older drawing while its replacement is compiling.
-  const current = preview?.source === value ? preview : undefined;
+  // Never show an older drawing while its replacement is compiling. A prepared
+  // preview is already complete, so text and TikZ can appear in one paint.
+  const current = prepared || (preview?.source === value ? preview : undefined);
   const Image = sent ? SentImage : AttachmentImage;
 
   if (current?.error) return <span role='status' title={current.error}>{t('TikZ preview unavailable')}</span>;
@@ -367,6 +405,30 @@ function tutorMessageParts(value: string): TutorMessagePart[] {
   return parts.length > 0 ? parts : [{ type: 'text', value }];
 }
 
+async function prepareTutorTikzPreviews(value: string, fallbackError: string): Promise<Record<string, PreparedTikzPreview>> {
+  const sources = Array.from(new Set(tutorMessageParts(value)
+    .filter((part): part is TutorMessagePart & { type: 'tikz' } => part.type === 'tikz')
+    .map((part) => part.value)));
+
+  const prepared = await Promise.all(sources.map(async (source): Promise<[string, PreparedTikzPreview]> => {
+    try {
+      return [source, { src: await renderTikzDataUrl(source) }];
+    } catch {
+      return [source, { error: fallbackError }];
+    }
+  }));
+
+  return Object.fromEntries(prepared);
+}
+
+function hasCompleteTutorTikzPreviews(value: string, previews: Record<string, PreparedTikzPreview> | undefined): boolean {
+  const sources = tutorMessageParts(value)
+    .filter((part): part is TutorMessagePart & { type: 'tikz' } => part.type === 'tikz')
+    .map((part) => part.value);
+
+  return sources.every((source) => Boolean(previews?.[source]?.src || previews?.[source]?.error));
+}
+
 function stageRequiresStudentImageWhenReferenceHasImage(stage: AlgorithmStage): boolean {
   return isCreateSimilarExerciseStage(stage)
     || stage.getType() === StageType.ask_to_repeat_example_solution
@@ -424,6 +486,7 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
   const [lessonStep, setLessonStep] = useState(0);
   const [isLessonLoaded, setIsLessonLoaded] = useState(false);
   const [currentAiText, setCurrentAiText] = useState('');
+  const [currentAiTikzPreviews, setCurrentAiTikzPreviews] = useState<Record<string, PreparedTikzPreview>>({});
   const [studentExercise, setStudentExercise] = useState('');
   const [studentExerciseMedia, setStudentExerciseMedia] = useState<OpenRouterAttachment[]>([]);
   const [lastStudentMessage, setLastStudentMessage] = useState<SubmittedStudentMessage>();
@@ -441,6 +504,7 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
   const [recording, setRecording] = useState(false);
   const [recordingSeconds, setRecordingSeconds] = useState(0);
   const [tikz, setTikz] = useState('');
+  const [tikzDataUrl, setTikzDataUrl] = useState('');
   const [tikzEditorOpen, setTikzEditorOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -457,7 +521,7 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
   const skill = skills[lessonStep];
   const lessonId = useMemo(() => aiLessonId(moduleId, studentId), [moduleId, studentId]);
   const answerScope = `${lessonId}:${lessonStep}`;
-  const answerScopeRef = useRef(answerScope);
+  const visualDraftScopeRef = useRef<string>();
   const skillRefsKey = JSON.stringify(skillRefs.map(({ id, cid }) => [id, cid]));
   const algorithm = useMemo(() => skill ? new TutoringAlgorithm({
     canIssueBadge: false,
@@ -534,22 +598,20 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
     if (!begin) {
       setAlgorithmStage(undefined);
       setCurrentAiText('');
+      setCurrentAiTikzPreviews({});
       setStudentExercise('');
       setStudentExerciseMedia([]);
       setLastStudentMessage(undefined);
       return;
     }
 
-    const savedExercise = loadFromSessionStorage(AI_TUTOR_SESSION, studentExerciseSessionKey(lessonId, lessonStep)) || '';
-    const storedStageType = loadFromSessionStorage(AI_TUTOR_SESSION, algorithmStageSessionKey(lessonId, lessonStep));
-    const restoredStage = findStageByType(begin, storedStageType) || begin;
     let cancelled = false;
 
     (async () => {
       let persistedState: StoredStudentMessage | undefined;
       if (startMode === 'continue') {
         try {
-          persistedState = await getAiTutorStudentMessage<SubmittedStudentMessage, OpenRouterAttachment>(lessonId, lessonStep);
+          persistedState = await getAiTutorStudentMessage<SubmittedStudentMessage, OpenRouterAttachment, ComposerVisualDraft, PersistedTutorStageMessage>(lessonId, lessonStep);
         } catch {
           // Persistence is a best-effort enhancement. A browser that disables
           // IndexedDB should still be able to use the tutor normally.
@@ -557,6 +619,12 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
       }
       if (cancelled) return;
 
+      const savedExercise = persistedState?.studentExercise
+        || loadFromSessionStorage(AI_TUTOR_SESSION, studentExerciseSessionKey(lessonId, lessonStep))
+        || '';
+      const storedStageType = persistedState?.currentTutorStageType
+        || loadFromSessionStorage(AI_TUTOR_SESSION, algorithmStageSessionKey(lessonId, lessonStep));
+      const restoredStage = findStageByType(begin, storedStageType) || begin;
       const persistedMessage = persistedState?.message;
       const restoredStudentExerciseMedia = savedExercise
         ? (persistedState?.studentExerciseMedia || []).map((attachment) => ({ ...attachment }))
@@ -569,29 +637,53 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
       const missingRequiredContext = stageNeedsGeneratedText(restoredStage)
         && (!savedExercise || (savedExerciseNeedsMedia && restoredStudentExerciseMedia.length === 0));
       const safeStage = missingRequiredContext ? begin : restoredStage;
+      const persistedTutorMessage = startMode === 'continue'
+        ? persistedState?.tutorStageMessages?.[safeStage.getType()]
+        : undefined;
 
       setStudentExercise(savedExercise);
       setStudentExerciseMedia(restoredStudentExerciseMedia);
       setLastStudentMessage(persistedMessage);
       setAlgorithmStage(safeStage);
-      setCurrentAiText('');
+      setCurrentAiText(persistedTutorMessage?.text || '');
+      setCurrentAiTikzPreviews(persistedTutorMessage?.tikzPreviews || {});
 
-      // Rebuilding the same logical skill can happen when parents recreate props
-      // or contexts update. Do not erase text the student is currently typing in
-      // that case; only clear the draft when we actually move to another skill.
-      if (answerScopeRef.current !== answerScope) {
-        answerScopeRef.current = answerScope;
+      // Restore uploaded files and student-authored TikZ once per lesson step.
+      // They live in IndexedDB rather than component/session state, so a hard
+      // reload does not discard a drawing that has not been submitted yet.
+      if (visualDraftScopeRef.current !== answerScope) {
+        visualDraftScopeRef.current = answerScope;
+        const visualDraft = startMode === 'continue' ? persistedState?.visualDraft : undefined;
+
         setAnswer('');
         setShouldBlurTutorReply(false);
-        setAttachments([]);
+        setAttachments((visualDraft?.attachments || []).map((attachment) => ({ ...attachment })));
         setAudioBlob(undefined);
         setRecordingSeconds(0);
-        setTikz('');
+        setTikz(visualDraft?.tikz || '');
+        setTikzDataUrl(visualDraft?.tikzDataUrl || '');
       }
     })();
 
     return () => { cancelled = true; };
   }, [algorithm, answerScope, lessonId, lessonStep, startMode]);
+
+  useEffect(() => {
+    if (visualDraftScopeRef.current !== answerScope) return;
+
+    const visualDraft: ComposerVisualDraft | undefined = attachments.length > 0 || tikz
+      ? {
+        attachments: attachments.map((attachment) => ({ ...attachment })),
+        tikz: tikz || undefined,
+        tikzDataUrl: tikzDataUrl || undefined,
+      }
+      : undefined;
+
+    void putAiTutorVisualDraft(lessonId, lessonStep, visualDraft).catch(() => {
+      // IndexedDB can be disabled or out of quota. Keep the active composer
+      // usable even when durable visual drafts are unavailable.
+    });
+  }, [answerScope, attachments, lessonId, lessonStep, tikz, tikzDataUrl]);
 
   useEffect(() => {
     if (!isIpfsReady || !ipfs) return;
@@ -652,20 +744,59 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
   useEffect(() => {
     if (!algorithmStage) return;
     saveToSessionStorage(AI_TUTOR_SESSION, algorithmStageSessionKey(lessonId, lessonStep), algorithmStage.getType());
+    void putAiTutorCurrentStageType(lessonId, lessonStep, algorithmStage.getType()).catch(() => {});
   }, [algorithmStage, lessonId, lessonStep]);
 
-  const generateStageText = useCallback(async (stage: AlgorithmStage, requestId: number): Promise<void> => {
+  const generateStageText = useCallback(async (stage: AlgorithmStage, requestId: number, forceRegenerate = false): Promise<void> => {
     if (!skill || !stageNeedsGeneratedText(stage)) return;
 
     const requiresCorrectSolutionTikz = stage.getType() === StageType.correct_fake_solution
       && currentSkillSolutionImageCids.length > 0;
 
-    const saved = loadFromSessionStorage(
-      AI_TUTOR_SESSION,
-      generatedStageTextSessionKey(lessonId, lessonStep, stage.getType()),
-    );
+    let saved: string | undefined;
+    let persistedTutorMessage: PersistedTutorStageMessage | undefined;
+    if (!forceRegenerate) {
+      try {
+        persistedTutorMessage = await getAiTutorTutorStageMessage<PersistedTutorStageMessage>(lessonId, lessonStep, stage.getType());
+        saved = persistedTutorMessage?.text;
+      } catch {
+        // Older browser records may only contain generatedStageText.
+      }
+      try {
+        saved ||= await getAiTutorGeneratedStageText(lessonId, lessonStep, stage.getType());
+      } catch {
+        // Fall back to the legacy tab-scoped cache if IndexedDB is unavailable.
+      }
+      saved ||= loadFromSessionStorage(
+        AI_TUTOR_SESSION,
+        generatedStageTextSessionKey(lessonId, lessonStep, stage.getType()),
+      ) || undefined;
+    }
     if (saved && (!requiresCorrectSolutionTikz || isTikzCode(saved))) {
-      if (stageTextRequestRef.current === requestId) setCurrentAiText(saved);
+      setLoading(true);
+      const canReusePrepared = persistedTutorMessage?.text === saved
+        && hasCompleteTutorTikzPreviews(saved, persistedTutorMessage.tikzPreviews);
+      const prepared = canReusePrepared
+        ? persistedTutorMessage.tikzPreviews
+        : await prepareTutorTikzPreviews(saved, t('Unable to preview TikZ drawing.'));
+      if (stageTextRequestRef.current === requestId) {
+        if (!canReusePrepared) {
+          try {
+            // Backfill records written by older builds so the next reload can
+            // hydrate both text and the already-rendered TikZ in one read.
+            await putAiTutorTutorStageMessage<PersistedTutorStageMessage>(lessonId, lessonStep, stage.getType(), {
+              text: saved,
+              tikzPreviews: prepared,
+            });
+          } catch {
+            // Keep the legacy/session cache path functional if IndexedDB fails.
+          }
+        }
+        if (stageTextRequestRef.current !== requestId) return;
+        setCurrentAiTikzPreviews(prepared);
+        setCurrentAiText(saved);
+        setLoading(false);
+      }
       return;
     }
 
@@ -721,9 +852,24 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
         throw new Error(t('The AI tutor returned a correct solution without the required TikZ drawing.'));
       }
       const text = formatGeneratedStageMessage(stage, generatedMessage);
+      const prepared = await prepareTutorTikzPreviews(text, t('Unable to preview TikZ drawing.'));
 
       if (stageTextRequestRef.current !== requestId) return;
 
+      try {
+        // Persist before showing the generated reply so an immediate reload does
+        // not lose either AI text or the already-built TikZ preview.
+        await putAiTutorTutorStageMessage<PersistedTutorStageMessage>(lessonId, lessonStep, stage.getType(), {
+          text,
+          tikzPreviews: prepared,
+        });
+        await putAiTutorGeneratedStageText(lessonId, lessonStep, stage.getType(), text);
+      } catch {
+        // Session storage remains a compatibility fallback in restricted modes.
+      }
+      if (stageTextRequestRef.current !== requestId) return;
+
+      setCurrentAiTikzPreviews(prepared);
       setCurrentAiText(text);
       saveToSessionStorage(
         AI_TUTOR_SESSION,
@@ -745,6 +891,34 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
     }
   }, [algorithm, currentSkillSolutionImageCids, lessonId, lessonStep, loadSkillSolutionImageAttachments, model, openRouterKey, skill, studentExercise, studentExerciseMedia, t]);
 
+  const regenerateCurrentAnswer = useCallback(async (): Promise<void> => {
+    if (!algorithmStage || !stageNeedsGeneratedText(algorithmStage) || loading) return;
+
+    const requestId = ++stageTextRequestRef.current;
+    const stageType = algorithmStage.getType();
+
+    setError('');
+    setCurrentAiText('');
+    setCurrentAiTikzPreviews({});
+    saveToSessionStorage(
+      AI_TUTOR_SESSION,
+      generatedStageTextSessionKey(lessonId, lessonStep, stageType),
+      '',
+    );
+    try {
+      await Promise.all([
+        clearAiTutorGeneratedStageTexts(lessonId, lessonStep, [stageType]),
+        clearAiTutorTutorStageMessages(lessonId, lessonStep, [stageType]),
+      ]);
+    } catch {
+      // Force regeneration ignores any IndexedDB value even if cache cleanup is
+      // unavailable in a restricted browser context.
+    }
+
+    if (stageTextRequestRef.current !== requestId) return;
+    await generateStageText(algorithmStage, requestId, true);
+  }, [algorithmStage, generateStageText, lessonId, lessonStep, loading]);
+
   useEffect(() => {
     if (!skill || !algorithmStage) return;
 
@@ -753,10 +927,33 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
       void generateStageText(algorithmStage, requestId);
     } else {
       // This is the normal path: TutoringAlgorithm already contains the words
-      // a human tutor should say, so render them instantly with no AI call.
-      setCurrentAiText(stageText(algorithmStage));
+      // a human tutor should say. If a programmed message ever contains TikZ,
+      // prepare that drawing first so its text and visual still appear together.
+      const text = stageText(algorithmStage);
+      const hasTikz = tutorMessageParts(text).some((part) => part.type === 'tikz');
+
+      if (!hasTikz) {
+        setCurrentAiTikzPreviews({});
+        setCurrentAiText(text);
+        void putAiTutorTutorStageMessage<PersistedTutorStageMessage>(lessonId, lessonStep, algorithmStage.getType(), {
+          text,
+          tikzPreviews: {},
+        }).catch(() => {});
+      } else {
+        setLoading(true);
+        void prepareTutorTikzPreviews(text, t('Unable to preview TikZ drawing.')).then((prepared) => {
+          if (stageTextRequestRef.current !== requestId) return;
+          void putAiTutorTutorStageMessage<PersistedTutorStageMessage>(lessonId, lessonStep, algorithmStage.getType(), {
+            text,
+            tikzPreviews: prepared,
+          }).catch(() => {});
+          setCurrentAiTikzPreviews(prepared);
+          setCurrentAiText(text);
+          setLoading(false);
+        });
+      }
     }
-  }, [skill, algorithmStage, generateStageText]);
+  }, [skill, algorithmStage, generateStageText, t]);
 
   const resetComposer = useCallback((): void => {
     setAnswer('');
@@ -765,6 +962,7 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
     setAudioBlob(undefined);
     setRecordingSeconds(0);
     setTikz('');
+    setTikzDataUrl('');
   }, []);
 
   const addFiles = useCallback(async (files: File[]): Promise<void> => {
@@ -900,6 +1098,7 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
     setAlgorithmStage(undefined);
     setLessonStep(updated.learnStep);
     setCurrentAiText('');
+    setCurrentAiTikzPreviews({});
     setStudentExerciseMedia([]);
     setLastStudentMessage(undefined);
     resetComposer();
@@ -916,7 +1115,9 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
       && studentExerciseMedia.length === 0) {
       setStudentExercise('');
       saveToSessionStorage(AI_TUTOR_SESSION, studentExerciseSessionKey(lessonId, lessonStep), '');
+      void putAiTutorStudentExercise(lessonId, lessonStep, undefined).catch(() => {});
       setCurrentAiText('');
+      setCurrentAiTikzPreviews({});
       setAlgorithmStage(algorithm?.getBegin());
       setError(t('The student-created exercise media is no longer available. Please create the similar exercise again so the AI tutor can inspect it.'));
       return;
@@ -932,6 +1133,7 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
       hasAudio: Boolean(audioBlob),
       audioSeconds: recordingSeconds,
       tikz: tikz || undefined,
+      tikzDataUrl: tikzDataUrl || undefined,
     };
 
     // Visual create-similar and "Repeat after me" stages require the student
@@ -1043,6 +1245,19 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
         // dynamic stages. Persist it so refreshes do not make the tutor invent a replacement.
         setStudentExercise(studentAnswer);
         setStudentExerciseMedia(capturedStudentExerciseMedia);
+        try {
+          await putAiTutorStudentExercise(lessonId, lessonStep, studentAnswer);
+          const generatedStages = [
+            StageType.provide_fake_solution,
+            StageType.correct_fake_solution,
+          ];
+          await Promise.all([
+            clearAiTutorGeneratedStageTexts(lessonId, lessonStep, generatedStages),
+            clearAiTutorTutorStageMessages(lessonId, lessonStep, generatedStages),
+          ]);
+        } catch {
+          // Keep session storage as a fallback if IndexedDB is unavailable.
+        }
         saveToSessionStorage(AI_TUTOR_SESSION, studentExerciseSessionKey(lessonId, lessonStep), studentAnswer);
         saveToSessionStorage(AI_TUTOR_SESSION, generatedStageTextSessionKey(lessonId, lessonStep, StageType.provide_fake_solution), '');
         saveToSessionStorage(AI_TUTOR_SESSION, generatedStageTextSessionKey(lessonId, lessonStep, StageType.correct_fake_solution), '');
@@ -1062,11 +1277,15 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
         // Human Lesson shows the same programmed instruction again when the
         // tutor presses the button that loops to the same stage. Keep that text;
         // importantly, do not substitute AI feedback.
-        if (!stageNeedsGeneratedText(candidate)) setCurrentAiText(stageText(candidate));
+        if (!stageNeedsGeneratedText(candidate)) {
+          setCurrentAiTikzPreviews({});
+          setCurrentAiText(stageText(candidate));
+        }
         return;
       }
 
       setCurrentAiText('');
+      setCurrentAiTikzPreviews({});
       setAlgorithmStage(candidate);
     } catch (e) {
       if (!composerCommitted) setLastStudentMessage(previousStudentMessage);
@@ -1081,7 +1300,7 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
       submitInFlightRef.current = false;
       setLoading(false);
     }
-  }, [algorithm, algorithmStage, answer, attachments, audioBlob, currentAiText, finishSkill, lastStudentMessage, lessonId, lessonStep, loadStageImageAttachments, model, openRouterKey, recording, recordingSeconds, resetComposer, skill, studentExercise, studentExerciseMedia, t, tikz]);
+  }, [algorithm, algorithmStage, answer, attachments, audioBlob, currentAiText, finishSkill, lastStudentMessage, lessonId, lessonStep, loadStageImageAttachments, model, openRouterKey, recording, recordingSeconds, resetComposer, skill, studentExercise, studentExerciseMedia, t, tikz, tikzDataUrl]);
 
   const resizeAnswerInput = useCallback((element: HTMLTextAreaElement | null): void => {
     if (!element) return;
@@ -1129,6 +1348,7 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
   const blurEntireHistory = shouldBlurTutorReply && isRepeatStage(algorithmStage);
   const isTypingReply = shouldBlurTutorReply && !blurEntireHistory;
   const renderedTutorMessageParts = useMemo(() => tutorMessageParts(currentAiText), [currentAiText]);
+  const canRegenerateCurrentAnswer = Boolean(currentAiText && algorithmStage && stageNeedsGeneratedText(algorithmStage) && !loading);
 
   return (
     <FullFindow>
@@ -1159,7 +1379,11 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
                       ? <SentImage key={attachment.id} src={attachment.dataUrl} alt={attachment.name} title={attachment.name} />
                       : <SentFile key={attachment.id}>▤ {attachment.name}</SentFile>)}
                     {lastStudentMessage.hasAudio && <SentFile>● {t('Voice message')} · {formatRecordingTime(lastStudentMessage.audioSeconds)}</SentFile>}
-                    {lastStudentMessage.tikz && <TikzPreview sent value={lastStudentMessage.tikz} />}
+                    {lastStudentMessage.tikz && <TikzPreview
+                      prepared={lastStudentMessage.tikzDataUrl ? { src: lastStudentMessage.tikzDataUrl } : undefined}
+                      sent
+                      value={lastStudentMessage.tikz}
+                    />}
                   </SentMedia>}
                 </StudentBubble>
               </StudentMessage>}
@@ -1167,11 +1391,23 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
                 <TutorBubble className={isTypingReply ? 'is-replying' : ''}>
                   <MessageRole>{t('AI Tutor')}</MessageRole>
                   {renderedTutorMessageParts.map((part, index) => part.type === 'tikz'
-                    ? <TutorTikz key={`tutor-tikz-${index}`}><TikzPreview large sent value={part.value} /></TutorTikz>
+                    ? <TutorTikz key={`tutor-tikz-${index}`}><TikzPreview large prepared={currentAiTikzPreviews[part.value]} sent value={part.value} /></TutorTikz>
                     : <MessageBody key={`tutor-text-${index}`}><KatexSpan content={part.value} /></MessageBody>)}
                   {currentStageImageCids.map((cid, index) => <QuestionImage key={`${cid}-${index}`}>
                     <ResizableImage cid={cid} />
                   </QuestionImage>)}
+                  {canRegenerateCurrentAnswer && <MessageActions>
+                    <RegenerateButton
+                      type='button'
+                      aria-label={t('Try again')}
+                      title={t('Try again')}
+                      onClick={() => void regenerateCurrentAnswer()}
+                    >
+                      <svg aria-hidden='true' viewBox='0 0 24 24'>
+                        <path d='M20 11a8.1 8.1 0 0 0-14.9-4.3L3 9m0 0V4m0 5h5M4 13a8.1 8.1 0 0 0 14.9 4.3L21 15m0 0v5m0-5h-5' />
+                      </svg>
+                    </RegenerateButton>
+                  </MessageActions>}
                 </TutorBubble>
               </TutorMessage>}
               {!loading && tutorValidationMessage && <TutorMessage>
@@ -1231,9 +1467,12 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
                     }}>×</RemoveAttachmentButton>
                   </AudioChip>}
                   {tikz && <AttachmentChip>
-                    <TikzPreview value={tikz} />
+                    <TikzPreview prepared={tikzDataUrl ? { src: tikzDataUrl } : undefined} value={tikz} />
                     <AttachmentLabel title={tikz}>{t('TikZ drawing')}</AttachmentLabel>
-                    <RemoveAttachmentButton type='button' aria-label={t('Remove TikZ drawing')} onClick={() => setTikz('')}>×</RemoveAttachmentButton>
+                    <RemoveAttachmentButton type='button' aria-label={t('Remove TikZ drawing')} onClick={() => {
+                      setTikz('');
+                      setTikzDataUrl('');
+                    }}>×</RemoveAttachmentButton>
                   </AttachmentChip>}
                 </AttachmentTray>}
                 <ComposerFooter>
@@ -1375,9 +1614,11 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
       {tikzEditorOpen && <TikzEditor
         ariaLabel={t('Student drawing TikZ editor')}
         onCancel={() => setTikzEditorOpen(false)}
-        onSave={(source) => {
+        onSave={async (source) => {
           if (!isTikzCode(source)) throw new Error(t('The drawing must contain one complete tikzpicture environment.'));
+          const rendered = await renderTikzDataUrl(source);
           setTikz(source);
+          setTikzDataUrl(rendered);
           setTutorValidationMessage('');
         }}
         onSaved={() => setTikzEditorOpen(false)}
@@ -1565,11 +1806,47 @@ const TutorBubble = styled(MessageBubble)`
 const StudentBubble = styled(MessageBubble)`
   text-align: left;
 `;
+const MessageActions = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  min-height: 28px;
+  margin-top: 4px;
+`;
 const MessageRole = styled.div`
   color: rgb(0 0 0 / 46%);
   font-size: 12px;
   font-weight: 600;
   line-height: 1.2;
+`;
+const RegenerateButton = styled.button`
+  width: 28px;
+  height: 28px;
+  margin: 0 0 -4px -5px;
+  padding: 5px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: rgb(0 0 0 / 46%);
+  cursor: pointer;
+
+  svg {
+    width: 17px;
+    height: 17px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  &:hover, &:focus-visible {
+    background: rgb(0 0 0 / 6%);
+    color: rgb(0 0 0 / 74%);
+  }
 `;
 const MessageBody = styled.div`
   color: rgb(0 0 0 / 88%);
