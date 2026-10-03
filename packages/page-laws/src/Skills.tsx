@@ -4,11 +4,12 @@
 import type { Book, BookChapter, BookConcept, BookPage, BookProcessingStageKey, BookStageSpendKey, Exercise, Skill } from '@slonigiraf/db';
 import type { GeneratedAbility } from './abilities.js';
 import type { AbilityWorkflowJsonRunner, ExerciseAbilityConversion } from './abilityWorkflow.js';
+import type { AbilityEmbeddingValidationHint } from './abilityEmbeddingValidation.js';
 
 import { addBookStageSpend, completeBookProcessingStage, deleteAbilities, deleteAbility, deleteBookConcept, deleteExercise, deleteSkill, getAbilities, getBookChapters, getBookCompletedStages, getBookConceptsForBookPage, getBookPages, getExercisesForBookPage, getSetting, getSkillsForChapter, getImage, hydrateAbilityContent, putImage, replaceAbilities, replaceExercisesForBookPage, replaceSkillsForChapter, resetBookProcessingStagesFrom, SettingKey, storeAbility, updateBookChapterTitle } from '@slonigiraf/db';
 import { KatexSpan } from '@slonigiraf/slonig-components';
 import OpenAI from 'openai';
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 
 import { Button, Dropdown, Input, Modal, Toggle, styled } from '@polkadot/react-components';
 
@@ -17,10 +18,11 @@ import type { TikzPreRenderResult } from './Edit/TikzDisplay.js';
 import { isTikzCode } from './Edit/tikz.js';
 import { nextStoredTikzValidity, shouldSkipStoredTikzCompile } from './Edit/tikzValidation.js';
 import { parseAbilityRepairResult, parseStoredAbility, withAbilityVisualSource } from './abilities.js';
+import { buildAbilityEmbeddingValidationHints } from './abilityEmbeddingValidation.js';
 import { parseExerciseRepairResult } from './exercises.js';
 import { addBookExternalCall } from './bookExternalCalls.js';
 import { estimateAiInput } from './aiEstimate.js';
-import { ABILITY_WORKFLOW_SYSTEM_PROMPT, DEFAULT_PROCESSING_MODEL, FIX_ABILITIES_REQUEST_PROMPT, FIX_EXERCISES_REQUEST_PROMPT, JSON_VALIDATION_PROMPT, LEARNER_AGE_PROMPT, MATH_DISPLAY_REQUIREMENTS_PROMPT, REPAIR_SYSTEM_PROMPT, SKILLS_GENERATION_SYSTEM_PROMPT, SOURCES_TO_SKILLS_REQUEST_PROMPT } from './constants.js';
+import { ABILITY_WORKFLOW_SYSTEM_PROMPT, DEFAULT_PROCESSING_MODEL, DEFAULT_STANDARDS_EMBEDDER, FIX_ABILITIES_REQUEST_PROMPT, FIX_EXERCISES_REQUEST_PROMPT, JSON_VALIDATION_PROMPT, LEARNER_AGE_PROMPT, MATH_DISPLAY_REQUIREMENTS_PROMPT, REPAIR_SYSTEM_PROMPT, SKILLS_GENERATION_SYSTEM_PROMPT, SOURCES_TO_SKILLS_REQUEST_PROMPT } from './constants.js';
 import { abilityGenerationRequestPrompt, generateExerciseAbility, transportCompactAbilitySourceExercise } from './abilityWorkflow.js';
 import { mapConcurrent } from './concurrency.js';
 import { OPENROUTER_CONCURRENCY, openRouterRequestGate } from './openRouterConcurrency.js';
@@ -51,29 +53,34 @@ function skippedInvalidTikzPreRender (): TikzPreRenderResult {
   };
 }
 
-async function preRenderStoredTikz (imageId: number, value: string): Promise<TikzPreRenderResult> {
+async function preRenderStoredTikz (imageId: number, value: string, forceCompile = false): Promise<TikzPreRenderResult> {
   const image = await getImage(imageId);
 
   if (!image) {
     throw new Error(`Image ${imageId} was not found while validating TikZ.`);
   }
 
-  // Image.valid belongs to the exact data currently stored in the row. A failed
-  // source must not be sent through the TikZ Editor renderer again until a write changes Image.data;
-  // every data-changing path below clears `valid`, making the new source eligible.
-  if (shouldSkipStoredTikzCompile(image.data, image.valid, value)) {
+  // Image.valid belongs to the exact data currently stored in the row. Normal
+  // previews may suppress a deterministic unchanged failure, while an explicit
+  // Fix images review force-retries it so legacy/transient false flags can heal.
+  if (!forceCompile && shouldSkipStoredTikzCompile(image.data, image.valid, value)) {
     return skippedInvalidTikzPreRender();
   }
 
   const result = await preRenderTikzLazy(value);
 
-  if (!result.compiled) {
-    // The Ability list may refresh while a parallel render is running. Never stamp
-    // a failure onto newer TikZ data that replaced the source we actually tested.
-    const currentImage = await getImage(imageId);
+  // The Ability list may refresh while a parallel render is running. Never stamp
+  // a result onto newer TikZ data that replaced the source we actually tested.
+  // Transient renderer failures (timeouts/load failures) are deliberately not
+  // persisted as valid:false: doing so made temporary infrastructure failures
+  // permanently suppress unchanged TikZ until the user edited the source.
+  const currentImage = await getImage(imageId);
 
-    if (currentImage && currentImage.data === value && currentImage.valid !== false) {
-      await putImage({ ...currentImage, valid: false });
+  if (currentImage && currentImage.data === value) {
+    const nextValid = result.compiled ? true : result.retryable ? undefined : false;
+
+    if (nextValid !== undefined && currentImage.valid !== nextValid) {
+      await putImage({ ...currentImage, valid: nextValid });
     }
   }
 
@@ -88,6 +95,15 @@ const IMAGES_STAGE: BookProcessingStageKey = 'images';
 const FIX_IMAGES_STAGE: BookProcessingStageKey = 'fixImages';
 const AI_REQUEST_TIMEOUT_MS = 60_000;
 const TIKZ_RENDER_CONCURRENCY = 4;
+const TIKZ_REVIEW_MAX_OUTPUT_TOKENS = 6_000;
+const MAX_VALIDATED_JSON_OUTPUT_TOKENS = 8_000;
+
+class AiResponseTruncatedError extends Error {
+  constructor () {
+    super('OpenRouter response was truncated before completion.');
+    this.name = 'AiResponseTruncatedError';
+  }
+}
 
 async function requestChatContent (client: OpenAI, model: string, systemPrompt: string, userPrompt: string, jsonObject: boolean, onCost?: OpenRouterCostReporter, maxOutputTokens?: number, signal?: AbortSignal): Promise<string> {
   if (signal?.aborted) {
@@ -104,7 +120,18 @@ async function requestChatContent (client: OpenAI, model: string, systemPrompt: 
 
   reportOpenRouterCost(response, onCost);
 
-  return response.choices[0].message?.content?.trim() ?? '';
+  const choice = response.choices[0];
+  const content = choice?.message?.content?.trim() ?? '';
+
+  if (choice?.finish_reason === 'length') {
+    throw new AiResponseTruncatedError();
+  }
+
+  if (!content) {
+    throw new Error('OpenRouter returned an empty response.');
+  }
+
+  return content;
 }
 
 export type SkillsView = 'conceptsSkills' | 'preExercisesExercises';
@@ -294,24 +321,39 @@ function transportExercises (exercises: Exercise[]): unknown[] {
   return exercises.map(({ description, ...exercise }) => ({ ...exercise, description: stripMarkdownImageReferences(description) }));
 }
 
-function abilityRepairInput (language: string, batch: StoredAbility[], chapterTitle?: string, learnerAge?: number): unknown {
+function abilityRepairInput (
+  language: string,
+  batch: StoredAbility[],
+  chapterTitle?: string,
+  learnerAge?: number,
+  embeddingHints?: ReadonlyMap<string, AbilityEmbeddingValidationHint>,
+  sourceExercisesByModuleId?: ReadonlyMap<string, Exercise>
+): unknown {
   return {
-    abilities: batch.map(({ ability, content, id }, index) => ({
-      ability: ability
-        ? {
-          ...ability,
-          q: ability.q.map(({ a, h, i, p, pPrompt }) => ({
-            a,
-            h,
-            i,
-            p,
-            ...(pPrompt !== undefined ? { pPrompt } : {})
-          }))
-        }
-        : content,
-      id,
-      index
-    })),
+    abilities: batch.map(({ ability, content, id, moduleId }, index) => {
+      const embeddingValidation = embeddingHints?.get(id);
+      const sourceExercise = sourceExercisesByModuleId?.get(moduleId);
+
+      return {
+        ability: ability
+          ? {
+            ...ability,
+            q: ability.q.map(({ a, h, i, iPrompt, p, pPrompt }) => ({
+              a,
+              h,
+              i,
+              p,
+              ...(pPrompt !== undefined ? { pPrompt } : {}),
+              ...(iPrompt !== undefined ? { iPrompt } : {})
+            }))
+          }
+          : content,
+        ...(embeddingValidation ? { embeddingValidation } : {}),
+        id,
+        index,
+        ...(embeddingValidation?.needsAdditionalCheck && sourceExercise ? { sourceExercise: transportCompactAbilitySourceExercise(sourceExercise) } : {})
+      };
+    }),
     bookLanguage: language,
     ...(learnerAge === undefined ? {} : { learnerAge }),
     ...(chapterTitle ? { chapterTitle } : {})
@@ -453,6 +495,7 @@ function compactPreRenderForPrompt (result: TikzPreRenderResult): unknown {
     compiled: result.compiled,
     diagnostics: result.diagnostics.slice(-30),
     renderedSvg: result.renderedSvg.slice(0, 28_000),
+    retryable: result.retryable === true,
     texInput: result.texInput.slice(0, 12_000)
   };
 }
@@ -565,9 +608,31 @@ ${candidate}`;
 
 async function requestValidatedJson<T> (client: OpenAI, model: string, systemPrompt: string, userPrompt: string, parse: (content: string) => T, jsonObject = true, onCost?: OpenRouterCostReporter, maxOutputTokens?: number, repairContext?: string, validationCycles = 2, signal?: AbortSignal): Promise<T> {
   let lastError: unknown;
+  let outputTokenBudget = maxOutputTokens;
+
+  const request = async (prompt: string): Promise<string> => {
+    try {
+      return await requestChatContent(client, model, systemPrompt, prompt, jsonObject, onCost, outputTokenBudget, signal);
+    } catch (error) {
+      if (error instanceof AiResponseTruncatedError && outputTokenBudget !== undefined && outputTokenBudget < MAX_VALIDATED_JSON_OUTPUT_TOKENS) {
+        outputTokenBudget = Math.min(MAX_VALIDATED_JSON_OUTPUT_TOKENS, Math.max(outputTokenBudget + 2_000, Math.ceil(outputTokenBudget * 1.5)));
+
+        return requestChatContent(client, model, systemPrompt, prompt, jsonObject, onCost, outputTokenBudget, signal);
+      }
+
+      throw error;
+    }
+  };
 
   for (let attempt = 0; attempt < validationCycles; attempt++) {
-    const candidate = await requestChatContent(client, model, systemPrompt, userPrompt, jsonObject, onCost, maxOutputTokens, signal);
+    let candidate: string;
+
+    try {
+      candidate = await request(userPrompt);
+    } catch (error) {
+      lastError = error;
+      continue;
+    }
 
     try {
       // The parser is the fast local validation gate. In the normal case this
@@ -583,7 +648,7 @@ async function requestValidatedJson<T> (client: OpenAI, model: string, systemPro
       : JSON_VALIDATION_PROMPT(userPrompt, candidate, validationError);
 
     try {
-      const repaired = await requestChatContent(client, model, systemPrompt, validationPrompt, jsonObject, onCost, maxOutputTokens, signal);
+      const repaired = await request(validationPrompt);
 
       return parse(repaired);
     } catch (error) {
@@ -591,7 +656,9 @@ async function requestValidatedJson<T> (client: OpenAI, model: string, systemPro
     }
   }
 
-  throw lastError instanceof Error ? lastError : new Error('AI output failed local validation and repair.');
+  const detail = lastError instanceof Error ? lastError.message : String(lastError ?? 'Unknown validation error.');
+
+  throw new Error(`AI output remained invalid after local validation/repair: ${detail}`);
 }
 
 function ChapterNavigation ({ chapters, index, matchExercises = false, missingAbilityCounts, onChange }: { chapters: BookChapter[]; index: number; matchExercises?: boolean; missingAbilityCounts?: number[]; onChange: (index: number) => void }): React.ReactElement | null {
@@ -687,8 +754,9 @@ function ChapterTitleEditor ({ chapter, onError, onSaved }: { chapter: BookChapt
 
 type ExerciseEditableFields = Pick<Exercise, 'description' | 'imageDescription' | 'solution' | 'solutionImageDescription' | 'title'>;
 
-function BookItem ({ description, id, imageDescription, onDelete, onDeleted, onError, onSave, rank, solution, solutionImageDescription, title, type }: { description: string; id?: number; imageDescription?: string; onDelete: (id: number) => Promise<void>; onDeleted: () => void; onError: (message: string) => void; onSave?: (id: number, value: ExerciseEditableFields) => Promise<void>; rank?: number; solution?: string; solutionImageDescription?: string; title: string; type: 'concept' | 'exercise' }): React.ReactElement {
+function BookItem ({ description, id, imageDescription, onDelete, onDeleted, onError, onFix, onSave, rank, solution, solutionImageDescription, title, type }: { description: string; id?: number; imageDescription?: string; onDelete: (id: number) => Promise<void>; onDeleted: () => void; onError: (message: string) => void; onFix?: (id: number) => Promise<void>; onSave?: (id: number, value: ExerciseEditableFields) => Promise<void>; rank?: number; solution?: string; solutionImageDescription?: string; title: string; type: 'concept' | 'exercise' }): React.ReactElement {
   const [isEditing, setIsEditing] = useState(false);
+  const [isFixing, setIsFixing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [draftTitle, setDraftTitle] = useState(title);
   const [draftDescription, setDraftDescription] = useState(description);
@@ -733,21 +801,39 @@ function BookItem ({ description, id, imageDescription, onDelete, onDeleted, onE
       .finally(() => setIsSaving(false));
   }, [draftDescription, draftImageDescription, draftSolution, draftSolutionImageDescription, draftTitle, id, onError, onSave]);
 
-  return <article className='contentCard'>
+  const fix = useCallback((): void => {
+    if (id === undefined || !onFix) {
+      return;
+    }
+
+    setIsFixing(true);
+    onFix(id)
+      .catch((error) => onError(error instanceof Error ? error.message : 'Unable to fix the Exercise with AI.'))
+      .finally(() => setIsFixing(false));
+  }, [id, onError, onFix]);
+
+  return <article className='contentCard' tabIndex={-1}>
     <strong>{rank !== undefined && <span>{rank}. </span>}<KatexSpan content={title} /></strong>
     {description && <p><KatexSpan content={description} /></p>}
     {imageDescription && <p><small>Required visual: <KatexSpan content={imageDescription} /></small></p>}
     {solution && <p><KatexSpan content={solution} /></p>}
     {solutionImageDescription && <p><small>Solution visual: <KatexSpan content={solutionImageDescription} /></small></p>}
     <div className='contentCardActions'>
+      {type === 'exercise' && onFix && <Button
+        icon='robot'
+        isDisabled={id === undefined || isFixing || isSaving}
+        label={isFixing ? 'Fixing…' : 'Fix with AI'}
+        onClick={fix}
+      />}
       {type === 'exercise' && onSave && <Button
         icon='edit'
-        isDisabled={id === undefined}
+        isDisabled={id === undefined || isFixing}
         label='Edit'
         onClick={openEdit}
       />}
       <Button
         icon='trash'
+        isDisabled={isFixing || isSaving}
         onClick={remove}
       />
     </div>
@@ -832,7 +918,7 @@ function SkillCard ({ bookId, onDeleted, onError, skill }: { bookId: number; onD
     Promise.all([deleteSkill(skill.id), deleteAbilities(abilityModuleId(bookId, skill.id))]).then(onDeleted).catch((error) => onError(error instanceof Error ? error.message : 'Unable to delete the Skill.'));
   }, [bookId, onDeleted, onError, skill.id]);
 
-  return <article className='contentCard'>
+  return <article className='contentCard' tabIndex={-1}>
     <strong><KatexSpan content={skill.title} /></strong>
     {skill.description && <p><KatexSpan content={skill.description} /></p>}
     <Button
@@ -846,8 +932,9 @@ function cloneAbility (ability: GeneratedAbility): GeneratedAbility {
   return { ...ability, q: ability.q.map((exercise) => ({ ...exercise })) };
 }
 
-function AbilityCard ({ onDeleted, onError, record }: { onDeleted: () => void; onError: (message: string) => void; record: StoredAbility }): React.ReactElement {
+function AbilityCard ({ onDeleted, onError, onFix, record }: { onDeleted: () => void; onError: (message: string) => void; onFix: (record: StoredAbility) => Promise<void>; record: StoredAbility }): React.ReactElement {
   const [isEditing, setIsEditing] = useState(false);
+  const [isFixing, setIsFixing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [draft, setDraft] = useState<GeneratedAbility | null>(() => record.ability ? cloneAbility(record.ability) : null);
   const [rawDraft, setRawDraft] = useState(record.content);
@@ -944,7 +1031,14 @@ function AbilityCard ({ onDeleted, onError, record }: { onDeleted: () => void; o
       .finally(() => setIsSaving(false));
   }, [draft, onError, persistAbility, rawDraft]);
 
-  return <article className='contentCard'>
+  const fix = useCallback((): void => {
+    setIsFixing(true);
+    onFix(record)
+      .catch((error) => onError(error instanceof Error ? error.message : 'Unable to fix the Ability with AI.'))
+      .finally(() => setIsFixing(false));
+  }, [onError, onFix, record]);
+
+  return <article className='contentCard' tabIndex={-1}>
     {record.ability
       ? <>
         <strong><KatexSpan content={record.ability.h} /></strong>
@@ -962,7 +1056,14 @@ function AbilityCard ({ onDeleted, onError, record }: { onDeleted: () => void; o
       </>}
     <div className='contentCardActions'>
       <Button
+        icon='robot'
+        isDisabled={isFixing || isSaving}
+        label={isFixing ? 'Fixing…' : 'Fix with AI'}
+        onClick={fix}
+      />
+      <Button
         icon='edit'
+        isDisabled={isFixing}
         label='Edit'
         onClick={openEdit}
       />
@@ -1367,6 +1468,8 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalAutoRunBus
   const autoRunFinishedStageKeysRef = useRef<Set<string>>(new Set());
   const processingAbortControllerRef = useRef<AbortController | null>(null);
   const abilitiesOutputRef = useRef<HTMLDivElement>(null);
+  const chapterContentOutputRef = useRef<HTMLDivElement>(null);
+  const pendingChapterFocusRef = useRef(false);
   useBookStageTimer(book.id, processingStage);
   const refresh = useCallback((): void => setRefreshToken((value) => value + 1), []);
   // Fast Forward must not start a content-dependent stage from the previous DB
@@ -1394,6 +1497,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalAutoRunBus
     const nextIndex = Math.max(0, Math.min(index, Math.max(0, chapterContent.length - 1)));
     const chapter = chapterContent[nextIndex]?.chapter;
 
+    pendingChapterFocusRef.current = true;
     setChapterIndex(nextIndex);
 
     try {
@@ -1477,6 +1581,22 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalAutoRunBus
   }), [book.id, chapters]);
 
   const current = chapterContent[chapterIndex];
+  useLayoutEffect(() => {
+    if (!pendingChapterFocusRef.current || !current) {
+      return;
+    }
+
+    const first = view === 'preExercisesExercises'
+      ? abilitiesOutputRef.current?.querySelector<HTMLElement>('.abilityExerciseCard')
+      : chapterContentOutputRef.current?.querySelector<HTMLElement>('.contentCard');
+
+    if (first) {
+      pendingChapterFocusRef.current = false;
+      first.focus({ preventScroll: true });
+      first.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  }, [current, view]);
+
   const allConcepts = useMemo(() => chapterContent.flatMap(({ concepts }) => concepts), [chapterContent]);
   const allSkills = useMemo(() => chapterContent.flatMap(({ skills }) => skills), [chapterContent]);
   const allExercises = useMemo(() => chapterContent.flatMap(({ exercises }) => exercises), [chapterContent]);
@@ -1620,7 +1740,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalAutoRunBus
   }, [abilityModuleIds, aiAction, book.age, book.id, chapterContent, generateOnlyMissingAbilities, imageFixTargets, imageGenerationTargetsForRun, language, skillSources]);
   const maxChapterAbilityCount = Math.max(1, ...chapterContent.map(({ abilities }) => abilities.length));
   const maxChapterExerciseCount = Math.max(1, ...chapterContent.map(({ exercises }) => exercises.length));
-  const generationOutputTokens = aiAction === 'exercises' ? 3_200 : aiAction === 'fixExercises' ? maxChapterExerciseCount * 550 : aiAction === 'fix' ? maxChapterAbilityCount * 700 : aiAction === 'images' ? 2_400 : aiAction === 'fixImages' ? 2_600 : aiAction === 'skills' ? BATCH_SIZE * 180 : 300;
+  const generationOutputTokens = aiAction === 'exercises' ? 3_200 : aiAction === 'fixExercises' ? maxChapterExerciseCount * 550 : aiAction === 'fix' ? maxChapterAbilityCount * 700 : aiAction === 'images' ? 2_400 : aiAction === 'fixImages' ? TIKZ_REVIEW_MAX_OUTPUT_TOKENS : aiAction === 'skills' ? BATCH_SIZE * 180 : 300;
   const validationInputs = requestInputs;
   const outputTokens = generationOutputTokens;
   const estimate = estimateAiInput(effectiveModel, validationInputs, outputTokens);
@@ -1675,6 +1795,86 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalAutoRunBus
     setNotice('Exercise saved. Existing Abilities were kept linked to the edited Exercise.');
     refreshContent();
   }, [allAbilities, book.id, bookPageContent, refreshContent]);
+
+  const fixSingleExercise = useCallback(async (exerciseId: number): Promise<void> => {
+    const chapterRow = chapterContent.find(({ exercises }) => exercises.some(({ id }) => id === exerciseId));
+    const exercise = chapterRow?.exercises.find(({ id }) => id === exerciseId);
+
+    if (!chapterRow || !exercise) {
+      throw new Error('Unable to find this Exercise in its chapter.');
+    }
+
+    const client = await createClient();
+    const systemPrompt = REPAIR_SYSTEM_PROMPT(language, book.age);
+    const userPrompt = FIX_EXERCISES_REQUEST_PROMPT(exerciseRepairInput(language, [exercise], chapterRow.chapter.title, book.age));
+    const result = await requestValidatedJson(
+      client,
+      effectiveModel,
+      systemPrompt,
+      userPrompt,
+      (content) => parseExerciseRepairResult(content, [exercise], [exerciseId]),
+      true,
+      addFixExercisesCost,
+      undefined,
+      undefined,
+      2
+    );
+    const review = result.reviews.find(({ index }) => index === 0);
+
+    if (!review?.hasErrors || !review.exercise) {
+      setNotice('AI review found no Exercise changes to apply.');
+      return;
+    }
+
+    await saveExercise(exerciseId, {
+      description: review.exercise.description,
+      imageDescription: review.exercise.imageDescription,
+      solution: review.exercise.solution,
+      solutionImageDescription: review.exercise.solutionImageDescription,
+      title: review.exercise.title
+    });
+    setNotice('Exercise fixed with AI. Existing Abilities were kept linked to the edited Exercise.');
+  }, [addFixExercisesCost, book.age, chapterContent, createClient, effectiveModel, language, saveExercise]);
+
+  const fixSingleAbility = useCallback(async (record: StoredAbility): Promise<void> => {
+    const chapterRow = chapterContent.find(({ abilities }) => abilities.some(({ id }) => id === record.id));
+
+    if (!chapterRow) {
+      throw new Error('Unable to find this Ability in its chapter.');
+    }
+
+    const client = await createClient();
+    const systemPrompt = REPAIR_SYSTEM_PROMPT(language, book.age);
+    const userPrompt = FIX_ABILITIES_REQUEST_PROMPT(abilityRepairInput(language, [record], chapterRow.chapter.title, book.age));
+    const result = await requestValidatedJson(
+      client,
+      effectiveModel,
+      systemPrompt,
+      userPrompt,
+      (content) => parseAbilityRepairResult(content, [record.ability], [record.id]),
+      true,
+      addFixAbilitiesCost,
+      undefined,
+      undefined,
+      2
+    );
+    const review = result.reviews.find(({ index }) => index === 0);
+
+    if (!review?.hasErrors || !review.ability) {
+      setNotice('AI review found no Ability changes to apply.');
+      return;
+    }
+
+    const validated = parseStoredAbility(JSON.stringify(review.ability));
+    const newRecordId = await storeAbility(record.moduleId, JSON.stringify(validated), record.displayOrder);
+
+    if (newRecordId !== record.id) {
+      await deleteAbility(record.id);
+    }
+
+    setNotice('Ability fixed with AI.');
+    refreshContent();
+  }, [addFixAbilitiesCost, book.age, chapterContent, createClient, effectiveModel, language, refreshContent]);
 
   const deleteConceptWithExercises = useCallback(async (conceptId: number): Promise<void> => {
     const referencedExercises = allExercises.filter(({ conceptId: exerciseConceptId, id }) => id !== undefined && exerciseConceptId === conceptId);
@@ -1810,7 +2010,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalAutoRunBus
         const sourcesNeedingGeneration = chapterContent.flatMap(({ chapter, exercises: chapterExercises }) => chapterExercises
           .filter(({ id }) => id !== undefined && pending.has(id) && !conversionsByExerciseIdCache.has(id))
           .map((exercise) => ({ chapterTitle: chapter.title, exercise })));
-        const generatedSources = await Promise.all(sourcesNeedingGeneration.map(async ({ chapterTitle, exercise }): Promise<{ conversions: ExerciseAbilityConversion[]; exercise: Exercise }> => {
+        await mapConcurrent(sourcesNeedingGeneration, OPENROUTER_CONCURRENCY, async ({ chapterTitle, exercise }): Promise<void> => {
           const systemPrompt = ABILITY_WORKFLOW_SYSTEM_PROMPT(language, chapterTitle, book.age);
           const runJson: AbilityWorkflowJsonRunner = (prompt, parse, options) => requestValidatedJson(client, effectiveModel, systemPrompt, prompt, parse, true, addAbilitiesCost, options?.maxOutputTokens, options?.repairContext, options?.validationCycles ?? 1, signal);
 
@@ -1819,40 +2019,27 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalAutoRunBus
 
             lastAttemptError = '';
 
-            return { conversions, exercise };
+            if (conversions.length && exercise.id !== undefined) {
+              const exerciseId = exercise.id;
+              const sortedConversions = conversions.sort((a, b) => a.skillIndex - b.skillIndex);
+
+              conversionsByExerciseIdCache.set(exerciseId, sortedConversions);
+              // Persist visual requirements as text descriptions only. Actual image
+              // generation is deliberately not part of Abilities/Fix abilities.
+              generatedByExerciseId.set(exerciseId, sortedConversions.map(abilityWithImageDescriptions));
+              pending.delete(exerciseId);
+              // Update while concurrent requests finish instead of waiting for the
+              // whole attempt batch, so the round progress indicator moves live.
+              setProgress(generatedByExerciseId.size);
+            }
           } catch (caught) {
             if (signal.aborted) {
               throw caught;
             }
 
             lastAttemptError = caught instanceof Error ? caught.message : 'Unknown OpenRouter Ability generation error.';
-
-            return { conversions: [], exercise };
           }
-        }));
-
-        for (const { conversions, exercise } of generatedSources) {
-          if (conversions.length && exercise.id !== undefined) {
-            conversionsByExerciseIdCache.set(exercise.id, conversions.sort((a, b) => a.skillIndex - b.skillIndex));
-          }
-        }
-
-        // Persist visual requirements as text descriptions only. Actual image
-        // generation is deliberately not part of Abilities/Fix abilities.
-        const readySources = targetExercises.filter(({ id }) => id !== undefined && pending.has(id) && conversionsByExerciseIdCache.has(id));
-
-        for (const source of readySources) {
-          const exerciseId = source.id as number;
-          const sourceConversions = conversionsByExerciseIdCache.get(exerciseId) ?? [];
-
-          if (!sourceConversions.length) {
-            continue;
-          }
-
-          generatedByExerciseId.set(exerciseId, sourceConversions.map(abilityWithImageDescriptions));
-          pending.delete(exerciseId);
-          setProgress(generatedByExerciseId.size);
-        }
+        });
       }
 
       await Promise.all(Array.from(generatedByExerciseId, ([exerciseId, abilities]) => replaceAbilities(exerciseAbilityModuleId(book.id, exerciseId), abilities.map((ability) => JSON.stringify(ability)))));
@@ -1992,6 +2179,22 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalAutoRunBus
 
     try {
       const client = await createClient();
+      const embeddingModel = await getSetting(SettingKey.CONCEPTS_EMBEDDER) || DEFAULT_STANDARDS_EMBEDDER;
+
+      setProgressLabel('Checking Ability/Exercise alignment');
+      const embeddingHints = await buildAbilityEmbeddingValidationHints(
+        client,
+        embeddingModel,
+        allAbilities.map((record) => ({
+          ability: record.ability,
+          abilityId: record.id,
+          exercise: exercisesByModuleId.get(record.moduleId)
+        })),
+        addFixAbilitiesCost,
+        signal
+      );
+
+      setProgressLabel('Fixing Ability errors');
       const replacements = new Map<string, { ability: GeneratedAbility; errors: string[]; record: StoredAbility }>();
       const duplicatePairs = new Map<string, DuplicateAbilityReview>();
       // Duplicate detection needs complete chapter context, so every chapter is
@@ -2003,7 +2206,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalAutoRunBus
 
       await mapConcurrent(batches, OPENROUTER_CONCURRENCY, async ({ batch, chapterTitle }) => {
         const systemPrompt = REPAIR_SYSTEM_PROMPT(language, book.age);
-        const userPrompt = FIX_ABILITIES_REQUEST_PROMPT(abilityRepairInput(language, batch, chapterTitle, book.age));
+        const userPrompt = FIX_ABILITIES_REQUEST_PROMPT(abilityRepairInput(language, batch, chapterTitle, book.age, embeddingHints, exercisesByModuleId));
         const result = await requestValidatedJson(
           client,
           effectiveModel,
@@ -2273,9 +2476,9 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalAutoRunBus
     }
   }, [allAbilities, allExercises, book.id, bookPageContent, exerciseFixReview, onAction, onContentChange, refresh, completeStage, stageDone]);
   const openExerciseGeneration = useCallback((): void => {
-    setGenerateOnlyMissingAbilities(false);
+    setGenerateOnlyMissingAbilities(exercisesMissingAbilities.length > 0 && exercisesMissingAbilities.length < allExercises.length);
     setAiAction('exercises');
-  }, []);
+  }, [allExercises.length, exercisesMissingAbilities.length]);
   const retryMissingAbilities = useCallback((): void => {
     setGenerateOnlyMissingAbilities(true);
     setAiAction('exercises');
@@ -2292,9 +2495,9 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalAutoRunBus
   }, []);
 
   const openImages = useCallback((): void => {
-    setGenerateOnlyMissingImages(false);
+    setGenerateOnlyMissingImages(missingImageGenerationTargets.length > 0 && missingImageGenerationTargets.length < imageGenerationTargets.length);
     setAiAction('images');
-  }, []);
+  }, [imageGenerationTargets.length, missingImageGenerationTargets.length]);
   const retryMissingImages = useCallback((): void => {
     setGenerateOnlyMissingImages(true);
     setAiAction('images');
@@ -2376,7 +2579,32 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalAutoRunBus
       let completed = 0;
 
       const reviewResults = await mapConcurrent(imageFixTargets, TIKZ_RENDER_CONCURRENCY, async (target): Promise<{ renderFailure: boolean; item?: FixedImageReview }> => {
-        const originalPreRender = await preRenderStoredTikz(target.imageId, target.originalTikz);
+        const originalPreRender = await preRenderStoredTikz(target.imageId, target.originalTikz, true);
+        const regenerateFromSpecification = async (errors: string[]): Promise<TikzAiReview> => {
+          const role = target.field === 'p' ? 'question' : 'solution';
+          const visualPrompt = target.prompt || `Create the required ${role} visual for this exercise from the exercise text and correct answer. Preserve only information appropriate for a ${role} visual.`;
+          const content = await requestChatContent(
+            client,
+            effectiveModel,
+            'You regenerate educational diagrams as compact, browser-renderable TikZ. Return only one TikZ picture block.',
+            tikzRequestPrompt(language, target.ability, target.exerciseIndex, target.field, visualPrompt, book.age),
+            false,
+            addFixImagesCost,
+            4_000,
+            signal
+          );
+          const tikz = cleanTikzResponse(content);
+
+          if (tikz.trim() === target.originalTikz.trim()) {
+            throw new Error(`TikZ regeneration for ${target.ability.h}, exercise ${target.exerciseIndex + 1} ${role} visual returned the unchanged rejected source.`);
+          }
+
+          return {
+            errors: Array.from(new Set([...errors, 'Regenerated TikZ from the original visual specification after repair attempts did not produce a usable source.'])),
+            hasErrors: true,
+            tikz
+          };
+        };
 
         const review = await requestValidatedJson(
           client,
@@ -2386,7 +2614,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalAutoRunBus
           parseTikzAiReview,
           true,
           addFixImagesCost,
-          2_600,
+          TIKZ_REVIEW_MAX_OUTPUT_TOKENS,
           undefined,
           2,
           signal
@@ -2412,14 +2640,14 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalAutoRunBus
             parseTikzAiReview,
             true,
             addFixImagesCost,
-            2_600,
+            TIKZ_REVIEW_MAX_OUTPUT_TOKENS,
             undefined,
             2,
             signal
           );
 
           if (!effectiveReview.hasErrors || effectiveReview.tikz.trim() === target.originalTikz.trim()) {
-            throw new Error(`AI identified problems in ${target.ability.h}, exercise ${target.exerciseIndex + 1} ${target.field === 'p' ? 'question' : 'solution'} visual but did not return a corrected TikZ diff.`);
+            effectiveReview = await regenerateFromSpecification(review.errors);
           }
         }
 
@@ -2440,7 +2668,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalAutoRunBus
             parseTikzAiReview,
             true,
             addFixImagesCost,
-            2_600,
+            TIKZ_REVIEW_MAX_OUTPUT_TOKENS,
             undefined,
             2,
             signal
@@ -2451,10 +2679,17 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalAutoRunBus
             : { errors: previousErrors.length ? previousErrors : ['TikZ Editor pre-render failure was repaired.'], hasErrors: true, tikz: repaired.tikz };
 
           if (effectiveReview.tikz === rejectedTikz) {
-            fixedPreRender = {
-              ...fixedPreRender,
-              diagnostics: Array.from(new Set([...fixedPreRender.diagnostics, 'Skipped repeated TikZ Editor render because the rejected TikZ data did not change.']))
-            };
+            if (fixedPreRender.retryable) {
+              // The source did not change, but the renderer failure was transient.
+              // A fresh renderer instance is meaningful here and must not be skipped.
+              fixedPreRender = await preRenderTikzLazy(effectiveReview.tikz);
+            } else {
+              effectiveReview = await regenerateFromSpecification([
+                ...previousErrors,
+                ...fixedPreRender.diagnostics.map((diagnostic) => `Renderer: ${diagnostic}`)
+              ]);
+              fixedPreRender = await preRenderTikzLazy(effectiveReview.tikz);
+            }
           } else {
             fixedPreRender = await preRenderTikzLazy(effectiveReview.tikz);
           }
@@ -2462,8 +2697,11 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalAutoRunBus
 
         if (effectiveReview.hasErrors && !fixedPreRender.compiled) {
           const details = fixedPreRender.diagnostics.slice(-6).join(' | ');
+          const reason = fixedPreRender.retryable
+            ? 'TikZ Editor remained temporarily unavailable after automatic renderer retries.'
+            : 'The regenerated/repaired TikZ still did not compile.';
 
-          throw new Error(`Unable to produce renderable TikZ for ${target.ability.h}, exercise ${target.exerciseIndex + 1} ${target.field === 'p' ? 'question' : 'solution'} visual.${details ? ` ${details}` : ''}`);
+          throw new Error(`Unable to produce renderable TikZ for ${target.ability.h}, exercise ${target.exerciseIndex + 1} ${target.field === 'p' ? 'question' : 'solution'} visual. ${reason}${details ? ` ${details}` : ''}`);
         }
 
         const changed = effectiveReview.tikz.trim() !== target.originalTikz.trim();
@@ -2519,6 +2757,10 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalAutoRunBus
 
     setIsBusy(true);
     setError('');
+    setProgress(0);
+    setProgressLabel('Applying TikZ corrections');
+    setProgressTotal(Math.max(1, imageFixReview.items.length));
+    let applied = 0;
 
     try {
       await Promise.all(imageFixReview.items.map(async ({ fixedTikz, imageId, prompt, record }) => {
@@ -2529,6 +2771,8 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalAutoRunBus
         }
 
         await putImage({ ...image, data: fixedTikz, prompt: prompt || image.prompt, type: 'tikz', valid: true });
+        applied += 1;
+        setProgress(applied);
       }));
 
       const hasChanges = imageFixReview.items.length > 0;
@@ -2736,15 +2980,30 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalAutoRunBus
   }, [autoRunAll, autoRunStartKey, pipelineActions]);
 
   useEffect((): void => {
-    if (!autoRunAll || !autoRunInitializedRef.current || !isContentSnapshotCurrent || aiAction || fixReview || exerciseFixReview || imageFixReview) {
+    if (!autoRunAll || !autoRunInitializedRef.current) {
+      return;
+    }
+
+    const runIsBusy = isBusy || externalAutoRunBusy;
+
+    if (error && autoRunTriggeredKeyRef.current && !runIsBusy) {
+      // A failed stage cannot ever satisfy its `isDone` gate. Previously Fast
+      // Forward waited forever here while the parent kept showing the last
+      // processing label (commonly "Reviewing TikZ visuals"). End the run
+      // explicitly so the error is visible and the stale modal is cleared.
+      autoRunTriggeredKeyRef.current = '';
+      autoRunRunStartedRef.current = false;
+      onAbortAutoRun?.();
+      return;
+    }
+
+    if (!isContentSnapshotCurrent || aiAction || fixReview || exerciseFixReview || imageFixReview) {
       return;
     }
 
     if (!autoRunStageKeys.length && pipelineActions.some(({ isDone }) => !isDone)) {
       return;
     }
-
-    const runIsBusy = isBusy || externalAutoRunBusy;
 
     if (autoRunTriggeredKeyRef.current && runIsBusy) {
       autoRunRunStartedRef.current = true;
@@ -2853,7 +3112,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalAutoRunBus
       autoRunTriggeredKeyRef.current = '';
       autoRunRunStartedRef.current = false;
     }
-  }, [aiAction, autoRunAll, autoRunStageKeys, exerciseFixReview, externalAutoRunBusy, fixReview, imageFixReview, isBusy, isContentSnapshotCurrent, onAbortAutoRun, onAutoRunComplete, pipelineActions]);
+  }, [aiAction, autoRunAll, autoRunStageKeys, error, exerciseFixReview, externalAutoRunBusy, fixReview, imageFixReview, isBusy, isContentSnapshotCurrent, onAbortAutoRun, onAutoRunComplete, pipelineActions]);
 
   const autoRunCompletedCount = autoRunStageKeys.reduce((count, key) => {
     if (autoRunFinishedStageKeysRef.current.has(key)) {
@@ -2895,8 +3154,12 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalAutoRunBus
         progressValue: progress,
         spent: openRouterSpent
       });
+    } else if (error) {
+      // Do not keep a completed/failed stage label alive while Fast Forward is
+      // being stopped by the stage-error effect above.
+      onAutoRunProcessingChange?.(undefined);
     }
-  }, [autoRunAll, isBusy, onAutoRunProcessingChange, openRouterSpent, progress, progressLabel, progressTotal]);
+  }, [autoRunAll, error, isBusy, onAutoRunProcessingChange, openRouterSpent, progress, progressLabel, progressTotal]);
 
   const runSelectedPipelineAction = useCallback((): void => {
     if (!selectedPipelineAction || selectedPipelineAction.isDisabled) {
@@ -3239,7 +3502,10 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalAutoRunBus
             onSaved={refresh}
           />
           {view === 'conceptsSkills' && (
-            <div className='columns'>
+            <div
+              className='columns'
+              ref={chapterContentOutputRef}
+            >
               <section>
                 <h3>Book concepts and exercises</h3>
                 {!current.concepts.length && !current.exercises.length && <p>No concepts or exercises in this chapter.</p>}
@@ -3264,6 +3530,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalAutoRunBus
                     onDelete={deleteExerciseWithAbilities}
                     onDeleted={refresh}
                     onError={setError}
+                    onFix={fixSingleExercise}
                     onSave={saveExercise}
                     solution={exercise.solution}
                     solutionImageDescription={exercise.solutionImageDescription}
@@ -3321,6 +3588,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalAutoRunBus
                     onDelete={deleteExerciseWithAbilities}
                     onDeleted={refresh}
                     onError={setError}
+                    onFix={fixSingleExercise}
                     onSave={saveExercise}
                     rank={exerciseIndex + 1}
                     solution={exercise.solution}
@@ -3334,6 +3602,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalAutoRunBus
                         key={record.id}
                         onDeleted={refreshContent}
                         onError={setError}
+                        onFix={fixSingleAbility}
                         record={record}
                                                         />)
                       : <p className='noAbility'>No Ability generated for this Exercise.</p>}
@@ -3346,6 +3615,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalAutoRunBus
                   key={record.id}
                   onDeleted={refreshContent}
                   onError={setError}
+                  onFix={fixSingleAbility}
                   record={record}
                                                                                                                                                                              />)}
               </section>}
@@ -3616,9 +3886,9 @@ const StyledSkills = styled.div`
   .chapterEditor > :first-child { flex: 1; }
   .columns { display: grid; gap: 1rem; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
   .columns > section, .singlePane { border: 1px solid var(--border-table); border-radius: 0.4rem; min-width: 0; overflow: auto; padding: 1rem; }
-  .contentCard { border-bottom: 1px solid var(--border-table); box-sizing: border-box; min-width: 0; padding: 0.75rem 8rem 0.75rem 10px; position: relative; }
+  .contentCard { border-bottom: 1px solid var(--border-table); box-sizing: border-box; min-width: 0; padding: 0.75rem 16rem 0.75rem 10px; position: relative; }
   .contentCard > .ui--Button { position: absolute; right: 10px; top: 10px; }
-  .contentCardActions { align-items: center; display: flex; gap: 0.35rem; position: absolute; right: 10px; top: 10px; }
+  .contentCardActions { align-items: center; display: flex; flex-wrap: wrap; gap: 0.35rem; justify-content: flex-end; max-width: 15rem; position: absolute; right: 10px; top: 10px; }
   .contentCard > strong { display: block; overflow-wrap: anywhere; }
   .fixReviewList { max-height: 60vh; overflow: auto; }
   .fixReviewItem { border-top: 1px solid var(--border-table); padding: 0.75rem 0; }
@@ -3659,6 +3929,10 @@ const StyledSkills = styled.div`
   .tikzCodeDiff, .tikzDiagnostics { background: var(--bg-input); border: 1px solid var(--border-table); border-radius: 0.3rem; box-sizing: border-box; font-size: 0.78rem; max-height: 16rem; overflow: auto; padding: 0.6rem; white-space: pre-wrap; word-break: break-word; }
   .tikzDiagnostics { color: #9f3a38; max-height: 8rem; }
   @media only screen and (max-width: 900px) { .columns, .duplicatePairComparison, .tikzDiffGrid { grid-template-columns: 1fr; } .chapterEditor { align-items: stretch; flex-direction: column; } }
+  @media only screen and (max-width: 600px) {
+    .contentCard { padding-right: 10px; padding-top: 4.1rem; }
+    .contentCardActions { left: 10px; max-width: none; right: 10px; }
+  }
 `;
 
 export default React.memo(Skills);

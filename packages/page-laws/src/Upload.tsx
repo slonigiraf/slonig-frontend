@@ -768,7 +768,14 @@ function Upload (): React.ReactElement {
                 return;
               }
 
-              setHasChaptersMissingConcepts(chapters.some((chapter) => (conceptCountByChapter.get(standardsChapterKey(chapter.chapterId, chapter.title, chapter.pageNumbers)) ?? 0) === 0));
+              const conceptCounts = chapters.map((chapter) => conceptCountByChapter.get(standardsChapterKey(chapter.chapterId, chapter.title, chapter.pageNumbers)) ?? 0);
+              const hasMissingConcepts = conceptCounts.some((count) => count === 0);
+              const hasGeneratedConcepts = conceptCounts.some((count) => count > 0);
+
+              setHasChaptersMissingConcepts(hasMissingConcepts);
+              if (hasMissingConcepts && hasGeneratedConcepts) {
+                setGenerateOnlyMissingConcepts(true);
+              }
             })
             .catch((conceptInventoryError) => {
               console.error('Unable to load concept inventory for cost estimation.', conceptInventoryError);
@@ -1420,8 +1427,12 @@ function Upload (): React.ReactElement {
       const exerciseConceptIds = new Set(pageRows.flatMap(({ exercises }) => exercises.flatMap(({ conceptId }) => conceptId === undefined ? [] : [conceptId])));
       const hasMissingExercise = pageRows.some(({ concepts }) => concepts.some(({ id }) => id === undefined || !exerciseConceptIds.has(id)));
 
+      const hasCoveredConcept = exerciseConceptIds.size > 0;
+
       setHasConceptsMissingExercise(hasMissingExercise);
-      if (!hasMissingExercise && generateOnlyMissingExercises) {
+      if (hasMissingExercise && hasCoveredConcept && !generateOnlyMissingExercises) {
+        setGenerateOnlyMissingExercises(true);
+      } else if (!hasMissingExercise && generateOnlyMissingExercises) {
         setGenerateOnlyMissingExercises(false);
       }
 
@@ -1693,7 +1704,7 @@ function Upload (): React.ReactElement {
       >
         <p>{t('Generate concepts chapter-by-chapter for this book? Each concept will be stored on the page where it is first introduced.')}</p>
         <Toggle
-          isDisabled={!selectedBook || !isBookProcessingStageComplete(selectedBook, 'concepts') || !hasChaptersMissingConcepts}
+          isDisabled={!selectedBook || !hasChaptersMissingConcepts}
           label={t('Only for chapters missing concepts')}
           onChange={setGenerateOnlyMissingConcepts}
           value={generateOnlyMissingConcepts}

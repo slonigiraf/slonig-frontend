@@ -23,20 +23,20 @@ import { areAllBookPagesConceptsProcessed, countUnprocessedBookPages, processExt
 import { mapConcurrent } from './concurrency.js';
 import { OPENROUTER_CONCURRENCY, openRouterRequestGate } from './openRouterConcurrency.js';
 import OpenRouterModelSelector from './OpenRouterModelSelector.js';
-import { chapterLevelMissingConcept, fixChapterConceptsPrompt, parseMissingChapterConcepts, type MissingChapterConcept } from './fixConcepts.js';
+import { chapterLevelMissingConcept, fixChapterConceptsPrompt, fixSingleConceptPrompt, parseFixedConcept, parseMissingChapterConcepts, type MissingChapterConcept } from './fixConcepts.js';
 import { clearFixConceptsChapterStatuses, fixConceptsChapterKey, loadFixConceptsChapterStatuses, storeFixConceptsChapterStatuses, type FixConceptsChapterStatuses } from './fixConceptsProgress.js';
 import { assertDisjointSortChapterConcepts, conceptsForSortChapter, parseSortedChapterConceptIndexes, sortChapterConceptsPrompt } from './sortConcepts.js';
 import { conceptBelongsToChapter, conceptsForRefinementChapter, hasPersistedRefinedConceptMembership, parseRefinedChapterGroups, REFINE_CHAPTERS_SPEND_STAGE, refinedChapterSplitPages, refineChapterPrompt, withRefineChaptersComplete } from './refineChapters.js';
 import { formatOpenRouterSpend, reportOpenRouterCost, type OpenRouterCostReporter } from './openRouterCost.js';
 import { useBookStageTimer } from './bookStageTime.js';
-import { BOOK_AGE_DETECTION_PROMPT, BOOK_CHAPTER_EXTRACTION_REQUEST_PROMPT, BOOK_LANGUAGE_DETECTION_PROMPT, BOOK_SUBJECT_DETECTION_PROMPT, DEFAULT_PROCESSING_MODEL, DEFAULT_STANDARDS_MODEL, MATHPIX_PDF_PAGE_PRICE_USD, OPENAI_MODELS } from './constants.js';
+import { BOOK_AGE_DETECTION_PROMPT, BOOK_CHAPTER_EXTRACTION_REQUEST_PROMPT, BOOK_LANGUAGE_DETECTION_PROMPT, BOOK_SUBJECT_DETECTION_PROMPT, DEFAULT_PROCESSING_MODEL, DEFAULT_STANDARDS_MODEL, FIX_EXERCISES_REQUEST_PROMPT, MATHPIX_PDF_PAGE_PRICE_USD, OPENAI_MODELS, REPAIR_SYSTEM_PROMPT } from './constants.js';
 import { stripMarkdownImageReferences } from './bookImageRefs.js';
 import { chapterAssignmentsFromBoundaries, chapterEvidenceWindows, chapterReconciliationPrompt, chapterWindowPrompt, deriveStructuralChapterCandidates, extractMathpixHeadingsFromLines, pageChapterEvidence, parseChapterBoundaries, stabilizeChapterBoundaries, type ChapterBoundaryProposal } from './chapterSegmentation.js';
 import { getSharedChapterSelection, resolveSharedChapterIndex, storeSharedChapterSelection, subscribeSharedChapterSelection, type SharedChapterSelection } from './chapterSelection.js';
 import { conceptChapterMoveInsertionIndex } from './conceptChapterMove.js';
 import { conceptChaptersFromPages, parseGeneratedChapterConcepts, type ConceptChapterNavigationItem, type GeneratedChapterConcepts } from './conceptRecognition.js';
 import { conceptDeduplicationInput, deduplicateConceptCandidates, deduplicateConceptsPrompt, parseDeduplicateConceptPairs, type DeduplicateConceptCandidatePair, type DeduplicateConceptInput, type DeduplicateConceptPair } from './deduplicateConcepts.js';
-import { missingGeneratedExerciseConceptIndexes } from './exercises.js';
+import { missingGeneratedExerciseConceptIndexes, parseExerciseRepairResult } from './exercises.js';
 import { sortExercisesForDisplay } from './learningOrder.js';
 import { embeddingCosineDistance, loadStandardsCatalogsForBookSubject, loadStoredBookStandards, mergeStandardsMatches, parseStandardsMatches, STANDARD_FRAMEWORKS, STANDARDS_MATCH_RUNS, standardsCandidatesFromEmbeddings, standardsChapterKey, standardsConceptFingerprint, standardsConceptInputs, standardsMatchingPrompt, standardsPathForBookSubject, storeBookStandards, type CurriculumStandard, type StandardsCatalog, type StoredBookStandards } from './standards.js';
 import { cachedConceptEmbeddingMap, ensureConceptEmbeddingCache, ensureStandardEmbeddingCache } from './standardsEmbeddings.js';
@@ -109,10 +109,11 @@ function analysisPageNumbers (pages: BookPage[]): number[] {
   return pages.flatMap(({ excludedFromAnalysis, pageNumber }) => excludedFromAnalysis ? [] : [pageNumber]);
 }
 
-function ConceptItem ({ chapterIndex: initialChapterIndex, chapters, concept, conceptNumber, firstPage, onDelete, onGoToPage, onReorderPointerCancel, onReorderPointerDown, onReorderPointerMove, onReorderPointerUp, onSave }: { chapterIndex: number; chapters: ConceptChapterNavigationItem[]; concept: BookConcept; conceptNumber: number; firstPage?: number; onDelete: (concept: BookConcept) => Promise<void>; onGoToPage: (pageNumber: number) => void; onReorderPointerCancel?: (event: React.PointerEvent<HTMLLIElement>) => void; onReorderPointerDown?: (event: React.PointerEvent<HTMLLIElement>) => void; onReorderPointerMove?: (event: React.PointerEvent<HTMLLIElement>) => void; onReorderPointerUp?: (event: React.PointerEvent<HTMLLIElement>) => void; onSave: (concept: BookConcept, title: string, description: string, chapterIndex: number) => Promise<void> }): React.ReactElement {
+function ConceptItem ({ chapterIndex: initialChapterIndex, chapters, concept, conceptNumber, firstPage, onDelete, onFix, onGoToPage, onReorderPointerCancel, onReorderPointerDown, onReorderPointerMove, onReorderPointerUp, onSave }: { chapterIndex: number; chapters: ConceptChapterNavigationItem[]; concept: BookConcept; conceptNumber: number; firstPage?: number; onDelete: (concept: BookConcept) => Promise<void>; onFix: (concept: BookConcept) => Promise<void>; onGoToPage: (pageNumber: number) => void; onReorderPointerCancel?: (event: React.PointerEvent<HTMLLIElement>) => void; onReorderPointerDown?: (event: React.PointerEvent<HTMLLIElement>) => void; onReorderPointerMove?: (event: React.PointerEvent<HTMLLIElement>) => void; onReorderPointerUp?: (event: React.PointerEvent<HTMLLIElement>) => void; onSave: (concept: BookConcept, title: string, description: string, chapterIndex: number) => Promise<void> }): React.ReactElement {
   const [chapterIndex, setChapterIndex] = useState(initialChapterIndex);
   const [description, setDescription] = useState(concept.description);
   const [isBusy, setIsBusy] = useState(false);
+  const [isFixing, setIsFixing] = useState(false);
   const [isDeleteConfirmationOpen, setIsDeleteConfirmationOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [title, setTitle] = useState(concept.title);
@@ -135,6 +136,12 @@ function ConceptItem ({ chapterIndex: initialChapterIndex, chapters, concept, co
     setDescription(concept.description);
     setIsEditing(false);
   }, [concept.description, concept.title, initialChapterIndex, isBusy]);
+  const fix = useCallback((): void => {
+    setIsFixing(true);
+    onFix(concept)
+      .catch(console.error)
+      .finally(() => setIsFixing(false));
+  }, [concept, onFix]);
   const remove = useCallback((): void => setIsDeleteConfirmationOpen(true), []);
   const confirmRemove = useCallback((): void => {
     setIsBusy(true);
@@ -157,7 +164,7 @@ function ConceptItem ({ chapterIndex: initialChapterIndex, chapters, concept, co
       .finally(() => setIsBusy(false));
   }, [chapterIndex, concept, description, onSave, title]);
 
-  const canReorder = concept.id !== undefined && !isBusy && !isEditing;
+  const canReorder = concept.id !== undefined && !isBusy && !isEditing && !isFixing;
 
   return <li
     className='conceptItem'
@@ -256,13 +263,20 @@ function ConceptItem ({ chapterIndex: initialChapterIndex, chapters, concept, co
       <strong><span className='conceptNumber'>{conceptNumber}.</span> <KatexSpan content={concept.title} /></strong>
       <div className='conceptActions'>
         <Button
+          className='conceptAiFixButton'
+          icon='robot'
+          isDisabled={concept.id === undefined || isBusy || isFixing}
+          label={isFixing ? 'Fixing…' : 'Fix with AI'}
+          onClick={fix}
+        />
+        <Button
           icon='edit'
-          isDisabled={concept.id === undefined || isBusy}
+          isDisabled={concept.id === undefined || isBusy || isFixing}
           onClick={() => setIsEditing(true)}
         />
         <Button
           icon='trash'
-          isDisabled={concept.id === undefined || isBusy}
+          isDisabled={concept.id === undefined || isBusy || isFixing}
           onClick={remove}
         />
       </div>
@@ -934,6 +948,26 @@ function createOpenRouterClient (apiKey: string, signal?: AbortSignal): OpenAI {
 
 type ExerciseEditableFields = Pick<Exercise, 'description' | 'imageDescription' | 'solution' | 'solutionImageDescription' | 'title'>;
 
+function singleExerciseRepairInput (language: string, exercise: Exercise, chapterTitle: string, learnerAge?: number): unknown {
+  return {
+    bookLanguage: language,
+    ...(learnerAge === undefined ? {} : { learnerAge }),
+    exercises: [{
+      conceptId: exercise.conceptId,
+      exercise: {
+        description: stripMarkdownImageReferences(exercise.description),
+        imageDescription: exercise.imageDescription ?? '',
+        solution: exercise.solution ?? '',
+        solutionImageDescription: exercise.solutionImageDescription ?? '',
+        title: exercise.title
+      },
+      id: exercise.id,
+      index: 0
+    }],
+    chapterTitle
+  };
+}
+
 function exerciseForPageReplacement ({ conceptId, description, displayOrder, imageDescription, solution, solutionImageDescription, source, title }: Exercise): Omit<Exercise, 'bookPage' | 'id'> {
   return {
     conceptId,
@@ -947,9 +981,10 @@ function exerciseForPageReplacement ({ conceptId, description, displayOrder, ima
   };
 }
 
-function EditableExerciseItem ({ exercise, onError, onSave }: { exercise: Exercise; onError: (message: string) => void; onSave: (exerciseId: number, value: ExerciseEditableFields) => Promise<void> }): React.ReactElement {
+function EditableExerciseItem ({ exercise, onError, onFix, onSave }: { exercise: Exercise; onError: (message: string) => void; onFix: (exercise: Exercise) => Promise<void>; onSave: (exerciseId: number, value: ExerciseEditableFields) => Promise<void> }): React.ReactElement {
   const { t } = useTranslation();
   const [isEditing, setIsEditing] = useState(false);
+  const [isFixing, setIsFixing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [draftTitle, setDraftTitle] = useState(exercise.title);
   const [draftDescription, setDraftDescription] = useState(stripMarkdownImageReferences(exercise.description));
@@ -989,17 +1024,31 @@ function EditableExerciseItem ({ exercise, onError, onSave }: { exercise: Exerci
       .finally(() => setIsSaving(false));
   }, [draftDescription, draftImageDescription, draftSolution, draftSolutionImageDescription, draftTitle, exercise.id, onError, onSave]);
 
+  const fix = useCallback((): void => {
+    setIsFixing(true);
+    onFix(exercise)
+      .catch((error) => onError(error instanceof Error ? error.message : 'Unable to fix the Exercise with AI.'))
+      .finally(() => setIsFixing(false));
+  }, [exercise, onError, onFix]);
   const description = stripMarkdownImageReferences(exercise.description);
 
   return <li className='exerciseItem'>
     <div className='exerciseHeading'>
       <p><b>{t('Title:')} </b><KatexSpan content={exercise.title} /></p>
-      <Button
-        icon='edit'
-        isDisabled={exercise.id === undefined}
-        label='Edit'
-        onClick={openEdit}
-      />
+      <Button.Group>
+        <Button
+          icon='robot'
+          isDisabled={exercise.id === undefined || isFixing || isSaving}
+          label={isFixing ? 'Fixing…' : 'Fix with AI'}
+          onClick={fix}
+        />
+        <Button
+          icon='edit'
+          isDisabled={exercise.id === undefined || isFixing}
+          label='Edit'
+          onClick={openEdit}
+        />
+      </Button.Group>
     </div>
     <p><b>{t('Question:')} </b>{description ? <KatexSpan content={description} /> : n_a}</p>
     <p><b>{t('Question image:')} </b>{exercise.imageDescription ? <KatexSpan content={exercise.imageDescription} /> : n_a}</p>
@@ -1753,6 +1802,10 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
   const pageAreaRef = useRef<HTMLDivElement>(null);
   const conceptsOutputRef = useRef<HTMLDivElement>(null);
   const exerciseConceptsOutputRef = useRef<HTMLDivElement>(null);
+  const standardsChapterOutputRef = useRef<HTMLDivElement>(null);
+  const pendingConceptChapterFocusRef = useRef(false);
+  const pendingExerciseChapterFocusRef = useRef(false);
+  const pendingStandardsChapterFocusRef = useRef(false);
   const draggedConceptIndexRef = useRef<number | undefined>(undefined);
   const conceptDropTargetIndexRef = useRef<number | undefined>(undefined);
   const conceptDragPointerIdRef = useRef<number | undefined>(undefined);
@@ -2031,6 +2084,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
       : -1;
     const conceptChapter = conceptChapterIndex >= 0 ? conceptChapters[conceptChapterIndex] : undefined;
 
+    pendingExerciseChapterFocusRef.current = true;
     setExerciseChapterIndex(nextIndex);
 
     try {
@@ -2049,6 +2103,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
     const nextIndex = Math.max(0, Math.min(index, Math.max(0, conceptChapters.length - 1)));
     const chapter = conceptChapters[nextIndex];
 
+    pendingStandardsChapterFocusRef.current = true;
     setStandardsChapterIndex(nextIndex);
     storeSharedChapterSelection(book.id, { chapterId: chapter?.chapterId, index: nextIndex, title: chapter?.title });
   }, [book.id, conceptChapters]);
@@ -2333,6 +2388,48 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
       void loadingTask?.destroy();
     };
   }, [book.id, file]);
+
+  useLayoutEffect(() => {
+    if (!pendingConceptChapterFocusRef.current || !concepts.length) {
+      return;
+    }
+
+    const first = conceptsOutputRef.current?.querySelector<HTMLElement>('.conceptItem');
+
+    if (first) {
+      pendingConceptChapterFocusRef.current = false;
+      first.focus({ preventScroll: true });
+      first.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  }, [concepts]);
+
+  useLayoutEffect(() => {
+    if (!pendingExerciseChapterFocusRef.current || isExerciseChapterLoading || !exerciseChapterConcepts.length) {
+      return;
+    }
+
+    const first = exerciseConceptsOutputRef.current?.querySelector<HTMLElement>('.exerciseConceptCard');
+
+    if (first) {
+      pendingExerciseChapterFocusRef.current = false;
+      first.focus({ preventScroll: true });
+      first.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  }, [exerciseChapterConcepts, isExerciseChapterLoading]);
+
+  useLayoutEffect(() => {
+    if (!pendingStandardsChapterFocusRef.current || (activePane === 'embeddings' && embeddingHeatmapMode !== 'chapter')) {
+      return;
+    }
+
+    const first = standardsChapterOutputRef.current;
+
+    if (first) {
+      pendingStandardsChapterFocusRef.current = false;
+      first.focus({ preventScroll: true });
+      first.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  }, [activePane, embeddingHeatmapMode, standardsChapterIndex]);
 
   useEffect(() => {
     let active = true;
@@ -4840,6 +4937,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
     const chapter = conceptChapters[nextIndex];
     const firstPage = chapter?.pageNumbers[0];
 
+    pendingConceptChapterFocusRef.current = true;
     setConceptChapterIndex(nextIndex);
     storeSharedChapterSelection(book.id, { chapterId: chapter?.chapterId, index: nextIndex, title: chapter?.title });
 
@@ -5322,6 +5420,46 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
       throw caught;
     }
   }, [book.id, conceptChapterIndex, conceptChapters, invalidateEmbeddingsStage, pages, refreshConceptCounts, reloadCurrentChapterConcepts]);
+  const fixConceptWithAi = useCallback(async (concept: BookConcept): Promise<void> => {
+    try {
+      if (concept.id === undefined || !currentConceptChapter) {
+        throw new Error('Unable to fix a Concept without its chapter context.');
+      }
+
+      const key = await getSetting(SettingKey.OPENROUTER_TOKEN);
+
+      if (!key) {
+        throw new Error('OpenRouter API key is not configured.');
+      }
+
+      const chapterMmd = currentConceptChapter.pageNumbers.map((chapterPageNumber) => `--- page ${chapterPageNumber} ---\n${pages.get(chapterPageNumber)?.pageMMD ?? ''}`).join('\n\n');
+      const client = createOpenRouterClient(key);
+      const response = await runConceptRequestWithRetry(() => client.chat.completions.create({
+        messages: [{ content: fixSingleConceptPrompt(currentConceptChapter.title, chapterMmd, concept, book.subject, book.language, book.age), role: 'user' }],
+        model: generateAllConceptsModel,
+        response_format: { type: 'json_object' }
+      }));
+
+      reportOpenRouterCost(response, addFixConceptsCost);
+      const content = response.choices[0].message?.content?.trim();
+
+      if (!content) {
+        throw new Error('OpenRouter returned no single Concept repair data.');
+      }
+
+      const fixed = parseFixedConcept(content);
+
+      if (fixed.title !== concept.title || fixed.description !== concept.description) {
+        await saveConcept(concept, fixed.title, fixed.description, conceptChapterIndex);
+      }
+
+      setError('');
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Unable to fix the Concept with AI.');
+      throw caught;
+    }
+  }, [addFixConceptsCost, book.age, book.language, book.subject, conceptChapterIndex, currentConceptChapter, generateAllConceptsModel, pages, saveConcept]);
+
   const deleteConcept = useCallback(async (concept: BookConcept): Promise<void> => {
     if (concept.id === undefined) {
       return;
@@ -5418,6 +5556,49 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
       throw caught;
     }
   }, [book.id, currentExerciseChapter, exerciseChapterConcepts, pages, refreshEntityCounts]);
+
+  const fixExerciseWithAi = useCallback(async (exercise: Exercise): Promise<void> => {
+    if (exercise.id === undefined || !currentExerciseChapter) {
+      throw new Error('Unable to fix an Exercise without its chapter context.');
+    }
+
+    const key = await getSetting(SettingKey.OPENROUTER_TOKEN);
+
+    if (!key) {
+      throw new Error('OpenRouter API key is not configured.');
+    }
+
+    const language = book.language ?? '';
+    const client = createOpenRouterClient(key);
+    const response = await openRouterRequestGate.run(() => client.chat.completions.create({
+      messages: [
+        { content: REPAIR_SYSTEM_PROMPT(language, book.age), role: 'system' },
+        { content: FIX_EXERCISES_REQUEST_PROMPT(singleExerciseRepairInput(language, exercise, currentExerciseChapter.title, book.age)), role: 'user' }
+      ],
+      model: generateAllConceptsModel,
+      response_format: { type: 'json_object' }
+    }));
+
+    reportOpenRouterCost(response, (costUsd) => addOpenRouterStageCost('fixExercises', costUsd));
+    const content = response.choices[0].message?.content?.trim();
+
+    if (!content) {
+      throw new Error('OpenRouter returned no single Exercise repair data.');
+    }
+
+    const result = parseExerciseRepairResult(content, [exercise], [exercise.id]);
+    const review = result.reviews.find(({ index }) => index === 0);
+
+    if (review?.hasErrors && review.exercise) {
+      await saveExercise(exercise.id, {
+        description: review.exercise.description,
+        imageDescription: review.exercise.imageDescription,
+        solution: review.exercise.solution,
+        solutionImageDescription: review.exercise.solutionImageDescription,
+        title: review.exercise.title
+      });
+    }
+  }, [addOpenRouterStageCost, book.age, book.language, currentExerciseChapter, generateAllConceptsModel, saveExercise]);
 
   const submitPageInput = useCallback((): void => {
     const requestedPage = Number(pageInput);
@@ -5694,6 +5875,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
     exercise={exercise}
     key={exercise.id}
     onError={setError}
+    onFix={fixExerciseWithAi}
     onSave={saveExercise}
   />;
   const focusExerciseConcept = (conceptIndex: number): void => {
@@ -5796,6 +5978,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
                 firstPage={displayPage}
                 key={concept.id ?? conceptReferenceKey(concept)}
                 onDelete={deleteConcept}
+                onFix={fixConceptWithAi}
                 onReorderPointerCancel={cancelConceptPointerDrag}
                 onReorderPointerDown={(event) => beginConceptPointerDrag(index, event)}
                 onReorderPointerMove={moveConceptPointerDrag}
@@ -5821,7 +6004,11 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
       <div className='detailsHeader'>
         <span>{isAssigningStandards ? `Identifying standards… ${standardsAssignedChapterCount}/${conceptChapters.length}` : 'Standards identified from chapter concepts'}</span>
       </div>
-      <div className='conceptsOutput standardsOutput'>
+      <div
+        className='conceptsOutput standardsOutput'
+        ref={standardsChapterOutputRef}
+        tabIndex={-1}
+      >
         <h3>{currentStandardsChapter?.title || 'Chapter not identified'}</h3>
         {!currentStandardsChapter
           ? <p className='emptyOutput'>No processed chapters are available.</p>
@@ -5923,7 +6110,11 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
           >Whole book</button>
         </div>
       </div>
-      <div className='embeddingHeatmapIntro'>
+      <div
+        className='embeddingHeatmapIntro'
+        ref={standardsChapterOutputRef}
+        tabIndex={-1}
+      >
         <strong>{title}</strong>
         <span>Cosine distance between concept embeddings. Lower values are closer; 0 means identical direction.</span>
         {embeddingMissingCount > 0 && <span className='embeddingCacheWarning'>{embeddingMissingCount} concept embedding{embeddingMissingCount === 1 ? '' : 's'} missing or stale. Run Standards again to refresh the cache.</span>}
@@ -7436,6 +7627,11 @@ const StyledReader = styled.div`
     min-width: 2.25rem !important;
     padding: 0.45rem !important;
     width: 2.25rem !important;
+  }
+
+  .conceptItem > .conceptHeading .conceptActions button.conceptAiFixButton {
+    padding: 0.45rem 0.65rem !important;
+    width: auto !important;
   }
 
   .conceptMeta {

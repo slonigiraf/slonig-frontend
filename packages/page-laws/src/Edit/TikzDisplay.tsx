@@ -4,7 +4,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { styled } from '@polkadot/react-components';
 import { embedTikzSourceInSvg } from './tikz.js';
-import { getCachedTikzEditorSvg, renderTikzWithEditor } from './tikzEditorBridge.js';
+import { getCachedTikzEditorSvg, isRetryableTikzEditorError, renderTikzWithEditor } from './tikzEditorBridge.js';
 
 interface Props {
   alt: string;
@@ -18,6 +18,7 @@ export interface TikzPreRenderResult {
   compiled: boolean;
   diagnostics: string[];
   renderedSvg: string;
+  retryable?: boolean;
   texInput: string;
 }
 
@@ -46,6 +47,7 @@ export async function preRenderTikz (value: string): Promise<TikzPreRenderResult
       compiled: true,
       diagnostics: [],
       renderedSvg,
+      retryable: false,
       texInput: value
     };
   } catch (error) {
@@ -53,6 +55,7 @@ export async function preRenderTikz (value: string): Promise<TikzPreRenderResult
       compiled: false,
       diagnostics: [error instanceof Error ? error.message : String(error)],
       renderedSvg: '',
+      retryable: isRetryableTikzEditorError(error),
       texInput: value
     };
   }
@@ -138,8 +141,12 @@ export default function TikzDisplay ({ alt, hasCompileError = false, onCompileSt
         }
 
         if (!result.compiled || !result.renderedSvg) {
-          setError(result.diagnostics.slice(-3).join(' | ') || 'TikZ rendering failed. Edit the TikZ code to retry.');
-          reportCompileState(true);
+          const detail = result.diagnostics.slice(-3).join(' | ') || 'TikZ rendering failed.';
+
+          setError(result.retryable ? `${detail} Temporary renderer failure; retrying later will not mark this TikZ invalid.` : `${detail} Edit the TikZ code to retry.`);
+          if (!result.retryable) {
+            reportCompileState(true);
+          }
           return;
         }
 
@@ -181,6 +188,9 @@ const TikzHost = styled.div`
   box-sizing: border-box;
   display: flex;
   justify-content: center;
+  margin-inline: auto;
+  max-height: 32rem;
+  max-width: min(100%, 42rem);
   min-height: 220px;
   overflow: auto;
   padding: 0.75rem;
@@ -189,7 +199,9 @@ const TikzHost = styled.div`
   > svg,
   > * > svg {
     height: auto;
+    max-height: 30rem;
     max-width: 100%;
+    width: auto;
   }
 `;
 

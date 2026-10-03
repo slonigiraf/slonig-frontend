@@ -7,7 +7,26 @@ export const TIKZ_EDITOR_RENDERER_ID = 'tikz-editor@0.5.2-texlyre.1';
 
 const TIKZ_EDITOR_RENDER_TIMEOUT_MS = 30_000;
 const TIKZ_EDITOR_EXPORT_RETRY_MS = 100;
+const TIKZ_EDITOR_RENDER_RETRIES = 1;
 const TIKZ_EDITOR_SVG_CACHE_LIMIT = 100;
+
+export class TikzEditorRenderError extends Error {
+  readonly retryable: boolean;
+
+  constructor (message: string, retryable = false) {
+    super(message);
+    this.name = 'TikzEditorRenderError';
+    this.retryable = retryable;
+  }
+}
+
+export function isRetryableTikzEditorError (error: unknown): boolean {
+  return error instanceof TikzEditorRenderError && error.retryable;
+}
+
+function transientRendererError (message: string): TikzEditorRenderError {
+  return new TikzEditorRenderError(message, true);
+}
 
 const renderedSvgCache = new Map<string, string>();
 
@@ -50,7 +69,11 @@ export function normalizeTikzEditorSvg (value: string): string {
   const svg = value.trim();
 
   if (!/^<svg\b/i.test(svg) || !/<\/svg>$/i.test(svg)) {
-    throw new Error('TikZ Editor returned invalid SVG markup.');
+    throw new TikzEditorRenderError('TikZ Editor returned invalid SVG markup.');
+  }
+
+  if (/broken-image\.svg(?:[?#"']|$)/i.test(svg)) {
+    throw new TikzEditorRenderError('TikZ Editor produced a fallback broken image instead of a compiled SVG.');
   }
 
   return /<svg\b[^>]*\sxmlns\s*=/i.test(svg)
@@ -116,6 +139,7 @@ function svgFromMessage (message: TikzEditorMessage): string | undefined {
 
 class TikzEditorRenderer {
   readonly #iframe: HTMLIFrameElement;
+  #destroyedError: Error | undefined;
   #pending: PendingRender | undefined;
   #readyPromise: Promise<void>;
   #resolveReady: (() => void) | undefined;
@@ -153,6 +177,10 @@ class TikzEditorRenderer {
   }
 
   render (source: string): Promise<string> {
+    if (this.#destroyedError) {
+      return Promise.reject(this.#destroyedError);
+    }
+
     const result = this.#tail.then(() => this.#renderOne(source));
 
     this.#tail = result.then(() => undefined, () => undefined);
@@ -165,7 +193,7 @@ class TikzEditorRenderer {
   }
 
   #onIframeError = (): void => {
-    const error = new Error('Unable to load the TikZ Editor renderer.');
+    const error = transientRendererError('Unable to load the TikZ Editor renderer.');
 
     this.#rejectReady?.(error);
     this.#rejectReady = undefined;
@@ -274,19 +302,48 @@ class TikzEditorRenderer {
     pending.reject(error);
   }
 
-  async #renderOne (source: string): Promise<string> {
-    if (!source.trim()) {
-      throw new Error('TikZ source is empty.');
+  destroy (reason: Error = transientRendererError('TikZ Editor renderer was reset.')): void {
+    if (this.#destroyedError) {
+      return;
     }
 
-    await Promise.race([
-      this.#readyPromise,
-      new Promise<never>((_, reject) => setTimeout(() => reject(new Error('TikZ Editor renderer initialization timed out.')), TIKZ_EDITOR_RENDER_TIMEOUT_MS))
-    ]);
+    this.#destroyedError = reason;
+    window.removeEventListener('message', this.#onMessage);
+    this.#iframe.removeEventListener('error', this.#onIframeError);
+    this.#failPending(reason);
+    this.#rejectReady?.(reason);
+    this.#rejectReady = undefined;
+    this.#resolveReady = undefined;
+    this.#iframe.remove();
+  }
+
+  async #renderOne (source: string): Promise<string> {
+    if (this.#destroyedError) {
+      throw this.#destroyedError;
+    }
+
+    if (!source.trim()) {
+      throw new TikzEditorRenderError('TikZ source is empty.');
+    }
+
+    let readyTimeout: ReturnType<typeof setTimeout> | undefined;
+
+    try {
+      await Promise.race([
+        this.#readyPromise,
+        new Promise<never>((_, reject) => {
+          readyTimeout = setTimeout(() => reject(transientRendererError('TikZ Editor renderer initialization timed out.')), TIKZ_EDITOR_RENDER_TIMEOUT_MS);
+        })
+      ]);
+    } finally {
+      if (readyTimeout) {
+        clearTimeout(readyTimeout);
+      }
+    }
 
     return new Promise<string>((resolve, reject) => {
       const timer = setTimeout(() => {
-        this.#failPending(new Error('TikZ Editor rendering timed out.'));
+        this.#failPending(transientRendererError('TikZ Editor rendering timed out.'));
       }, TIKZ_EDITOR_RENDER_TIMEOUT_MS);
 
       this.#pending = { reject, resolve, source, timer };
@@ -305,9 +362,34 @@ export async function renderTikzWithEditor (source: string): Promise<string> {
     return cached;
   }
 
-  renderer ??= new TikzEditorRenderer();
+  let lastError: unknown;
 
-  const svg = await renderer.render(source);
+  for (let attempt = 0; attempt <= TIKZ_EDITOR_RENDER_RETRIES; attempt++) {
+    const activeRenderer = renderer ??= new TikzEditorRenderer();
 
-  return cacheTikzEditorSvg(source, svg);
+    try {
+      const svg = await activeRenderer.render(source);
+
+      return cacheTikzEditorSvg(source, svg);
+    } catch (error) {
+      lastError = error;
+
+      if (isRetryableTikzEditorError(error)) {
+        // A timed-out/failed iframe can remain alive while no longer producing
+        // preview events. Never leave that poisoned singleton in the queue.
+        if (renderer === activeRenderer) {
+          renderer = undefined;
+        }
+        activeRenderer.destroy(error instanceof Error ? error : transientRendererError(String(error)));
+
+        if (attempt < TIKZ_EDITOR_RENDER_RETRIES) {
+          continue;
+        }
+      }
+
+      throw error;
+    }
+  }
+
+  throw lastError instanceof Error ? lastError : new TikzEditorRenderError('Unable to render TikZ.');
 }

@@ -5,7 +5,7 @@
 
 import { strict as assert } from 'node:assert';
 
-import { cacheTikzEditorSvg, getCachedTikzEditorSvg, normalizeTikzEditorSvg, parseTikzEditorMessage } from './tikzEditorBridge.js';
+import { cacheTikzEditorSvg, getCachedTikzEditorSvg, isRetryableTikzEditorError, normalizeTikzEditorSvg, parseTikzEditorMessage, TikzEditorRenderError } from './tikzEditorBridge.js';
 
 describe('TikZ Editor renderer bridge', (): void => {
   it('parses the JSON-stringified postMessage format used by the embed', (): void => {
@@ -52,5 +52,18 @@ describe('TikZ Editor renderer bridge', (): void => {
 
   it('rejects non-SVG output', (): void => {
     assert.throws(() => normalizeTikzEditorSvg('<div>not svg</div>'), /invalid SVG/i);
+  });
+
+  it('rejects TikZJax broken-image fallback SVGs as compile failures', (): void => {
+    assert.throws(
+      () => normalizeTikzEditorSvg('<svg><image href="https://cdn.jsdelivr.net/npm/@rod2ik/tikzjax@1.6.0/dist/assets/broken-image.svg" /></svg>'),
+      /fallback broken image/i
+    );
+  });
+
+  it('distinguishes transient renderer errors from deterministic compile errors', (): void => {
+    assert.equal(isRetryableTikzEditorError(new TikzEditorRenderError('timeout', true)), true);
+    assert.equal(isRetryableTikzEditorError(new TikzEditorRenderError('bad svg')), false);
+    assert.equal(isRetryableTikzEditorError(new Error('other')), false);
   });
 });

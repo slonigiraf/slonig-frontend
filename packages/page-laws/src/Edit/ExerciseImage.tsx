@@ -3,6 +3,7 @@
 
 import React from 'react';
 import { styled } from '@polkadot/react-components';
+import { ResizableImage } from '@slonigiraf/slonig-components';
 import KnowledgeResizableImage from './KnowledgeResizableImage.js';
 
 interface Props {
@@ -20,10 +21,9 @@ export default function ExerciseImage ({ alt = '', value }: Props): React.ReactE
     : <KnowledgeResizableImage alt={alt} cid={value} />;
 }
 
-const LocalImage = styled.img`
+const LocalImage = styled(ResizableImage)`
   display: block;
-  height: auto;
-  max-height: 32rem;
-  max-width: min(100%, 42rem);
+  max-height: 18rem;
+  max-width: min(100%, 32rem);
   object-fit: contain;
 `;

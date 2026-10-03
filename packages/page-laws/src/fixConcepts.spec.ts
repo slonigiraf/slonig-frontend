@@ -4,9 +4,27 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { chapterLevelMissingConcept, fixChapterConceptsPrompt, parseMissingChapterConcepts } from './fixConcepts.js';
+import { chapterLevelMissingConcept, fixChapterConceptsPrompt, fixSingleConceptPrompt, parseFixedConcept, parseMissingChapterConcepts } from './fixConcepts.js';
 
 describe('fix concepts', (): void => {
+  it('builds and parses a single-concept AI repair request', (): void => {
+    const prompt = fixSingleConceptPrompt(
+      'Fractions',
+      '--- page 4 ---\nA denominator tells how many equal parts make the whole.',
+      { description: 'Bottom number.', title: 'Denominator' },
+      'en-math',
+      'en',
+      10
+    );
+
+    assert.match(prompt, /same narrowly teachable concept/);
+    assert.match(prompt, /Fractions/);
+    assert.deepEqual(parseFixedConcept('{"title":"Denominator","description":"The bottom number shows how many equal parts make the whole."}'), {
+      description: 'The bottom number shows how many equal parts make the whole.',
+      title: 'Denominator'
+    });
+  });
+
   it('stores Fix-generated concepts on their source page with the Fix attempt', (): void => {
     assert.deepEqual(chapterLevelMissingConcept(42, 7, {
       description: 'The bottom number in a fraction.',

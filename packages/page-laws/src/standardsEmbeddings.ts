@@ -30,7 +30,11 @@ export function conceptEmbeddingInput ({ description, title }: Pick<BookConcept,
   return standardsConceptEmbeddingInput({ description, title });
 }
 
-export async function requestTextEmbeddings (client: OpenAI, embedder: string, inputs: string[], onCost?: OpenRouterCostReporter): Promise<number[][]> {
+export async function requestTextEmbeddings (client: OpenAI, embedder: string, inputs: string[], onCost?: OpenRouterCostReporter, signal?: AbortSignal): Promise<number[][]> {
+  if (signal?.aborted) {
+    throw new DOMException('Processing aborted.', 'AbortError');
+  }
+
   if (!inputs.length) {
     return [];
   }
@@ -39,7 +43,7 @@ export async function requestTextEmbeddings (client: OpenAI, embedder: string, i
     encoding_format: 'float',
     input: inputs,
     model: embedder
-  }));
+  }, { signal }), { signal });
 
   reportOpenRouterCost(response, onCost);
   const rows = [...response.data].sort((a, b) => a.index - b.index);

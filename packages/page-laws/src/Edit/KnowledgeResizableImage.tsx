@@ -109,6 +109,9 @@ export default function KnowledgeResizableImage ({ alt = 'Image', cid }: Props):
 
 const NormalImage = styled.img`
   cursor: zoom-in;
+  max-height: 18rem;
+  max-width: min(100%, 32rem);
+  object-fit: contain;
   padding-top: 5px;
   width: 150px;
 `;

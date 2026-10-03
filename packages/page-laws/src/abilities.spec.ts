@@ -660,6 +660,10 @@ describe('generated abilities', (): void => {
     assert.match(FIX_ABILITIES_PROMPT, /Do not apply this number-markup rule to semantic visual-description fields/i);
     assert.match(FIX_ABILITIES_PROMPT, /question image present/i);
     assert.match(FIX_ABILITIES_PROMPT, /preserve the image dependency/i);
+    assert.match(FIX_ABILITIES_PROMPT, /embeddingValidation/i);
+    assert.match(FIX_ABILITIES_PROMPT, /needsAdditionalCheck/i);
+    assert.match(FIX_ABILITIES_PROMPT, /low cosine similarity is only a hint/i);
+    assert.match(FIX_ABILITIES_PROMPT, /sourceExercise evidence/i);
     assert.match(FIX_ABILITIES_PROMPT, /hasErrors/i);
     assert.match(FIX_ABILITIES_PROMPT, /errors/i);
     assert.match(FIX_ABILITIES_PROMPT, /reviews/i);
