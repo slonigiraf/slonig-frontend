@@ -190,7 +190,7 @@ function UI({ className = '' }: Props): React.ReactElement<Props> {
       <AppContainer>
         {/* <HelpChatWidget caption={t('Have questions?')}/> */}
 
-        {isIncognito ? (
+        {isIncognito && !botInUrl ? (
           <IncognitoView />
         ) : isLoginRequired ? (
           <CreateAccount
