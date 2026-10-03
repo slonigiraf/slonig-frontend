@@ -167,6 +167,27 @@ describe('AI Tutor generated fake solution wording', (): void => {
     );
   });
 
+  it('uses the app localization for the visible fake-solution wrapper', (): void => {
+    const stage = nextStage(StageType.provide_fake_solution, 'Fake solution');
+    const translate = (key: string): string => ({
+      'I think the solution is:': 'Creo que la solución es:',
+      'Please, correct mistakes.': 'Por favor, corrige los errores.',
+    }[key] || key);
+
+    assert.equal(
+      formatGeneratedStageMessage(stage, '2 + 2 = 5.', translate),
+      'Creo que la solución es: 2 + 2 = 5. Por favor, corrige los errores.',
+    );
+  });
+
+  it('requests generated tutor prose in the current app language', (): void => {
+    const stage = nextStage(StageType.correct_fake_solution, 'Correct solution');
+    const prompt = generatedStagePrompt(skill, stage, studentExercise, { code: 'es', name: 'Spanish' });
+
+    assert.match(prompt, /app interface language/i);
+    assert.match(prompt, /Spanish \(es\)/i);
+  });
+
   it('tells the model to return only the fake-solution body', (): void => {
     const stage = nextStage(StageType.provide_fake_solution, 'Fake solution');
     const prompt = generatedStagePrompt(skill, stage, studentExercise);

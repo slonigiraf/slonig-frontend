@@ -29,6 +29,8 @@ export interface GeneratedImage {
 
 const DEFAULT_MODEL = 'openai/gpt-6-luna';
 const DEFAULT_TRANSCRIPTION_MODEL = 'openai/gpt-4o-mini-transcribe';
+const DEFAULT_SPEECH_MODEL = 'openai/gpt-4o-mini-tts-2025-12-15';
+const DEFAULT_SPEECH_VOICE = 'alloy';
 const DEFAULT_IMAGE_MODEL = 'openai/gpt-image-2';
 
 function extractJson(text: string, responseKind: 'message'): TutorMessageResponse;
@@ -251,6 +253,7 @@ export async function transcribeOpenRouter(
   settings: OpenRouterSettings,
   audio: Blob,
   signal?: AbortSignal,
+  language?: string,
 ): Promise<string> {
   const response = await fetch('https://openrouter.ai/api/v1/audio/transcriptions', {
     method: 'POST',
@@ -262,6 +265,7 @@ export async function transcribeOpenRouter(
         data: await blobToBase64(audio),
         format: audioFormatFromMime(audio.type),
       },
+      ...(language ? { language } : {}),
     }),
   });
 
@@ -269,6 +273,45 @@ export async function transcribeOpenRouter(
   const payload = await response.json() as { text?: string };
   if (!payload.text?.trim()) throw new Error('OpenRouter returned an empty audio transcription.');
   return payload.text.trim();
+}
+
+export async function synthesizeOpenRouterSpeech(
+  settings: OpenRouterSettings,
+  text: string,
+  signal?: AbortSignal,
+  voice = DEFAULT_SPEECH_VOICE,
+  languageName?: string,
+): Promise<Blob> {
+  const input = text.trim();
+  if (!input) throw new Error('Cannot synthesize empty tutor speech.');
+
+  const response = await fetch('https://openrouter.ai/api/v1/audio/speech', {
+    method: 'POST',
+    signal,
+    headers: headers(settings),
+    body: JSON.stringify({
+      model: DEFAULT_SPEECH_MODEL,
+      input,
+      voice,
+      response_format: 'mp3',
+      speed: 1,
+      provider: {
+        options: {
+          openai: {
+            instructions: [
+              'Speak naturally as a patient, encouraging tutor. Keep mathematical expressions clear and unhurried.',
+              languageName ? `Speak in ${languageName} throughout this utterance and do not switch languages.` : '',
+            ].filter(Boolean).join(' '),
+          },
+        },
+      },
+    }),
+  });
+
+  if (!response.ok) throw await responseError(response);
+  const bytes = await response.blob();
+  if (bytes.size === 0) throw new Error('OpenRouter returned empty speech audio.');
+  return bytes.type ? bytes : new Blob([bytes], { type: 'audio/mpeg' });
 }
 
 export async function generateOpenRouterImage(
@@ -298,4 +341,4 @@ export async function generateOpenRouterImage(
   };
 }
 
-export { DEFAULT_MODEL, DEFAULT_IMAGE_MODEL, DEFAULT_TRANSCRIPTION_MODEL };
+export { DEFAULT_MODEL, DEFAULT_IMAGE_MODEL, DEFAULT_SPEECH_MODEL, DEFAULT_SPEECH_VOICE, DEFAULT_TRANSCRIPTION_MODEL };
