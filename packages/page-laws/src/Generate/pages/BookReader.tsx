@@ -6520,7 +6520,9 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
       </div>
       <div
         aria-labelledby={`${activePane}-tab`}
-        className={`readerColumns${activePane === 'textConcepts' ? ' conceptColumns' : ''}`}
+        className={`readerColumns${activePane === 'textConcepts' ? ' conceptColumns' : ''}${
+          activePane === 'skillsCourse' ? ' courseColumns' : ''
+        }`}
         role='tabpanel'
       >
         {(activePane === 'pdf' || activePane === 'text' || activePane === 'chapters') && <div className='pageNavigation'>
@@ -6779,7 +6781,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
                           showPipeline={false}
                           view='preExercisesExercises'
                         /></div>
-                        : <SkillsCourse book={book} />}
+                        : <div className='courseArea'><SkillsCourse book={book} /></div>}
       </div>
     </StyledReader>
   );
@@ -6809,7 +6811,8 @@ const StyledReader = styled.div`
     min-height: 0;
   }
 
-  &.isMaximized .readerColumns.conceptColumns {
+  &.isMaximized .readerColumns.conceptColumns,
+  &.isMaximized .readerColumns.courseColumns {
     grid-template-rows: minmax(0, 1fr);
   }
 
@@ -6818,9 +6821,17 @@ const StyledReader = styled.div`
     min-height: 0;
   }
 
-  &.isMaximized .detailsArea, &.isMaximized .pageArea, &.isMaximized .skillsArea {
+  &.isMaximized .detailsArea,
+  &.isMaximized .pageArea,
+  &.isMaximized .skillsArea,
+  &.isMaximized .courseArea {
     height: 100%;
     min-height: 0;
+  }
+
+  &.isMaximized .courseArea {
+    overflow-y: auto;
+    overscroll-behavior: contain;
   }
 
   .pageNavigation {
@@ -7004,6 +7015,11 @@ const StyledReader = styled.div`
     height: var(--page-height, auto);
     min-width: 0;
     overflow: auto;
+  }
+
+  .courseArea {
+    grid-column: 1 / -1;
+    min-width: 0;
   }
 
   .pageArea canvas {
