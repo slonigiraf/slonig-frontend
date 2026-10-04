@@ -5,6 +5,7 @@ import type { Book, BookConcept, BookPage, Exercise } from '@slonigiraf/db';
 import { deleteAbilities, deleteBookConcept, deleteExercise, getBookConceptsForBookPage, getExercisesForBookPage } from '@slonigiraf/db';
 import { type MissingChapterConcept } from '../book/processing/concepts/fixConcepts.js';
 import { type FixConceptsChapterStatuses } from '../book/runtime/fixConceptsProgress.js';
+import type { BookProcessingCommand, PendingBookProcessingAction } from '../book/runtime/bookPipeline.js';
 import { conceptBelongsToChapter } from '../book/processing/chapters/refineChapters.js';
 import { stripMarkdownImageReferences } from '../book/processing/source/bookImageRefs.js';
 import { type ConceptChapterNavigationItem } from '../book/processing/concepts/conceptRecognition.js';
@@ -138,38 +139,26 @@ function exerciseForPageReplacement ({ conceptId, description, displayOrder, ima
 }
 
 interface Props {
-  ageTabRequest: number;
-  assignAllStandardsRequest: number;
-  embedAllConceptsRequest: number;
   autoRunAll?: boolean;
   autoRunStartKey?: string;
-  deduplicateAllConceptsRequest: number;
-  fixAllConceptsRequest: number;
-  fixOnlyFailedConcepts: boolean;
-  sortAllConceptsRequest: number;
-  refineAllChaptersRequest: number;
   book: Book;
   file: File;
   embeddingModel: string;
+  fixOnlyFailedConcepts: boolean;
   generateAllConceptsModel: string;
-  generateAllConceptsRequest: number;
   generateOnlyMissingConcepts: boolean;
-  identifyChaptersRequest: number;
-  languageTabRequest: number;
-  subjectTabRequest: number;
-  onBookChange: (book: Book) => void;
-  onAutoRunComplete?: () => void;
+  generateOnlyMissingExercises: boolean;
+  isPriceDisabled?: boolean;
   onAbortFastForward: () => void;
+  onAutoRunComplete?: () => void;
+  onBookChange: (book: Book) => void;
   onFastForward: (startKey: string) => void;
   onPrice: () => void;
   onProcessingComplete: () => void;
-  isPriceDisabled?: boolean;
-  pendingProcessingAction?: 'chapters' | 'concepts' | 'fixConcepts' | 'embeddings' | 'deduplicateConcepts' | 'sortConcepts' | 'refineChapters' | 'recognize' | 'standards' | 'exercises';
+  pendingProcessingAction?: PendingBookProcessingAction;
+  processingCommand?: BookProcessingCommand;
   processingToolbar: PipelineAction[];
   processingToolbarAfterFixImages?: PipelineAction[];
-  generateAllExercisesRequest: number;
-  generateOnlyMissingExercises: boolean;
-  recognizeAllRequest: number;
   standardsModel: string;
 }
 

@@ -1,7 +1,7 @@
 // Copyright 2021-2026 @polkadot/app-laws authors & contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import type { Book, BookPage, BookProcessingStageKey, BookStageSpendKey } from '@slonigiraf/db';
+import type { Book, BookPage, BookProcessingStageKey } from '@slonigiraf/db';
 import type { PDFDocumentProxy } from 'pdfjs-dist';
 
 import { createBook, deleteBook, getBook, getBookByContentHash, getBookConceptsForBookPage, getBookPages, getBooks, getConceptEmbeddings, getExercisesForBookPage, getSetting, getStandardEmbeddings, isBookProcessingStageComplete, resetBookProcessingStagesFrom, SettingKey, uncompleteBookProcessingStage, updateBookFields, updateBookFieldsAndStages } from '@slonigiraf/db';
@@ -21,8 +21,9 @@ import { conceptChaptersFromPages } from '../book/processing/concepts/conceptRec
 import { conceptDeduplicationInput, deduplicateConceptCandidates, deduplicateConceptsPrompt, type DeduplicateConceptInput } from '../book/processing/concepts/deduplicateConcepts.js';
 import { fixChapterConceptsPrompt } from '../book/processing/concepts/fixConcepts.js';
 import { conceptsForSortChapter, sortChapterConceptsPrompt } from '../book/processing/concepts/sortConcepts.js';
-import { conceptBelongsToChapter, conceptsForRefinementChapter, isRefineChaptersComplete, REFINE_CHAPTERS_SPEND_STAGE, refineChapterPrompt, sortConceptsByDisplayOrder, withRefineChaptersIncomplete } from '../book/processing/chapters/refineChapters.js';
+import { conceptBelongsToChapter, conceptsForRefinementChapter, isRefineChaptersComplete, refineChapterPrompt, sortConceptsByDisplayOrder, withRefineChaptersIncomplete } from '../book/processing/chapters/refineChapters.js';
 import { clearFixConceptsChapterStatuses, failedFixConceptChapterKeys, fixConceptsChapterKey } from '../book/runtime/fixConceptsProgress.js';
+import { BOOK_PRICE_STAGES, bookPipelineStageLabel, nextBookProcessingCommand, type BookProcessingCommand, type BookReaderCommandAction, type PendingBookProcessingAction } from '../book/runtime/bookPipeline.js';
 import { formatOpenRouterSpend } from '../../openrouter/cost.js';
 import { clearBookStageTimes, formatBookStageTime, loadBookStageTimes, type BookStageTimes } from '../book/runtime/bookStageTime.js';
 import { bookExternalCallTotal, clearBookExternalCalls, loadBookExternalCalls, type BookExternalCalls } from '../book/runtime/bookExternalCalls.js';
@@ -48,26 +49,7 @@ function combineAiEstimates (...estimates: AiInputEstimate[]): AiInputEstimate {
   }), { inputPriceUsd: 0, inputTokens: 0, outputPriceUsd: 0, outputTokens: 0, requests: 0, totalPriceUsd: 0 });
 }
 
-const PRICE_STAGES: Array<{ detail?: string; key: BookStageSpendKey; label: string }> = [
-  { key: 'recognize', label: 'Recognize' },
-  { key: 'language', label: 'Language' },
-  { key: 'subject', label: 'Subject' },
-  { key: 'age', label: 'Age' },
-  { key: 'chapters', label: 'Chapters' },
-  { key: 'concepts', label: 'Concepts' },
-  { key: 'fixConcepts', label: 'Fix concepts' },
-  { key: 'embeddings', label: 'Embedings' },
-  { key: 'deduplicateConcepts', label: 'Deduplicate concepts' },
-  { key: 'sortConcepts', label: 'Sort concepts' },
-  { key: REFINE_CHAPTERS_SPEND_STAGE, label: 'Refine chapters' },
-  { key: 'exercises', label: 'Exercises' },
-  { key: 'fixExercises', label: 'Fix exercises' },
-  { key: 'abilities', label: 'Abilities' },
-  { key: 'fixAbilities', label: 'Fix abilities' },
-  { key: 'images', label: 'Images' },
-  { key: 'fixImages', label: 'Fix images' },
-  { key: 'standards', label: 'Standards' }
-];
+const PRICE_STAGES = BOOK_PRICE_STAGES;
 
 function getSessionBookId (): number | undefined {
   try {
@@ -145,17 +127,10 @@ function Upload (): React.ReactElement {
   const [books, setBooks] = useState<Book[]>([]);
   const [error, setError] = useState('');
   const [isBusy, setIsBusy] = useState(false);
-  const [assignAllStandardsRequest, setAssignAllStandardsRequest] = useState(0);
-  const [fixAllConceptsRequest, setFixAllConceptsRequest] = useState(0);
-  const [embedAllConceptsRequest, setEmbedAllConceptsRequest] = useState(0);
-  const [deduplicateAllConceptsRequest, setDeduplicateAllConceptsRequest] = useState(0);
-  const [sortAllConceptsRequest, setSortAllConceptsRequest] = useState(0);
-  const [refineAllChaptersRequest, setRefineAllChaptersRequest] = useState(0);
-  const [generateAllConceptsRequest, setGenerateAllConceptsRequest] = useState(0);
-  const [languageTabRequest, setLanguageTabRequest] = useState(0);
-  const [subjectTabRequest, setSubjectTabRequest] = useState(0);
-  const [ageTabRequest, setAgeTabRequest] = useState(0);
-  const [identifyChaptersRequest, setIdentifyChaptersRequest] = useState(0);
+  const [processingCommand, setProcessingCommand] = useState<BookProcessingCommand>();
+  const requestProcessing = useCallback((action: BookReaderCommandAction): void => {
+    setProcessingCommand((current) => nextBookProcessingCommand(current, action));
+  }, []);
   const [identifyChaptersEstimate, setIdentifyChaptersEstimate] = useState<AiInputEstimate>();
   const [isIdentifyChaptersConfirmationOpen, setIsIdentifyChaptersConfirmationOpen] = useState(false);
   const [generateAllConceptsModel, setGenerateAllConceptsModel] = useState(DEFAULT_PROCESSING_MODEL);
@@ -188,14 +163,12 @@ function Upload (): React.ReactElement {
   const [isFastForwardRunning, setIsFastForwardRunning] = useState(false);
   const [fastForwardStartKey, setFastForwardStartKey] = useState<string>();
   const [fastForwardEstimate, setFastForwardEstimate] = useState<{ aiUsd: number; pageCount: number; recognitionUsd: number; remainingStages: number; totalUsd: number }>();
-  const [pendingProcessingAction, setPendingProcessingAction] = useState<'chapters' | 'concepts' | 'fixConcepts' | 'embeddings' | 'deduplicateConcepts' | 'sortConcepts' | 'refineChapters' | 'recognize' | 'standards' | 'exercises'>();
-  const [generateAllExercisesRequest, setGenerateAllExercisesRequest] = useState(0);
+  const [pendingProcessingAction, setPendingProcessingAction] = useState<PendingBookProcessingAction>();
   const [generateExercisesEstimate, setGenerateExercisesEstimate] = useState<AiInputEstimate>();
   const [generateOnlyMissingExercises, setGenerateOnlyMissingExercises] = useState(false);
   const [hasConceptsMissingExercise, setHasConceptsMissingExercise] = useState(false);
   const [recognizePageCount, setRecognizePageCount] = useState<number>();
   const [standardsEstimate, setStandardsEstimate] = useState<AiInputEstimate | string>();
-  const [recognizeAllRequest, setRecognizeAllRequest] = useState(0);
   const [readerFile, setReaderFile] = useState<File>();
   const [selectedId, setSelectedId] = useState<number | undefined>(getSessionBookId);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -546,12 +519,12 @@ function Upload (): React.ReactElement {
       }
 
       setBooks((current) => current.map((book) => book.id === resetBook.id ? resetBook : book));
-      setRecognizeAllRequest((request) => request + 1);
+      requestProcessing('recognize');
     }).catch(() => {
       setPendingProcessingAction(undefined);
       setError(t('Unable to reset recognition, language, subject, and age.'));
     });
-  }, [selectedBook, t]);
+  }, [requestProcessing, selectedBook, t]);
 
   const onShowLanguage = useCallback((): void => {
     if (!selectedBook || !isBookProcessingStageComplete(selectedBook, 'recognize')) {
@@ -559,8 +532,8 @@ function Upload (): React.ReactElement {
     }
 
     setError('');
-    setLanguageTabRequest((request) => request + 1);
-  }, [selectedBook]);
+    requestProcessing('language');
+  }, [requestProcessing, selectedBook]);
 
   const onShowSubject = useCallback((): void => {
     if (!selectedBook || !isBookProcessingStageComplete(selectedBook, 'recognize')) {
@@ -573,8 +546,8 @@ function Upload (): React.ReactElement {
     }
 
     setError('');
-    setSubjectTabRequest((request) => request + 1);
-  }, [selectedBook, t]);
+    requestProcessing('subject');
+  }, [requestProcessing, selectedBook, t]);
 
   const onShowAge = useCallback((): void => {
     if (!selectedBook || !isBookProcessingStageComplete(selectedBook, 'recognize')) {
@@ -592,8 +565,8 @@ function Upload (): React.ReactElement {
     }
 
     setError('');
-    setAgeTabRequest((request) => request + 1);
-  }, [selectedBook, t]);
+    requestProcessing('age');
+  }, [requestProcessing, selectedBook, t]);
 
   const onIdentifyChapters = useCallback((): void => {
     if (!selectedBook) {
@@ -666,12 +639,12 @@ function Upload (): React.ReactElement {
         setBooks((current) => current.map((book) => book.id === updatedBook.id ? updatedBook : book));
       }
 
-      setIdentifyChaptersRequest((request) => request + 1);
+      requestProcessing('chapters');
     }).catch(() => {
       setPendingProcessingAction(undefined);
       setError(t('Unable to reset the book processing stage.'));
     });
-  }, [selectedBook, t]);
+  }, [requestProcessing, selectedBook, t]);
 
   const onGenerateConcepts = useCallback((): void => {
     if (!selectedBook) {
@@ -847,12 +820,12 @@ function Upload (): React.ReactElement {
         setBooks((current) => current.map((book) => book.id === updatedBook.id ? updatedBook : book));
       }
 
-      setGenerateAllConceptsRequest((request) => request + 1);
+      requestProcessing('concepts');
     }).catch(() => {
       setPendingProcessingAction(undefined);
       setError(t('Unable to reset the book processing stage.'));
     });
-  }, [generateOnlyMissingConcepts, selectedBook, t]);
+  }, [generateOnlyMissingConcepts, requestProcessing, selectedBook, t]);
 
   const onFixConcepts = useCallback((): void => {
     if (!selectedBook) {
@@ -922,8 +895,8 @@ function Upload (): React.ReactElement {
     }
 
     setPendingProcessingAction('fixConcepts');
-    setFixAllConceptsRequest((request) => request + 1);
-  }, [selectedBook]);
+    requestProcessing('fixConcepts');
+  }, [requestProcessing, selectedBook]);
 
   const onEmbeddings = useCallback((): void => {
     if (!selectedBook) {
@@ -997,12 +970,12 @@ function Upload (): React.ReactElement {
         setBooks((current) => current.map((book) => book.id === updatedBook.id ? updatedBook : book));
       }
 
-      setEmbedAllConceptsRequest((request) => request + 1);
+      requestProcessing('embeddings');
     }).catch(() => {
       setPendingProcessingAction(undefined);
       setError(t('Unable to reset the book processing stage.'));
     });
-  }, [selectedBook, t]);
+  }, [requestProcessing, selectedBook, t]);
 
   const onDeduplicateConcepts = useCallback((): void => {
     if (!selectedBook) {
@@ -1078,8 +1051,8 @@ function Upload (): React.ReactElement {
     }
 
     setPendingProcessingAction('deduplicateConcepts');
-    setDeduplicateAllConceptsRequest((request) => request + 1);
-  }, [selectedBook]);
+    requestProcessing('deduplicateConcepts');
+  }, [requestProcessing, selectedBook]);
 
   const onSortConcepts = useCallback((): void => {
     if (!selectedBook) {
@@ -1149,13 +1122,13 @@ function Upload (): React.ReactElement {
         if (storedBook) {
           setBooks((current) => current.map((book) => book.id === storedBook.id ? storedBook : book));
         }
-        setSortAllConceptsRequest((request) => request + 1);
+        requestProcessing('sortConcepts');
       })
       .catch(() => {
         setPendingProcessingAction(undefined);
         setError(t('Unable to invalidate the Refine chapters stage before sorting.'));
       });
-  }, [selectedBook, t]);
+  }, [requestProcessing, selectedBook, t]);
 
   const onRefineChapters = useCallback((): void => {
     if (!selectedBook) {
@@ -1209,8 +1182,8 @@ function Upload (): React.ReactElement {
     }
 
     setPendingProcessingAction('refineChapters');
-    setRefineAllChaptersRequest((request) => request + 1);
-  }, [selectedBook]);
+    requestProcessing('refineChapters');
+  }, [requestProcessing, selectedBook]);
 
   const onAssignStandards = useCallback((): void => {
     if (!selectedBook) {
@@ -1371,12 +1344,12 @@ function Upload (): React.ReactElement {
         setBooks((current) => current.map((book) => book.id === updatedBook.id ? updatedBook : book));
       }
 
-      setAssignAllStandardsRequest((request) => request + 1);
+      requestProcessing('standards');
     }).catch(() => {
       setPendingProcessingAction(undefined);
       setError(t('Unable to reset the book processing stage.'));
     });
-  }, [selectedBook, t]);
+  }, [requestProcessing, selectedBook, t]);
 
   const onGenerateExercises = useCallback((): void => {
     if (!selectedBook) {
@@ -1487,12 +1460,12 @@ function Upload (): React.ReactElement {
         setBooks((current) => current.map((book) => book.id === updatedBook.id ? updatedBook : book));
       }
 
-      setGenerateAllExercisesRequest((request) => request + 1);
+      requestProcessing('exercises');
     }).catch(() => {
       setPendingProcessingAction(undefined);
       setError(t('Unable to reset the book processing stage.'));
     });
-  }, [generateOnlyMissingExercises, selectedBook, t]);
+  }, [generateOnlyMissingExercises, requestProcessing, selectedBook, t]);
 
   useEffect((): void => {
     if (!isFastForwardRunning) {
@@ -1634,13 +1607,13 @@ function Upload (): React.ReactElement {
                   </tr>
                 </thead>
                 <tbody>
-                  {PRICE_STAGES.map(({ detail, key, label }) => {
+                  {PRICE_STAGES.map(({ key, label }) => {
                     const value = priceBook?.stageSpend?.[key] ?? 0;
                     const elapsedMs = priceStageTimes[key] ?? 0;
                     const externalCalls = priceExternalCalls[key];
 
                     return <tr className={value === 0 && elapsedMs === 0 && bookExternalCallTotal(externalCalls) === 0 ? 'isZero' : undefined} key={key}>
-                      <th scope='row'>{t(label)}{detail && <small className='priceSource'>{detail}</small>}</th>
+                      <th scope='row'>{t(label)}</th>
                       <td className='priceCallsCell'>{bookExternalCallTotal(externalCalls).toLocaleString()}</td>
                       <td>{formatOpenRouterSpend(value)}</td>
                       <td>{formatBookStageTime(elapsedMs)}</td>
@@ -1885,27 +1858,16 @@ function Upload (): React.ReactElement {
       {selectedBook && readerFile && (
         <React.Suspense fallback={<p>{t('Loading PDF reader…')}</p>}>
           <BookReader
-            assignAllStandardsRequest={assignAllStandardsRequest}
             autoRunAll={isFastForwardRunning}
             autoRunStartKey={fastForwardStartKey}
             book={selectedBook}
-            deduplicateAllConceptsRequest={deduplicateAllConceptsRequest}
-            embedAllConceptsRequest={embedAllConceptsRequest}
             embeddingModel={embeddingModel}
-            fixAllConceptsRequest={fixAllConceptsRequest}
             fixOnlyFailedConcepts={fixOnlyFailedConcepts}
-            sortAllConceptsRequest={sortAllConceptsRequest}
-            refineAllChaptersRequest={refineAllChaptersRequest}
             key={selectedBook.id}
             file={readerFile}
             generateAllConceptsModel={generateAllConceptsModel}
-            languageTabRequest={languageTabRequest}
-            subjectTabRequest={subjectTabRequest}
             standardsModel={standardsModel}
-            ageTabRequest={ageTabRequest}
-            generateAllConceptsRequest={generateAllConceptsRequest}
             generateOnlyMissingConcepts={generateOnlyMissingConcepts}
-            identifyChaptersRequest={identifyChaptersRequest}
             isPriceDisabled={!selectedBook || isBusy || isFastForwardRunning}
             onAbortFastForward={abortFastForward}
             onAutoRunComplete={onFastForwardComplete}
@@ -1914,45 +1876,46 @@ function Upload (): React.ReactElement {
             onPrice={onPrice}
             onProcessingComplete={onProcessingComplete}
             pendingProcessingAction={pendingProcessingAction}
+            processingCommand={processingCommand}
             processingToolbar={[
               {
                 key: 'recognize',
-                label: t('Recognize'),
+                label: t(bookPipelineStageLabel('recognize')),
                 isDone: isBookProcessingStageComplete(selectedBook, 'recognize'),
                 isDisabled: !readerFile || isBusy,
                 onClick: onRecognize
               },
               {
                 key: 'language',
-                label: t('Language'),
+                label: t(bookPipelineStageLabel('language')),
                 isDone: isBookProcessingStageComplete(selectedBook, 'language'),
                 isDisabled: !readerFile || isBusy || !isBookProcessingStageComplete(selectedBook, 'recognize'),
                 onClick: onShowLanguage
               },
               {
                 key: 'subject',
-                label: t('Subject'),
+                label: t(bookPipelineStageLabel('subject')),
                 isDone: isBookProcessingStageComplete(selectedBook, 'subject'),
                 isDisabled: !readerFile || isBusy || !isBookProcessingStageComplete(selectedBook, 'language') || !selectedBook.language,
                 onClick: onShowSubject
               },
               {
                 key: 'age',
-                label: t('Age'),
+                label: t(bookPipelineStageLabel('age')),
                 isDone: isBookProcessingStageComplete(selectedBook, 'age'),
                 isDisabled: !readerFile || isBusy || !isBookProcessingStageComplete(selectedBook, 'subject') || !selectedBook.subject,
                 onClick: onShowAge
               },
               {
                 key: 'chapters',
-                label: t('Chapters'),
+                label: t(bookPipelineStageLabel('chapters')),
                 isDone: isBookProcessingStageComplete(selectedBook, 'chapters'),
                 isDisabled: !readerFile || isBusy || !isBookProcessingStageComplete(selectedBook, 'age'),
                 onClick: onIdentifyChapters
               },
               {
                 key: 'concepts',
-                label: t('Concepts'),
+                label: t(bookPipelineStageLabel('concepts')),
                 isDone: isBookProcessingStageComplete(selectedBook, 'concepts'),
                 isDisabled: !readerFile || isBusy || !isBookProcessingStageComplete(selectedBook, 'chapters') || !selectedBook.language || !selectedBook.subject,
                 onClick: onGenerateConcepts,
@@ -1960,42 +1923,42 @@ function Upload (): React.ReactElement {
               },
               {
                 key: 'fixConcepts',
-                label: t('Fix concepts'),
+                label: t(bookPipelineStageLabel('fixConcepts')),
                 isDone: isBookProcessingStageComplete(selectedBook, 'fixConcepts'),
                 isDisabled: !readerFile || isBusy || !isBookProcessingStageComplete(selectedBook, 'concepts') || !selectedBook.language || !selectedBook.subject || selectedBook.age === undefined,
                 onClick: onFixConcepts
               },
               {
                 key: 'embeddings',
-                label: t('Embedings'),
+                label: t(bookPipelineStageLabel('embeddings')),
                 isDone: isBookProcessingStageComplete(selectedBook, 'embeddings'),
                 isDisabled: !readerFile || isBusy || !isBookProcessingStageComplete(selectedBook, 'fixConcepts'),
                 onClick: onEmbeddings
               },
               {
                 key: 'deduplicateConcepts',
-                label: t('Deduplicate concepts'),
+                label: t(bookPipelineStageLabel('deduplicateConcepts')),
                 isDone: isBookProcessingStageComplete(selectedBook, 'deduplicateConcepts'),
                 isDisabled: !readerFile || isBusy || !isBookProcessingStageComplete(selectedBook, 'embeddings') || !selectedBook.language || !selectedBook.subject || selectedBook.age === undefined,
                 onClick: onDeduplicateConcepts
               },
               {
                 key: 'sortConcepts',
-                label: t('Sort concepts'),
+                label: t(bookPipelineStageLabel('sortConcepts')),
                 isDone: isBookProcessingStageComplete(selectedBook, 'sortConcepts'),
                 isDisabled: !readerFile || isBusy || !isBookProcessingStageComplete(selectedBook, 'deduplicateConcepts') || !selectedBook.language || !selectedBook.subject || selectedBook.age === undefined,
                 onClick: onSortConcepts
               },
               {
                 key: 'refineChapters',
-                label: t('Refine chapters'),
+                label: t(bookPipelineStageLabel('refineChapters')),
                 isDone: isBookProcessingStageComplete(selectedBook, 'sortConcepts') && isRefineChaptersComplete(selectedBook),
                 isDisabled: !readerFile || isBusy || !isBookProcessingStageComplete(selectedBook, 'sortConcepts') || !selectedBook.language || !selectedBook.subject || selectedBook.age === undefined,
                 onClick: onRefineChapters
               },
               {
                 key: 'exercises',
-                label: t('Exercises'),
+                label: t(bookPipelineStageLabel('exercises')),
                 isDone: isBookProcessingStageComplete(selectedBook, 'exercises'),
                 isDisabled: !readerFile || isBusy || !isRefineChaptersComplete(selectedBook) || !selectedBook.language || !selectedBook.subject,
                 onClick: onGenerateExercises,
@@ -2005,14 +1968,12 @@ function Upload (): React.ReactElement {
             processingToolbarAfterFixImages={[
               {
                 key: 'standards',
-                label: t('Standards'),
+                label: t(bookPipelineStageLabel('standards')),
                 isDone: isBookProcessingStageComplete(selectedBook, 'standards'),
                 isDisabled: !readerFile || isBusy || !isBookProcessingStageComplete(selectedBook, 'fixImages') || !isBookProcessingStageComplete(selectedBook, 'embeddings') || !selectedBook.language || !selectedBook.subject,
                 onClick: onAssignStandards
               }
             ]}
-            recognizeAllRequest={recognizeAllRequest}
-            generateAllExercisesRequest={generateAllExercisesRequest}
             generateOnlyMissingExercises={generateOnlyMissingExercises}
           />
         </React.Suspense>

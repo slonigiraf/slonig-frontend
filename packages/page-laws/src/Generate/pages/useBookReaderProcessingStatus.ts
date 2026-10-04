@@ -5,9 +5,8 @@ import type { BookStageSpendKey } from '@slonigiraf/db';
 import { useEffect, useState } from 'react';
 import { REFINE_CHAPTERS_SPEND_STAGE } from '../book/processing/chapters/refineChapters.js';
 import { useBookStageTimer } from '../book/runtime/bookStageTime.js';
+import type { PendingBookProcessingAction } from '../book/runtime/bookPipeline.js';
 import type { ProcessingStatus } from '../components/ProcessingPopup.js';
-
-type PendingProcessingAction = 'chapters' | 'concepts' | 'fixConcepts' | 'embeddings' | 'deduplicateConcepts' | 'sortConcepts' | 'refineChapters' | 'recognize' | 'standards' | 'exercises';
 
 interface UseBookReaderProcessingStatusOptions {
   autoRunAll: boolean;
@@ -37,7 +36,7 @@ interface UseBookReaderProcessingStatusOptions {
   isRefiningChapters: boolean;
   isSortingConcepts: boolean;
   openRouterSpent: number;
-  pendingProcessingAction?: PendingProcessingAction;
+  pendingProcessingAction?: PendingBookProcessingAction;
   processingPage?: number;
   recognizedPageCount: number;
   refinedChaptersChapterCount: number;
