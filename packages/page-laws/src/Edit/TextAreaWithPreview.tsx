@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { TextArea, Toggle, styled } from '@polkadot/react-components';
 import { useToggle } from '@polkadot/react-hooks';
 import { useTranslation } from '../translate.js';
-import { KatexSpan, FullWidthContainer } from '@slonigiraf/slonig-components';
+import { SpanWithTags, FullWidthContainer } from '@slonigiraf/slonig-components';
 import MillerLawComment from './MillerLawComment.js';
 
 interface Props {
@@ -31,7 +31,7 @@ const TextAreaWithPreview: React.FC<Props> = ({ children, className, isError, is
       {
         preview ?
           <FullWidthContainer>
-            <KatexSpan content={content} />
+            <SpanWithTags content={content} />
           </FullWidthContainer> :
           <>
             <TextArea

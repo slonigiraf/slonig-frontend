@@ -5,7 +5,7 @@ import type { Book, BookChapter, BookConcept, BookPage, BookProcessingStageKey, 
 import type { PDFDocumentLoadingTask, PDFDocumentProxy, RenderTask } from 'pdfjs-dist';
 
 import { addBookStageSpend, applyBookChapterRefinements, assignBookConceptsToChapters, assignBookPageChapter, completeBookProcessingStage, createBookConcept, deleteAbilities, deleteBookChapters, deleteBookConcept, deleteExercise, getAbilities, getBookChapters, getBookConceptsForBookPage, getBookPages, getExercisesForBookPage, getSetting, incrementBookFixConceptsAttempts, isBookProcessingStageComplete, mergeBookChapterWithPrevious, putBookPage, reorderBookConcepts, replaceAbilities, replaceBookChapterAssignments, replaceExercisesForBookPage, replaceParsedBookPageContent, SettingKey, splitBookChapterAtPage, storeSetting, updateBookChapterTitle, updateBookConcept, updateBookFieldsAndStages, withBookProcessingStagesResetFrom, withCompletedBookProcessingStage } from '@slonigiraf/db';
-import { Confirmation, KatexSpan, SelectableList } from '@slonigiraf/slonig-components';
+import { Confirmation, SpanWithTags, SelectableList } from '@slonigiraf/slonig-components';
 import { strFromU8, unzipSync } from 'fflate';
 import MathpixLoader from 'mathpix-markdown-it/lib/components/mathpix-loader/index.js';
 import MathpixMarkdown from 'mathpix-markdown-it/lib/components/mathpix-markdown/index.js';
@@ -223,14 +223,14 @@ function ConceptItem ({ chapterIndex: initialChapterIndex, chapters, concept, co
     onPointerUp={canReorder ? onReorderPointerUp : undefined}
     tabIndex={-1}
   >
-    <strong className='conceptDragTitle'><span className='conceptNumber'>{conceptNumber}.</span> <KatexSpan content={concept.title} /></strong>
+    <strong className='conceptDragTitle'><span className='conceptNumber'>{conceptNumber}.</span> <SpanWithTags content={concept.title} /></strong>
     {isDeleteConfirmationOpen && <Modal
       header='Delete concept'
       onClose={() => !isBusy && setIsDeleteConfirmationOpen(false)}
       size='small'
     >
       <Modal.Content>
-        <p>Delete <strong><KatexSpan content={concept.title} /></strong>?</p>
+        <p>Delete <strong><SpanWithTags content={concept.title} /></strong>?</p>
         <p>Exercises and abilities linked to this concept will also be deleted.</p>
         <Button.Group>
           <Button
@@ -307,7 +307,7 @@ function ConceptItem ({ chapterIndex: initialChapterIndex, chapters, concept, co
         className='conceptDragHandle'
         title='Drag to reorder'
       >⋮⋮</span>
-      <strong><span className='conceptNumber'>{conceptNumber}.</span> <KatexSpan content={concept.title} /></strong>
+      <strong><span className='conceptNumber'>{conceptNumber}.</span> <SpanWithTags content={concept.title} /></strong>
       <div className='conceptActions'>
         <Button
           className='conceptAiFixButton'
@@ -340,7 +340,7 @@ function ConceptItem ({ chapterIndex: initialChapterIndex, chapters, concept, co
         type='button'
       >{concept.manuallyAdded ? `Page ${firstPage}` : `Introduced at page ${firstPage}`}</button>}
     </div>
-    {concept.description && <p className='conceptDescription'><KatexSpan content={concept.description} /></p>}
+    {concept.description && <p className='conceptDescription'><SpanWithTags content={concept.description} /></p>}
   </li>;
 }
 
@@ -1052,7 +1052,7 @@ function EditableExerciseItem ({ exercise, onError, onFix, onSave }: { exercise:
 
   return <li className='exerciseItem'>
     <div className='exerciseHeading'>
-      <p><b>{t('Title:')} </b><KatexSpan content={exercise.title} /></p>
+      <p><b>{t('Title:')} </b><SpanWithTags content={exercise.title} /></p>
       <Button.Group>
         <Button
           icon='robot'
@@ -1068,10 +1068,10 @@ function EditableExerciseItem ({ exercise, onError, onFix, onSave }: { exercise:
         />
       </Button.Group>
     </div>
-    <p><b>{t('Question:')} </b>{description ? <KatexSpan content={description} /> : n_a}</p>
-    <p><b>{t('Question image:')} </b>{exercise.imageDescription ? <KatexSpan content={exercise.imageDescription} /> : n_a}</p>
-    <p><b>{t('Solution:')} </b>{exercise.solution ? <KatexSpan content={exercise.solution} /> : n_a}</p>
-    <p><b>{t('Answer image:')} </b>{exercise.solutionImageDescription ? <KatexSpan content={exercise.solutionImageDescription} /> : n_a}</p>
+    <p><b>{t('Question:')} </b>{description ? <SpanWithTags content={description} /> : n_a}</p>
+    <p><b>{t('Question image:')} </b>{exercise.imageDescription ? <SpanWithTags content={exercise.imageDescription} /> : n_a}</p>
+    <p><b>{t('Solution:')} </b>{exercise.solution ? <SpanWithTags content={exercise.solution} /> : n_a}</p>
+    <p><b>{t('Answer image:')} </b>{exercise.solutionImageDescription ? <SpanWithTags content={exercise.solutionImageDescription} /> : n_a}</p>
     {isEditing && <Modal
       header='Edit Exercise'
       onClose={closeEdit}
@@ -6139,8 +6139,8 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
                 key={conceptReferenceKey(concept)}
                 tabIndex={-1}
               >
-                <h4><span className='conceptExerciseRank'>{conceptIndex + 1}.</span> <KatexSpan content={concept.title} /></h4>
-                {concept.description && <p><KatexSpan content={concept.description} /></p>}
+                <h4><span className='conceptExerciseRank'>{conceptIndex + 1}.</span> <SpanWithTags content={concept.title} /></h4>
+                {concept.description && <p><SpanWithTags content={concept.description} /></p>}
                 {generated.length ? <ul>{generated.map(exerciseItem)}</ul> : <p className='emptyOutput'>No generated exercises for this concept.</p>}
               </section>;
             })}
@@ -6159,13 +6159,13 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
 
     return <div className='fixConceptsReviewCard'>
       <div className='fixConceptsReviewConceptHeading'>
-        <strong><span className='conceptNumber'>{conceptNumber}.</span> <KatexSpan content={concept.title} /></strong>
+        <strong><span className='conceptNumber'>{conceptNumber}.</span> <SpanWithTags content={concept.title} /></strong>
         {(displayPage !== undefined || action) && <span className='fixConceptsReviewMeta'>
           {displayPage !== undefined && <span className='fixConceptsReviewPage'>Page {displayPage}</span>}
           {action}
         </span>}
       </div>
-      {concept.description && <p><KatexSpan content={concept.description} /></p>}
+      {concept.description && <p><SpanWithTags content={concept.description} /></p>}
     </div>;
   };
   const fixConceptsReviewRows = (reviewChapter: FixConceptsReviewChapter): React.ReactNode => {
@@ -6224,7 +6224,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
           <span className='fixConceptsReviewChangeLabel'>After</span>
           <div className='fixConceptsReviewCard isProposed'>
             <div className='fixConceptsReviewConceptHeading'>
-              <strong><span className='conceptNumber'>{reviewChapter.before.length + missingIndex + 1}.</span> <KatexSpan content={concept.title} /></strong>
+              <strong><span className='conceptNumber'>{reviewChapter.before.length + missingIndex + 1}.</span> <SpanWithTags content={concept.title} /></strong>
               <span className='fixConceptsReviewMeta'>
                 <span className='fixConceptsReviewProposed'>Proposed</span>
                 <span className='fixConceptsReviewPage'>Page {concept.pageNumber}</span>
@@ -6236,7 +6236,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
                 />
               </span>
             </div>
-            <p><KatexSpan content={concept.description} /></p>
+            <p><SpanWithTags content={concept.description} /></p>
           </div>
         </div>
       </div>)}
@@ -6245,14 +6245,14 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
   const selectedDeduplicateConceptPairs = deduplicateConceptsReview?.pairs.filter(({ selected }) => selected) ?? [];
   const deduplicateConceptCard = (concept: BookConcept, chapterId: number, chapterTitle: string, action?: React.ReactNode): React.ReactNode => <div className='fixConceptsReviewCard'>
     <div className='fixConceptsReviewConceptHeading'>
-      <strong><KatexSpan content={concept.title} /></strong>
+      <strong><SpanWithTags content={concept.title} /></strong>
       <span className='fixConceptsReviewMeta'>
         <span className='fixConceptsReviewPage'>Chapter {chapterId}</span>
         {action}
       </span>
     </div>
     <p><strong>{chapterTitle || 'Untitled chapter'}</strong>{conceptDisplayPage(concept) !== undefined ? ` — page ${conceptDisplayPage(concept)}` : ''}</p>
-    {concept.description && <p><KatexSpan content={concept.description} /></p>}
+    {concept.description && <p><SpanWithTags content={concept.description} /></p>}
   </div>;
 
   const processingTotal = isDetectingBookLanguage || isDetectingBookSubject || isDetectingBookAge || processingPage !== undefined || isEmbeddingConcepts || pendingProcessingAction === 'embeddings' || isDeduplicatingConcepts || pendingProcessingAction === 'deduplicateConcepts'
@@ -6475,7 +6475,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
                 ? <>
                   <p>{selectedDeduplicateConceptPairs.length} duplicate concept{selectedDeduplicateConceptPairs.length === 1 ? '' : 's'} selected for deletion. Use Keep above to exclude any proposed deletion.</p>
                   <h4>Remove</h4>
-                  <ul>{selectedDeduplicateConceptPairs.map(({ deleted, deletedChapterId }) => <li key={`deduplicate-remove-${conceptReferenceKey(deleted)}`}><strong><KatexSpan content={deleted.title} /></strong> — chapter {deletedChapterId}{conceptDisplayPage(deleted) !== undefined ? `, page ${conceptDisplayPage(deleted)}` : ''}</li>)}</ul>
+                  <ul>{selectedDeduplicateConceptPairs.map(({ deleted, deletedChapterId }) => <li key={`deduplicate-remove-${conceptReferenceKey(deleted)}`}><strong><SpanWithTags content={deleted.title} /></strong> — chapter {deletedChapterId}{conceptDisplayPage(deleted) !== undefined ? `, page ${conceptDisplayPage(deleted)}` : ''}</li>)}</ul>
                 </>
                 : <p>No deletions are selected. Applying will still mark the Deduplicate concepts stage complete.</p>}
             </section>
@@ -6527,11 +6527,11 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
                 <p>{currentFixConceptsReviewChapter.missing.length} concept{currentFixConceptsReviewChapter.missing.length === 1 ? '' : 's'} selected to add and {currentFixConceptsReviewChapter.removed.length} existing concept{currentFixConceptsReviewChapter.removed.length === 1 ? '' : 's'} selected to remove. Use Remove/Delete or Keep above to adjust the final changes before saving.</p>
                 {!!currentFixConceptsReviewChapter.missing.length && <>
                   <h4>Add</h4>
-                  <ul>{currentFixConceptsReviewChapter.missing.map((concept) => <li key={`add-${concept.pageNumber}-${concept.title}`}><strong><KatexSpan content={concept.title} /></strong> — page {concept.pageNumber}</li>)}</ul>
+                  <ul>{currentFixConceptsReviewChapter.missing.map((concept) => <li key={`add-${concept.pageNumber}-${concept.title}`}><strong><SpanWithTags content={concept.title} /></strong> — page {concept.pageNumber}</li>)}</ul>
                 </>}
                 {!!currentFixConceptsReviewChapter.removed.length && <>
                   <h4>Remove</h4>
-                  <ul>{currentFixConceptsReviewChapter.removed.map((concept) => <li key={`remove-${conceptReferenceKey(concept)}`}><strong><KatexSpan content={concept.title} /></strong>{conceptDisplayPage(concept) !== undefined ? ` — page ${conceptDisplayPage(concept)}` : ''}</li>)}</ul>
+                  <ul>{currentFixConceptsReviewChapter.removed.map((concept) => <li key={`remove-${conceptReferenceKey(concept)}`}><strong><SpanWithTags content={concept.title} /></strong>{conceptDisplayPage(concept) !== undefined ? ` — page ${conceptDisplayPage(concept)}` : ''}</li>)}</ul>
                 </>}
               </>
               : <p>No changes are proposed for this chapter. You can still mark an existing concept for deletion if it does not belong here.</p>}

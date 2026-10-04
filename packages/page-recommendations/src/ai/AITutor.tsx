@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Button, Input, LinearProgress, Modal, Spinner, styled } from '@polkadot/react-components';
 import { setAppLanguage } from '@polkadot/react-components/i18n';
-import { Bubble, Confirmation, FullFindow, getIPFSDataFromContentID, KatexSpan, loadFromSessionStorage, parseJson, ResizableImage, saveToSessionStorage, TikzEditor, useIpfsContext, useSettingValue, VerticalCenterItemsContainer } from '@slonigiraf/slonig-components';
+import { Bubble, Confirmation, FullFindow, getIPFSDataFromContentID, SpanWithTags, loadFromSessionStorage, parseJson, ResizableImage, saveToSessionStorage, TikzEditor, useIpfsContext, useSettingValue, VerticalCenterItemsContainer } from '@slonigiraf/slonig-components';
 import { clearAiTutorGeneratedStageTexts, clearAiTutorStudentMessages, clearAiTutorTutorStageMessages, deleteAiTutorStudentMessage, getAiTutorStudentMessage, getAiTutorTutorStageMessage, getSetting, putAiTutorCurrentStageType, putAiTutorGeneratedStageText, putAiTutorStudentExercise, putAiTutorStudentMessage, putAiTutorTutorStageMessage, putAiTutorVisualDraft, SettingKey, storeSetting } from '@slonigiraf/db';
 import type { AiTutorStudentMessage } from '@slonigiraf/db';
 import type { ModelSelectorRenderer } from './modelSelector.js';
@@ -2443,7 +2443,7 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
   const tutorErrorMessage = error ? <TutorUnblurredMessage data-ai-tutor-hint='error' role='alert' aria-live='assertive'>
     <TutorUnblurredBubble>
       <MessageRole>{t('AI Tutor')}</MessageRole>
-      <MessageBody><KatexSpan content={error} /></MessageBody>
+      <MessageBody><SpanWithTags content={error} /></MessageBody>
     </TutorUnblurredBubble>
   </TutorUnblurredMessage> : null;
 
@@ -2459,7 +2459,7 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
           <CloseButton onClick={onClose} icon='close' />
           <Spacer />
         </Progress>
-        {skill && <CurrentSkillLabel><KatexSpan content={skill.title}/></CurrentSkillLabel>}
+        {skill && <CurrentSkillLabel><SpanWithTags content={skill.title}/></CurrentSkillLabel>}
         <Pane>
           {isOpenRouterKeyLoaded && !openRouterKey && <KeySettings><Button label={t('Set OpenRouter key')} onClick={() => setKeyDialogOpen(true)} /></KeySettings>}
           {!skill && error && <Conversation>{tutorErrorMessage}</Conversation>}
@@ -2473,7 +2473,7 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
               {lastStudentMessage && <StudentMessage className='history-blurrable'>
                 <StudentBubble>
                   <MessageRole>{t('You')}</MessageRole>
-                  {lastStudentMessage.text && <MessageBody><KatexSpan content={lastStudentMessage.text} /></MessageBody>}
+                  {lastStudentMessage.text && <MessageBody><SpanWithTags content={lastStudentMessage.text} /></MessageBody>}
                   {(lastStudentMessage.attachments.length > 0 || lastStudentMessage.hasAudio || lastStudentMessage.tikz) && <SentMedia>
                     {lastStudentMessage.attachments.map((attachment) => attachment.kind === 'image'
                       ? <SentImage key={attachment.id} src={attachment.dataUrl} alt={attachment.name} title={attachment.name} />
@@ -2498,7 +2498,7 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
                 <TutorBubble className={isTypingReply ? 'is-replying' : ''}>
                   <MessageRole>{t('AI Tutor')}</MessageRole>
                   {renderedTutorMessageParts.map((part, index) => {
-                    if (part.type !== 'tikz') return <MessageBody key={`tutor-text-${index}`}><KatexSpan content={part.value} /></MessageBody>;
+                    if (part.type !== 'tikz') return <MessageBody key={`tutor-text-${index}`}><SpanWithTags content={part.value} /></MessageBody>;
 
                     const occurrence = renderedTutorMessageParts
                       .slice(0, index)
@@ -2528,7 +2528,7 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
               {!loading && tutorValidationMessage && <TutorUnblurredMessage data-ai-tutor-hint='validation' role='status' aria-live='polite'>
                 <TutorUnblurredBubble>
                   <MessageRole>{t('AI Tutor')}</MessageRole>
-                  <MessageBody><KatexSpan content={tutorValidationMessage} /></MessageBody>
+                  <MessageBody><SpanWithTags content={tutorValidationMessage} /></MessageBody>
                 </TutorUnblurredBubble>
               </TutorUnblurredMessage>}
               {tutorErrorMessage}

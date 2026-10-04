@@ -323,7 +323,7 @@ function skillHasSolutionImage(skill: AiSkill): boolean {
 }
 
 const GENERATED_MESSAGE_KATEX_REQUIREMENTS = String.raw`KaTeX formatting requirements for the returned message:
-- The message is rendered directly with KatexSpan. Surround every mathematical formula or expression with <kx>...</kx>. Do not use \(...\), \[...\], $...$, or $$...$$ delimiters.
+- The message is rendered directly with SpanWithTags. Surround every mathematical formula or expression with <kx>...</kx>. Do not use \(...\), \[...\], $...$, or $$...$$ delimiters.
 - Every learner-facing numeric literal that is mathematical content must also be inside <kx>...</kx>, including standalone numbers used in an explanation.
 - Write fractions with LaTeX fraction notation \frac{a}{b}, never slash notation such as a/b when expressing a mathematical fraction.
 - Because message is a JSON string, escape every LaTeX backslash so the JSON returned by the server is valid. For example, the JSON source must contain <kx>\\frac{1}{3}</kx> so the parsed message contains <kx>\frac{1}{3}</kx>.

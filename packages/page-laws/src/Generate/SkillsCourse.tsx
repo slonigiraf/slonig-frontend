@@ -10,7 +10,7 @@ import type { GeneratedAbility } from '../abilities.js';
 import { prepareAbilityForPublishing } from '../abilities.js';
 
 import { deleteAbility, getAbilities, getBookChapters, getBookConceptsForBookPage, getBookPages, getExercisesForBookPage, getSetting, hydrateAbilityContent, putBookChapter, SettingKey, storeAbility, updateBookChapterTitle, updateBookFields } from '@slonigiraf/db';
-import { digestFromCIDv1, getCIDFromBytes, getIPFSContentIDAndPinIt, getIPFSContentIDForBytesAndPinIt, getIPFSDataFromContentID, KatexSpan, LawType, parseJson, useInfo, useIpfsContext, useLoginContext } from '@slonigiraf/slonig-components';
+import { digestFromCIDv1, getCIDFromBytes, getIPFSContentIDAndPinIt, getIPFSContentIDForBytesAndPinIt, getIPFSDataFromContentID, SpanWithTags, LawType, parseJson, useInfo, useIpfsContext, useLoginContext } from '@slonigiraf/slonig-components';
 import BN from 'bn.js';
 import { useLiveQuery } from 'dexie-react-hooks';
 import OpenAI from 'openai';
@@ -185,7 +185,7 @@ function TemplateRowView ({ dragKey, isDraggingDisabled, isPublished, isPublishi
         title='Drag to reorder or move to another chapter'
       >⋮⋮</span>
       <div>
-        <strong><KatexSpan content={row.template.h} /></strong>
+        <strong><SpanWithTags content={row.template.h} /></strong>
         {isPublished && <small>published</small>}
       </div>
     </div>

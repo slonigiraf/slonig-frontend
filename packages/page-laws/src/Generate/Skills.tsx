@@ -7,7 +7,7 @@ import type { AbilityWorkflowJsonRunner, ExerciseAbilityConversion } from './abi
 import type { AbilityEmbeddingValidationHint } from './abilityEmbeddingValidation.js';
 
 import { addBookStageSpend, completeBookProcessingStage, deleteAbilities, deleteAbility, deleteBookConcept, deleteExercise, deleteSkill, getAbilities, getBookChapters, getBookCompletedStages, getBookConceptsForBookPage, getBookPages, getExercisesForBookPage, getSetting, getSkillsForChapter, getImage, hydrateAbilityContent, putImage, replaceAbilities, replaceExercisesForBookPage, replaceSkillsForChapter, resetBookProcessingStagesFrom, SettingKey, storeAbility, updateBookChapterTitle } from '@slonigiraf/db';
-import { KatexSpan } from '@slonigiraf/slonig-components';
+import { SpanWithTags } from '@slonigiraf/slonig-components';
 import OpenAI from 'openai';
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 
@@ -848,11 +848,11 @@ function BookItem ({ description, id, imageDescription, onDelete, onDeleted, onE
   }, [id, onError, onFix]);
 
   return <article className='contentCard' tabIndex={-1}>
-    <strong>{rank !== undefined && <span>{rank}. </span>}<KatexSpan content={title} /></strong>
-    {description && <p><KatexSpan content={description} /></p>}
-    {imageDescription && <p><small>Required visual: <KatexSpan content={imageDescription} /></small></p>}
-    {solution && <p><KatexSpan content={solution} /></p>}
-    {solutionImageDescription && <p><small>Solution visual: <KatexSpan content={solutionImageDescription} /></small></p>}
+    <strong>{rank !== undefined && <span>{rank}. </span>}<SpanWithTags content={title} /></strong>
+    {description && <p><SpanWithTags content={description} /></p>}
+    {imageDescription && <p><small>Required visual: <SpanWithTags content={imageDescription} /></small></p>}
+    {solution && <p><SpanWithTags content={solution} /></p>}
+    {solutionImageDescription && <p><small>Solution visual: <SpanWithTags content={solutionImageDescription} /></small></p>}
     <div className='contentCardActions'>
       {type === 'exercise' && onFix && <Button
         icon='robot'
@@ -954,8 +954,8 @@ function SkillCard ({ bookId, onDeleted, onError, skill }: { bookId: number; onD
   }, [bookId, onDeleted, onError, skill.id]);
 
   return <article className='contentCard' tabIndex={-1}>
-    <strong><KatexSpan content={skill.title} /></strong>
-    {skill.description && <p><KatexSpan content={skill.description} /></p>}
+    <strong><SpanWithTags content={skill.title} /></strong>
+    {skill.description && <p><SpanWithTags content={skill.description} /></p>}
     <Button
       icon='trash'
       onClick={remove}
@@ -1076,7 +1076,7 @@ function AbilityCard ({ onDeleted, onError, onFix, record }: { onDeleted: () => 
   return <article className='contentCard' tabIndex={-1}>
     {record.ability
       ? <>
-        <strong><KatexSpan content={record.ability.h} /></strong>
+        <strong><SpanWithTags content={record.ability.h} /></strong>
         <ExerciseList
           areShownInitially
           exercises={record.ability.q}
@@ -1215,23 +1215,23 @@ function AbilityCard ({ onDeleted, onError, onFix, record }: { onDeleted: () => 
 function ExerciseReviewCard ({ exercise, isProposed = false }: { exercise: Exercise; isProposed?: boolean }): React.ReactElement {
   return <div className={`fixResultsReviewCard${isProposed ? ' isProposed' : ''}`}>
     <div className='fixResultsReviewHeading'>
-      <strong><KatexSpan content={exercise.title} /></strong>
+      <strong><SpanWithTags content={exercise.title} /></strong>
       <span className='fixResultsReviewMeta'>
         {isProposed && <span className='fixResultsReviewProposed'>Proposed</span>}
         {exercise.id !== undefined && <span className='fixResultsReviewId'>ID {exercise.id}</span>}
       </span>
     </div>
-    <p><KatexSpan content={stripMarkdownImageReferences(exercise.description)} /></p>
-    {exercise.imageDescription && <p><small>Required visual: <KatexSpan content={exercise.imageDescription} /></small></p>}
-    {exercise.solution && <div className='solution'><KatexSpan content={exercise.solution} /></div>}
-    {exercise.solutionImageDescription && <p><small>Solution visual: <KatexSpan content={exercise.solutionImageDescription} /></small></p>}
+    <p><SpanWithTags content={stripMarkdownImageReferences(exercise.description)} /></p>
+    {exercise.imageDescription && <p><small>Required visual: <SpanWithTags content={exercise.imageDescription} /></small></p>}
+    {exercise.solution && <div className='solution'><SpanWithTags content={exercise.solution} /></div>}
+    {exercise.solutionImageDescription && <p><small>Solution visual: <SpanWithTags content={exercise.solutionImageDescription} /></small></p>}
   </div>;
 }
 
 function AbilityReviewCard ({ ability, content, isProposed = false }: { ability: GeneratedAbility | null; content?: string; isProposed?: boolean }): React.ReactElement {
   return <div className={`fixResultsReviewCard${isProposed ? ' isProposed' : ''}`}>
     <div className='fixResultsReviewHeading'>
-      <strong>{ability ? <KatexSpan content={ability.h} /> : 'Invalid Ability JSON'}</strong>
+      <strong>{ability ? <SpanWithTags content={ability.h} /> : 'Invalid Ability JSON'}</strong>
       {isProposed && <span className='fixResultsReviewMeta'><span className='fixResultsReviewProposed'>Proposed</span></span>}
     </div>
     {ability
@@ -3244,7 +3244,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalAutoRunBus
                 className='fixResultsReviewItem'
                 key={exerciseId}
               >
-                <strong>{index + 1}. <KatexSpan content={original.title} /></strong>
+                <strong>{index + 1}. <SpanWithTags content={original.title} /></strong>
                 <div className='fixResultsReviewRow'>
                   <div className='fixResultsReviewCell'>
                     <span className='fixResultsReviewChangeLabel'>Before</span>
@@ -3261,7 +3261,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalAutoRunBus
                 <section className='fixResultsDifference'>
                   <h3>Difference</h3>
                   {errors.length
-                    ? <ul>{errors.map((message, errorIndex) => <li key={`${exerciseId}-${errorIndex}`}><KatexSpan content={message} /></li>)}</ul>
+                    ? <ul>{errors.map((message, errorIndex) => <li key={`${exerciseId}-${errorIndex}`}><SpanWithTags content={message} /></li>)}</ul>
                     : <p>This Exercise will be replaced by the proposed correction shown above.</p>}
                 </section>
               </article>)}
@@ -3269,8 +3269,8 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalAutoRunBus
                 className='fixResultsReviewItem'
                 key={deleted.id ?? `deleted-${duplicateIndex}`}
               >
-                <strong>{exerciseFixReview.items.length + duplicateIndex + 1}. <KatexSpan content={deleted.title} /> — duplicate deletion</strong>
-                <p className='fixResultsReviewContext'><small>Chapter: <KatexSpan content={chapterTitle} /> · Keeping: <KatexSpan content={kept.title} /></small></p>
+                <strong>{exerciseFixReview.items.length + duplicateIndex + 1}. <SpanWithTags content={deleted.title} /> — duplicate deletion</strong>
+                <p className='fixResultsReviewContext'><small>Chapter: <SpanWithTags content={chapterTitle} /> · Keeping: <SpanWithTags content={kept.title} /></small></p>
                 <div className='fixResultsReviewRow'>
                   <div className='fixResultsReviewCell'>
                     <span className='fixResultsReviewChangeLabel'>Before</span>
@@ -3283,7 +3283,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalAutoRunBus
                 </div>
                 <section className='fixResultsDifference'>
                   <h3>Difference</h3>
-                  <p><strong><KatexSpan content={deleted.title} /></strong> will be deleted as a duplicate; <KatexSpan content={kept.title} /> will be kept.</p>
+                  <p><strong><SpanWithTags content={deleted.title} /></strong> will be deleted as a duplicate; <SpanWithTags content={kept.title} /> will be kept.</p>
                 </section>
               </article>)}
             </div>}
@@ -3322,8 +3322,8 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalAutoRunBus
                 className='fixResultsReviewItem'
                 key={recordId}
               >
-                <strong>{index + 1}. {record.ability ? <KatexSpan content={record.ability.h} /> : <KatexSpan content={ability.h} />}</strong>
-                {exerciseTitle && <p className='fixResultsReviewContext'><small>Exercise: <KatexSpan content={exerciseTitle} /></small></p>}
+                <strong>{index + 1}. {record.ability ? <SpanWithTags content={record.ability.h} /> : <SpanWithTags content={ability.h} />}</strong>
+                {exerciseTitle && <p className='fixResultsReviewContext'><small>Exercise: <SpanWithTags content={exerciseTitle} /></small></p>}
                 <div className='fixResultsReviewRow'>
                   <div className='fixResultsReviewCell'>
                     <span className='fixResultsReviewChangeLabel'>Before</span>
@@ -3343,7 +3343,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalAutoRunBus
                 <section className='fixResultsDifference'>
                   <h3>Difference</h3>
                   {errors.length
-                    ? <ul>{errors.map((message, errorIndex) => <li key={`${recordId}-${errorIndex}`}><KatexSpan content={message} /></li>)}</ul>
+                    ? <ul>{errors.map((message, errorIndex) => <li key={`${recordId}-${errorIndex}`}><SpanWithTags content={message} /></li>)}</ul>
                     : <p>This Ability will be replaced by the proposed correction shown above.</p>}
                 </section>
               </article>)}
@@ -3351,8 +3351,8 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalAutoRunBus
                 className='fixResultsReviewItem'
                 key={deleted.id}
               >
-                <strong>{fixReview.items.length + duplicateIndex + 1}. {deleted.ability ? <KatexSpan content={deleted.ability.h} /> : 'Invalid Ability JSON'} — duplicate deletion</strong>
-                <p className='fixResultsReviewContext'><small>Chapter: <KatexSpan content={chapterTitle} />{deletedExerciseTitle && <> · Exercise: <KatexSpan content={deletedExerciseTitle} /></>}{deletedConceptTitle && <> · Concept: <KatexSpan content={deletedConceptTitle} /></>}{keptExerciseTitle && <> · Keeping Ability for: <KatexSpan content={keptExerciseTitle} /></>}</small></p>
+                <strong>{fixReview.items.length + duplicateIndex + 1}. {deleted.ability ? <SpanWithTags content={deleted.ability.h} /> : 'Invalid Ability JSON'} — duplicate deletion</strong>
+                <p className='fixResultsReviewContext'><small>Chapter: <SpanWithTags content={chapterTitle} />{deletedExerciseTitle && <> · Exercise: <SpanWithTags content={deletedExerciseTitle} /></>}{deletedConceptTitle && <> · Concept: <SpanWithTags content={deletedConceptTitle} /></>}{keptExerciseTitle && <> · Keeping Ability for: <SpanWithTags content={keptExerciseTitle} /></>}</small></p>
                 <div className='fixResultsReviewRow'>
                   <div className='fixResultsReviewCell'>
                     <span className='fixResultsReviewChangeLabel'>Before</span>
@@ -3368,7 +3368,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalAutoRunBus
                 </div>
                 <section className='fixResultsDifference'>
                   <h3>Difference</h3>
-                  <p>{deleted.ability ? <strong><KatexSpan content={deleted.ability.h} /></strong> : <strong>Invalid Ability JSON</strong>} will be deleted as a duplicate{deletedExerciseTitle ? <> together with source Exercise <KatexSpan content={deletedExerciseTitle} /></> : null}{deletedConceptTitle ? <> and linked Concept <KatexSpan content={deletedConceptTitle} /></> : null}{keptExerciseTitle ? <>; the Ability for <KatexSpan content={keptExerciseTitle} /> will be kept</> : null}.</p>
+                  <p>{deleted.ability ? <strong><SpanWithTags content={deleted.ability.h} /></strong> : <strong>Invalid Ability JSON</strong>} will be deleted as a duplicate{deletedExerciseTitle ? <> together with source Exercise <SpanWithTags content={deletedExerciseTitle} /></> : null}{deletedConceptTitle ? <> and linked Concept <SpanWithTags content={deletedConceptTitle} /></> : null}{keptExerciseTitle ? <>; the Ability for <SpanWithTags content={keptExerciseTitle} /> will be kept</> : null}.</p>
                 </section>
               </article>)}
             </div>}
@@ -3411,9 +3411,9 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalAutoRunBus
                   className='fixResultsReviewItem'
                   key={`${record.id}-${exerciseIndex}-${field}`}
                 >
-                  <strong>{index + 1}. {record.ability?.h ? <KatexSpan content={record.ability.h} /> : 'Ability'} — exercise {exerciseIndex + 1} {role.toLowerCase()} visual</strong>
-                  {exercise && <p className='fixResultsReviewContext'><small>Exercise: <KatexSpan content={exercise.h} /></small></p>}
-                  {prompt && <p className='fixResultsReviewContext'><small>Original visual prompt: <KatexSpan content={prompt} /></small></p>}
+                  <strong>{index + 1}. {record.ability?.h ? <SpanWithTags content={record.ability.h} /> : 'Ability'} — exercise {exerciseIndex + 1} {role.toLowerCase()} visual</strong>
+                  {exercise && <p className='fixResultsReviewContext'><small>Exercise: <SpanWithTags content={exercise.h} /></small></p>}
+                  {prompt && <p className='fixResultsReviewContext'><small>Original visual prompt: <SpanWithTags content={prompt} /></small></p>}
                   <div className='fixResultsReviewRow'>
                     <div className='fixResultsReviewCell'>
                       <span className='fixResultsReviewChangeLabel'>Before</span>
@@ -3446,7 +3446,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalAutoRunBus
                   <section className='fixResultsDifference'>
                     <h3>Difference</h3>
                     {errors.length
-                      ? <ul>{errors.map((message, errorIndex) => <li key={`${record.id}-${exerciseIndex}-${field}-${errorIndex}`}><KatexSpan content={message} /></li>)}</ul>
+                      ? <ul>{errors.map((message, errorIndex) => <li key={`${record.id}-${exerciseIndex}-${field}-${errorIndex}`}><SpanWithTags content={message} /></li>)}</ul>
                       : <p>The {role.toLowerCase()} TikZ source will be replaced by the proposed correction shown above.</p>}
                   </section>
                 </article>;

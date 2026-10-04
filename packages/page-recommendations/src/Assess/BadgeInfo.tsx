@@ -7,7 +7,7 @@ import UseInsurance from './UseInsurance.js'
 import { useTranslation } from '../translate.js';
 import { Badge, Insurance, LetterTemplate } from '@slonigiraf/db';
 import { useToggle } from '@polkadot/react-hooks';
-import { KatexSpan, getIPFSDataFromContentID, parseJson, useLog } from '@slonigiraf/slonig-components';
+import { SpanWithTags, getIPFSDataFromContentID, parseJson, useLog } from '@slonigiraf/slonig-components';
 import { useIpfsContext } from '@slonigiraf/slonig-components';
 import { ExerciseList } from '@slonigiraf/app-laws';
 
@@ -67,7 +67,7 @@ function BadgeInfo({ className = '', badge, isSelected, onToggleSelection, isSel
     }
   }, [areDetailsOpen, skillName, badge, logEvent]);
 
-  const skillNameToShow = loaded ? <KatexSpan content={skillName} /> : <Spinner noLabel />;
+  const skillNameToShow = loaded ? <SpanWithTags content={skillName} /> : <Spinner noLabel />;
 
   return (
     <StyledDiv>

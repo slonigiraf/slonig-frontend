@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import BN from 'bn.js';
-import { getIPFSContentIDAndPinIt, digestFromCIDv1, getCIDFromBytes, getIPFSDataFromContentID, loadFromSessionStorage, saveToSessionStorage, KatexSpan, LawType, useSettingValue, useLog } from '@slonigiraf/slonig-components';
+import { getIPFSContentIDAndPinIt, digestFromCIDv1, getCIDFromBytes, getIPFSDataFromContentID, loadFromSessionStorage, saveToSessionStorage, SpanWithTags, LawType, useSettingValue, useLog } from '@slonigiraf/slonig-components';
 import { BN_ZERO } from '@polkadot/util';
 import React, { useCallback, useEffect, useState } from 'react';
 import { Button, InputBalance, styled } from '@polkadot/react-components';
@@ -310,7 +310,7 @@ function Edit({ className = '' }: Props): React.ReactElement<Props> {
     <div className={`toolbox--Sign ${className}`}>
       <h1>{t('Edit')}</h1>
       <span>{t('You can use the KaTeX language to add formulas:')}</span>&nbsp;
-      <span><em>&lt;kx&gt;\int&lt;/kx&gt;</em> {t('is')} <KatexSpan content={exampleKatex} />.</span>&nbsp;
+      <span><em>&lt;kx&gt;\int&lt;/kx&gt;</em> {t('is')} <SpanWithTags content={exampleKatex} />.</span>&nbsp;
       <span><a href='https://katex.org/docs/supported' target='_blank'>{t('See more about KaTeX')}</a></span>
       {editor}
       {amountItemElement}

@@ -1,7 +1,7 @@
 import React, { useCallback, useState } from 'react';
 import { Button, styled } from '@polkadot/react-components';
 import { useTranslation } from '../translate.js';
-import { Exercise, KatexSpan, useLog } from '@slonigiraf/slonig-components';
+import { Exercise, SpanWithTags, useLog } from '@slonigiraf/slonig-components';
 import ExerciseImage, { isLocalOrRemoteImageUrl } from './ExerciseImage.js';
 import KnowledgeResizableImage from './KnowledgeResizableImage.js';
 import { isTikzCode } from './tikz.js';
@@ -25,7 +25,7 @@ const ExerciseVisual: React.FC<{ alt: string; hasCompileError?: boolean; isAbili
         const promptOnly = isAbilityInfo ? prompt?.trim() ?? '' : '';
 
         return promptOnly
-            ? <VisualPrompt><strong>{label}:</strong> <KatexSpan content={promptOnly} /></VisualPrompt>
+            ? <VisualPrompt><strong>{label}:</strong> <SpanWithTags content={promptOnly} /></VisualPrompt>
             : null;
     }
 
@@ -35,7 +35,7 @@ const ExerciseVisual: React.FC<{ alt: string; hasCompileError?: boolean; isAbili
 
     if (isTikzCode(value)) {
         return <>
-            {visiblePrompt && <VisualPrompt><strong>{label}:</strong> <KatexSpan content={visiblePrompt} /></VisualPrompt>}
+            {visiblePrompt && <VisualPrompt><strong>{label}:</strong> <SpanWithTags content={visiblePrompt} /></VisualPrompt>}
             <React.Suspense fallback={<small>Loading TikZ renderer…</small>}>
                 {isAbilityInfo
                     ? <TikzVisual alt={alt} hasCompileError={hasCompileError} onCompileStateChange={onCompileStateChange} onSave={onSave} value={value} />
@@ -55,11 +55,11 @@ const ExerciseVisual: React.FC<{ alt: string; hasCompileError?: boolean; isAbili
             {isLocalOrRemoteImageUrl(imageValue)
                 ? <ExerciseImage alt={alt} value={imageValue} />
                 : <KnowledgeResizableImage alt={alt} cid={imageValue} />}
-            {visiblePrompt && <VisualPrompt><strong>{label}:</strong> <KatexSpan content={visiblePrompt} /></VisualPrompt>}
+            {visiblePrompt && <VisualPrompt><strong>{label}:</strong> <SpanWithTags content={visiblePrompt} /></VisualPrompt>}
         </>;
     }
 
-    return <VisualPrompt><strong>{label}:</strong> <KatexSpan content={visiblePrompt || value} /></VisualPrompt>;
+    return <VisualPrompt><strong>{label}:</strong> <SpanWithTags content={visiblePrompt || value} /></VisualPrompt>;
 };
 
 interface ExerciseListProps {
@@ -95,7 +95,7 @@ const ExerciseList: React.FC<ExerciseListProps> = ({ exercises, areShownInitiall
             >
                 <div className="exercise-display">
                     <div className="exercise-header">
-                        <span><KatexSpan content={exercise.h} /></span>
+                        <span><SpanWithTags content={exercise.h} /></span>
                         {(exercise.p || (location === 'ability_info' && (exercise as AbilityExerciseWithPrompts).pPrompt)) && <ExerciseDetails><ExerciseVisual alt='Question' hasCompileError={(exercise as AbilityExerciseWithPrompts).pError === true} isAbilityInfo={location === 'ability_info'} label='Question visual prompt' onCompileStateChange={onAbilityVisualErrorChange ? (hasError, renderedValue) => onAbilityVisualErrorChange(0, 'p', hasError, renderedValue) : undefined} onSave={onAbilityVisualSave ? (value) => onAbilityVisualSave(0, 'p', value) : undefined} prompt={(exercise as AbilityExerciseWithPrompts).pPrompt} value={exercise.p} /></ExerciseDetails>}
                     </div>
                 </div>
@@ -111,7 +111,7 @@ const ExerciseList: React.FC<ExerciseListProps> = ({ exercises, areShownInitiall
                     >
                         <div className="exercise-display">
                             <div className="exercise-header">
-                                <span><KatexSpan content={` ${index + 1}. ` + exercise.h} /></span>
+                                <span><SpanWithTags content={` ${index + 1}. ` + exercise.h} /></span>
                                 {(exercise.p || (location === 'ability_info' && (exercise as AbilityExerciseWithPrompts).pPrompt)) && <ExerciseDetails><ExerciseVisual alt='Question' hasCompileError={(exercise as AbilityExerciseWithPrompts).pError === true} isAbilityInfo={location === 'ability_info'} label='Question visual prompt' onCompileStateChange={onAbilityVisualErrorChange ? (hasError, renderedValue) => onAbilityVisualErrorChange(index, 'p', hasError, renderedValue) : undefined} onSave={onAbilityVisualSave ? (value) => onAbilityVisualSave(index, 'p', value) : undefined} prompt={(exercise as AbilityExerciseWithPrompts).pPrompt} value={exercise.p} /></ExerciseDetails>}
                             </div>
 
@@ -125,7 +125,7 @@ const ExerciseList: React.FC<ExerciseListProps> = ({ exercises, areShownInitiall
                                 </span>
                                 {areAnswersShown && (
                                     <>
-                                        <KatexSpan content={exercise.a} />
+                                        <SpanWithTags content={exercise.a} />
                                         {(exercise.i || (location === 'ability_info' && (exercise as AbilityExerciseWithPrompts).iPrompt)) && <ExerciseVisual alt='Solution' hasCompileError={(exercise as AbilityExerciseWithPrompts).iError === true} isAbilityInfo={location === 'ability_info'} label='Answer visual prompt' onCompileStateChange={onAbilityVisualErrorChange ? (hasError, renderedValue) => onAbilityVisualErrorChange(index, 'i', hasError, renderedValue) : undefined} onSave={onAbilityVisualSave ? (value) => onAbilityVisualSave(index, 'i', value) : undefined} prompt={(exercise as AbilityExerciseWithPrompts).iPrompt} value={exercise.i} />}
                                     </>
                                 )}

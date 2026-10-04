@@ -1,5 +1,5 @@
 import React from 'react';
-import { KatexSpan } from '@slonigiraf/slonig-components';
+import { SpanWithTags } from '@slonigiraf/slonig-components';
 import QRCode from 'qrcode.react';
 import { Button, styled } from '@polkadot/react-components';
 import { useTranslation } from './translate.js';
@@ -22,7 +22,7 @@ function ClassInstruction({ className = '', knowledgeId, caption, setIsClassInst
   return (
     <FullWindow className={className}>
       <CenterContainer>
-        <h1><KatexSpan content={caption} /></h1>
+        <h1><SpanWithTags content={caption} /></h1>
         <Steps>
           <Step>
             <h2>{'1. ' + t('Tutee scans this QR code.')}</h2>

@@ -3,7 +3,7 @@
 
 import React, { useEffect, useState } from 'react';
 import {
-  KatexSpan,
+  SpanWithTags,
   ProgressData,
   RoundProgress,
   getIPFSDataFromContentID,
@@ -129,7 +129,7 @@ function ItemLabel({
 
   const content = isText
     ? (
-      <KatexSpan content={textToDisplay} />
+      <SpanWithTags content={textToDisplay} />
     )
     : isFetched
       ? (<StyledA href={href}>
@@ -137,7 +137,7 @@ function ItemLabel({
         {isSkillItem && <BadgeCheck
           item={item}
         />}
-        <KatexSpan content={textToDisplay} />
+        <SpanWithTags content={textToDisplay} />
       </StyledA>)
       : <LeftAlignedSpinner noLabel />;
 

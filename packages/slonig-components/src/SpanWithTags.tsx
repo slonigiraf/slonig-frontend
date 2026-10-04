@@ -7,10 +7,10 @@ interface Props {
   content: string;
 }
 
-const KatexSpan: React.FC<Props> = ({ content }) => {
+const SpanWithTags: React.FC<Props> = ({ content }) => {
   const parseContent = (value: string): React.ReactNode[] => {
     const regex =
-      /```([a-zA-Z0-9_-]+)?[ \t]*\n([\s\S]*?)```|<kx>([\s\S]*?)<\/kx>/g;
+      /```([a-zA-Z0-9_-]+)?[ \t]*\n([\s\S]*?)```|<kx>([\s\S]*?)<\/kx>|<code>([\s\S]*?)<\/code>/g;
 
     const result: React.ReactNode[] = [];
 
@@ -32,6 +32,7 @@ const KatexSpan: React.FC<Props> = ({ content }) => {
       const language = match[1];
       const code = match[2];
       const katex = match[3];
+      const inlineCode = match[4];
 
       // Render fenced code block
       if (code !== undefined) {
@@ -87,6 +88,15 @@ const KatexSpan: React.FC<Props> = ({ content }) => {
         );
       }
 
+      // Render inline code
+      else if (inlineCode !== undefined) {
+        result.push(
+          <code key={`inline-code-${offset}`}>
+            {inlineCode}
+          </code>
+        );
+      }
+
       // Render KaTeX
       else if (katex !== undefined) {
         result.push(
@@ -127,4 +137,4 @@ const KatexSpan: React.FC<Props> = ({ content }) => {
   );
 };
 
-export default React.memo(KatexSpan);
+export default React.memo(SpanWithTags);

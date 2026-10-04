@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from './translate.js';
 import { Button, Modal, styled } from '@polkadot/react-components';
-import { getIPFSDataFromContentID, parseJson, useIpfsContext, VerticallyCenteredModal, KatexSpan, useLog } from './index.js';
+import { getIPFSDataFromContentID, parseJson, useIpfsContext, VerticallyCenteredModal, SpanWithTags, useLog } from './index.js';
 import { Lesson, putLesson } from '@slonigiraf/db';
 import { useNavigate } from 'react-router-dom';
 interface Props {
@@ -66,7 +66,7 @@ function SendResultsReminder({ lesson, onResult }: Props): React.ReactElement<Pr
       <Modal.Content>
         <StyledDiv>
           <h1>{t('You forgot to send lesson results')}</h1>
-          <h2><KatexSpan content={lessonName} /></h2>
+          <h2><SpanWithTags content={lessonName} /></h2>
           <span>{t('🕑 {{min}} minutes ago', { replace: { min: min } })}</span>
         <FirstButtonsRow>
           <Button className='highlighted--button' label={t('Send')} onClick={onSend} />

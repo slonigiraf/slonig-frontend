@@ -6,7 +6,7 @@ import React, { useState, useEffect } from 'react'
 import { useTranslation } from './translate.js';
 import { Badge, getPseudonym, Insurance, LetterTemplate } from '@slonigiraf/db';
 import { useToggle } from '@polkadot/react-hooks';
-import { KatexSpan, getIPFSDataFromContentID, parseJson, useLog } from '@slonigiraf/slonig-components';
+import { SpanWithTags, getIPFSDataFromContentID, parseJson, useLog } from '@slonigiraf/slonig-components';
 import { useIpfsContext } from '@slonigiraf/slonig-components';
 import { ExerciseList } from '@slonigiraf/app-laws';
 
@@ -59,7 +59,7 @@ function PenaltyInfo({ className = '', badge, student }: Props): React.ReactElem
     }
   }, [areDetailsOpen, skillName, badge, logEvent]);
 
-  const skillNameToShow = loaded ? <KatexSpan content={skillName} /> : <Spinner noLabel />;
+  const skillNameToShow = loaded ? <SpanWithTags content={skillName} /> : <Spinner noLabel />;
 
   return (
     <StyledDiv>

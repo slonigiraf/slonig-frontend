@@ -17,7 +17,7 @@ import ResizableImage from './ResizableImage.js';
 import QRWithShareAndCopy from './QRWithShareAndCopy.js';
 import SenderComponent from './SenderComponent.js';
 import DateInput from './DateInput.js';
-import KatexSpan from './KatexSpan.js';
+import SpanWithTags from './SpanWithTags.js';
 import DBImport from './DBImport.js';
 import DownloadQRButton from './DownloadQRButton.js';
 import DBExport from './DBExport.js';
@@ -31,7 +31,7 @@ import { useEffect, useState } from 'react';
 import { getSetting, LetterTemplate, SettingKey, storeSetting } from '@slonigiraf/db';
 export * from './constants.js';
 export { default as SVGButton } from './SVGButton.js';
-export { EventsQueueProvider, useEventsQueue, Penalties, DownloadQRButton, BlockchainSyncProvider, useBlockchainSync, TokenTransferProvider, useTokenTransfer, DateInput, SelectableList, SenderComponent, KatexSpan, ResizableImage, ShareButton, ClipboardCopyButton, QRWithShareAndCopy, QrScannerComponent, ButtonWithLabelBelow, ScanQR, IpfsProvider, useIpfsContext, InfoProvider, useInfo, LogProvider, useLog };
+export { EventsQueueProvider, useEventsQueue, Penalties, DownloadQRButton, BlockchainSyncProvider, useBlockchainSync, TokenTransferProvider, useTokenTransfer, DateInput, SelectableList, SenderComponent, SpanWithTags, ResizableImage, ShareButton, ClipboardCopyButton, QRWithShareAndCopy, QrScannerComponent, ButtonWithLabelBelow, ScanQR, IpfsProvider, useIpfsContext, InfoProvider, useInfo, LogProvider, useLog };
 export { getIPFSContentIDForBytesAndPinIt, getIPFSBytesFromContentID, bnToSlonString, bnToSlonFloatOrNaN, createPeer, receiveWebRTCData, getQrWidth, saveToSessionStorage, loadFromSessionStorage, getIPFSContentIDAndPinIt, getKey, arrayBufferToBase64, base64ToArrayBuffer, decryptData, encryptData, LoginProvider, useLoginContext, keyForCid, nameFromKeyringPair, getBaseUrl, CODEC, getIPFSContentID, getIPFSDataFromContentID, digestFromCIDv1, getCIDFromBytes, storeEncryptedTextOnIPFS, retrieveDecryptedDataFromIPFS, parseJson }
 export { DBImport, DBExport, Confirmation };
 import { encodeAddress } from '@polkadot/keyring';

@@ -6,7 +6,7 @@ import React from 'react'
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useTranslation } from '../translate.js';
 import { useToggle } from '@polkadot/react-hooks';
-import { KatexSpan, parseJson } from '@slonigiraf/slonig-components';
+import { SpanWithTags, parseJson } from '@slonigiraf/slonig-components';
 import { getImage, hydrateAbilityContent, putImage } from '@slonigiraf/db';
 import type { Ability } from '@slonigiraf/db';
 import ExerciseList from './ExerciseList.js';
@@ -50,7 +50,7 @@ function AbilityInfo({ className = '', ability }: Props): React.ReactElement<Pro
     }
   };
 
-  const skillNameToShow = data ? <KatexSpan content={data.h} /> : <Spinner noLabel />;
+  const skillNameToShow = data ? <SpanWithTags content={data.h} /> : <Spinner noLabel />;
 
   return (
     <StyledDiv>

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from './translate.js';
 import { Button, Modal, styled } from '@polkadot/react-components';
-import { getBaseUrl, getIPFSDataFromContentID, parseJson, QRWithShareAndCopy, useIpfsContext, VerticalCenterItemsContainer, VerticallyCenteredModal, KatexSpan, useLog, HorizontalCenterItemsContainer } from './index.js';
+import { getBaseUrl, getIPFSDataFromContentID, parseJson, QRWithShareAndCopy, useIpfsContext, VerticalCenterItemsContainer, VerticallyCenteredModal, SpanWithTags, useLog, HorizontalCenterItemsContainer } from './index.js';
 import { LearnRequest } from '@slonigiraf/db';
 interface Props {
   learnRequest: LearnRequest;
@@ -50,7 +50,7 @@ function LoadResultsReminder({ learnRequest, onClose }: Props): React.ReactEleme
       <Modal.Content>
         <StyledDiv>
           <h1>{t('You forgot to receive the lesson results. Ask the tutor to scan')}</h1>
-          <h2><KatexSpan content={lessonName} /></h2>
+          <h2><SpanWithTags content={lessonName} /></h2>
           <span>{t('🕑 {{min}} minutes ago', { replace: { min: min } })}</span>
           <QRWithShareAndCopy
             titleShare={t('QR code')}

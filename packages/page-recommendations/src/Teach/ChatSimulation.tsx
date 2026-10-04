@@ -4,7 +4,7 @@ import {
   Bubble,
   ChatContainer,
   IMessage,
-  KatexSpan,
+  SpanWithTags,
   OKBox,
   ResizableImage,
   useLog
@@ -61,8 +61,8 @@ const ChatSimulation: React.FC<ChatSimulationProps> = ({ messages, hasTutorCompl
             <MessageContainer $blur={!isVisible}>
               <Bubble>
                 <h2>{message.title}</h2>
-                {message.text && <div><KatexSpan content={message.text} /></div>}
-                {message.exercise && <div><KatexSpan content={message.exercise} /></div>}
+                {message.text && <div><SpanWithTags content={message.text} /></div>}
+                {message.exercise && <div><SpanWithTags content={message.exercise} /></div>}
                 {message.image && (
                   <>
                     <br />

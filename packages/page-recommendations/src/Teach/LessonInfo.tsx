@@ -3,7 +3,7 @@
 
 import { Button, Spinner, styled } from '@polkadot/react-components';
 import React, { useState, useEffect, useCallback } from 'react';
-import { KatexSpan, RoundProgress, getIPFSDataFromContentID, parseJson, useLog } from '@slonigiraf/slonig-components';
+import { SpanWithTags, RoundProgress, getIPFSDataFromContentID, parseJson, useLog } from '@slonigiraf/slonig-components';
 import { useTranslation } from '../translate.js';
 import { useIpfsContext } from '@slonigiraf/slonig-components';
 import { Lesson, getPseudonym, isThereAnyLessonResult } from '@slonigiraf/db';
@@ -104,7 +104,7 @@ function LessonInfo({ lesson, isSelected, onToggleSelection, onResumeTutoring, o
       <div style={{ width: '100%' }}>
         <div>
           <div><b>{formattedDate}, {studentName}</b></div>
-          <div>{loaded ? <KatexSpan content={text} /> : <Spinner noLabel />}</div>
+          <div>{loaded ? <SpanWithTags content={text} /> : <Spinner noLabel />}</div>
         </div>
       </div>
 
