@@ -4,9 +4,9 @@
 import type { Book } from '@slonigiraf/db';
 import { isBookProcessingStageComplete } from '@slonigiraf/db';
 
-import { isRefineChaptersComplete } from '../../../book/processing/chapters/refineChapters.js';
-import { bookPipelineStageLabel } from '../../../book/runtime/bookPipeline.js';
-import type { PipelineAction } from '../../skills/index.js';
+import { isRefineChaptersComplete } from '../../../book/domain/chapters/refineChapters.js';
+import { bookPipelineStageLabel } from '../../../book/application/pipeline/bookPipeline.js';
+import type { PipelineAction } from '../../../shared/types/processing.js';
 
 interface ProcessingToolbarHandlers {
   onAssignStandards: () => void;

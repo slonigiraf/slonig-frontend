@@ -6,14 +6,14 @@ import React from 'react';
 
 import { Modal, styled } from '@polkadot/react-components';
 
-import type { BookExternalCalls } from '../../../book/runtime/bookExternalCalls.js';
-import type { BookStageTimes } from '../../../book/runtime/bookStageTime.js';
+import type { BookExternalCalls } from '../../../book/infrastructure/storage/bookExternalCalls.js';
+import type { BookStageTimes } from '../../../book/infrastructure/storage/bookStageTime.js';
 
-import { BOOK_PRICE_STAGES } from '../../../book/runtime/bookPipeline.js';
-import { bookExternalCallTotal } from '../../../book/runtime/bookExternalCalls.js';
-import { formatBookStageTime } from '../../../book/runtime/bookStageTime.js';
+import { BOOK_PRICE_STAGES } from '../../../book/application/pipeline/bookPipeline.js';
+import { bookExternalCallTotal } from '../../../book/infrastructure/storage/bookExternalCalls.js';
+import { formatBookStageTime } from '../../../book/infrastructure/storage/bookStageTime.js';
 import { formatOpenRouterSpend } from '../../../../openrouter/cost.js';
-import StageRunPricePopup from '../../../components/StageRunPricePopup.js';
+import StageRunPricePopup from '../../../shared/ui/StageRunPricePopup.js';
 import { useTranslation } from '../../../../common/translate.js';
 
 export interface FastForwardEstimate {

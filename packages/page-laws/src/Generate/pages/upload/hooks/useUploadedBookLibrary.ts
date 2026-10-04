@@ -6,9 +6,9 @@ import { createBook, deleteBook, getBookByContentHash, getBooks, updateBookField
 import type { Dispatch, SetStateAction } from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { clearBookExternalCalls } from '../../../book/runtime/bookExternalCalls.js';
-import { clearFixConceptsChapterStatuses } from '../../../book/runtime/fixConceptsProgress.js';
-import { clearBookStageTimes } from '../../../book/runtime/bookStageTime.js';
+import { clearBookExternalCalls } from '../../../book/infrastructure/storage/bookExternalCalls.js';
+import { clearFixConceptsChapterStatuses } from '../../../book/infrastructure/storage/fixConceptsProgress.js';
+import { clearBookStageTimes } from '../../../book/infrastructure/storage/bookStageTime.js';
 import { useTranslation } from '../../../../common/translate.js';
 
 const BOOKS_DIRECTORY = 'books';

@@ -7,12 +7,12 @@ import { getBookPages, isBookProcessingStageComplete, resetBookProcessingStagesF
 import type { Dispatch, SetStateAction } from 'react';
 import { useCallback, useEffect, useState } from 'react';
 
-import type { AiInputEstimate } from '../../../book/processing/aiEstimate.js';
-import type { BookReaderCommandAction, PendingBookProcessingAction } from '../../../book/runtime/bookPipeline.js';
+import type { AiInputEstimate } from '../../../book/application/pricing/aiEstimate.js';
+import type { BookReaderCommandAction, PendingBookProcessingAction } from '../../../book/application/pipeline/bookPipeline.js';
 
-import { estimateAiInput } from '../../../book/processing/aiEstimate.js';
-import { clearFixConceptsChapterStatuses } from '../../../book/runtime/fixConceptsProgress.js';
-import { loadPdfJs } from '../../../book/processing/source/pdf.js';
+import { estimateAiInput } from '../../../book/application/pricing/aiEstimate.js';
+import { clearFixConceptsChapterStatuses } from '../../../book/infrastructure/storage/fixConceptsProgress.js';
+import { loadPdfJs } from '../../../book/infrastructure/pdf/pdf.js';
 import { useTranslation } from '../../../../common/translate.js';
 
 interface UploadMetadataProcessingParams {

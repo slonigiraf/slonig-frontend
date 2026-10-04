@@ -1,7 +1,7 @@
 // Copyright 2021-2026 @polkadot/app-laws authors & contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import { OPEN_ROUTER_SOLUTION_RASTER_PROMPT, OPEN_ROUTER_VISUAL_SPEC_PROMPT } from '../Generate/book/prompts/visuals.js';
+import { OPEN_ROUTER_SOLUTION_RASTER_PROMPT, OPEN_ROUTER_VISUAL_SPEC_PROMPT } from '../Generate/book/infrastructure/ai/prompts/visuals.js';
 import {
   applyVisualPatch,
   extractMathVisualSpecFromSvg,

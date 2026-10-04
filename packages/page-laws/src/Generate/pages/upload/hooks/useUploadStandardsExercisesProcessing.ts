@@ -6,16 +6,17 @@ import { getBookConceptsForBookPage, getBookPages, getConceptEmbeddings, getExer
 import type { Dispatch, SetStateAction } from 'react';
 import { useCallback, useEffect, useState } from 'react';
 
-import type { AiInputEstimate } from '../../../book/processing/aiEstimate.js';
-import type { BookReaderCommandAction, PendingBookProcessingAction } from '../../../book/runtime/bookPipeline.js';
+import type { AiInputEstimate } from '../../../book/application/pricing/aiEstimate.js';
+import type { BookReaderCommandAction, PendingBookProcessingAction } from '../../../book/application/pipeline/bookPipeline.js';
 
-import { estimateAiInput, estimateAiRequests } from '../../../book/processing/aiEstimate.js';
-import { conceptBelongsToChapter, sortConceptsByDisplayOrder } from '../../../book/processing/chapters/refineChapters.js';
-import { exerciseGenerationRequestEstimate } from '../../../book/processing/bookProcessing.js';
-import { conceptChaptersFromPages } from '../../../book/processing/concepts/conceptRecognition.js';
-import { bookLanguageLabel } from '../../../book/processing/metadata/bookLanguage.js';
-import { loadStandardsCatalogsForBookSubject, STANDARDS_MATCH_RUNS, standardsCandidatesFromEmbeddings, standardsConceptInputs, standardsMatchingPrompt, standardEmbeddingInput } from '../../../book/processing/standards/standards.js';
-import { conceptEmbeddingInput } from '../../../book/processing/standards/standardsEmbeddings.js';
+import { estimateAiInput, estimateAiRequests } from '../../../book/application/pricing/aiEstimate.js';
+import { conceptBelongsToChapter, sortConceptsByDisplayOrder } from '../../../book/domain/chapters/refineChapters.js';
+import { exerciseGenerationRequestEstimate } from '../../../book/application/processing/bookProcessing.js';
+import { conceptChaptersFromPages } from '../../../book/domain/concepts/conceptRecognition.js';
+import { bookLanguageLabel } from '../../../book/domain/metadata/bookLanguage.js';
+import { STANDARDS_MATCH_RUNS, standardsCandidatesFromEmbeddings, standardsConceptInputs, standardsMatchingPrompt, standardEmbeddingInput } from '../../../book/domain/standards/standards.js';
+import { loadStandardsCatalogsForBookSubject } from '../../../book/infrastructure/standards/standardsCatalog.js';
+import { conceptEmbeddingInput } from '../../../book/infrastructure/ai/standardsEmbeddings.js';
 import { useTranslation } from '../../../../common/translate.js';
 
 function combineAiEstimates (...estimates: AiInputEstimate[]): AiInputEstimate {

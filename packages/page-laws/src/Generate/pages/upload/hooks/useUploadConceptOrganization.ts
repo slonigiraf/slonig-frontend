@@ -6,16 +6,16 @@ import { getBookConceptsForBookPage, getBookPages, getConceptEmbeddings, getSett
 import type { Dispatch, SetStateAction } from 'react';
 import { useCallback, useEffect, useState } from 'react';
 
-import type { AiInputEstimate } from '../../../book/processing/aiEstimate.js';
-import type { DeduplicateConceptInput } from '../../../book/processing/concepts/deduplicateConcepts.js';
-import type { BookReaderCommandAction, PendingBookProcessingAction } from '../../../book/runtime/bookPipeline.js';
+import type { AiInputEstimate } from '../../../book/application/pricing/aiEstimate.js';
+import type { DeduplicateConceptInput } from '../../../book/domain/concepts/deduplicateConcepts.js';
+import type { BookReaderCommandAction, PendingBookProcessingAction } from '../../../book/application/pipeline/bookPipeline.js';
 
-import { estimateAiInput } from '../../../book/processing/aiEstimate.js';
-import { conceptsForRefinementChapter, refineChapterPrompt, withRefineChaptersIncomplete } from '../../../book/processing/chapters/refineChapters.js';
-import { conceptChaptersFromPages } from '../../../book/processing/concepts/conceptRecognition.js';
-import { conceptDeduplicationInput, deduplicateConceptCandidates, deduplicateConceptsPrompt } from '../../../book/processing/concepts/deduplicateConcepts.js';
-import { conceptsForSortChapter, sortChapterConceptsPrompt } from '../../../book/processing/concepts/sortConcepts.js';
-import { conceptEmbeddingInput } from '../../../book/processing/standards/standardsEmbeddings.js';
+import { estimateAiInput } from '../../../book/application/pricing/aiEstimate.js';
+import { conceptsForRefinementChapter, refineChapterPrompt, withRefineChaptersIncomplete } from '../../../book/domain/chapters/refineChapters.js';
+import { conceptChaptersFromPages } from '../../../book/domain/concepts/conceptRecognition.js';
+import { conceptDeduplicationInput, deduplicateConceptCandidates, deduplicateConceptsPrompt } from '../../../book/domain/concepts/deduplicateConcepts.js';
+import { conceptsForSortChapter, sortChapterConceptsPrompt } from '../../../book/domain/concepts/sortConcepts.js';
+import { conceptEmbeddingInput } from '../../../book/infrastructure/ai/standardsEmbeddings.js';
 import { useTranslation } from '../../../../common/translate.js';
 
 async function loadDeduplicateConceptInputs (bookId: number, pages: BookPage[]): Promise<DeduplicateConceptInput[]> {

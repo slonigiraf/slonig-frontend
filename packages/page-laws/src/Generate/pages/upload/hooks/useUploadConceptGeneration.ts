@@ -6,16 +6,16 @@ import { getBookConceptsForBookPage, getBookPages, getConceptEmbeddings, getSett
 import type { Dispatch, SetStateAction } from 'react';
 import { useCallback, useEffect, useState } from 'react';
 
-import type { AiInputEstimate } from '../../../book/processing/aiEstimate.js';
-import type { BookReaderCommandAction, PendingBookProcessingAction } from '../../../book/runtime/bookPipeline.js';
+import type { AiInputEstimate } from '../../../book/application/pricing/aiEstimate.js';
+import type { BookReaderCommandAction, PendingBookProcessingAction } from '../../../book/application/pipeline/bookPipeline.js';
 
-import { estimateAiInput } from '../../../book/processing/aiEstimate.js';
-import { DEFAULT_STANDARDS_EMBEDDER } from '../../../book/processing/config.js';
-import { conceptChaptersFromPages } from '../../../book/processing/concepts/conceptRecognition.js';
-import { fixChapterConceptsPrompt } from '../../../book/processing/concepts/fixConcepts.js';
-import { conceptEmbeddingInput } from '../../../book/processing/standards/standardsEmbeddings.js';
-import { standardsChapterKey } from '../../../book/processing/standards/standards.js';
-import { clearFixConceptsChapterStatuses, failedFixConceptChapterKeys, fixConceptsChapterKey } from '../../../book/runtime/fixConceptsProgress.js';
+import { estimateAiInput } from '../../../book/application/pricing/aiEstimate.js';
+import { DEFAULT_STANDARDS_EMBEDDER } from '../../../book/application/config.js';
+import { conceptChaptersFromPages } from '../../../book/domain/concepts/conceptRecognition.js';
+import { fixChapterConceptsPrompt } from '../../../book/application/concepts/conceptPrompts.js';
+import { conceptEmbeddingInput } from '../../../book/infrastructure/ai/standardsEmbeddings.js';
+import { standardsChapterKey } from '../../../book/domain/standards/standards.js';
+import { clearFixConceptsChapterStatuses, failedFixConceptChapterKeys, fixConceptsChapterKey } from '../../../book/infrastructure/storage/fixConceptsProgress.js';
 import { useTranslation } from '../../../../common/translate.js';
 
 interface UploadConceptGenerationParams {

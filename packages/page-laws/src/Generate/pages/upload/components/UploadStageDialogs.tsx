@@ -10,9 +10,9 @@ import type { UploadProcessing } from '../hooks/useUploadProcessing.js';
 
 import OpenRouterEmbeddingModelSelector from '../../../../openrouter/components/EmbeddingModelSelector.js';
 import OpenRouterModelSelector from '../../../../openrouter/components/ModelSelector.js';
-import { MATHPIX_PDF_PAGE_PRICE_USD } from '../../../book/processing/config.js';
-import { AiPriceEstimate, UnitPriceEstimate } from '../../../components/PriceEstimate.js';
-import StageRunPricePopup from '../../../components/StageRunPricePopup.js';
+import { MATHPIX_PDF_PAGE_PRICE_USD } from '../../../book/application/config.js';
+import { AiPriceEstimate, UnitPriceEstimate } from '../../../shared/ui/PriceEstimate.js';
+import StageRunPricePopup from '../../../shared/ui/StageRunPricePopup.js';
 import { useTranslation } from '../../../../common/translate.js';
 import { BookStatisticsModal, FastForwardPricePopup } from './UploadPriceModals.js';
 

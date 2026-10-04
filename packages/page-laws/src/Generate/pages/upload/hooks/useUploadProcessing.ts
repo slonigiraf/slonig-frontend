@@ -6,10 +6,10 @@ import { getSetting, SettingKey } from '@slonigiraf/db';
 import type { Dispatch, SetStateAction } from 'react';
 import { useCallback, useEffect, useState } from 'react';
 
-import type { BookProcessingCommand, BookReaderCommandAction, PendingBookProcessingAction } from '../../../book/runtime/bookPipeline.js';
+import type { BookProcessingCommand, BookReaderCommandAction, PendingBookProcessingAction } from '../../../book/application/pipeline/bookPipeline.js';
 
-import { DEFAULT_PROCESSING_MODEL, DEFAULT_STANDARDS_EMBEDDER, DEFAULT_STANDARDS_MODEL } from '../../../book/processing/config.js';
-import { nextBookProcessingCommand } from '../../../book/runtime/bookPipeline.js';
+import { DEFAULT_PROCESSING_MODEL, DEFAULT_STANDARDS_EMBEDDER, DEFAULT_STANDARDS_MODEL } from '../../../book/application/config.js';
+import { nextBookProcessingCommand } from '../../../book/application/pipeline/bookPipeline.js';
 import { useTranslation } from '../../../../common/translate.js';
 import { createProcessingToolbars } from '../processing/UploadProcessingToolbar.js';
 import { useUploadConceptGeneration } from './useUploadConceptGeneration.js';

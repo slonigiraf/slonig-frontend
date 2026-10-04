@@ -6,7 +6,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 
 import { Dropdown } from '@polkadot/react-components';
 
-import { DEFAULT_STANDARDS_EMBEDDER } from '../../Generate/book/processing/config.js';
+import { DEFAULT_STANDARDS_EMBEDDER } from '../../Generate/book/application/config.js';
 import { openRouterFetch } from '../concurrency.js';
 import { cacheOpenRouterModelPricePerMillion } from '../models.js';
 

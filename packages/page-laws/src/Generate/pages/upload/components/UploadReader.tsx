@@ -8,7 +8,7 @@ import type { UploadProcessing } from '../hooks/useUploadProcessing.js';
 
 import { useTranslation } from '../../../../common/translate.js';
 
-const BookReader = React.lazy(() => import('../../book-reader/index.js'));
+const BookReader = React.lazy(() => import('../../book-workspace/index.js'));
 
 interface UploadReaderProps {
   book?: Book;

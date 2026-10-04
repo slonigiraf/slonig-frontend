@@ -7,18 +7,18 @@ import { getBook, resetBookProcessingStagesFrom } from '@slonigiraf/db';
 import type { Dispatch, SetStateAction } from 'react';
 import { useCallback, useState } from 'react';
 
-import type { PendingBookProcessingAction } from '../../../book/runtime/bookPipeline.js';
-import type { BookExternalCalls } from '../../../book/runtime/bookExternalCalls.js';
-import type { BookStageTimes } from '../../../book/runtime/bookStageTime.js';
+import type { PendingBookProcessingAction } from '../../../book/application/pipeline/bookPipeline.js';
+import type { BookExternalCalls } from '../../../book/infrastructure/storage/bookExternalCalls.js';
+import type { BookStageTimes } from '../../../book/infrastructure/storage/bookStageTime.js';
 import type { FastForwardEstimate } from '../components/UploadPriceModals.js';
 
-import { estimateAiInput } from '../../../book/processing/aiEstimate.js';
-import { DEFAULT_PROCESSING_MODEL, DEFAULT_STANDARDS_MODEL, MATHPIX_PDF_PAGE_PRICE_USD } from '../../../book/processing/config.js';
-import { STANDARDS_MATCH_RUNS } from '../../../book/processing/standards/standards.js';
-import { BOOK_PRICE_STAGES } from '../../../book/runtime/bookPipeline.js';
-import { loadBookExternalCalls } from '../../../book/runtime/bookExternalCalls.js';
-import { loadBookStageTimes } from '../../../book/runtime/bookStageTime.js';
-import { loadPdfJs } from '../../../book/processing/source/pdf.js';
+import { estimateAiInput } from '../../../book/application/pricing/aiEstimate.js';
+import { DEFAULT_PROCESSING_MODEL, DEFAULT_STANDARDS_MODEL, MATHPIX_PDF_PAGE_PRICE_USD } from '../../../book/application/config.js';
+import { STANDARDS_MATCH_RUNS } from '../../../book/domain/standards/standards.js';
+import { BOOK_PRICE_STAGES } from '../../../book/application/pipeline/bookPipeline.js';
+import { loadBookExternalCalls } from '../../../book/infrastructure/storage/bookExternalCalls.js';
+import { loadBookStageTimes } from '../../../book/infrastructure/storage/bookStageTime.js';
+import { loadPdfJs } from '../../../book/infrastructure/pdf/pdf.js';
 import { useTranslation } from '../../../../common/translate.js';
 
 interface UploadPricingParams {
