@@ -14,9 +14,9 @@ import Create from './Create/index.js';
 import ExerciseList from './Edit/ExerciseList.js';
 import Edit from './Edit/index.js';
 import ItemLabel from './Edit/ItemLabel.js';
-import { useTranslation } from './translate.js';
+import { useTranslation } from './common/translate.js';
 import Generate from './Generate/index.js';
-import useCounter from './useCounter.js';
+import useCounter from './common/useCounter.js';
 
 export { ExerciseList, type ExerciseListLocation, ItemLabel, useCounter };
 

@@ -3,21 +3,21 @@ import { LawType, SpanWithTags, SelectableList, StyledSpinnerContainer, useLogin
 import { useLocation, useNavigate } from 'react-router-dom';
 import ItemLabel from './ItemLabel.js';
 import SkillQR from './SkillQR.js';
-import { useTranslation } from '../translate.js';
+import { useTranslation } from '../common/translate.js';
 import ExerciseList from './ExerciseList.js';
 import { Spinner, Label, Button } from '@polkadot/react-components';
-import { ItemWithCID } from '../types.js';
+import { ItemWithCID } from '../common/types.js';
 import { useApi, useToggle } from '@polkadot/react-hooks';
 import BN from 'bn.js';
 import { LearnRequest, getLettersForKnowledgeId, getRepetitionsForKnowledgeId, getSetting, putLearnRequest, SettingKey } from '@slonigiraf/db';
 import { u8aToHex } from '@polkadot/util';
 import ModulePreview from './ModulePreview.js';
 import styled from 'styled-components';
-import { sleptBetween, takeWithinTime } from '../util.js';
+import { sleptBetween, takeWithinTime } from '../common/util.js';
 import { EXAMPLE_COURSE_KNOWLEDGE_ID, EXAMPLE_MODULE_KNOWLEDGE_CID, EXAMPLE_MODULE_KNOWLEDGE_ID, LESSON_LENGTH_SEC } from '@slonigiraf/utils';
 import LearningRouter from './LearningRouter.js';
 import { AITutorButton } from '@slonigiraf/app-recommendations';
-import OpenRouterModelSelector from '../OpenRouterModelSelector.js';
+import OpenRouterModelSelector from '../openrouter/components/ModelSelector.js';
 
 type JsonType = { [key: string]: any } | null;
 

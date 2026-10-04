@@ -1,6 +1,6 @@
 import React, { useCallback, useState } from 'react';
 import { Button, styled } from '@polkadot/react-components';
-import { useTranslation } from '../translate.js';
+import { useTranslation } from '../common/translate.js';
 import { Exercise, SpanWithTags, useLog } from '@slonigiraf/slonig-components';
 import ExerciseImage, { isLocalOrRemoteImageUrl } from './ExerciseImage.js';
 import KnowledgeResizableImage from './KnowledgeResizableImage.js';

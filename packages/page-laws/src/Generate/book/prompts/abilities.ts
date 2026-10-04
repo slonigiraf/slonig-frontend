@@ -1,32 +1,7 @@
 // Copyright 2021-2026 @polkadot/app-laws authors & contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import { EXERCISE_NON_BINARY_RESPONSE_PROMPT, EXERCISE_QUESTION_BREVITY_PROMPT, EXERCISE_TEMPLATE_STYLE_PROMPT, LEARNER_AGE_PROMPT, MATH_DISPLAY_REQUIREMENTS_PROMPT } from './Generate/book/prompts/shared.js';
-
-export { BOOK_CHAPTER_EXTRACTION_PROMPT, BOOK_CHAPTER_EXTRACTION_REQUEST_PROMPT, BOOK_PAGE_EXTRACTION_PROMPT, BOOK_PAGE_EXTRACTION_REQUEST_PROMPT } from './Generate/book/prompts/concepts.js';
-export { GENERATE_EXERCISES_PROMPT, GENERATE_EXERCISES_RECOVERY_PROMPT, GENERATE_EXERCISES_REQUEST_PROMPT } from './Generate/book/prompts/exercises.js';
-export { BOOK_AGE_DETECTION_PROMPT, BOOK_LANGUAGE_DETECTION_PROMPT, BOOK_SUBJECT_DETECTION_PROMPT } from './Generate/book/prompts/metadata.js';
-export { COURSE_NAMES_PROMPT } from './Generate/book/prompts/publishing.js';
-export { EXERCISE_TEMPLATE_STYLE_PROMPT, LEARNER_AGE_PROMPT, MATH_DISPLAY_REQUIREMENTS_PROMPT };
-
-export const QR_CODE_SIZE = 300;
-export const sessionPrefix = 'knowledge';
-export const MATHPIX_PDF_PAGE_PRICE_USD = 0.005;
-export const DEFAULT_PROCESSING_MODEL = 'openai/gpt-6-luna';
-export const DEFAULT_STANDARDS_MODEL = 'openai/gpt-5-nano';
-export const DEFAULT_STANDARDS_EMBEDDER = 'openai/text-embedding-3-small';
-
-export const OPENAI_MODELS = [
-  { text: 'GPT-4o mini: $0.15/$0.60', value: 'openai/gpt-4o-mini' },
-  { text: 'GPT-4o: $2.50/$10', value: 'openai/gpt-4o' },
-  { text: 'GPT-4.1 mini: $0.40/$1.60', value: 'openai/gpt-4.1-mini' },
-  { text: 'GPT-4.1: $2/$8', value: 'openai/gpt-4.1' },
-  { text: 'GPT-5 mini: $0.25/$2', value: 'openai/gpt-5-mini' },
-  { text: 'GPT-5: $1.25/$10', value: 'openai/gpt-5' },
-  { text: 'GPT-5.4: $2.50/$15', value: 'openai/gpt-5.4' },
-  { text: 'GPT-5 Nano: $0.05/$0.40', value: 'openai/gpt-5-nano' },
-  { text: 'GPT-6 Luna: $0.10/$0.50', value: 'openai/gpt-6-luna' }
-];
+import { EXERCISE_NON_BINARY_RESPONSE_PROMPT, EXERCISE_QUESTION_BREVITY_PROMPT, EXERCISE_TEMPLATE_STYLE_PROMPT, LEARNER_AGE_PROMPT, MATH_DISPLAY_REQUIREMENTS_PROMPT } from './shared.js';
 
 export const STRICT_JSON_ARRAY_SYSTEM_PROMPT = 'Respond strictly as a JSON array.';
 
@@ -169,105 +144,6 @@ ${originalRequest}
 
 CANDIDATE OUTPUT:
 ${candidate}`;
-};
-
-export const ABILITY_QUESTION_IMAGE_PROMPT = (imageDescription: string, question: string): string => {
-  return imageDescription
-    ? `${imageDescription}
-Create the task-essential STARTING visual for this concrete Ability question: ${question}. Preserve the educational structure, vary only the concrete task parameters, and do not reveal the answer in the visual.`
-    : '';
-};
-
-export const ABILITY_SOLUTION_IMAGE_PROMPT = (solutionImageDescription: string, question: string, answer: string, additionalSpecification = ''): string => {
-  return solutionImageDescription
-    ? `${solutionImageDescription}
-Use the source description as the required visual structure, but adapt all concrete values, labels, geometry, plotted data, markings, and answer details to this Ability variation. The image must show the complete correct worked-solution result for the question below and must not retain source-Exercise values that conflict with it.
-
-Ability question:
-${question}
-
-Correct answer / worked solution:
-${answer}${additionalSpecification ? `
-
-Additional solution-visual specification from the Ability generator:
-${additionalSpecification}` : ''}`
-    : '';
-};
-
-export const ABILITY_CHANGED_IMAGE_SOLUTION_PROMPT = (questionImagePrompt: string, question: string, answer: string, sourceSolutionDescription = '', additionalSpecification = ''): string => {
-  return `Create the COMPLETE CORRECT UPDATED VERSION of the SAME visual used in the question. Recreate the same base objects, labels, coordinate system, dimensions, scale, layout, and all unchanged details, then apply only the modification requested by the Ability question. The final image must visibly contain the answer/result, not merely explain it.
-
-Starting question visual specification:
-${questionImagePrompt}
-
-Ability question:
-${question}
-
-Correct answer / worked solution:
-${answer}${sourceSolutionDescription ? `
-
-Required solution-visual specification from the source Exercise:
-${sourceSolutionDescription}` : ''}${additionalSpecification ? `
-
-Additional solution-visual specification from the Ability generator:
-${additionalSpecification}` : ''}`;
-};
-
-export const OPEN_ROUTER_VISUAL_SPEC_PROMPT = (visualPrompt: string, purpose: 'question' | 'solution', referenceScene = ''): string => {
-  const vectorSchema = `Use a structured vector scene. Coordinates are ordinary SVG-like numbers, but DO NOT write SVG/XML. The application renders the scene deterministically and adds safe margins itself.
-
-Supported element types:
-- line: {"id":"...","type":"line","x1":0,"y1":0,"x2":100,"y2":100,"stroke":"black","strokeWidth":2,"dash":[6,4],"arrowStart":false,"arrowEnd":false}
-- rect: {"id":"...","type":"rect","x":0,"y":0,"width":100,"height":50,"rx":0,"stroke":"black","strokeWidth":2,"fill":"none"}
-- circle: {"id":"...","type":"circle","cx":50,"cy":50,"r":20,"stroke":"black","strokeWidth":2,"fill":"none"}
-- ellipse: {"id":"...","type":"ellipse","cx":50,"cy":50,"rx":30,"ry":20,"stroke":"black","strokeWidth":2,"fill":"none"}
-- polygon/polyline: {"id":"...","type":"polygon","points":[[0,0],[100,0],[50,80]],"stroke":"black","strokeWidth":2,"fill":"none"}
-- arc: {"id":"...","type":"arc","cx":50,"cy":50,"r":20,"startAngle":0,"endAngle":90,"stroke":"black","strokeWidth":2}
-- text: {"id":"...","type":"text","x":50,"y":50,"text":"A","fontSize":24,"anchor":"middle","fontWeight":"normal","fill":"black","rotate":0}
-
-Every element needs a unique stable id. Keep labels as separate text elements. Use only black/white/gray/grey/red/blue/green/orange/purple/yellow/brown/transparent/none or hex colors. Prefer simple geometry and explicit labels. Do not put equations in paths; use text with ordinary Unicode mathematical symbols when practical. Scene width/height default to 960x640 and should normally be left at those values. Do not set viewBox unless a reference scene already supplies one.
-
-STROKE STYLE RULE: omit "dash" by default and render ordinary boundaries, axes, partition dividers, grid lines, and measurement lines as SOLID. Use "dash" only when the VISUAL REQUEST explicitly requires a dashed, dotted, broken, hidden, auxiliary/construction, or otherwise non-solid line. Never invent dashed separators merely as a styling choice.`;
-
-  if (referenceScene) {
-    return `Modify an existing deterministic educational vector scene. Return ONLY a patch; do not redraw or restate unchanged objects. Preserve the existing dimensions, viewBox, coordinate system, positions, labels, styles, and all unchanged element ids. Add, remove, or update only what the requested worked solution requires. The application rejects patches that move content outside the preserved viewBox.
-
-${vectorSchema}
-
-Return only JSON in this exact shape:
-{"format":"vector-patch","operations":[{"op":"add","element":{...}},{"op":"update","id":"existingId","element":{...complete replacement element with same id and type...}},{"op":"remove","id":"existingId"}]}
-Include only operations actually needed. An update must contain the complete replacement element and keep the same id and type.
-
-REFERENCE SCENE JSON:
-${referenceScene}
-
-VISUAL REQUEST:
-${visualPrompt}`;
-  }
-
-  return `Decide whether this educational Ability visual genuinely requires photographic/natural imagery. Use raster ONLY when the task depends on photographic realism, natural texture, subtle material appearance, a real-world photo, or another property that geometric vector primitives cannot faithfully represent. Diagrams, geometry, graphs, charts, tables, symbols, number lines, coordinate planes, simple maps, layouts, and schematic objects MUST use the structured vector format. Never choose raster merely because vector construction is inconvenient.
-
-${vectorSchema}
-
-For vector output return only JSON:
-{"format":"vector","scene":{"width":960,"height":640,"background":"white","elements":[...]}}
-For genuinely photographic output return only:
-{"format":"raster"}
-
-${purpose === 'solution' ? 'This is a WORKED-SOLUTION visual. It must visibly show the complete correct result required by the prompt.' : 'This is a QUESTION visual. Do not reveal, highlight, pre-complete, or encode the answer unless the starting state itself explicitly requires it.'}
-
-VISUAL REQUEST:
-${visualPrompt}`;
-};
-
-// Kept as a compatibility alias for code outside this package that imported the
-// older name. It now requests a structured scene rather than raw SVG markup.
-export const OPEN_ROUTER_SVG_PROMPT = (visualPrompt: string, purpose: 'question' | 'solution'): string => OPEN_ROUTER_VISUAL_SPEC_PROMPT(visualPrompt, purpose);
-
-export const OPEN_ROUTER_SOLUTION_RASTER_PROMPT = (visualPrompt: string): string => {
-  return `Create the complete worked-solution visual. Show the correct constructed, drawn, labeled, shaded, plotted, graphed, marked, or modified result required by the solution. If this is an updated version of a question visual, preserve all unchanged base objects, labels, scale, coordinate system, and layout and apply only the requested change.
-
-${visualPrompt}`;
 };
 
 export const FIX_ABILITIES_PROMPT = `${MATH_DISPLAY_REQUIREMENTS_PROMPT}\n\nDuring review or repair, slash-form mathematical fractions are errors and must be corrected. During review or repair, any number line that violates any of these requirements is an error and must be corrected.\n\nReview every supplied Ability in this chapter and identify any error: factual, mathematical, logical, grammatical, spelling, ambiguity, incomplete or non-self-contained questions, incorrect or mismatched answers, mismatch between the two exercises and the target Skill, identical questions or concrete parameters, JSON/schema problems, and KaTeX syntax, escaping, formula, or learner-facing number-markup errors. Every learner-facing numeric literal in Ability h, q[].h, and q[].a must be treated as a mathematical expression and enclosed in <kx>...</kx>, including standalone counts and numbers next to units. Digits embedded in alphanumeric identifiers or names are not numeric literals for this rule. Keep identifiers such as TP53, BRCA1, H1N1, p53, and IL-6 as plain text; never wrap an embedded digit or the whole identifier in <kx>...</kx> merely because it contains digits. Treat a learner-facing number outside <kx>...</kx> as an error that Fix abilities must correct, even when the value itself is mathematically correct. Do not apply this number-markup rule to semantic visual-description fields such as q[].p, q[].i, q[].pPrompt, or q[].iPrompt. Treat any learner-facing q[].h value equal to "Task 1" or "Task 2" (ignoring case and surrounding whitespace) as an invalid placeholder that must be replaced with the actual task text. The input may also include embeddingValidation metadata for an Ability. This is an advisory semantic pre-check against that Ability's source Exercise, not proof that the Ability is wrong. When embeddingValidation.needsAdditionalCheck is true, inspect every listed signal carefully and compare the Ability against the supplied sourceExercise evidence. Validate alignment with the source Exercise title, required question image specification, answer/solution semantics, and required answer-image specification. A low cosine similarity is only a hint to investigate; do not rewrite an otherwise correct Ability merely to increase similarity. A missingInAbility or unexpectedInAbility visual-presence signal is a stronger warning that the source visual contract may have been dropped or invented. When embeddingValidation.needsAdditionalCheck is false, continue the normal full Ability audit anyway. Never change or reinterpret sourceExercise; use it only as authoritative evidence for whether the Ability preserves the complete source Exercise-level skill. The input contains every Ability from one chapter, each with its real stored id and chapter-local index; an Ability may be a parsed JSON object or a raw JSON string when its stored JSON is malformed. Ability titles (h) must be unique within the chapter. Compare all supplied Ability titles case-insensitively after trimming whitespace. When two or more otherwise distinct Abilities share the same title, treat the title on every Ability in that same-title group as an error: rewrite all of those titles, including the earliest one, to concise, accurate, more specific titles that clearly distinguish the Abilities from one another and are each unique within this chapter while preserving each Ability's same target Skill. Do not keep the shared generic title on one Ability and rename only the later records. If same-titled records are actually duplicate Abilities, handle the records that will be deleted through duplicatePairs instead of repairing those deleted records; apply the more-specific unique-title rule to every same-titled Ability that remains. Also compare all supplied Abilities against one another and find duplicate Abilities within this chapter. A duplicate means two records represent the same Exercise-level Ability with the same or materially identical concrete question/answer content; do not call records duplicates merely because they train the same Skill with genuinely different concrete inputs. For every duplicate record, return an explicit duplicatePairs entry with both the canonical kept record id and the duplicate record id to delete: {"keptAbilityId":"stored-id-to-keep","deletedAbilityId":"stored-id-to-delete"}. For every duplicate set, keep the earliest supplied index as the canonical record. If three records are duplicates, return one pair for each later record, both pointing to the same earliest canonical record. Never invent an id or index that is not present in the supplied chapter. Never use a record marked for deletion as the kept record in another pair. Return reviews only for input indexes where you find an error. It is valid and preferred to omit correct Abilities entirely; a partial reviews array is expected. If there are no errors or duplicates return {"reviews":[],"duplicatePairs":[]}. For an erroneous Ability, list concise error descriptions and include the complete corrected Ability in ability: {"index":0,"hasErrors":true,"errors":["description"],"ability":{...}}. If you choose to include a correct Ability, use {"index":0,"hasErrors":false,"errors":[]}, but this is unnecessary. Do not repair an Ability whose record id you place in duplicatePairs as deletedAbilityId because that record will be deleted. Correct every other identified error while preserving the same target Skill, language, method, and difficulty. Each stored Ability represents one source Exercise. Do not split a coherent multi-step Ability into narrower sub-Abilities during repair; preserve the complete Exercise-level operation or operation sequence, method, direction, and difficulty. Make the minimum changes necessary. Keep learner-facing text compact: h should normally fit within 12 words, each q[].h within 32 words, and each q[].a within 38 words. Answers should contain only the result plus the minimum derivation needed to check the target operation, not tutorial prose or a restatement of the question. Every corrected Ability must preserve the required i, t, h, and q structure, with t=3 and exactly two q entries. The q[].p and q[].i values are semantic text descriptions for question and answer images, not image bytes, URLs, filenames, or generated images. Keep them empty when no visual is required. When a visual is required, preserve or minimally correct the standalone description so it remains consistent with the concrete question and answer. Never generate actual images in this stage, never replace a description with image data, and never rewrite an image-dependent task into text that reveals the visual information. For malformed stored JSON, provide valid string values for i and p. For deciding whether the two q tasks use different concrete inputs, treat each task as the combination of its learner-facing title/text in q[].h and its question visual prompt in q[].pPrompt when present. Do not use q[].p as a fallback or substitute for q[].pPrompt. Compare the combined task, not q[].h alone: the same title can still represent different concrete inputs when the visual prompts differ, while different wording does not by itself prove the concrete inputs differ. The two exercises must train the same complete Exercise-level Ability but use different concrete input parameters across that combined text-plus-visual task. ${EXERCISE_TEMPLATE_STYLE_PROMPT} For Ability repair, use only the reusable-template and self-containment parts of that shared style; the compact answer limits above override its request for step-by-step solution prose. Apply it without changing the target Exercise-level Ability. Use <kx>...</kx> for every mathematical formula or expression, never dollar-delimited LaTeX, and escape every LaTeX backslash for valid JSON. Return only valid JSON in this exact top-level shape: {"reviews":[...],"duplicatePairs":[{"keptAbilityId":"stored-id-to-keep","deletedAbilityId":"stored-id-to-delete"}]}. Do not add markdown fences or commentary.`;

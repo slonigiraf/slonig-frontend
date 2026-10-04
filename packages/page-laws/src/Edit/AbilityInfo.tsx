@@ -4,7 +4,7 @@
 import { Modal, Button, Spinner, styled } from '@polkadot/react-components';
 import React from 'react'
 import { useLiveQuery } from 'dexie-react-hooks';
-import { useTranslation } from '../translate.js';
+import { useTranslation } from '../common/translate.js';
 import { useToggle } from '@polkadot/react-hooks';
 import { SpanWithTags, parseJson } from '@slonigiraf/slonig-components';
 import { getImage, hydrateAbilityContent, putImage } from '@slonigiraf/db';

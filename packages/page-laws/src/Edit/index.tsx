@@ -8,7 +8,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { Button, InputBalance, styled } from '@polkadot/react-components';
 import { useToggle } from '@polkadot/react-hooks';
 import { u8aToHex } from '@polkadot/util';
-import { useTranslation } from '../translate.js';
+import { useTranslation } from '../common/translate.js';
 import { useIpfsContext } from '@slonigiraf/slonig-components';
 import { useApi } from '@polkadot/react-hooks';
 import { parseJson } from '@slonigiraf/slonig-components';
@@ -19,7 +19,7 @@ import { useLoginContext } from '@slonigiraf/slonig-components';
 import { sendCreateAndEditTransaction, sendEditTransaction } from './sendTransaction.js';
 import { useInfo } from '@slonigiraf/slonig-components';
 import { getSetting, SettingKey } from '@slonigiraf/db';
-import { sessionPrefix } from '../constants.js';
+import { sessionPrefix } from '../common/constants.js';
 import AbilityList from './AbilityList.js';
 import { DEFAULT_KNOWLEDGE_ID } from '@slonigiraf/utils';
 

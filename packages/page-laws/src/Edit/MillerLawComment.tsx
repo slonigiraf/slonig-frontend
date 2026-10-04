@@ -1,5 +1,5 @@
 import React from 'react';
-import { useTranslation } from '../translate.js';
+import { useTranslation } from '../common/translate.js';
 import { FullWidthContainer } from '@slonigiraf/slonig-components';
 import styled from 'styled-components';
 

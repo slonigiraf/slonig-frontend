@@ -1,6 +1,6 @@
 import React, { useCallback } from 'react';
 import { Button } from '@polkadot/react-components';
-import { useTranslation } from '../translate.js';
+import { useTranslation } from '../common/translate.js';
 
 interface ExerciseListProps {
   skillName: string;

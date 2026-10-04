@@ -1,7 +1,7 @@
 import React, { useCallback, useState } from 'react';
 import { Button, Dropdown, Input, styled } from '@polkadot/react-components';
-import { useTranslation } from '../translate.js';
-import { randomIdHex } from '../util.js';
+import { useTranslation } from '../common/translate.js';
+import { randomIdHex } from '../common/util.js';
 import Reordering from './Reordering.js';
 import ExerciseEditorList from './ExerciseEditorList.js';
 import { useApi } from '@polkadot/react-hooks';

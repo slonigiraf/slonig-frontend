@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { Button, styled } from '@polkadot/react-components';
 import ItemLabel from './ItemLabel.js';
 import { getCIDFromBytes } from '@slonigiraf/slonig-components';
-import { ItemWithCID } from '../types.js';
+import { ItemWithCID } from '../common/types.js';
 import { useApi } from '@polkadot/react-hooks';
 import BN from 'bn.js';
 

@@ -1,11 +1,11 @@
 import React, { useCallback, useState } from 'react';
-import { useTranslation } from '../translate.js';
+import { useTranslation } from '../common/translate.js';
 import { getSetting, SettingKey, storeAbility } from '@slonigiraf/db';
 import OpenAI from 'openai';
 import { FileUpload } from '@polkadot/react-components';
-import { SKILL_LIST_PROMPT, STRICT_JSON_ARRAY_SYSTEM_PROMPT } from '../constants.js';
-import { parseGeneratedAbilities } from '../abilities.js';
-import { openRouterRequestGate } from '../openRouterConcurrency.js';
+import { SKILL_LIST_PROMPT, STRICT_JSON_ARRAY_SYSTEM_PROMPT } from '../Generate/book/prompts/abilities.js';
+import { parseGeneratedAbilities } from '../abilities/abilities.js';
+import { openRouterRequestGate } from '../openrouter/concurrency.js';
 
 interface Props {
   className?: string;

@@ -4,7 +4,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { createRequestGate, OPENROUTER_CONCURRENCY } from './openRouterConcurrency.js';
+import { createRequestGate, OPENROUTER_CONCURRENCY } from './concurrency.js';
 
 const delay = (milliseconds: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, milliseconds));
 

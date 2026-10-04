@@ -12,9 +12,9 @@ import { Button, Dropdown, Modal, Toggle, styled } from '@polkadot/react-compone
 import type { AiInputEstimate } from '../book/processing/aiEstimate.js';
 
 import { estimateAiInput, estimateAiRequests } from '../book/processing/aiEstimate.js';
-import { DEFAULT_PROCESSING_MODEL, DEFAULT_STANDARDS_EMBEDDER, DEFAULT_STANDARDS_MODEL, MATHPIX_PDF_PAGE_PRICE_USD } from '../../constants.js';
-import OpenRouterEmbeddingModelSelector from '../components/OpenRouterEmbeddingModelSelector.js';
-import OpenRouterModelSelector from '../../OpenRouterModelSelector.js';
+import { DEFAULT_PROCESSING_MODEL, DEFAULT_STANDARDS_EMBEDDER, DEFAULT_STANDARDS_MODEL, MATHPIX_PDF_PAGE_PRICE_USD } from '../book/processing/config.js';
+import OpenRouterEmbeddingModelSelector from '../../openrouter/components/EmbeddingModelSelector.js';
+import OpenRouterModelSelector from '../../openrouter/components/ModelSelector.js';
 import { bookLanguageLabel } from '../book/processing/metadata/bookLanguage.js';
 import { exerciseGenerationRequestEstimate } from '../book/processing/bookProcessing.js';
 import { conceptChaptersFromPages } from '../book/processing/concepts/conceptRecognition.js';
@@ -23,7 +23,7 @@ import { fixChapterConceptsPrompt } from '../book/processing/concepts/fixConcept
 import { conceptsForSortChapter, sortChapterConceptsPrompt } from '../book/processing/concepts/sortConcepts.js';
 import { conceptBelongsToChapter, conceptsForRefinementChapter, isRefineChaptersComplete, REFINE_CHAPTERS_SPEND_STAGE, refineChapterPrompt, sortConceptsByDisplayOrder, withRefineChaptersIncomplete } from '../book/processing/chapters/refineChapters.js';
 import { clearFixConceptsChapterStatuses, failedFixConceptChapterKeys, fixConceptsChapterKey } from '../book/runtime/fixConceptsProgress.js';
-import { formatOpenRouterSpend } from '../../openRouterCost.js';
+import { formatOpenRouterSpend } from '../../openrouter/cost.js';
 import { clearBookStageTimes, formatBookStageTime, loadBookStageTimes, type BookStageTimes } from '../book/runtime/bookStageTime.js';
 import { bookExternalCallTotal, clearBookExternalCalls, loadBookExternalCalls, type BookExternalCalls } from '../book/runtime/bookExternalCalls.js';
 import { loadStandardsCatalogsForBookSubject, STANDARDS_MATCH_RUNS, standardsCandidatesFromEmbeddings, standardsChapterKey, standardsConceptInputs, standardsMatchingPrompt, standardEmbeddingInput } from '../book/processing/standards/standards.js';
@@ -31,7 +31,7 @@ import { conceptEmbeddingInput } from '../book/processing/standards/standardsEmb
 import { AiPriceEstimate, UnitPriceEstimate } from '../components/PriceEstimate.js';
 import { loadPdfJs } from '../book/processing/source/pdf.js';
 import StageRunPricePopup from '../components/StageRunPricePopup.js';
-import { useTranslation } from '../../translate.js';
+import { useTranslation } from '../../common/translate.js';
 
 const BookReader = React.lazy(() => import('./BookReader.js'));
 

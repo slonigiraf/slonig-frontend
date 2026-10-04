@@ -20,17 +20,19 @@ import { bookAgeLabel, getBookAgeSamplePageNumbers, MAX_BOOK_LEARNER_AGE, MIN_BO
 import { BOOK_LANGUAGE_OPTIONS, bookLanguageLabel, getMiddleBookPageNumbers, normalizeLanguageCode, parseDetectedBookLanguage } from '../book/processing/metadata/bookLanguage.js';
 import { BOOK_SUBJECT_OPTIONS, automaticBookSubjectForLanguage, bookSubjectLabel, normalizeBookSubject, parseDetectedBookSubject } from '../book/processing/metadata/bookSubject.js';
 import { areAllBookPagesConceptsProcessed, countUnprocessedBookPages, processExtractedChapterContent } from '../book/processing/bookProcessing.js';
-import { mapConcurrent } from '../../concurrency.js';
-import { OPENROUTER_CONCURRENCY, openRouterRequestGate } from '../../openRouterConcurrency.js';
-import OpenRouterModelSelector from '../../OpenRouterModelSelector.js';
+import { mapConcurrent } from '../../common/concurrency.js';
+import { OPENROUTER_CONCURRENCY, openRouterRequestGate } from '../../openrouter/concurrency.js';
+import OpenRouterModelSelector from '../../openrouter/components/ModelSelector.js';
 import { chapterLevelMissingConcept, fixChapterConceptsPrompt, fixSingleConceptPrompt, parseFixedConcept, parseMissingChapterConcepts, type MissingChapterConcept } from '../book/processing/concepts/fixConcepts.js';
 import { clearFixConceptsChapterStatuses, fixConceptsChapterKey, loadFixConceptsChapterStatuses, storeFixConceptsChapterStatuses, type FixConceptsChapterStatuses } from '../book/runtime/fixConceptsProgress.js';
 import { assertDisjointSortChapterConcepts, conceptsForSortChapter, parseSortedChapterConceptIndexes, sortChapterConceptsPrompt } from '../book/processing/concepts/sortConcepts.js';
 import { conceptBelongsToChapter, conceptsForRefinementChapter, hasPersistedRefinedConceptMembership, parseRefinedChapterGroups, REFINE_CHAPTERS_SPEND_STAGE, refinedChapterSplitPages, refineChapterPrompt, withRefineChaptersComplete } from '../book/processing/chapters/refineChapters.js';
-import { formatOpenRouterSpend, reportOpenRouterCost, type OpenRouterCostReporter } from '../../openRouterCost.js';
+import { formatOpenRouterSpend, reportOpenRouterCost, type OpenRouterCostReporter } from '../../openrouter/cost.js';
 import { useBookStageTimer } from '../book/runtime/bookStageTime.js';
 import { useBookProcessingRunner } from '../book/runtime/useBookProcessingRunner.js';
-import { DEFAULT_PROCESSING_MODEL, DEFAULT_STANDARDS_MODEL, FIX_EXERCISES_REQUEST_PROMPT, MATHPIX_PDF_PAGE_PRICE_USD, OPENAI_MODELS, REPAIR_SYSTEM_PROMPT } from '../../constants.js';
+import { DEFAULT_PROCESSING_MODEL, DEFAULT_STANDARDS_MODEL, MATHPIX_PDF_PAGE_PRICE_USD } from '../book/processing/config.js';
+import { FIX_EXERCISES_REQUEST_PROMPT, REPAIR_SYSTEM_PROMPT } from '../book/prompts/abilities.js';
+import { OPENAI_MODELS } from '../../openrouter/models.js';
 import { BOOK_CHAPTER_EXTRACTION_REQUEST_PROMPT } from '../book/prompts/concepts.js';
 import { BOOK_AGE_DETECTION_PROMPT, BOOK_LANGUAGE_DETECTION_PROMPT, BOOK_SUBJECT_DETECTION_PROMPT } from '../book/prompts/metadata.js';
 import { stripMarkdownImageReferences } from '../book/processing/source/bookImageRefs.js';
@@ -50,9 +52,9 @@ import { extractPdfOutlineChapterBoundaries, loadPdfJs } from '../book/processin
 import { AiPriceEstimate } from '../components/PriceEstimate.js';
 import ProcessingPopup, { type ProcessingStatus } from '../components/ProcessingPopup.js';
 import StageRunPricePopup from '../components/StageRunPricePopup.js';
-import { useTranslation } from '../../translate.js';
+import { useTranslation } from '../../common/translate.js';
 
-export { OPENAI_MODELS } from '../../constants.js';
+export { OPENAI_MODELS } from '../../openrouter/models.js';
 
 
 interface ChapterConceptInputPage {

@@ -1,7 +1,7 @@
 // Copyright 2021-2026 @polkadot/app-laws authors & contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import { formatOpenRouterSpend, openRouterResponseCost } from './openRouterCost.js';
+import { formatOpenRouterSpend, openRouterResponseCost } from './cost.js';
 
 describe('OpenRouter cost tracking', (): void => {
   it('reads numeric and numeric-string usage costs', (): void => {

@@ -1,5 +1,5 @@
 import React, { useCallback } from 'react';
-import { useTranslation } from '../translate.js';
+import { useTranslation } from '../common/translate.js';
 import { Button, Modal, styled } from '@polkadot/react-components';
 import { useInfo, useLog, VerticallyCenteredModal } from '@slonigiraf/slonig-components';
 import { useNavigate } from 'react-router-dom';

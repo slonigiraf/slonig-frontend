@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { Book, BookChapter, BookConcept, BookPage, BookProcessingStageKey, BookStageSpendKey, Exercise, Skill } from '@slonigiraf/db';
-import type { GeneratedAbility } from '../../abilities.js';
+import type { GeneratedAbility } from '../../abilities/abilities.js';
 import type { AbilityWorkflowJsonRunner, ExerciseAbilityConversion } from '../book/processing/abilities/abilityWorkflow.js';
 import type { AbilityEmbeddingValidationHint } from '../book/processing/abilities/abilityEmbeddingValidation.js';
 
@@ -17,18 +17,19 @@ import ExerciseList from '../../Edit/ExerciseList.js';
 import type { TikzPreRenderResult } from '../../Edit/TikzDisplay.js';
 import { isTikzCode } from '../../Edit/tikz.js';
 import { nextStoredTikzValidity, shouldSkipStoredTikzCompile } from '../../Edit/tikzValidation.js';
-import { parseAbilityRepairResult, parseStoredAbility, withAbilityVisualSource } from '../../abilities.js';
+import { parseAbilityRepairResult, parseStoredAbility, withAbilityVisualSource } from '../../abilities/abilities.js';
 import { buildAbilityEmbeddingValidationHints } from '../book/processing/abilities/abilityEmbeddingValidation.js';
 import { parseExerciseRepairResult } from '../book/processing/exercises/exercises.js';
 import { addBookExternalCall } from '../book/runtime/bookExternalCalls.js';
 import { estimateAiInput } from '../book/processing/aiEstimate.js';
-import { ABILITY_WORKFLOW_SYSTEM_PROMPT, DEFAULT_PROCESSING_MODEL, DEFAULT_STANDARDS_EMBEDDER, FIX_ABILITIES_REQUEST_PROMPT, FIX_EXERCISES_REQUEST_PROMPT, JSON_VALIDATION_PROMPT, REPAIR_SYSTEM_PROMPT, SKILLS_GENERATION_SYSTEM_PROMPT, SOURCES_TO_SKILLS_REQUEST_PROMPT } from '../../constants.js';
+import { DEFAULT_PROCESSING_MODEL, DEFAULT_STANDARDS_EMBEDDER } from '../book/processing/config.js';
+import { ABILITY_WORKFLOW_SYSTEM_PROMPT, FIX_ABILITIES_REQUEST_PROMPT, FIX_EXERCISES_REQUEST_PROMPT, JSON_VALIDATION_PROMPT, REPAIR_SYSTEM_PROMPT, SKILLS_GENERATION_SYSTEM_PROMPT, SOURCES_TO_SKILLS_REQUEST_PROMPT } from '../book/prompts/abilities.js';
 import { LEARNER_AGE_PROMPT, MATH_DISPLAY_REQUIREMENTS_PROMPT } from '../book/prompts/shared.js';
 import { abilityGenerationRequestPrompt, generateExerciseAbility, transportCompactAbilitySourceExercise } from '../book/processing/abilities/abilityWorkflow.js';
-import { mapConcurrent } from '../../concurrency.js';
-import { OPENROUTER_CONCURRENCY, openRouterRequestGate } from '../../openRouterConcurrency.js';
-import OpenRouterModelSelector from '../../OpenRouterModelSelector.js';
-import { reportOpenRouterCost, type OpenRouterCostReporter } from '../../openRouterCost.js';
+import { mapConcurrent } from '../../common/concurrency.js';
+import { OPENROUTER_CONCURRENCY, openRouterRequestGate } from '../../openrouter/concurrency.js';
+import OpenRouterModelSelector from '../../openrouter/components/ModelSelector.js';
+import { reportOpenRouterCost, type OpenRouterCostReporter } from '../../openrouter/cost.js';
 import { useBookStageTimer } from '../book/runtime/bookStageTime.js';
 import { AiPriceEstimate } from '../components/PriceEstimate.js';
 import ProcessingPopup, { type ProcessingStatus } from '../components/ProcessingPopup.js';

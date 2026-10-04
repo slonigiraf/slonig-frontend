@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { TextArea, Toggle, styled } from '@polkadot/react-components';
 import { useToggle } from '@polkadot/react-hooks';
-import { useTranslation } from '../translate.js';
+import { useTranslation } from '../common/translate.js';
 import { SpanWithTags, FullWidthContainer } from '@slonigiraf/slonig-components';
 import MillerLawComment from './MillerLawComment.js';
 

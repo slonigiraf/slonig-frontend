@@ -1,7 +1,7 @@
 // Copyright 2021-2026 @polkadot/app-laws authors & contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import { getOpenRouterModelPricePerMillion, normalizeOpenRouterModelCatalog, openRouterModelSupportsInputModalities, openRouterProviderForModel } from './openRouterModels.js';
+import { getOpenRouterModelPricePerMillion, normalizeOpenRouterModelCatalog, openRouterModelSupportsInputModalities, openRouterProviderForModel } from './models.js';
 
 describe('OpenRouter model catalog', (): void => {
   it('maps the requested model authors to provider dropdown values', (): void => {

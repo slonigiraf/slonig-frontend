@@ -1,6 +1,6 @@
 import React from 'react';
 import { Icon } from '@polkadot/react-components';
-import { ItemWithCID } from '../types.js';
+import { ItemWithCID } from '../common/types.js';
 
 interface Props {
   className?: string;

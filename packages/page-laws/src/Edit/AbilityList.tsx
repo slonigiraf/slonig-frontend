@@ -7,7 +7,7 @@ import React, { useCallback, useState } from 'react';
 
 import { Button } from '@polkadot/react-components';
 
-import { useTranslation } from '../translate.js';
+import { useTranslation } from '../common/translate.js';
 import AbilityInfo from './AbilityInfo.js';
 
 interface Props {

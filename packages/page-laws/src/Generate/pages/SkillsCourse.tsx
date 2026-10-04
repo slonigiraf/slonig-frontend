@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { Book, BookChapter } from '@slonigiraf/db';
-import type { GeneratedAbility } from '../../abilities.js';
-import { prepareAbilityForPublishing } from '../../abilities.js';
+import type { GeneratedAbility } from '../../abilities/abilities.js';
+import { prepareAbilityForPublishing } from '../../abilities/abilities.js';
 
 import { deleteAbility, getAbilities, getBookChapters, getBookConceptsForBookPage, getBookPages, getExercisesForBookPage, getSetting, hydrateAbilityContent, putBookChapter, SettingKey, updateBookChapterTitle, updateBookFields } from '@slonigiraf/db';
 import { digestFromCIDv1, getCIDFromBytes, getIPFSContentIDAndPinIt, getIPFSContentIDForBytesAndPinIt, getIPFSDataFromContentID, SpanWithTags, parseJson, useInfo, useIpfsContext, useLoginContext } from '@slonigiraf/slonig-components';
@@ -17,13 +17,13 @@ import { useApi } from '@polkadot/react-hooks';
 import { FormatBalance } from '@polkadot/react-query';
 import { BN_ZERO, u8aToHex } from '@polkadot/util';
 
-import { OPENAI_MODELS } from '../../constants.js';
-import { openRouterRequestGate } from '../../openRouterConcurrency.js';
+import { OPENAI_MODELS } from '../../openrouter/models.js';
+import { openRouterRequestGate } from '../../openrouter/concurrency.js';
 import { COURSE_NAMES_PROMPT } from '../book/prompts/publishing.js';
 import { parseNameSuggestions } from '../book/publishing/courseNames.js';
 import { chapterOutlineKey, type ChapterTemplates, isKnowledgeId, type KnowledgeItem, publishProcessedBook, templateOutlineKey, type TemplateRow } from '../book/publishing/publishProcessedBook.js';
 import KnowledgeTargetSelector from '../components/KnowledgeTargetSelector.js';
-import { parseStoredAbility } from '../../abilities.js';
+import { parseStoredAbility } from '../../abilities/abilities.js';
 import { isTikzCode } from '../../Edit/tikz.js';
 import { sortExercisesForDisplay } from '../book/processing/concepts/learningOrder.js';
 

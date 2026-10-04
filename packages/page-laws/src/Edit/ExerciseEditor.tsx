@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState, ChangeEvent, FC } from 'react';
 import { Button, styled } from '@polkadot/react-components';
-import { useTranslation } from '../translate.js';
+import { useTranslation } from '../common/translate.js';
 import { Exercise, Skill, useIpfsContext } from '@slonigiraf/slonig-components';
 import ExerciseImage, { isLocalOrRemoteImageUrl } from './ExerciseImage.js';
 import { getIPFSBytesFromContentID, getIPFSContentIDForBytesAndPinIt } from '@slonigiraf/slonig-components';

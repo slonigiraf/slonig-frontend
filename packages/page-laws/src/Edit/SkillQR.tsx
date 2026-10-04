@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useTranslation } from '../translate.js';
+import { useTranslation } from '../common/translate.js';
 import { CenterQRContainer, LessonRequest, SenderComponent, nameFromKeyringPair, qrWidthPx, useLoginContext } from '@slonigiraf/slonig-components';
 import { LearnRequest, Letter, SettingKey, getLessonId, getLettersToReexamine, storeSetting } from '@slonigiraf/db';
 import { keyForCid } from '@slonigiraf/slonig-components';
 import { styled } from '@polkadot/react-components';
 import { u8aToHex } from '@polkadot/util';
-import { ItemWithCID } from '../types.js';
+import { ItemWithCID } from '../common/types.js';
 import { EXAMPLE_MODULE_KNOWLEDGE_ID, EXAMPLE_SKILL_KNOWLEDGE_CID } from '@slonigiraf/utils';
 interface Props {
   className?: string;

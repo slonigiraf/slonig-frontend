@@ -8,7 +8,7 @@ import type { GeneratedAbility } from './abilities.js';
 import { strict as assert } from 'node:assert';
 
 import { parseAbilityRepairResult, parseAbilityRepairReviews, parseGeneratedAbilities, parseGeneratedExerciseAbilities, parseStoredAbility, prepareAbilityForPublishing, withAbilityVisualError, withAbilityVisualSource } from './abilities.js';
-import { FIX_ABILITIES_PROMPT, SKILL_LIST_PROMPT, SOURCES_TO_SKILLS_PROMPT } from './constants.js';
+import { FIX_ABILITIES_PROMPT, SKILL_LIST_PROMPT, SOURCES_TO_SKILLS_PROMPT } from '../Generate/book/prompts/abilities.js';
 
 function createSkill (): GeneratedAbility {
   return {

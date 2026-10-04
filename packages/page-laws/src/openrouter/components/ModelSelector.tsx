@@ -6,7 +6,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { Dropdown } from '@polkadot/react-components';
 
-import { getCachedOpenRouterModelCatalog, getFallbackOpenRouterModelCatalog, loadOpenRouterModelCatalog, OPENROUTER_MODEL_PROVIDERS, openRouterModelSupportsInputModalities, openRouterProviderForModel, type OpenRouterModelCatalog, type OpenRouterProviderId } from './openRouterModels.js';
+import { getCachedOpenRouterModelCatalog, getFallbackOpenRouterModelCatalog, loadOpenRouterModelCatalog, OPENROUTER_MODEL_PROVIDERS, openRouterModelSupportsInputModalities, openRouterProviderForModel, type OpenRouterModelCatalog, type OpenRouterProviderId } from '../models.js';
 
 interface Props {
   className?: string;

@@ -4,8 +4,8 @@
 import type { Exercise } from '@slonigiraf/db';
 import type OpenAI from 'openai';
 
-import type { GeneratedAbility, GeneratedAbilityExercise } from '../../../../abilities.js';
-import type { OpenRouterCostReporter } from '../../../../openRouterCost.js';
+import type { GeneratedAbility, GeneratedAbilityExercise } from '../../../../abilities/abilities.js';
+import type { OpenRouterCostReporter } from '../../../../openrouter/cost.js';
 
 import { stripMarkdownImageReferences } from '../source/bookImageRefs.js';
 import { requestTextEmbeddings } from '../standards/standardsEmbeddings.js';

@@ -5,8 +5,8 @@
 
 import { strict as assert } from 'node:assert';
 
-import { renderMathVisualSvg } from './mathVisuals.js';
-import { generateOpenRouterVisual, OPENROUTER_IMAGE_MODEL, svgMarkupToDataUrl } from './openRouterImages.js';
+import { renderMathVisualSvg } from '../visuals/mathVisuals.js';
+import { generateOpenRouterVisual, OPENROUTER_IMAGE_MODEL, svgMarkupToDataUrl } from './images.js';
 
 function vectorPlan (label = 'A'): string {
   return JSON.stringify({

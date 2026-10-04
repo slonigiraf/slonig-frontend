@@ -7,7 +7,7 @@ import { BN_ZERO } from '@polkadot/util';
 import React, { useCallback, useState } from 'react';
 import { Button, Input, InputBalance } from '@polkadot/react-components';
 import { u8aToHex } from '@polkadot/util';
-import { useTranslation } from '../translate.js';
+import { useTranslation } from '../common/translate.js';
 import { useApi } from '@polkadot/react-hooks';
 import { randomAsU8a } from '@polkadot/util-crypto';
 import { useIpfsContext } from '@slonigiraf/slonig-components';

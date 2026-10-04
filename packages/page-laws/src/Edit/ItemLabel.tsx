@@ -13,7 +13,7 @@ import {
 import { useIpfsContext } from '@slonigiraf/slonig-components';
 import { Button, Icon, styled, Spinner } from '@polkadot/react-components';
 import BadgeCheck from './BadgeCheck.js';
-import { ItemWithCID } from '../types.js';
+import { ItemWithCID } from '../common/types.js';
 
 interface Props {
   className?: string;

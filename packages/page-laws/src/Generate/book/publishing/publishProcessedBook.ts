@@ -6,7 +6,7 @@ import type { SubmittableExtrinsic } from '@polkadot/api/types';
 import type { KeyringPair } from '@polkadot/keyring/types';
 import type { DispatchError } from '@polkadot/types/interfaces';
 import type { Book, BookChapter } from '@slonigiraf/db';
-import type { GeneratedAbility, PreparedAbilityForPublishing } from '../../../abilities.js';
+import type { GeneratedAbility, PreparedAbilityForPublishing } from '../../../abilities/abilities.js';
 
 import { deleteAbility, putBookChapter, storeAbility, updateBookFields } from '@slonigiraf/db';
 import { LawType } from '@slonigiraf/slonig-components';
@@ -14,7 +14,7 @@ import BN from 'bn.js';
 
 import { BN_ZERO } from '@polkadot/util';
 
-import { randomIdHex } from '../../../util.js';
+import { randomIdHex } from '../../../common/util.js';
 import { loadStoredBookStandards, moduleStandardsText, standardsChapterKey } from '../processing/standards/standards.js';
 import { bookModulePublishJson, finalBookCourseJson, initialBookCourseJson } from './bookPublishing.js';
 
