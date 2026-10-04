@@ -170,8 +170,11 @@ function cycleCreateSimilarExerciseDecisionPrompt(context: DecisionPromptContext
 }
 
 function solveExerciseDecisionPrompt(context: DecisionPromptContext): string {
-  const correct = nextStageJson(context.stage, StageType.ask_to_create_similar_exercise);
-  const incorrect = nextStageJson(context.stage, StageType.ask_to_repeat_example_solution);
+  // Human tutoring and AI Tutor intentionally use this same knowledge-check
+  // stage with different branches. Prefer the AI Tutor pre-check destinations
+  // when they are present, while preserving the human tutorial flow.
+  const correct = nextStageJson(context.stage, [StageType.next_skill, StageType.ask_to_create_similar_exercise]);
+  const incorrect = nextStageJson(context.stage, [StageType.begin_ask_to_create_similar_exercise, StageType.ask_to_repeat_example_solution]);
 
   return [
     'You are taking the role of the HUMAN TUTOR in the begin_ask_to_solve_exercise stage of a Slonig TutoringAlgorithm.',

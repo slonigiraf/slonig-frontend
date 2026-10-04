@@ -37,6 +37,18 @@ function createSimilarStage(type: StageType): AlgorithmStage {
   } as unknown as AlgorithmStage;
 }
 
+function solveExerciseStage(nextTypes: StageType[]): AlgorithmStage {
+  const next = nextTypes.map((type, index) => nextStage(type, `Choice ${index + 1}`));
+
+  return {
+    getActionHint: () => 'Has the student answered correctly?',
+    getMessages: () => [{ title: 'Solve:', text: '', exercise: '2 + 2 = ?' }],
+    getNext: () => next,
+    getPrevious: () => null,
+    getType: () => StageType.begin_ask_to_solve_exercise,
+  } as unknown as AlgorithmStage;
+}
+
 function geometryCreateSimilarStage(): AlgorithmStage {
   const created = nextStage(StageType.provide_fake_solution, 'Yes');
   const repeat = nextStage(StageType.ask_to_repeat_similar_exercise, 'No');
@@ -145,6 +157,30 @@ describe('AI Tutor similar-exercise decisions', (): void => {
     assert.match(prompt, /Division lines would be part of the solution/i);
     assert.match(prompt, /Visuals supplied by the student in the current response: 1/i);
     assert.match(prompt, /Divide the figure into 2 unequal parts/i);
+  });
+});
+
+describe('AI Tutor solve-first decision', (): void => {
+  it('routes a correct pre-check to next skill and an incorrect one to tutoring', (): void => {
+    const stage = solveExerciseStage([
+      StageType.next_skill,
+      StageType.begin_ask_to_create_similar_exercise,
+    ]);
+    const prompt = decisionPrompt(skill, stage, '4', '', '', 0);
+
+    assert.match(prompt, /If the answer is correct, return \{"nextStage": 0\}/);
+    assert.match(prompt, /If the answer is incorrect, incomplete, or ambiguous, return \{"nextStage": 1\}/);
+  });
+
+  it('preserves the original human tutorial solve branches', (): void => {
+    const stage = solveExerciseStage([
+      StageType.ask_to_create_similar_exercise,
+      StageType.ask_to_repeat_example_solution,
+    ]);
+    const prompt = decisionPrompt(skill, stage, '4', '', '', 0);
+
+    assert.match(prompt, /If the answer is correct, return \{"nextStage": 0\}/);
+    assert.match(prompt, /If the answer is incorrect, incomplete, or ambiguous, return \{"nextStage": 1\}/);
   });
 });
 

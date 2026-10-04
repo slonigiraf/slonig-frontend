@@ -703,7 +703,7 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
     stake: '0',
     studentName: tutorT('student'),
     t: tutorT,
-    variation: 'regular',
+    variation: 'ai_tutor',
   }) : undefined, [skill, tutorLocaleCode, tutorT]);
   const [algorithmStage, setAlgorithmStage] = useState<AlgorithmStage>();
   const submitInFlightRef = useRef(false);

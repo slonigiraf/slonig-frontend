@@ -4,7 +4,7 @@ import { IMessage, Skill } from '@slonigiraf/slonig-components';
 import ExampleExercisesButton from './ExampleExercisesButton.js';
 import { leftQuote, quote, rightQuote } from '../utils.js';
 
-export type TutoringAlgorithmType = 'tutorial' | 'redo_tutorial' | 'regular' | 'first_in_lesson';
+export type TutoringAlgorithmType = 'tutorial' | 'redo_tutorial' | 'regular' | 'first_in_lesson' | 'ai_tutor';
 
 export interface TutoringAlgorithmProps {
     variation: TutoringAlgorithmType;
@@ -182,6 +182,11 @@ class TutoringAlgorithm extends Algorithm {
             this.begin = firstTimeIntro;
         } else if (variation === 'first_in_lesson') {
             this.begin = closeNotes;
+        } else if (variation === 'ai_tutor') {
+            // AI Tutor starts every skill with a direct knowledge check. A
+            // correct answer skips the teaching cycle; an incorrect answer
+            // enters the same tutoring path used by the regular algorithm.
+            this.begin = askStudentToSolveAnExercise;
         } else {
             this.begin = askStudentToCreateASimilarExercise;
         }
@@ -195,7 +200,9 @@ class TutoringAlgorithm extends Algorithm {
 
         closeNotes.setNext([askStudentToCreateASimilarExercise])
 
-        askStudentToSolveAnExercise.setNext([askToCreateAnExerciseAfterCompletionOfExerciseOfTutor, askStudentToRepeatTheSolutionOfExerciseOfTutor]);
+        askStudentToSolveAnExercise.setNext(variation === 'ai_tutor'
+            ? [toNextSkill, askStudentToCreateASimilarExercise]
+            : [askToCreateAnExerciseAfterCompletionOfExerciseOfTutor, askStudentToRepeatTheSolutionOfExerciseOfTutor]);
         askToCreateAnExerciseAfterCompletionOfExerciseOfTutor.setPrevious(askStudentToSolveAnExercise);
         askStudentToRepeatTheSolutionOfExerciseOfTutor.setPrevious(askStudentToSolveAnExercise);
         askToCreateAnExerciseAfterCompletionOfExerciseOfTutor.setNext([provideFakeAnswer, askToRepeatTaskAfterMe]);
