@@ -511,7 +511,8 @@ function isCreateSimilarExerciseStage(stage: AlgorithmStage): boolean {
 }
 
 function isRepeatStage(stage: AlgorithmStage | undefined): boolean {
-  return stage?.getType() === StageType.ask_to_repeat_example_solution
+  return stage?.getType() === StageType.correct_fake_solution
+    || stage?.getType() === StageType.ask_to_repeat_example_solution
     || stage?.getType() === StageType.ask_to_repeat_similar_exercise;
 }
 
@@ -2151,8 +2152,20 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
 
   const hasComposerContent = Boolean(recording || answer.trim() || attachments.length > 0 || audioBlob || tikz);
   const canSubmit = !loading && hasComposerContent;
-  const blurEntireHistory = shouldBlurTutorReply && isRepeatStage(algorithmStage);
-  const isTypingReply = shouldBlurTutorReply && !blurEntireHistory;
+  // Keep tutor content readable when the student must work directly from it:
+  // the initial solve-first exercise and the intentionally fake solution. Other
+  // tutoring stages retain the existing blur behavior while the student replies.
+  const keepTutorMessageVisible = algorithmStage?.getType() === StageType.begin_ask_to_solve_exercise
+    || algorithmStage?.getType() === StageType.provide_fake_solution;
+  const blurTutorMessages = shouldBlurTutorReply && !keepTutorMessageVisible;
+  const blurEntireHistory = blurTutorMessages
+    && (isRepeatStage(algorithmStage) || Boolean(algorithmStage && isCreateSimilarExerciseStage(algorithmStage)));
+  // The student must be able to read the answer they just submitted while the
+  // tutor is classifying it. Repeat/create stages blur previous history, but applying
+  // that blur to the freshly submitted bubble before the tutor responds makes
+  // the student's own message disappear immediately after Send.
+  const keepSubmittedStudentMessageVisible = loading && submitInFlightRef.current;
+  const isTypingReply = blurTutorMessages && !blurEntireHistory;
   const renderedTutorMessageParts = useMemo(() => tutorMessageParts(currentAiText), [currentAiText]);
   const canRegenerateCurrentAnswer = Boolean(currentAiText && algorithmStage && stageNeedsGeneratedText(algorithmStage) && !loading);
   const voiceStatusLabel = voiceStatus === 'speaking'
@@ -2186,7 +2199,6 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
           <CloseButton onClick={onClose} icon='close' />
           <Spacer />
         </Progress>
-        {skill && <CurrentSkillLabel><KatexSpan content={skill.title}/></CurrentSkillLabel>}
         <Pane>
           {isOpenRouterKeyLoaded && !openRouterKey && <KeySettings><Button label={t('Set OpenRouter key')} onClick={() => setKeyDialogOpen(true)} /></KeySettings>}
           {error && <ErrorText>{error}</ErrorText>}
@@ -2197,7 +2209,7 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
               onCopy={(event) => event.preventDefault()}
               onCut={(event) => event.preventDefault()}
             >
-              {lastStudentMessage && <StudentMessage className='history-blurrable'>
+              {lastStudentMessage && <StudentMessage className={keepSubmittedStudentMessageVisible ? '' : 'history-blurrable'}>
                 <StudentBubble>
                   <MessageRole>{t('You')}</MessageRole>
                   {lastStudentMessage.text && <MessageBody><KatexSpan content={lastStudentMessage.text} /></MessageBody>}
@@ -2222,7 +2234,9 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
                 </StudentBubble>
               </StudentMessage>}
               {!loading && (currentAiText || currentStageImageCids.length > 0) && <TutorMessage className='history-blurrable'>
-                <TutorBubble className={isTypingReply ? 'is-replying' : ''}>
+                <TutorBubble
+                  className={isTypingReply ? 'is-replying' : ''}
+                >
                   <MessageRole>{t('AI Tutor')}</MessageRole>
                   {renderedTutorMessageParts.map((part, index) => {
                     if (part.type !== 'tikz') return <MessageBody key={`tutor-text-${index}`}><KatexSpan content={part.value} /></MessageBody>;
@@ -2296,12 +2310,12 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
                     setShouldBlurTutorReply(e.target.value.length > 0 || Boolean(audioBlob) || recording);
                     resizeAnswerInput(e.currentTarget);
                   }}
-                  onPaste={(e) => e.preventDefault()}
                   onKeyDown={(e) => {
                     if (e.key !== 'Enter' || e.shiftKey || e.nativeEvent.isComposing) return;
                     e.preventDefault();
                     if (canSubmit) void submitAnswer();
                   }}
+                  onPaste={(e) => e.preventDefault()}
                   placeholder={voiceMode ? t('Type') : t('Type your answer')}
                   disabled={loading}
                 />
@@ -2751,23 +2765,6 @@ const Progress = styled.div`
   }
 `;
 const Spacer = styled.div`width: 20px; flex: 0 0 20px;`;
-const CurrentSkillLabel = styled.div`
-  max-width: calc(100% - 80px);
-  margin: 8px auto 0;
-  padding: 5px 12px;
-  box-sizing: border-box;
-  overflow: hidden;
-  border: 1px solid #F39200;
-  border-radius: 999px;
-  background: rgb(243 146 0 / 8%);
-  color: #c17000;
-  font-size: 13px;
-  font-weight: 600;
-  line-height: 1.3;
-  text-align: center;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-`;
 const CloseButton = styled(Button)`
   position: relative;
   right: 0;

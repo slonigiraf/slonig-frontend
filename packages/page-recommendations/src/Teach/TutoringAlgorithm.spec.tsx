@@ -39,18 +39,22 @@ describe('TutoringAlgorithm AI Tutor entry check', (): void => {
     assert.equal(begin.getType(), StageType.begin_ask_to_solve_exercise);
     assert.deepEqual(
       begin.getNext().map((stage) => stage.getType()),
-      [StageType.next_skill, StageType.begin_ask_to_create_similar_exercise],
+      [StageType.next_skill, StageType.ask_to_repeat_example_solution],
     );
   });
 
-  it('sends an incorrect AI Tutor pre-check into the existing regular tutoring path', (): void => {
+  it('shows the correct solution and asks for a repetition after an incorrect AI Tutor pre-check', (): void => {
     const begin = algorithm('ai_tutor').getBegin();
-    const tutoringBegin = begin.getNext()[1];
+    const repeatSolution = begin.getNext()[1];
 
-    assert.equal(tutoringBegin.getType(), StageType.begin_ask_to_create_similar_exercise);
+    assert.equal(repeatSolution.getType(), StageType.ask_to_repeat_example_solution);
+    assert.match(
+      repeatSolution.getMessages().map((message) => message.text).join(' '),
+      /Repeat after me:.*4/,
+    );
     assert.deepEqual(
-      tutoringBegin.getNext().map((stage) => stage.getType()),
-      [StageType.skip, StageType.provide_fake_solution, StageType.ask_to_repeat_similar_exercise],
+      repeatSolution.getNext().map((stage) => stage.getType()),
+      [StageType.cycle_ask_to_create_similar_exercise, StageType.ask_to_repeat_example_solution],
     );
   });
 

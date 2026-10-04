@@ -185,7 +185,7 @@ class TutoringAlgorithm extends Algorithm {
         } else if (variation === 'ai_tutor') {
             // AI Tutor starts every skill with a direct knowledge check. A
             // correct answer skips the teaching cycle; an incorrect answer
-            // enters the same tutoring path used by the regular algorithm.
+            // shows the programmed correct solution and starts its repeat cycle.
             this.begin = askStudentToSolveAnExercise;
         } else {
             this.begin = askStudentToCreateASimilarExercise;
@@ -201,7 +201,7 @@ class TutoringAlgorithm extends Algorithm {
         closeNotes.setNext([askStudentToCreateASimilarExercise])
 
         askStudentToSolveAnExercise.setNext(variation === 'ai_tutor'
-            ? [toNextSkill, askStudentToCreateASimilarExercise]
+            ? [toNextSkill, askStudentToRepeatTheSolutionOfExerciseOfTutor]
             : [askToCreateAnExerciseAfterCompletionOfExerciseOfTutor, askStudentToRepeatTheSolutionOfExerciseOfTutor]);
         askToCreateAnExerciseAfterCompletionOfExerciseOfTutor.setPrevious(askStudentToSolveAnExercise);
         askStudentToRepeatTheSolutionOfExerciseOfTutor.setPrevious(askStudentToSolveAnExercise);
