@@ -5,7 +5,7 @@
 
 import { strict as assert } from 'node:assert';
 
-import { clearAiTutorGeneratedStageTexts, clearAiTutorStudentMessages, clearAiTutorTutorStageMessages, deleteAiTutorStudentMessage, getAiTutorGeneratedStageText, getAiTutorStudentMessage, getAiTutorTutorStageMessage, putAiTutorCurrentStageType, putAiTutorGeneratedStageText, putAiTutorStudentExercise, putAiTutorStudentMessage, putAiTutorTutorStageMessage, putAiTutorVisualDraft } from './index.js';
+import { clearAiTutorGeneratedStageTexts, clearAiTutorStudentMessages, clearAiTutorTutorStageMessages, deleteAiTutorStudentMessage, getAiTutorGeneratedStageText, getAiTutorStudentMessage, getAiTutorTutorStageMessage, putAiTutorCurrentStageType, putAiTutorGeneratedStageText, putAiTutorStudentExercise, putAiTutorStudentMessage, putAiTutorTutorStageMessage, putAiTutorVisualDraft, putAiTutorWrongAnswerReasoning } from './index.js';
 
 interface Message {
   text: string;
@@ -81,6 +81,24 @@ describe('AI tutor student message persistence', (): void => {
 
     await clearAiTutorGeneratedStageTexts(lessonId, 2, ['correct_fake_solution']);
     assert.equal(await getAiTutorGeneratedStageText(lessonId, 2, 'correct_fake_solution'), undefined);
+  });
+
+  it('persists and clears the learner-facing wrong-answer reasoning', async (): Promise<void> => {
+    const reasoning = {
+      stageType: 'ask_to_repeat_example_solution',
+      text: 'The response used the wrong operation. Add the two terms instead.',
+      locale: 'en',
+    };
+
+    await putAiTutorWrongAnswerReasoning(lessonId, 4, reasoning);
+    await putAiTutorStudentMessage<Message, Media>(lessonId, 4, { text: 'Retry answer' }, []);
+    const stored = await getAiTutorStudentMessage<Message, Media>(lessonId, 4);
+    assert.equal(stored?.message?.text, 'Retry answer');
+    assert.deepEqual(stored?.wrongAnswerReasoning, reasoning);
+
+    await putAiTutorWrongAnswerReasoning(lessonId, 4, undefined);
+    const cleared = await getAiTutorStudentMessage<Message, Media>(lessonId, 4);
+    assert.equal(cleared?.wrongAnswerReasoning, undefined);
   });
 
   it('persists the displayed AI message, rendered TikZ, and resume context together with the student message', async (): Promise<void> => {

@@ -168,8 +168,8 @@ describe('AI Tutor solve-first decision', (): void => {
     ]);
     const prompt = decisionPrompt(skill, stage, '4', '', '', 0);
 
-    assert.match(prompt, /If the answer is correct, return \{"nextStage": 0\}/);
-    assert.match(prompt, /If the answer is incorrect, incomplete, or ambiguous, return \{"nextStage": 1\}/);
+    assert.match(prompt, /If the answer is correct, return \{"nextStage": 0, "message": ""\}/);
+    assert.match(prompt, /If the answer is incorrect, incomplete, or ambiguous, return \{"nextStage": 1, "message": "<concise learner-facing explanation/);
   });
 
   it('preserves the original human tutorial solve branches', (): void => {
@@ -179,8 +179,34 @@ describe('AI Tutor solve-first decision', (): void => {
     ]);
     const prompt = decisionPrompt(skill, stage, '4', '', '', 0);
 
-    assert.match(prompt, /If the answer is correct, return \{"nextStage": 0\}/);
-    assert.match(prompt, /If the answer is incorrect, incomplete, or ambiguous, return \{"nextStage": 1\}/);
+    assert.match(prompt, /If the answer is correct, return \{"nextStage": 0, "message": ""\}/);
+    assert.match(prompt, /If the answer is incorrect, incomplete, or ambiguous, return \{"nextStage": 1, "message": "<concise learner-facing explanation/);
+  });
+});
+
+describe('AI Tutor decision explanation', (): void => {
+  it('returns grading and wrong-answer explanation in the same response', (): void => {
+    const stage = solveExerciseStage([
+      StageType.next_skill,
+      StageType.ask_to_repeat_example_solution,
+    ]);
+    const prompt = decisionPrompt(
+      skill,
+      stage,
+      'Student says 5',
+      '2 + 2 = ?',
+      '',
+      0,
+      { code: 'es', name: 'Spanish' },
+    );
+
+    assert.match(prompt, /exactly two keys: nextStage and message/i);
+    assert.match(prompt, /message must be an empty string when the student response is accepted/i);
+    assert.match(prompt, /specific mistake or missing step/i);
+    assert.match(prompt, /not hidden chain-of-thought/i);
+    assert.match(prompt, /Spanish \(es\)/i);
+    assert.match(prompt, /If the answer is correct, return \{"nextStage": 0, "message": ""\}/);
+    assert.match(prompt, /If the answer is incorrect, incomplete, or ambiguous, return \{"nextStage": 1, "message": "<concise learner-facing explanation/);
   });
 });
 
