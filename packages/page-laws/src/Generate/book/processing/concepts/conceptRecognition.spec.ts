@@ -4,7 +4,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { BOOK_CHAPTER_EXTRACTION_REQUEST_PROMPT } from '../constants.js';
+import { BOOK_CHAPTER_EXTRACTION_REQUEST_PROMPT } from '../../prompts/concepts.js';
 import { conceptChaptersFromPages, parseGeneratedChapterConcepts } from './conceptRecognition.js';
 
 describe('chapter concept recognition', (): void => {

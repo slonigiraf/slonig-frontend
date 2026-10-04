@@ -6,7 +6,7 @@
 import { strict as assert } from 'node:assert';
 
 import { BOOK_LANGUAGE_OPTIONS, bookLanguageLabel, getMiddleBookPageNumbers, normalizeLanguageCode, parseDetectedBookLanguage } from './bookLanguage.js';
-import { BOOK_LANGUAGE_DETECTION_PROMPT } from '../constants.js';
+import { BOOK_LANGUAGE_DETECTION_PROMPT } from '../../prompts/metadata.js';
 
 describe('book language detection', (): void => {
   it('selects the middle three pages', (): void => {

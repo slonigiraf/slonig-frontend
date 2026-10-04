@@ -5,7 +5,7 @@ import React from 'react';
 
 import { styled } from '@polkadot/react-components';
 
-import type { AiInputEstimate } from './aiEstimate.js';
+import type { AiInputEstimate } from '../book/processing/aiEstimate.js';
 
 interface AiPriceEstimateProps {
   estimate: AiInputEstimate | string | undefined;

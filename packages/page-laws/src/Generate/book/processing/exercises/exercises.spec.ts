@@ -7,7 +7,8 @@ import type { Exercise } from '@slonigiraf/db';
 
 import { strict as assert } from 'node:assert';
 
-import { ABILITY_WORKFLOW_SYSTEM_PROMPT, FIX_EXERCISES_PROMPT, GENERATE_EXERCISES_PROMPT, REPAIR_SYSTEM_PROMPT } from '../constants.js';
+import { ABILITY_WORKFLOW_SYSTEM_PROMPT, FIX_EXERCISES_PROMPT, REPAIR_SYSTEM_PROMPT } from '../../../../constants.js';
+import { GENERATE_EXERCISES_PROMPT } from '../../prompts/exercises.js';
 import { missingGeneratedExerciseConceptIndexes, parseExerciseRepairResult } from './exercises.js';
 
 function createExercise (id: number, title = `Exercise <kx>${id}</kx>`): Exercise {

@@ -3,7 +3,7 @@
 
 import type { BookSubject } from '@slonigiraf/db';
 
-import { normalizeBookSubject } from './bookSubject.js';
+import { normalizeBookSubject } from '../metadata/bookSubject.js';
 
 export type StandardsFramework = 'ccss' | 'ngss' | 'teks' | 'vaSol';
 

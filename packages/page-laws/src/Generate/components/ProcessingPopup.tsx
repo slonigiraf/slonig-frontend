@@ -6,7 +6,7 @@ import React from 'react';
 import { RoundProgress } from '@slonigiraf/slonig-components';
 import { Button, LinearProgress, Modal, styled } from '@polkadot/react-components';
 
-import { formatOpenRouterSpend } from '../openRouterCost.js';
+import { formatOpenRouterSpend } from '../../openRouterCost.js';
 
 interface OverallProgress {
   completed: number;

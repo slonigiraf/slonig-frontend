@@ -14,42 +14,45 @@ import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useSta
 
 import { Button, Dropdown, Input, Modal, styled } from '@polkadot/react-components';
 
-import { estimateAiInput } from './aiEstimate.js';
-import { addBookExternalCall, type BookExternalCallProvider } from './bookExternalCalls.js';
-import { bookAgeLabel, getBookAgeSamplePageNumbers, MAX_BOOK_LEARNER_AGE, MIN_BOOK_LEARNER_AGE, normalizeBookAge, parseDetectedBookAge } from './bookAge.js';
-import { BOOK_LANGUAGE_OPTIONS, bookLanguageLabel, getMiddleBookPageNumbers, normalizeLanguageCode, parseDetectedBookLanguage } from './bookLanguage.js';
-import { BOOK_SUBJECT_OPTIONS, automaticBookSubjectForLanguage, bookSubjectLabel, normalizeBookSubject, parseDetectedBookSubject } from './bookSubject.js';
-import { areAllBookPagesConceptsProcessed, countUnprocessedBookPages, processExtractedChapterContent } from './bookProcessing.js';
-import { mapConcurrent } from '../concurrency.js';
-import { OPENROUTER_CONCURRENCY, openRouterRequestGate } from '../openRouterConcurrency.js';
-import OpenRouterModelSelector from '../OpenRouterModelSelector.js';
-import { chapterLevelMissingConcept, fixChapterConceptsPrompt, fixSingleConceptPrompt, parseFixedConcept, parseMissingChapterConcepts, type MissingChapterConcept } from './fixConcepts.js';
-import { clearFixConceptsChapterStatuses, fixConceptsChapterKey, loadFixConceptsChapterStatuses, storeFixConceptsChapterStatuses, type FixConceptsChapterStatuses } from './fixConceptsProgress.js';
-import { assertDisjointSortChapterConcepts, conceptsForSortChapter, parseSortedChapterConceptIndexes, sortChapterConceptsPrompt } from './sortConcepts.js';
-import { conceptBelongsToChapter, conceptsForRefinementChapter, hasPersistedRefinedConceptMembership, parseRefinedChapterGroups, REFINE_CHAPTERS_SPEND_STAGE, refinedChapterSplitPages, refineChapterPrompt, withRefineChaptersComplete } from './refineChapters.js';
-import { formatOpenRouterSpend, reportOpenRouterCost, type OpenRouterCostReporter } from '../openRouterCost.js';
-import { useBookStageTimer } from './bookStageTime.js';
-import { BOOK_AGE_DETECTION_PROMPT, BOOK_CHAPTER_EXTRACTION_REQUEST_PROMPT, BOOK_LANGUAGE_DETECTION_PROMPT, BOOK_SUBJECT_DETECTION_PROMPT, DEFAULT_PROCESSING_MODEL, DEFAULT_STANDARDS_MODEL, FIX_EXERCISES_REQUEST_PROMPT, MATHPIX_PDF_PAGE_PRICE_USD, OPENAI_MODELS, REPAIR_SYSTEM_PROMPT } from '../constants.js';
-import { stripMarkdownImageReferences } from './bookImageRefs.js';
-import { chapterAssignmentsFromBoundaries, chapterEvidenceWindows, chapterReconciliationPrompt, chapterWindowPrompt, deriveStructuralChapterCandidates, extractMathpixHeadingsFromLines, pageChapterEvidence, parseChapterBoundaries, stabilizeChapterBoundaries, type ChapterBoundaryProposal } from './chapterSegmentation.js';
-import { getSharedChapterSelection, resolveSharedChapterIndex, storeSharedChapterSelection, subscribeSharedChapterSelection, type SharedChapterSelection } from './chapterSelection.js';
-import { conceptChapterMoveInsertionIndex } from './conceptChapterMove.js';
-import { conceptChaptersFromPages, parseGeneratedChapterConcepts, type ConceptChapterNavigationItem, type GeneratedChapterConcepts } from './conceptRecognition.js';
-import { conceptDeduplicationInput, deduplicateConceptCandidates, deduplicateConceptsPrompt, parseDeduplicateConceptPairs, type DeduplicateConceptCandidatePair, type DeduplicateConceptInput, type DeduplicateConceptPair } from './deduplicateConcepts.js';
-import { missingGeneratedExerciseConceptIndexes, parseExerciseRepairResult } from './exercises.js';
-import { sortExercisesForDisplay } from './learningOrder.js';
-import { embeddingCosineDistance, loadStandardsCatalogsForBookSubject, loadStoredBookStandards, mergeStandardsMatches, parseStandardsMatches, STANDARD_FRAMEWORKS, STANDARDS_MATCH_RUNS, standardsCandidatesFromEmbeddings, standardsChapterKey, standardsConceptFingerprint, standardsConceptInputs, standardsMatchingPrompt, standardsPathForBookSubject, storeBookStandards, type CurriculumStandard, type StandardsCatalog, type StoredBookStandards } from './standards.js';
-import { cachedConceptEmbeddingMap, ensureConceptEmbeddingCache, ensureStandardEmbeddingCache } from './standardsEmbeddings.js';
+import { estimateAiInput } from '../book/processing/aiEstimate.js';
+import { addBookExternalCall, type BookExternalCallProvider } from '../book/runtime/bookExternalCalls.js';
+import { bookAgeLabel, getBookAgeSamplePageNumbers, MAX_BOOK_LEARNER_AGE, MIN_BOOK_LEARNER_AGE, normalizeBookAge, parseDetectedBookAge } from '../book/processing/metadata/bookAge.js';
+import { BOOK_LANGUAGE_OPTIONS, bookLanguageLabel, getMiddleBookPageNumbers, normalizeLanguageCode, parseDetectedBookLanguage } from '../book/processing/metadata/bookLanguage.js';
+import { BOOK_SUBJECT_OPTIONS, automaticBookSubjectForLanguage, bookSubjectLabel, normalizeBookSubject, parseDetectedBookSubject } from '../book/processing/metadata/bookSubject.js';
+import { areAllBookPagesConceptsProcessed, countUnprocessedBookPages, processExtractedChapterContent } from '../book/processing/bookProcessing.js';
+import { mapConcurrent } from '../../concurrency.js';
+import { OPENROUTER_CONCURRENCY, openRouterRequestGate } from '../../openRouterConcurrency.js';
+import OpenRouterModelSelector from '../../OpenRouterModelSelector.js';
+import { chapterLevelMissingConcept, fixChapterConceptsPrompt, fixSingleConceptPrompt, parseFixedConcept, parseMissingChapterConcepts, type MissingChapterConcept } from '../book/processing/concepts/fixConcepts.js';
+import { clearFixConceptsChapterStatuses, fixConceptsChapterKey, loadFixConceptsChapterStatuses, storeFixConceptsChapterStatuses, type FixConceptsChapterStatuses } from '../book/runtime/fixConceptsProgress.js';
+import { assertDisjointSortChapterConcepts, conceptsForSortChapter, parseSortedChapterConceptIndexes, sortChapterConceptsPrompt } from '../book/processing/concepts/sortConcepts.js';
+import { conceptBelongsToChapter, conceptsForRefinementChapter, hasPersistedRefinedConceptMembership, parseRefinedChapterGroups, REFINE_CHAPTERS_SPEND_STAGE, refinedChapterSplitPages, refineChapterPrompt, withRefineChaptersComplete } from '../book/processing/chapters/refineChapters.js';
+import { formatOpenRouterSpend, reportOpenRouterCost, type OpenRouterCostReporter } from '../../openRouterCost.js';
+import { useBookStageTimer } from '../book/runtime/bookStageTime.js';
+import { useBookProcessingRunner } from '../book/runtime/useBookProcessingRunner.js';
+import { DEFAULT_PROCESSING_MODEL, DEFAULT_STANDARDS_MODEL, FIX_EXERCISES_REQUEST_PROMPT, MATHPIX_PDF_PAGE_PRICE_USD, OPENAI_MODELS, REPAIR_SYSTEM_PROMPT } from '../../constants.js';
+import { BOOK_CHAPTER_EXTRACTION_REQUEST_PROMPT } from '../book/prompts/concepts.js';
+import { BOOK_AGE_DETECTION_PROMPT, BOOK_LANGUAGE_DETECTION_PROMPT, BOOK_SUBJECT_DETECTION_PROMPT } from '../book/prompts/metadata.js';
+import { stripMarkdownImageReferences } from '../book/processing/source/bookImageRefs.js';
+import { chapterAssignmentsFromBoundaries, chapterEvidenceWindows, chapterReconciliationPrompt, chapterWindowPrompt, deriveStructuralChapterCandidates, extractMathpixHeadingsFromLines, pageChapterEvidence, parseChapterBoundaries, stabilizeChapterBoundaries, type ChapterBoundaryProposal } from '../book/processing/chapters/chapterSegmentation.js';
+import { getSharedChapterSelection, resolveSharedChapterIndex, storeSharedChapterSelection, subscribeSharedChapterSelection, type SharedChapterSelection } from '../book/runtime/chapterSelection.js';
+import { conceptChapterMoveInsertionIndex } from '../book/processing/concepts/conceptChapterMove.js';
+import { conceptChaptersFromPages, parseGeneratedChapterConcepts, type ConceptChapterNavigationItem, type GeneratedChapterConcepts } from '../book/processing/concepts/conceptRecognition.js';
+import { conceptDeduplicationInput, deduplicateConceptCandidates, deduplicateConceptsPrompt, parseDeduplicateConceptPairs, type DeduplicateConceptCandidatePair, type DeduplicateConceptInput, type DeduplicateConceptPair } from '../book/processing/concepts/deduplicateConcepts.js';
+import { missingGeneratedExerciseConceptIndexes, parseExerciseRepairResult } from '../book/processing/exercises/exercises.js';
+import { sortExercisesForDisplay } from '../book/processing/concepts/learningOrder.js';
+import { embeddingCosineDistance, loadStandardsCatalogsForBookSubject, loadStoredBookStandards, mergeStandardsMatches, parseStandardsMatches, STANDARD_FRAMEWORKS, STANDARDS_MATCH_RUNS, standardsCandidatesFromEmbeddings, standardsChapterKey, standardsConceptFingerprint, standardsConceptInputs, standardsMatchingPrompt, standardsPathForBookSubject, storeBookStandards, type CurriculumStandard, type StandardsCatalog, type StoredBookStandards } from '../book/processing/standards/standards.js';
+import { cachedConceptEmbeddingMap, ensureConceptEmbeddingCache, ensureStandardEmbeddingCache } from '../book/processing/standards/standardsEmbeddings.js';
 import Skills, { type AutoRunProgress, type PipelineAction } from './Skills.js';
 import SkillsCourse from './SkillsCourse.js';
-import { mathpixPdfSlices, recognizePdfWithMathpix, type MathpixPdfRecognitionResult } from './mathpixPdf.js';
-import { extractPdfOutlineChapterBoundaries, loadPdfJs } from './pdf.js';
-import { AiPriceEstimate } from './PriceEstimate.js';
-import ProcessingPopup, { type ProcessingStatus } from './ProcessingPopup.js';
-import StageRunPricePopup from './StageRunPricePopup.js';
-import { useTranslation } from '../translate.js';
+import { mathpixPdfSlices, recognizePdfWithMathpix, type MathpixPdfRecognitionResult } from '../book/processing/source/mathpixPdf.js';
+import { extractPdfOutlineChapterBoundaries, loadPdfJs } from '../book/processing/source/pdf.js';
+import { AiPriceEstimate } from '../components/PriceEstimate.js';
+import ProcessingPopup, { type ProcessingStatus } from '../components/ProcessingPopup.js';
+import StageRunPricePopup from '../components/StageRunPricePopup.js';
+import { useTranslation } from '../../translate.js';
 
-export { OPENAI_MODELS } from '../constants.js';
+export { OPENAI_MODELS } from '../../constants.js';
 
 
 interface ChapterConceptInputPage {
@@ -1724,19 +1727,6 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
   const [skillsRefreshToken, setSkillsRefreshToken] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const handledAssignAllStandardsRequestRef = useRef(assignAllStandardsRequest);
-  const handledEmbedAllConceptsRequestRef = useRef(embedAllConceptsRequest);
-  const handledDeduplicateAllConceptsRequestRef = useRef(deduplicateAllConceptsRequest);
-  const handledFixAllConceptsRequestRef = useRef(fixAllConceptsRequest);
-  const handledSortAllConceptsRequestRef = useRef(sortAllConceptsRequest);
-  const handledRefineAllChaptersRequestRef = useRef(refineAllChaptersRequest);
-  const handledGenerateAllConceptsRequestRef = useRef(generateAllConceptsRequest);
-  const handledLanguageTabRequestRef = useRef(languageTabRequest);
-  const handledSubjectTabRequestRef = useRef(subjectTabRequest);
-  const handledAgeTabRequestRef = useRef(ageTabRequest);
-  const handledIdentifyChaptersRequestRef = useRef(identifyChaptersRequest);
-  const handledGenerateAllExercisesRequestRef = useRef(generateAllExercisesRequest);
-  const handledRecognizeAllRequestRef = useRef(recognizeAllRequest);
   const isDetectingBookLanguageRef = useRef(false);
   const isDetectingBookSubjectRef = useRef(false);
   const isDetectingBookAgeRef = useRef(false);
@@ -4536,241 +4526,6 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
     setMathpixApiKey('');
   }, []);
 
-  useEffect((): void => {
-    if (languageTabRequest === handledLanguageTabRequestRef.current) {
-      return;
-    }
-
-    if (!isMmdConversionComplete) {
-      return;
-    }
-
-    handledLanguageTabRequestRef.current = languageTabRequest;
-
-    // Language uses OpenRouter, so the pipeline action must stop at the same
-    // estimate/model confirmation gate as the other AI-backed stages.
-    openLanguageDetectionConfirmation();
-  }, [isMmdConversionComplete, languageTabRequest, openLanguageDetectionConfirmation]);
-
-  useEffect((): void => {
-    if (subjectTabRequest === handledSubjectTabRequestRef.current) {
-      return;
-    }
-
-    if (!isMmdConversionComplete) {
-      return;
-    }
-
-    handledSubjectTabRequestRef.current = subjectTabRequest;
-    openSubjectDetectionConfirmation();
-  }, [isMmdConversionComplete, openSubjectDetectionConfirmation, subjectTabRequest]);
-
-  useEffect((): void => {
-    if (ageTabRequest === handledAgeTabRequestRef.current) {
-      return;
-    }
-
-    const hasAllSampleText = ageSamplePageNumbers.length === Math.min(3, totalPages) && ageSamplePageTexts.length === ageSamplePageNumbers.length;
-
-    if (!hasAllSampleText) {
-      return;
-    }
-
-    handledAgeTabRequestRef.current = ageTabRequest;
-    openAgeDetectionConfirmation();
-  }, [ageSamplePageNumbers, ageSamplePageTexts, ageTabRequest, openAgeDetectionConfirmation, totalPages]);
-
-  useEffect((): void => {
-    if (
-      generateAllExercisesRequest === handledGenerateAllExercisesRequestRef.current ||
-      !totalPages ||
-      processingPage !== undefined ||
-      isGeneratingAllConcepts ||
-      isRecognizingAll ||
-      isRefiningChapters ||
-      isGeneratingAllExercises ||
-      isIdentifyingChapters
-    ) {
-      return;
-    }
-
-    handledGenerateAllExercisesRequestRef.current = generateAllExercisesRequest;
-    generateAllExercises().catch((processingError) => {
-      setError(processingError instanceof Error ? processingError.message : 'Unable to generate exercises.');
-      onProcessingComplete();
-    });
-  }, [isGeneratingAllConcepts, isIdentifyingChapters, isRecognizingAll, isRefiningChapters, isGeneratingAllExercises, onProcessingComplete, processingPage, generateAllExercises, generateAllExercisesRequest, totalPages]);
-
-  useEffect((): void => {
-    if (
-      generateAllConceptsRequest === handledGenerateAllConceptsRequestRef.current ||
-      !totalPages ||
-      processingPage !== undefined ||
-      isGeneratingAllConcepts ||
-      isRecognizingAll ||
-      isGeneratingAllExercises ||
-      isIdentifyingChapters
-    ) {
-      return;
-    }
-
-    handledGenerateAllConceptsRequestRef.current = generateAllConceptsRequest;
-    generateAllConcepts().catch((generationError) => {
-      setError(generationError instanceof Error ? generationError.message : 'Unable to generate concepts for all chapters.');
-      onProcessingComplete();
-    });
-  }, [generateAllConcepts, generateAllConceptsRequest, isGeneratingAllConcepts, isGeneratingAllExercises, isIdentifyingChapters, isRecognizingAll, onProcessingComplete, processingPage, totalPages]);
-
-  useEffect((): void => {
-    if (
-      fixAllConceptsRequest === handledFixAllConceptsRequestRef.current ||
-      !conceptChapters.length ||
-      processingPage !== undefined ||
-      isGeneratingAllConcepts ||
-      isFixingConcepts ||
-      isRecognizingAll ||
-      isGeneratingAllExercises ||
-      isIdentifyingChapters
-    ) {
-      return;
-    }
-
-    handledFixAllConceptsRequestRef.current = fixAllConceptsRequest;
-    fixAllConcepts(generateAllConceptsModel, fixOnlyFailedConcepts)
-      .catch((fixError) => setError(fixError instanceof Error ? fixError.message : 'Unable to fix chapter concepts.'))
-      .finally(onProcessingComplete);
-  }, [conceptChapters.length, fixAllConcepts, fixAllConceptsRequest, fixOnlyFailedConcepts, generateAllConceptsModel, isFixingConcepts, isGeneratingAllConcepts, isGeneratingAllExercises, isIdentifyingChapters, isRecognizingAll, onProcessingComplete, processingPage]);
-
-  useEffect((): void => {
-    if (
-      embedAllConceptsRequest === handledEmbedAllConceptsRequestRef.current ||
-      processingPage !== undefined ||
-      isGeneratingAllConcepts ||
-      isFixingConcepts ||
-      isEmbeddingConcepts ||
-      isDeduplicatingConcepts ||
-      isSortingConcepts ||
-      isRecognizingAll ||
-      isGeneratingAllExercises ||
-      isIdentifyingChapters
-    ) {
-      return;
-    }
-
-    handledEmbedAllConceptsRequestRef.current = embedAllConceptsRequest;
-    embedAllConcepts()
-      .catch((embeddingError) => setError(embeddingError instanceof Error ? embeddingError.message : 'Unable to calculate concept Embedings.'))
-      .finally(onProcessingComplete);
-  }, [embedAllConcepts, embedAllConceptsRequest, isDeduplicatingConcepts, isEmbeddingConcepts, isFixingConcepts, isGeneratingAllConcepts, isGeneratingAllExercises, isIdentifyingChapters, isRecognizingAll, isSortingConcepts, onProcessingComplete, processingPage]);
-
-  useEffect((): void => {
-    if (
-      deduplicateAllConceptsRequest === handledDeduplicateAllConceptsRequestRef.current ||
-      processingPage !== undefined ||
-      isGeneratingAllConcepts ||
-      isFixingConcepts ||
-      isEmbeddingConcepts ||
-      isDeduplicatingConcepts ||
-      isSortingConcepts ||
-      isRecognizingAll ||
-      isGeneratingAllExercises ||
-      isIdentifyingChapters
-    ) {
-      return;
-    }
-
-    handledDeduplicateAllConceptsRequestRef.current = deduplicateAllConceptsRequest;
-    deduplicateAllConcepts(generateAllConceptsModel)
-      .catch((deduplicateError) => setError(deduplicateError instanceof Error ? deduplicateError.message : 'Unable to deduplicate concepts.'))
-      .finally(onProcessingComplete);
-  }, [deduplicateAllConcepts, deduplicateAllConceptsRequest, generateAllConceptsModel, isDeduplicatingConcepts, isEmbeddingConcepts, isFixingConcepts, isGeneratingAllConcepts, isGeneratingAllExercises, isIdentifyingChapters, isRecognizingAll, isSortingConcepts, onProcessingComplete, processingPage]);
-
-  useEffect((): void => {
-    if (
-      sortAllConceptsRequest === handledSortAllConceptsRequestRef.current ||
-      processingPage !== undefined ||
-      isGeneratingAllConcepts ||
-      isFixingConcepts ||
-      isEmbeddingConcepts ||
-      isDeduplicatingConcepts ||
-      isSortingConcepts ||
-      isRecognizingAll ||
-      isGeneratingAllExercises ||
-      isIdentifyingChapters
-    ) {
-      return;
-    }
-
-    handledSortAllConceptsRequestRef.current = sortAllConceptsRequest;
-    sortAllConcepts(generateAllConceptsModel)
-      .catch((sortError) => setError(sortError instanceof Error ? sortError.message : 'Unable to sort chapter concepts.'))
-      .finally(onProcessingComplete);
-  }, [conceptChapters.length, generateAllConceptsModel, isDeduplicatingConcepts, isEmbeddingConcepts, isFixingConcepts, isGeneratingAllConcepts, isGeneratingAllExercises, isIdentifyingChapters, isRecognizingAll, isSortingConcepts, onProcessingComplete, processingPage, sortAllConcepts, sortAllConceptsRequest]);
-
-  useEffect((): void => {
-    if (
-      refineAllChaptersRequest === handledRefineAllChaptersRequestRef.current ||
-      processingPage !== undefined ||
-      isGeneratingAllConcepts ||
-      isFixingConcepts ||
-      isEmbeddingConcepts ||
-      isDeduplicatingConcepts ||
-      isSortingConcepts ||
-      isRefiningChapters ||
-      isRecognizingAll ||
-      isGeneratingAllExercises ||
-      isIdentifyingChapters
-    ) {
-      return;
-    }
-
-    handledRefineAllChaptersRequestRef.current = refineAllChaptersRequest;
-    refineAllChapters(generateAllConceptsModel)
-      .catch((refineError) => setError(refineError instanceof Error ? refineError.message : 'Unable to refine chapters.'))
-      .finally(onProcessingComplete);
-  }, [conceptChapters.length, generateAllConceptsModel, isDeduplicatingConcepts, isEmbeddingConcepts, isFixingConcepts, isGeneratingAllConcepts, isGeneratingAllExercises, isIdentifyingChapters, isRecognizingAll, isRefiningChapters, isSortingConcepts, onProcessingComplete, processingPage, refineAllChapters, refineAllChaptersRequest]);
-
-  useEffect((): void => {
-    if (
-      identifyChaptersRequest === handledIdentifyChaptersRequestRef.current ||
-      !totalPages ||
-      processingPage !== undefined ||
-      isGeneratingAllConcepts ||
-      isRecognizingAll ||
-      isGeneratingAllExercises ||
-      isIdentifyingChapters
-    ) {
-      return;
-    }
-
-    handledIdentifyChaptersRequestRef.current = identifyChaptersRequest;
-    identifyChapters().catch((chapterError) => {
-      setError(chapterError instanceof Error ? chapterError.message : 'Unable to identify chapters.');
-      onProcessingComplete();
-    });
-  }, [identifyChapters, identifyChaptersRequest, isGeneratingAllConcepts, isGeneratingAllExercises, isIdentifyingChapters, isRecognizingAll, onProcessingComplete, processingPage, totalPages]);
-
-  useEffect((): void => {
-    if (
-      recognizeAllRequest === handledRecognizeAllRequestRef.current ||
-      !totalPages ||
-      processingPage !== undefined ||
-      isGeneratingAllConcepts ||
-      isRecognizingAll ||
-      isGeneratingAllExercises ||
-      isIdentifyingChapters
-    ) {
-      return;
-    }
-
-    handledRecognizeAllRequestRef.current = recognizeAllRequest;
-    setActivePane('text');
-    recognizeAllPages().catch((recognitionError) => {
-      setError(recognitionError instanceof Error ? recognitionError.message : 'Unable to recognize all pages.');
-      onProcessingComplete();
-    });
-  }, [isGeneratingAllConcepts, isIdentifyingChapters, isRecognizingAll, isGeneratingAllExercises, onProcessingComplete, processingPage, recognizeAllPages, recognizeAllRequest, totalPages]);
-
   const assignStandards = useCallback(async (force = false): Promise<void> => {
     if (!conceptChapters.length || isAssigningStandards) {
       return;
@@ -4862,25 +4617,56 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
     }
   }, [currentReaderProcessingSignal, addStandardsCost, completeStage, book, book.id, book.subject, conceptChapters, embeddingModel, isAssigningStandards, pages, revealPane, standardsByChapter, standardsModel]);
 
-  useEffect((): void => {
-    if (
-      assignAllStandardsRequest === handledAssignAllStandardsRequestRef.current ||
-      !conceptChapters.length ||
-      processingPage !== undefined ||
-      isGeneratingAllConcepts ||
-      isRecognizingAll ||
-      isGeneratingAllExercises ||
-      isIdentifyingChapters ||
-      isAssigningStandards
-    ) {
-      return;
-    }
+  useBookProcessingRunner({
+    ageSamplePageCount: ageSamplePageNumbers.length,
+    ageSampleTextCount: ageSamplePageTexts.length,
+    ageTabRequest,
+    assignAllStandardsRequest,
+    assignStandards,
+    conceptChapterCount: conceptChapters.length,
+    deduplicateAllConcepts,
+    deduplicateAllConceptsRequest,
+    embedAllConcepts,
+    embedAllConceptsRequest,
+    fixAllConcepts,
+    fixAllConceptsRequest,
+    fixOnlyFailedConcepts,
+    generateAllConcepts,
+    generateAllConceptsModel,
+    generateAllConceptsRequest,
+    generateAllExercises,
+    generateAllExercisesRequest,
+    identifyChapters,
+    identifyChaptersRequest,
+    isAssigningStandards,
+    isDeduplicatingConcepts,
+    isEmbeddingConcepts,
+    isFixingConcepts,
+    isGeneratingAllConcepts,
+    isGeneratingAllExercises,
+    isIdentifyingChapters,
+    isMmdConversionComplete,
+    isRecognizingAll,
+    isRefiningChapters,
+    isSortingConcepts,
+    languageTabRequest,
+    onProcessingComplete,
+    openAgeDetectionConfirmation,
+    openLanguageDetectionConfirmation,
+    openSubjectDetectionConfirmation,
+    processingPage,
+    recognizeAllPages,
+    recognizeAllRequest,
+    refineAllChapters,
+    refineAllChaptersRequest,
+    setActivePane,
+    setError,
+    sortAllConcepts,
+    sortAllConceptsRequest,
+    subjectTabRequest,
+    totalPages
+  });
 
-    handledAssignAllStandardsRequestRef.current = assignAllStandardsRequest;
-    assignStandards(true)
-      .catch((assignmentError) => setError(assignmentError instanceof Error ? assignmentError.message : 'Unable to assign chapter standards.'))
-      .finally(onProcessingComplete);
-  }, [assignAllStandardsRequest, assignStandards, conceptChapters.length, isAssigningStandards, isGeneratingAllConcepts, isGeneratingAllExercises, isIdentifyingChapters, isRecognizingAll, onProcessingComplete, processingPage]);
 
   useEffect(() => {
     if (!isMaximized) {

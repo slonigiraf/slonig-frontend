@@ -2,9 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { Book, BookChapter, BookConcept, BookPage, BookProcessingStageKey, BookStageSpendKey, Exercise, Skill } from '@slonigiraf/db';
-import type { GeneratedAbility } from '../abilities.js';
-import type { AbilityWorkflowJsonRunner, ExerciseAbilityConversion } from './abilityWorkflow.js';
-import type { AbilityEmbeddingValidationHint } from './abilityEmbeddingValidation.js';
+import type { GeneratedAbility } from '../../abilities.js';
+import type { AbilityWorkflowJsonRunner, ExerciseAbilityConversion } from '../book/processing/abilities/abilityWorkflow.js';
+import type { AbilityEmbeddingValidationHint } from '../book/processing/abilities/abilityEmbeddingValidation.js';
 
 import { addBookStageSpend, completeBookProcessingStage, deleteAbilities, deleteAbility, deleteBookConcept, deleteExercise, deleteSkill, getAbilities, getBookChapters, getBookCompletedStages, getBookConceptsForBookPage, getBookPages, getExercisesForBookPage, getSetting, getSkillsForChapter, getImage, hydrateAbilityContent, putImage, replaceAbilities, replaceExercisesForBookPage, replaceSkillsForChapter, resetBookProcessingStagesFrom, SettingKey, storeAbility, updateBookChapterTitle } from '@slonigiraf/db';
 import { SpanWithTags } from '@slonigiraf/slonig-components';
@@ -13,33 +13,34 @@ import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useSta
 
 import { Button, Dropdown, Input, Modal, Toggle, styled } from '@polkadot/react-components';
 
-import ExerciseList from '../Edit/ExerciseList.js';
-import type { TikzPreRenderResult } from '../Edit/TikzDisplay.js';
-import { isTikzCode } from '../Edit/tikz.js';
-import { nextStoredTikzValidity, shouldSkipStoredTikzCompile } from '../Edit/tikzValidation.js';
-import { parseAbilityRepairResult, parseStoredAbility, withAbilityVisualSource } from '../abilities.js';
-import { buildAbilityEmbeddingValidationHints } from './abilityEmbeddingValidation.js';
-import { parseExerciseRepairResult } from './exercises.js';
-import { addBookExternalCall } from './bookExternalCalls.js';
-import { estimateAiInput } from './aiEstimate.js';
-import { ABILITY_WORKFLOW_SYSTEM_PROMPT, DEFAULT_PROCESSING_MODEL, DEFAULT_STANDARDS_EMBEDDER, FIX_ABILITIES_REQUEST_PROMPT, FIX_EXERCISES_REQUEST_PROMPT, JSON_VALIDATION_PROMPT, LEARNER_AGE_PROMPT, MATH_DISPLAY_REQUIREMENTS_PROMPT, REPAIR_SYSTEM_PROMPT, SKILLS_GENERATION_SYSTEM_PROMPT, SOURCES_TO_SKILLS_REQUEST_PROMPT } from '../constants.js';
-import { abilityGenerationRequestPrompt, generateExerciseAbility, transportCompactAbilitySourceExercise } from './abilityWorkflow.js';
-import { mapConcurrent } from '../concurrency.js';
-import { OPENROUTER_CONCURRENCY, openRouterRequestGate } from '../openRouterConcurrency.js';
-import OpenRouterModelSelector from '../OpenRouterModelSelector.js';
-import { reportOpenRouterCost, type OpenRouterCostReporter } from '../openRouterCost.js';
-import { useBookStageTimer } from './bookStageTime.js';
-import { AiPriceEstimate } from './PriceEstimate.js';
-import ProcessingPopup, { type ProcessingStatus } from './ProcessingPopup.js';
-import StageRunPricePopup from './StageRunPricePopup.js';
-import { stripMarkdownImageReferences } from './bookImageRefs.js';
-import { sortAbilitiesForDisplay, sortExercisesForDisplay } from './learningOrder.js';
-import { getSharedChapterSelection, resolveSharedChapterIndex, storeSharedChapterSelection, subscribeSharedChapterSelection } from './chapterSelection.js';
+import ExerciseList from '../../Edit/ExerciseList.js';
+import type { TikzPreRenderResult } from '../../Edit/TikzDisplay.js';
+import { isTikzCode } from '../../Edit/tikz.js';
+import { nextStoredTikzValidity, shouldSkipStoredTikzCompile } from '../../Edit/tikzValidation.js';
+import { parseAbilityRepairResult, parseStoredAbility, withAbilityVisualSource } from '../../abilities.js';
+import { buildAbilityEmbeddingValidationHints } from '../book/processing/abilities/abilityEmbeddingValidation.js';
+import { parseExerciseRepairResult } from '../book/processing/exercises/exercises.js';
+import { addBookExternalCall } from '../book/runtime/bookExternalCalls.js';
+import { estimateAiInput } from '../book/processing/aiEstimate.js';
+import { ABILITY_WORKFLOW_SYSTEM_PROMPT, DEFAULT_PROCESSING_MODEL, DEFAULT_STANDARDS_EMBEDDER, FIX_ABILITIES_REQUEST_PROMPT, FIX_EXERCISES_REQUEST_PROMPT, JSON_VALIDATION_PROMPT, REPAIR_SYSTEM_PROMPT, SKILLS_GENERATION_SYSTEM_PROMPT, SOURCES_TO_SKILLS_REQUEST_PROMPT } from '../../constants.js';
+import { LEARNER_AGE_PROMPT, MATH_DISPLAY_REQUIREMENTS_PROMPT } from '../book/prompts/shared.js';
+import { abilityGenerationRequestPrompt, generateExerciseAbility, transportCompactAbilitySourceExercise } from '../book/processing/abilities/abilityWorkflow.js';
+import { mapConcurrent } from '../../concurrency.js';
+import { OPENROUTER_CONCURRENCY, openRouterRequestGate } from '../../openRouterConcurrency.js';
+import OpenRouterModelSelector from '../../OpenRouterModelSelector.js';
+import { reportOpenRouterCost, type OpenRouterCostReporter } from '../../openRouterCost.js';
+import { useBookStageTimer } from '../book/runtime/bookStageTime.js';
+import { AiPriceEstimate } from '../components/PriceEstimate.js';
+import ProcessingPopup, { type ProcessingStatus } from '../components/ProcessingPopup.js';
+import StageRunPricePopup from '../components/StageRunPricePopup.js';
+import { stripMarkdownImageReferences } from '../book/processing/source/bookImageRefs.js';
+import { sortAbilitiesForDisplay, sortExercisesForDisplay } from '../book/processing/concepts/learningOrder.js';
+import { getSharedChapterSelection, resolveSharedChapterIndex, storeSharedChapterSelection, subscribeSharedChapterSelection } from '../book/runtime/chapterSelection.js';
 
-const TikzDisplay = React.lazy(() => import('../Edit/TikzDisplay.js'));
+const TikzDisplay = React.lazy(() => import('../../Edit/TikzDisplay.js'));
 
 async function preRenderTikzLazy (value: string): Promise<TikzPreRenderResult> {
-  const { preRenderTikz } = await import('../Edit/TikzDisplay.js');
+  const { preRenderTikz } = await import('../../Edit/TikzDisplay.js');
 
   return preRenderTikz(value);
 }

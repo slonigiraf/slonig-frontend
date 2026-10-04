@@ -1,7 +1,7 @@
 // Copyright 2021-2026 @polkadot/app-laws authors & contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import type { ConceptChapterNavigationItem } from './conceptRecognition.js';
+import type { ConceptChapterNavigationItem } from '../processing/concepts/conceptRecognition.js';
 
 export type FixConceptsChapterStatus = 'failed' | 'fixed';
 export type FixConceptsChapterStatuses = Record<string, FixConceptsChapterStatus>;

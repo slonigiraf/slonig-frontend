@@ -1,16 +1,20 @@
 // Copyright 2021-2026 @polkadot/app-laws authors & contributors
 // SPDX-License-Identifier: Apache-2.0
 
+import { EXERCISE_NON_BINARY_RESPONSE_PROMPT, EXERCISE_QUESTION_BREVITY_PROMPT, EXERCISE_TEMPLATE_STYLE_PROMPT, LEARNER_AGE_PROMPT, MATH_DISPLAY_REQUIREMENTS_PROMPT } from './Generate/book/prompts/shared.js';
+
+export { BOOK_CHAPTER_EXTRACTION_PROMPT, BOOK_CHAPTER_EXTRACTION_REQUEST_PROMPT, BOOK_PAGE_EXTRACTION_PROMPT, BOOK_PAGE_EXTRACTION_REQUEST_PROMPT } from './Generate/book/prompts/concepts.js';
+export { GENERATE_EXERCISES_PROMPT, GENERATE_EXERCISES_RECOVERY_PROMPT, GENERATE_EXERCISES_REQUEST_PROMPT } from './Generate/book/prompts/exercises.js';
+export { BOOK_AGE_DETECTION_PROMPT, BOOK_LANGUAGE_DETECTION_PROMPT, BOOK_SUBJECT_DETECTION_PROMPT } from './Generate/book/prompts/metadata.js';
+export { COURSE_NAMES_PROMPT } from './Generate/book/prompts/publishing.js';
+export { EXERCISE_TEMPLATE_STYLE_PROMPT, LEARNER_AGE_PROMPT, MATH_DISPLAY_REQUIREMENTS_PROMPT };
+
 export const QR_CODE_SIZE = 300;
 export const sessionPrefix = 'knowledge';
 export const MATHPIX_PDF_PAGE_PRICE_USD = 0.005;
 export const DEFAULT_PROCESSING_MODEL = 'openai/gpt-6-luna';
 export const DEFAULT_STANDARDS_MODEL = 'openai/gpt-5-nano';
 export const DEFAULT_STANDARDS_EMBEDDER = 'openai/text-embedding-3-small';
-
-export const MATH_DISPLAY_REQUIREMENTS_PROMPT = String.raw`Math display requirements:
-- Fractions: whenever a mathematical fraction is written or displayed, use LaTeX fraction notation \frac{a}{b} (with the actual numerator and denominator substituted), never slash notation such as a/b. In JSON strings, escape the LaTeX backslash so the JSON remains valid (for example, \\frac{a}{b}); in TikZ labels, render \frac{...}{...} in TeX math mode.
-- Number lines: a number line is a straight line with equally spaced ticks, with numbers shown below the ticks, 0 and 1 always labeled, and exactly one arrow indicating the positive direction. The number line always has one extra step between the last tick mark and the arrow. Do not use arrowheads at both ends and do not omit the positive-direction arrow.`;
 
 export const OPENAI_MODELS = [
   { text: 'GPT-4o mini: $0.15/$0.60', value: 'openai/gpt-4o-mini' },
@@ -24,157 +28,7 @@ export const OPENAI_MODELS = [
   { text: 'GPT-6 Luna: $0.10/$0.50', value: 'openai/gpt-6-luna' }
 ];
 
-export const BOOK_CHAPTER_EXTRACTION_PROMPT = `Read the complete supplied chapter as one unit and extract only the distinct concepts that are intentionally introduced or explained as new anywhere in this chapter. Chapter assignment is already known; do not identify, infer, or return a different chapter or section.
-
-${MATH_DISPLAY_REQUIREMENTS_PROMPT}
-
-Use the smallest useful knowledge unit as the unit of extraction. Each concept object must contain exactly one minimal independently teachable fact, definition, relationship, rule, property, operation, procedure, interpretation, or distinction. Prefer producing several small concepts over one broad concept whenever the source supports the smaller concepts. When uncertain whether one candidate contains one idea or several, split it.
-
-Apply aggressive decomposition. A single concept must NOT combine:
-- two named topics, terms, quantities, objects, rules, properties, or methods joined as "A and B", "A or B", "A/B", "A vs. B", or a comma-separated list;
-- an umbrella topic together with one or more of its independently teachable subtopics;
-- a definition together with a separate property, consequence, purpose, application, example type, exception, or method of using that thing;
-- a cause together with a separately teachable effect, or multiple causes/effects that can each be stated independently;
-- multiple properties, laws, cases, categories, conditions, transformations, representations, or strategies merely because the chapter presents them in one paragraph, table, diagram, or sequence;
-- multiple steps that the chapter explicitly teaches as distinct reusable operations.
-
-For example, do not return "Mean, median, and mode"; return separate concepts for mean, median, and mode when each is introduced. Do not return "Slope and y-intercept"; separate slope from y-intercept. Do not return "Definition and properties of a parallelogram"; separate the definition from each independently taught property. Do not return "Evaporation and condensation"; separate them. Do not hide bundling in the description: a narrow-looking title is still invalid if its description explains several separable ideas.
-
-A concept may contain multiple words, clauses, symbols, or mechanical steps only when they are inseparable parts of one single meaning and splitting them would create fragments that are not useful knowledge on their own. A relationship itself can be one concept only when the relationship is the actual new idea being taught; do not use a relationship label as an excuse to bundle full explanations of both related topics.
-
-Use narrow titles. Name only the one knowledge unit represented by that object. Avoid conjunctions, slashes, broad plural category titles, colon-separated bundles, or list-like titles when they connect separable ideas. Descriptions should normally make one central claim about that title. If a description needs a second independently meaningful sentence or clause to teach another fact, property, rule, condition, use, consequence, or case, create another concept instead. Examples may clarify the one concept but must not introduce an additional concept.
-
-Do not emit a broad parent concept merely to summarize several child concepts when the parent adds no independently taught knowledge. If a section called "Properties of equality" teaches the addition property and multiplication property separately, emit the individual properties rather than a generic "Properties of equality" concept unless the chapter also explicitly teaches the general notion of an equality-preserving property as its own idea.
-
-Granularity comes before deduplication: first split the material into minimal useful concepts, then deduplicate only true repetitions of the same minimal concept across the whole chapter. Closely related is not the same as duplicate. If two concepts answer different questions, state different facts, use different conditions, describe different directions, or could reasonably be taught or tested separately, keep them separate. If the same minimal concept is introduced, restated, expanded, exemplified, or referenced on multiple pages, return it exactly once. Set pageNumber to the earliest supplied page where that exact minimal concept is actually introduced as new, not the page with the longest or clearest later explanation.
-
-Before returning JSON, perform an atomicity audit on every object. Ask: "Could a learner know one meaningful part of this title or description while not knowing another meaningful part?" If yes, split it again. Then ask whether the title contains multiple coordinated items and whether the description contains more than one independently testable claim. Keep splitting until the answer to both is no. Favor over-splitting over under-splitting, except when splitting would produce meaningless fragments of one indivisible definition, relationship, or procedure.
-
-Do not include concepts that the chapter assumes the reader already knows, merely reviews, references from earlier chapters, or uses only in exercises/examples without introducing them. Ignore exercises, questions, problems, drills, review tasks, and their solutions completely: do not parse, solve, summarize, or return them.
-
-Return only valid JSON in this exact shape, keeping the original language of the input:
-{"concepts":[{"title":"New concept","description":"One focused explanation of that concept","pageNumber":12}]}
-
-Every pageNumber must be one of the supplied page numbers. Use an empty array when no new concepts are present. Keep each concept description focused on the explanation of the concept itself; do not turn an exercise statement into a concept description. Use only <kx>...</kx> as mathematical delimiters. Do not use \\(...\\), \\[...\\], $...$, or $$...$$ anywhere in the returned text. For example, write "<kx>n</kx>", never "\\(<kx>n</kx>\\)" or "\\(n\\)". Escape every backslash in mathematical notation so the result remains valid JSON. Do not add markdown or any text outside the JSON.`;
-
-// Compatibility alias for callers that still import the older name. Concept
-// extraction itself is chapter-scoped; the request prompt below supplies all
-// pages from one chapter together.
-export const BOOK_PAGE_EXTRACTION_PROMPT = BOOK_CHAPTER_EXTRACTION_PROMPT;
-
-export const EXERCISE_TEMPLATE_STYLE_PROMPT = `Write every generated exercise as the short concrete instance of a reusable template pattern. Include only enough concrete variable context so the same wording pattern can later be reused by changing 1-3 data-bearing words or values while keeping the instruction, operation, structure, input/output types, and solution method unchanged. Make those replaceable data slots obvious from the concrete wording. This is a structural requirement only: do not generate, propose, compare, or output extra alternate or variant exercises to demonstrate the pattern; output only the exercise or exercises explicitly required by the calling prompt.
-
-Keep learner-facing task text short and direct. Do not include solution steps, construction details that disclose answer-bearing information, or tutorial prose in the question unless carrying out that procedure is itself the target skill. Keep the solution concise, but make the solving method visible whenever the answer is not immediately obvious. For a one-step or self-evident task, the result plus the direct substitution, rule application, or calculation is enough. For a non-obvious or multi-step task, include the essential steps in logical order, with the intermediate calculations, transformations, or reasons needed to understand how the final answer is reached. Do not skip a meaningful transition merely to shorten the solution, and do not add tutorial filler beyond the steps needed to solve the specific exercise. Templatability, self-containment, and an unambiguous learner operation take priority over the word target.`;
-
-export const LEARNER_AGE_PROMPT = (learnerAge?: number): string => Number.isSafeInteger(learnerAge)
-  ? `The current learner age is ${learnerAge} years. Keep vocabulary, sentence complexity, assumed background knowledge, cognitive load, examples, task difficulty, answer expectations, and any visual content appropriate for a ${learnerAge}-year-old learner. Preserve the intended learning target and required method; age-appropriateness must not simplify away the skill being taught or assessed.`
-  : '';
-
-const EXERCISE_QUESTION_BREVITY_PROMPT = `Make each Exercise description a succinct learner-facing question or command. Prefer one short sentence. Aim for about 6-16 words and normally no more than about 20 words; exceed that only when essential task data or constraints cannot be omitted without making the task ambiguous or incomplete. Remove scene-setting, repeated directions, procedural coaching, definitions, and facts already supplied by the concept or a required visual. If a question visual carries task data, refer to it briefly (for example, "the figure" or "the visual") instead of restating its contents. Brevity must never remove values, conditions, units, or other information the learner actually needs to answer.`;
-
-const EXERCISE_NON_BINARY_RESPONSE_PROMPT = `Never generate a yes/no Exercise or any equivalent binary-response task. This prohibition includes prompts answerable only by yes/no, true/false, correct/incorrect, right/wrong, does/does not, can/cannot, or another two-choice confirmation. Every Exercise must require the learner to produce substantive answer content beyond a binary judgment, such as a value, word or phrase, calculation, transformation, construction, correction, classification with the requested category supplied by the learner, or an explanation/reason when that is the target skill. If the source concept is naturally phrased as a binary check, preserve the same learning target but rewrite the task so the learner must demonstrate the knowledge directly rather than merely confirm or deny a statement. Do not evade this rule by replacing yes/no with another two-option wording.`;
-
-export const GENERATE_EXERCISES_PROMPT = (bookDetectedLanguage: string, learnerAge?: number): string => `For every supplied concept, generate exactly one complete exercise using ${bookDetectedLanguage} language.
-
-${LEARNER_AGE_PROMPT(learnerAge)}
-${MATH_DISPLAY_REQUIREMENTS_PROMPT}
-Preserve the concept's learner modality: the generated task must exercise the same kind of input, operation, and output implied by the concept instead of replacing it with an easier textual surrogate. In particular, when interpreting, locating, constructing, completing, comparing, or otherwise using a representation is part of the target skill, keep that representational operation in the exercise rather than describing the procedure in prose.
-
-${EXERCISE_TEMPLATE_STYLE_PROMPT}
-
-${EXERCISE_QUESTION_BREVITY_PROMPT}
-
-${EXERCISE_NON_BINARY_RESPONSE_PROMPT}
-
-Design each Exercise completely in this single generation pass. Compose the task text, solution, and any necessary question/solution visual descriptions together as one coherent final artifact. Do not draft a text-only exercise first and rely on a later visual audit, correction, or retrofit; no second visual-design pass will run. Before returning each Exercise, internally verify that the wording and visual requirements agree and that any required visual description is already final.
-
-Decide question and solution visuals from the learner's required input and output, not from the subject name. Use a nonempty imageDescription exactly when information needed to perform the target operation is intentionally encoded in a visual or spatial representation and moving that information into the text would change the operation or disclose what the learner is meant to determine. When imageDescription is used, keep answer-bearing visual facts there instead of duplicating them in the question text. imageDescription must be a complete standalone generation prompt for the required input visual, must omit the answer, and must not refer to a source page or unseen figure.
-
-Use a nonempty solutionImageDescription exactly when the requested response itself has essential visual or spatial state, or when the learner must create, complete, mark, label, plot, draw, arrange, or otherwise modify a representation. If the task modifies a supplied visual, imageDescription describes the starting state and solutionImageDescription describes the correct finished state while preserving every unchanged object, label, scale, coordinate system, and layout. If a learner only reads or decodes a visual and returns a textual, numeric, or symbolic answer, do not add a solution image merely to illustrate that answer.
-
-When neither the target input nor target output is representational, keep both visual-description fields empty. Never add a visual for decoration, engagement, convention, or optional explanation.
-
-Preserve the task's represented form unless changing that form is explicitly the skill being tested. Do not silently simplify, normalize, canonicalize, convert, relabel, or replace an equivalent representation in the solution when the learner is being asked to read, identify, reproduce, or mark the representation as shown.
-
-Derive the title from the learner operation and its input/output types rather than copying the concept heading. Keep the description focused on what the learner must do; let imageDescription carry any task-essential visual state.
-
-Every learner-facing numeric literal in title, description, and solution must be treated as a mathematical expression and enclosed in <kx>...</kx>, including standalone counts and numbers next to units. Digits embedded in alphanumeric identifiers or names are not numeric literals for this rule. Keep identifiers such as TP53, BRCA1, H1N1, p53, and IL-6 as plain text; never wrap an embedded digit or the whole identifier in <kx>...</kx> merely because it contains digits. Do not leave learner-facing numbers as plain text even when no other mathematical notation is present. Do not apply this number-markup rule to imageDescription or solutionImageDescription because those are semantic generation prompts rather than learner-facing text. Use <kx>...</kx> for every other mathematical formula or expression as well, never dollar-delimited LaTeX, and escape every LaTeX backslash for valid JSON. Copy conceptIndex. Return only JSON in this shape: {"exercises":[{"conceptIndex":0,"title":"...","description":"succinct task","solution":"concise correct solution","imageDescription":"","solutionImageDescription":""}]}.`;
-
 export const STRICT_JSON_ARRAY_SYSTEM_PROMPT = 'Respond strictly as a JSON array.';
-
-export const BOOK_CHAPTER_EXTRACTION_REQUEST_PROMPT = (chapterTitle: string, pages: Array<{ imageNames: string[]; pageNumber: number; text: string }>): string => {
-  return `${BOOK_CHAPTER_EXTRACTION_PROMPT}
-
-Chapter: ${chapterTitle}
-
-The following ordered pages and ${pages.reduce((count, { imageNames }) => count + imageNames.length, 0)} attached image(s) were extracted from Mathpix MMD ZIPs. Treat all supplied pages as one chapter-wide context. Use attached images only when they contain information needed to understand a concept introduced in this chapter. Ignore exercise-only images and exercise/solution content.
-
-${pages.map(({ imageNames, pageNumber, text }) => `--- page ${pageNumber} ---\nAttached page images: ${imageNames.length ? imageNames.join(', ') : 'none'}\n${text}`).join('\n\n')}`;
-};
-
-export const BOOK_PAGE_EXTRACTION_REQUEST_PROMPT = (text: string, imageNames: string[]): string =>
-  BOOK_CHAPTER_EXTRACTION_REQUEST_PROMPT('', [{ imageNames, pageNumber: 1, text }]);
-
-export const BOOK_LANGUAGE_DETECTION_PROMPT = (pageTexts: Array<{ pageNumber: number; text: string }>): string => {
-  return `Identify the primary natural language of this book using only the supplied Mathpix MMD text from its middle pages. Ignore formulas, code, proper names, citations, isolated foreign phrases, and bilingual glossary fragments when deciding the main prose language. If the pages contain multiple languages, choose the language used for the majority of explanatory or instructional prose.
-
-Return only valid JSON in this exact shape using a lowercase ISO 639-1 two-letter code:
-{"language":"en"}
-
-Middle-page MMD text:
-${pageTexts.map(({ pageNumber, text }) => `--- page ${pageNumber} ---\n${text}`).join('\n\n')}`;
-};
-
-export const BOOK_SUBJECT_DETECTION_PROMPT = (bookLanguage: string, pageTexts: Array<{ pageNumber: number; text: string }>): string => {
-  return `Classify the primary school-book category using only the supplied Mathpix MMD text from the book's middle pages. Choose exactly one of these stored values: en-math, en-ela, en-science, na.
-
-The already-detected primary natural language of the book is ${bookLanguage}. Subject model classification is only used for English books; non-English books are assigned na before this prompt is called.
-
-Classification rules for English books:
-- en-math: mathematics instruction or mathematical problem solving.
-- en-ela: English Language Arts, including English reading, literature, grammar, vocabulary, or writing instruction.
-- en-science: natural or physical science such as biology, chemistry, physics, earth science, or general science.
-- na: every subject outside those categories, including social studies, history, geography, computing, arts, business, and mixed/general material without a clear en-math, en-ela, or en-science majority.
-
-Judge the dominant instructional subject, not isolated examples, formulas, passages, or chapter titles.
-
-Return only valid JSON in this exact shape:
-{"subject":"en-math"}
-
-Middle-page MMD text:
-${pageTexts.map(({ pageNumber, text }) => `--- page ${pageNumber} ---\n${text}`).join('\n\n')}`;
-};
-
-export const BOOK_AGE_DETECTION_PROMPT = (bookLanguage: string, bookSubject: string, pageTexts: Array<{ pageNumber: number; text: string }>): string => {
-  return `Determine the single most appropriate typical learner age, in whole years, for learning the supplied educational material. Use the actual prerequisite knowledge, conceptual difficulty, abstraction, vocabulary, reading complexity, mathematical/scientific sophistication, and expected learner independence shown by the material. Do not infer age from visual design, topic popularity, publication metadata, or isolated mature/child-friendly subject matter alone.
-
-The already-detected primary language is ${bookLanguage} and the stored subject category is ${bookSubject}. The supplied pages are representative samples from different parts of the book, not necessarily one continuous section.
-
-Return valid JSON containing exactly one property named "age". Its value must be one integer from 3 through 30.
-
-Choose the age based only on the demonstrated prerequisite knowledge and difficulty. Do not default to a common school age when the evidence is ambiguous, and do not copy a number from these instructions.
-
-Do not return an age range, grade, explanation, confidence score, additional properties, or any text outside the JSON.
-
-Representative MMD text pages:
-${pageTexts.map(({ pageNumber, text }) => `--- page ${pageNumber} ---\n${text}`).join('\n\n')}`;
-};
-
-export const GENERATE_EXERCISES_REQUEST_PROMPT = (bookDetectedLanguage: string, input: unknown, learnerAge?: number): string => {
-  return `${GENERATE_EXERCISES_PROMPT(bookDetectedLanguage, learnerAge)}\n${JSON.stringify(input)}`;
-};
-
-export const GENERATE_EXERCISES_RECOVERY_PROMPT = (bookDetectedLanguage: string, input: unknown, retry: number, maxRetries: number, learnerAge?: number): string => {
-  return `${GENERATE_EXERCISES_PROMPT(bookDetectedLanguage, learnerAge)}
-This is recovery attempt ${retry} of ${maxRetries}. Generate exactly one exercise only for every supplied concept that still has no exercise.
-${JSON.stringify(input)}`;
-};
-
-export const COURSE_NAMES_PROMPT = (input: unknown): string => {
-  return `Correct and improve the book name and each editable chapter name using only the ordered skill-template titles as evidence. Keep names concise, specific, and in the same language as the skill-template titles. Do not translate. Return exactly this JSON shape and no commentary: {"bookName":"Name","chapters":[{"id":1,"title":"Chapter name"}]}. Return one chapter entry for every supplied editable chapter ID.
-
-${JSON.stringify(input)}`;
-};
 
 const abilityGenerationExample = String.raw`[
   {

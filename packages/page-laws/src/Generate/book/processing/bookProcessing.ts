@@ -3,7 +3,7 @@
 
 import type { Exercise } from '@slonigiraf/db';
 
-import { GENERATE_EXERCISES_RECOVERY_PROMPT, GENERATE_EXERCISES_REQUEST_PROMPT } from '../constants.js';
+import { GENERATE_EXERCISES_RECOVERY_PROMPT, GENERATE_EXERCISES_REQUEST_PROMPT } from '../prompts/exercises.js';
 
 export const MAX_EXERCISE_GENERATION_RETRIES = 3;
 

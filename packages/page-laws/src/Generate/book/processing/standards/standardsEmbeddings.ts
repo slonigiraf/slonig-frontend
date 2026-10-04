@@ -6,8 +6,8 @@ import type { BookConcept, ConceptEmbedding, StandardEmbedding } from '@slonigir
 import { getConceptEmbeddings, getSetting, getStandardEmbeddings, putConceptEmbeddings, putStandardEmbeddings, SettingKey, storeSetting } from '@slonigiraf/db';
 import OpenAI from 'openai';
 
-import { openRouterRequestGate } from '../openRouterConcurrency.js';
-import { reportOpenRouterCost, type OpenRouterCostReporter } from '../openRouterCost.js';
+import { openRouterRequestGate } from '../../../../openRouterConcurrency.js';
+import { reportOpenRouterCost, type OpenRouterCostReporter } from '../../../../openRouterCost.js';
 import { standardsConceptEmbeddingInput, standardEmbeddingInput, type StandardsCatalog } from './standards.js';
 
 const EMBEDDING_BATCH_SIZE = 100;

@@ -5,7 +5,7 @@ import { strict as assert } from 'node:assert';
 import { describe, it } from 'node:test';
 
 import { bookAgeLabel, getBookAgeSamplePageNumbers, normalizeBookAge, parseDetectedBookAge } from './bookAge.js';
-import { BOOK_AGE_DETECTION_PROMPT } from '../constants.js';
+import { BOOK_AGE_DETECTION_PROMPT } from '../../prompts/metadata.js';
 
 describe('book age', () => {
   it('normalizes whole-number ages', () => {
