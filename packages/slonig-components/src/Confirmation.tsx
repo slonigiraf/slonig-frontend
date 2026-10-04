@@ -41,7 +41,8 @@ const ButtonsRow = styled.div`
   align-items: center;
   column-gap: 40px;
   .ui--Button {
-    width: 100px;
+    min-width: 100px;
+    width: auto;
     text-align: center;
   }
 `;
