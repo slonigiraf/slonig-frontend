@@ -4434,9 +4434,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
 
     try {
       const createPdfPageSlice = await createPdfPageSliceFactory(file);
-      let failedPages = 0;
-
-      for (const { endPage, startPage } of mathpixPdfSlices(totalPages)) {
+      const failedPagesBySlice = await Promise.all(mathpixPdfSlices(totalPages).map(async ({ endPage, startPage }) => {
         const pageCount = endPage - startPage + 1;
         let storedPageCount = 0;
 
@@ -4477,14 +4475,17 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
             setPages((current) => new Map(current).set(currentPageNumber, recognizedPage));
             setRecognizedPageCount((count) => count + 1);
           }
+
+          return 0;
         } catch (error) {
           if (processingSignal.aborted || (error instanceof Error && error.name === 'AbortError')) {
             throw error;
           }
 
-          failedPages += pageCount - storedPageCount;
+          return pageCount - storedPageCount;
         }
-      }
+      }));
+      const failedPages = failedPagesBySlice.reduce((total, count) => total + count, 0);
 
       if (failedPages) {
         setError(`${failedPages} of ${totalPages} pages could not be recognized.`);
