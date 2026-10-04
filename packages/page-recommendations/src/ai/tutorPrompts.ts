@@ -15,6 +15,9 @@ const GENERATED_MESSAGE_KATEX_REQUIREMENTS = String.raw`KaTeX formatting require
 - Because message is a JSON string, escape every LaTeX backslash so the JSON returned by the server is valid. For example, the JSON source must contain <kx>\\frac{1}{3}</kx> so the parsed message contains <kx>\frac{1}{3}</kx>.
 - Example valid message value: The reciprocal of <kx>3</kx> is <kx>\\frac{1}{3}</kx>, because <kx>1 \\div 3 = \\frac{1}{3}</kx>. Now repeat the correct solution from memory.
 - Keep ordinary prose outside <kx> tags. Do not put whole sentences inside <kx> tags.
+- <kx> is exclusively for mathematics. Never put programming identifiers, keywords, function calls, string literals, JSX/HTML tags, filenames, or source-code operators inside <kx>. Examples that must NOT be wrapped in <kx>: useState, onClick, setMessage('Sent'), import, =>, and <button>.
+- In programming exercises, characters such as < and > that belong to JSX/HTML/source code are code, not mathematical comparison operators. Put them in the required code fence instead of <kx>.
+- If you are unsure whether something is mathematics or code/prose, leave it outside <kx>. Before returning the JSON, verify that every <kx>...</kx> span contains only a mathematical expression.
 
 Code formatting requirements for the returned message:
 - If the returned message contains programming/source code, put every code snippet in a fenced Markdown code block, even when the snippet is short, except TikZ blocks explicitly requested as raw TikZ.

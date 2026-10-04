@@ -278,6 +278,8 @@ describe('AI Tutor generated fake solution wording', (): void => {
       assert.match(prompt, /every code snippet in a fenced Markdown code block/i);
       assert.match(prompt, /opening fence MUST include the actual language identifier/i);
       assert.match(prompt, /Never return source code as plain prose, inline backticks, or an unlabeled/i);
+      assert.match(prompt, /<kx> is exclusively for mathematics/i);
+      assert.match(prompt, /Never put programming identifiers, keywords, function calls/i);
     }
   });
 

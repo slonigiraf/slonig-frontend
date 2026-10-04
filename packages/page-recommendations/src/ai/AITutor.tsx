@@ -14,6 +14,7 @@ import type { OpenRouterAttachment } from './openRouter.js';
 import { getLesson } from '@slonigiraf/db';
 import { decisionPrompt, formatGeneratedStageMessage, generatedStagePrompt } from './tutorPrompts.js';
 import { tutorSpeechChunks, tutorSpeechFallbackText, tutorSpeechHasKatex, tutorSpeechRewriteIsSafe, tutorSpeechRewritePrompt, tutorSpeechSourceText } from './tutorSpeech.js';
+import { sanitizeGeneratedTutorMarkup } from './tutorMarkup.js';
 import { skillTranscriptionKeywords, transcriptionLanguages } from './transcriptionHints.js';
 import { useTranslation } from '../translate.js';
 
@@ -826,7 +827,7 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
       const persistedReasoning = startMode === 'continue'
         && persistedState?.wrongAnswerReasoning?.stageType === safeStage.getType()
         && persistedState.wrongAnswerReasoning.locale === tutorLocaleCode
-        ? persistedState.wrongAnswerReasoning.text
+        ? sanitizeGeneratedTutorMarkup(persistedState.wrongAnswerReasoning.text)
         : '';
       setWrongAnswerReasoning(persistedReasoning);
       setReasoningOpen(false);
@@ -837,7 +838,10 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
       const canHydrateTutorMessage = Boolean(persistedTutorMessage?.text)
         && persistedTutorMessage?.locale === tutorLocaleCode
         && hasRenderableTutorTikzPreviews(persistedTutorMessage.text, persistedTutorMessage.tikzPreviews);
-      setCurrentAiText(canHydrateTutorMessage ? persistedTutorMessage?.text || '' : '');
+      const hydratedTutorText = canHydrateTutorMessage ? persistedTutorMessage?.text || '' : '';
+      setCurrentAiText(stageNeedsGeneratedText(safeStage)
+        ? sanitizeGeneratedTutorMarkup(hydratedTutorText)
+        : hydratedTutorText);
       setCurrentAiTikzPreviews(canHydrateTutorMessage ? persistedTutorMessage?.tikzPreviews || {} : {});
 
       // Restore uploaded files and student-authored TikZ once per lesson step.
@@ -962,6 +966,7 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
         AI_TUTOR_SESSION,
         generatedStageTextSessionKey(lessonId, lessonStep, stage.getType(), tutorLocaleCode),
       ) || undefined;
+      if (saved) saved = sanitizeGeneratedTutorMarkup(saved);
     }
     if (saved && (!requiresCorrectSolutionTikz || isTikzCode(saved))) {
       requiresGeneratedTikz ||= isTikzCode(saved);
@@ -1061,7 +1066,7 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
           undefined,
           generationAttachments,
         );
-        const generatedMessage = generated.message.trim();
+        const generatedMessage = sanitizeGeneratedTutorMarkup(generated.message.trim());
 
         if (!generatedMessage) throw new Error(t('The AI tutor returned no stage text.'));
         if (requiresGeneratedTikz && !isTikzCode(generatedMessage)) {
@@ -1983,7 +1988,7 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
       // to the learner from the tutor bubble. Correct responses are prompted to
       // return an empty message, but the UI deliberately does not duplicate that
       // grading logic.
-      const reasoning = result.message.trim();
+      const reasoning = sanitizeGeneratedTutorMarkup(result.message.trim());
       if (reasoning) {
         setWrongAnswerReasoning(reasoning);
         try {
