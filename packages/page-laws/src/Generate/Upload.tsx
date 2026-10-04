@@ -12,9 +12,9 @@ import { Button, Dropdown, Modal, Toggle, styled } from '@polkadot/react-compone
 import type { AiInputEstimate } from './aiEstimate.js';
 
 import { estimateAiInput, estimateAiRequests } from './aiEstimate.js';
-import { DEFAULT_PROCESSING_MODEL, DEFAULT_STANDARDS_EMBEDDER, DEFAULT_STANDARDS_MODEL, MATHPIX_PDF_PAGE_PRICE_USD } from './constants.js';
+import { DEFAULT_PROCESSING_MODEL, DEFAULT_STANDARDS_EMBEDDER, DEFAULT_STANDARDS_MODEL, MATHPIX_PDF_PAGE_PRICE_USD } from '../constants.js';
 import OpenRouterEmbeddingModelSelector from './OpenRouterEmbeddingModelSelector.js';
-import OpenRouterModelSelector from './OpenRouterModelSelector.js';
+import OpenRouterModelSelector from '../OpenRouterModelSelector.js';
 import { bookLanguageLabel } from './bookLanguage.js';
 import { exerciseGenerationRequestEstimate } from './bookProcessing.js';
 import { conceptChaptersFromPages } from './conceptRecognition.js';
@@ -23,7 +23,7 @@ import { fixChapterConceptsPrompt } from './fixConcepts.js';
 import { conceptsForSortChapter, sortChapterConceptsPrompt } from './sortConcepts.js';
 import { conceptBelongsToChapter, conceptsForRefinementChapter, isRefineChaptersComplete, REFINE_CHAPTERS_SPEND_STAGE, refineChapterPrompt, sortConceptsByDisplayOrder, withRefineChaptersIncomplete } from './refineChapters.js';
 import { clearFixConceptsChapterStatuses, failedFixConceptChapterKeys, fixConceptsChapterKey } from './fixConceptsProgress.js';
-import { formatOpenRouterSpend } from './openRouterCost.js';
+import { formatOpenRouterSpend } from '../openRouterCost.js';
 import { clearBookStageTimes, formatBookStageTime, loadBookStageTimes, type BookStageTimes } from './bookStageTime.js';
 import { bookExternalCallTotal, clearBookExternalCalls, loadBookExternalCalls, type BookExternalCalls } from './bookExternalCalls.js';
 import { loadStandardsCatalogsForBookSubject, STANDARDS_MATCH_RUNS, standardsCandidatesFromEmbeddings, standardsChapterKey, standardsConceptInputs, standardsMatchingPrompt, standardEmbeddingInput } from './standards.js';
@@ -31,7 +31,7 @@ import { conceptEmbeddingInput } from './standardsEmbeddings.js';
 import { AiPriceEstimate, UnitPriceEstimate } from './PriceEstimate.js';
 import { loadPdfJs } from './pdf.js';
 import StageRunPricePopup from './StageRunPricePopup.js';
-import { useTranslation } from './translate.js';
+import { useTranslation } from '../translate.js';
 
 const BookReader = React.lazy(() => import('./BookReader.js'));
 

@@ -5,6 +5,7 @@ import { Bubble, Confirmation, FullFindow, getIPFSDataFromContentID, KatexSpan, 
 import { clearAiTutorGeneratedStageTexts, clearAiTutorStudentMessages, clearAiTutorTutorStageMessages, deleteAiTutorStudentMessage, getAiTutorStudentMessage, getAiTutorTutorStageMessage, getSetting, putAiTutorCurrentStageType, putAiTutorGeneratedStageText, putAiTutorStudentExercise, putAiTutorStudentMessage, putAiTutorTutorStageMessage, putAiTutorVisualDraft, SettingKey, storeSetting } from '@slonigiraf/db';
 import type { AiTutorStudentMessage } from '@slonigiraf/db';
 import type { ModelSelectorRenderer } from './modelSelector.js';
+import { isAiTutorModelSelectionEnabled, resolveAiTutorModel } from './modelAccess.js';
 import { AlgorithmStage, StageType } from '../Teach/AlgorithmStage.js';
 import { TutoringAlgorithm } from '../Teach/TutoringAlgorithm.js';
 import type { Skill as TutorSkill } from '@slonigiraf/slonig-components';
@@ -802,11 +803,13 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
   const [error, setError] = useState('');
   const [tutorValidationMessage, setTutorValidationMessage] = useState('');
   const storedOpenRouterKey = useSettingValue(SettingKey.OPENROUTER_TOKEN);
+  const canChangeModel = isAiTutorModelSelectionEnabled();
   const [openRouterKey, setOpenRouterKey] = useState<string | undefined>(() => persistedOpenRouterKey || undefined);
   const [isOpenRouterKeyLoaded, setIsOpenRouterKeyLoaded] = useState(() => persistedOpenRouterKey !== undefined);
   const [keyDialogOpen, setKeyDialogOpen] = useState(false);
   const [keyInput, setKeyInput] = useState('');
-  const [model, setModel] = useState(() => localStorage.getItem(MODEL_STORAGE) || DEFAULT_MODEL);
+  const [model, setModel] = useState(() => canChangeModel ? localStorage.getItem(MODEL_STORAGE) || DEFAULT_MODEL : DEFAULT_MODEL);
+  const requestModel = resolveAiTutorModel(model, canChangeModel);
   const [repeatCount, setRepeatCount] = useState(0);
   const [okCount, setOkCount] = useState(0);
   const [voiceMode, setVoiceMode] = useState(false);
@@ -1196,7 +1199,7 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
           ? prompt
           : `${prompt}\n\nCRITICAL RETRY REQUIREMENT: ${retryReason} Return the complete answer again. Every TikZ drawing must be one complete \\begin{tikzpicture}...\\end{tikzpicture} block, must render successfully, and must contain visible drawing content rather than an empty picture.`;
         const generated = await askOpenRouter(
-          { apiKey: openRouterKey, model: model.trim() || DEFAULT_MODEL },
+          { apiKey: openRouterKey, model: requestModel },
           requestPrompt,
           undefined,
           generationAttachments,
@@ -1247,7 +1250,7 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
         generatedStageTextSessionKey(lessonId, lessonStep, stage.getType(), tutorLocaleCode),
         text,
       );
-      localStorage.setItem(MODEL_STORAGE, model.trim() || DEFAULT_MODEL);
+      if (canChangeModel) localStorage.setItem(MODEL_STORAGE, requestModel);
     } catch (e) {
       if (stageTextRequestRef.current !== requestId) return;
       if (e instanceof Error && (e.message.includes('OpenRouter request failed (401)') || e.message.includes('OpenRouter request failed (403)'))) {
@@ -1260,7 +1263,7 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
     } finally {
       if (stageTextRequestRef.current === requestId) setLoading(false);
     }
-  }, [algorithm, currentSkillSolutionImageCids, lessonId, lessonStep, loadSkillSolutionImageAttachments, model, openRouterKey, skill, studentExercise, studentExerciseMedia, t, tutorLocaleCode, tutorT]);
+  }, [algorithm, currentSkillSolutionImageCids, lessonId, lessonStep, loadSkillSolutionImageAttachments, canChangeModel, openRouterKey, requestModel, skill, studentExercise, studentExerciseMedia, t, tutorLocaleCode, tutorT]);
 
   const regenerateCurrentAnswer = useCallback(async (): Promise<void> => {
     if (!algorithmStage || !stageNeedsGeneratedText(algorithmStage) || loading) return;
@@ -1762,7 +1765,7 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
         } else {
           try {
             const rewritten = await askOpenRouter(
-              { apiKey: openRouterKey, model: model.trim() || DEFAULT_MODEL },
+              { apiKey: openRouterKey, model: requestModel },
               tutorSpeechRewritePrompt(sourceSpokenText, voiceLanguageInstructionName(language.code)),
               controller.signal,
             );
@@ -1872,7 +1875,7 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
       setVoiceStatus('waiting');
       setError(error instanceof Error ? error.message : t('Unable to play tutor voice.'));
     }
-  }, [model, openRouterKey, speakWithBrowserVoice, startRecording, stopTutorSpeech, t]);
+  }, [requestModel, openRouterKey, speakWithBrowserVoice, startRecording, stopTutorSpeech, t]);
 
   const endVoiceMode = useCallback((): void => {
     voiceLanguageRequestRef.current += 1;
@@ -1968,7 +1971,7 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
 
       try {
         const code = cachedCode || parseDetectedVoiceLanguageCode((await askOpenRouter(
-          { apiKey: openRouterKey, model: model.trim() || DEFAULT_MODEL },
+          { apiKey: openRouterKey, model: requestModel },
           voiceLanguageDetectionPrompt(skills),
         )).message);
 
@@ -1998,7 +2001,7 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
         setError(e instanceof Error ? e.message : t('Unable to identify the module language for voice mode.'));
       }
     })();
-  }, [appVoiceLanguage.code, model, moduleCid, moduleId, openRouterKey, skillRefsKey, skills, stopVoiceMicrophone, t, unlockTutorAudio]);
+  }, [appVoiceLanguage.code, moduleCid, moduleId, openRouterKey, requestModel, skillRefsKey, skills, stopVoiceMicrophone, t, unlockTutorAudio]);
 
   const handleVoiceControl = useCallback((): void => {
     if (!voiceModeRef.current) return;
@@ -2194,7 +2197,7 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
       const media = [...tutorStageMedia, ...exerciseMedia, ...studentMedia];
 
       const result = await askOpenRouter(
-        { apiKey: openRouterKey, model: model.trim() || DEFAULT_MODEL },
+        { apiKey: openRouterKey, model: requestModel },
         decisionPrompt(
           skill,
           algorithmStage,
@@ -2224,7 +2227,7 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
         setSuccessConfettiRevision((revision) => revision + 1);
       }
 
-      localStorage.setItem(MODEL_STORAGE, model.trim() || DEFAULT_MODEL);
+      if (canChangeModel) localStorage.setItem(MODEL_STORAGE, requestModel);
 
       const finishesSkill = candidate.getType() === StageType.skip
         || candidate.getType() === StageType.next_skill
@@ -2312,7 +2315,7 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
       submitInFlightRef.current = false;
       setLoading(false);
     }
-  }, [algorithm, algorithmStage, answer, attachments, audioBlob, currentAiText, finishSkill, lastStudentMessage, lessonId, lessonStep, loadStageImageAttachments, model, openRouterKey, recording, recordingSeconds, resetComposer, skill, stopRecording, studentExercise, studentExerciseMedia, t, tikz, tikzDataUrl, tutorLocaleCode, tutorT]);
+  }, [algorithm, algorithmStage, answer, attachments, audioBlob, currentAiText, finishSkill, lastStudentMessage, lessonId, lessonStep, loadStageImageAttachments, canChangeModel, openRouterKey, requestModel, recording, recordingSeconds, resetComposer, skill, stopRecording, studentExercise, studentExerciseMedia, t, tikz, tikzDataUrl, tutorLocaleCode, tutorT]);
 
   useEffect(() => {
     voiceModeRef.current = voiceMode;
@@ -2682,7 +2685,7 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
                     >
                       <span>{t('Skip')}</span>
                     </SkipAction>
-                    <ModelControl ref={modelControlRef}>
+                    {canChangeModel && <ModelControl ref={modelControlRef}>
                       <ModelControlSummary aria-label={t('AI model: {{model}}', { replace: { model: modelDisplayName(model) } })}>
                         <ModelName>{modelDisplayName(model)}</ModelName>
                         <Chevron aria-hidden='true' />
@@ -2695,7 +2698,7 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
                             <input aria-label={t('OpenRouter model')} placeholder={DEFAULT_MODEL} value={model} onChange={(e) => setModel(e.target.value)} />
                           </label>}
                       </ModelControlMenu>
-                    </ModelControl>
+                    </ModelControl>}
                     <AudioButton
                       type='button'
                       className={[recording ? 'recording' : '', voiceMode ? 'voice-disabled' : ''].filter(Boolean).join(' ')}

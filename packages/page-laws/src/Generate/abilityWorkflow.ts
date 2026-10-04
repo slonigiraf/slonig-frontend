@@ -2,9 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { Exercise } from '@slonigiraf/db';
-import type { AbilityExerciseImagePrompts, GeneratedAbility } from './abilities.js';
+import type { AbilityExerciseImagePrompts, GeneratedAbility } from '../abilities.js';
 
-import { parseGeneratedAbilities } from './abilities.js';
+import { parseGeneratedAbilities } from '../abilities.js';
 import { stripMarkdownImageReferences } from './bookImageRefs.js';
 
 export type AbilityQuestionVisualMode = 'none' | 'required';

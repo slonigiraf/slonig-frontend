@@ -6,9 +6,9 @@ import React, { useEffect, useMemo, useState } from 'react';
 
 import { Dropdown } from '@polkadot/react-components';
 
-import { DEFAULT_STANDARDS_EMBEDDER } from './constants.js';
-import { openRouterFetch } from './openRouterConcurrency.js';
-import { cacheOpenRouterModelPricePerMillion } from './openRouterModels.js';
+import { DEFAULT_STANDARDS_EMBEDDER } from '../constants.js';
+import { openRouterFetch } from '../openRouterConcurrency.js';
+import { cacheOpenRouterModelPricePerMillion } from '../openRouterModels.js';
 
 interface Props {
   className?: string;

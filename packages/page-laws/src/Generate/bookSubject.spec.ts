@@ -5,7 +5,7 @@ import { strict as assert } from 'node:assert';
 import { describe, it } from 'node:test';
 
 import { BOOK_SUBJECT_OPTIONS, automaticBookSubjectForLanguage, bookSubjectLabel, normalizeBookSubject, parseDetectedBookSubject } from './bookSubject.js';
-import { BOOK_SUBJECT_DETECTION_PROMPT } from './constants.js';
+import { BOOK_SUBJECT_DETECTION_PROMPT } from '../constants.js';
 
 describe('bookSubject', () => {
   it('normalizes supported subject values to the canonical category names', () => {

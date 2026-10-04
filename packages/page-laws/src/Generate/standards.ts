@@ -57,19 +57,19 @@ const MATH_STANDARDS_SOURCES: ReadonlyArray<StandardsSource> = [
     framework: 'ccss',
     label: 'Common Core State Standards',
     path: 'data/standards/en/math/common-core.json',
-    url: new URL('./data/standards/en/math/common-core.json', import.meta.url)
+    url: new URL('../data/standards/en/math/common-core.json', import.meta.url)
   },
   {
     framework: 'teks',
     label: 'Texas Essential Knowledge and Skills',
     path: 'data/standards/en/math/teks.json',
-    url: new URL('./data/standards/en/math/teks.json', import.meta.url)
+    url: new URL('../data/standards/en/math/teks.json', import.meta.url)
   },
   {
     framework: 'vaSol',
     label: 'Virginia Standards of Learning',
     path: 'data/standards/en/math/virginia.json',
-    url: new URL('./data/standards/en/math/virginia.json', import.meta.url)
+    url: new URL('../data/standards/en/math/virginia.json', import.meta.url)
   }
 ];
 

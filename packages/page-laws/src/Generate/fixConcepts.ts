@@ -3,7 +3,7 @@
 
 import type { BookConcept, BookSubject } from '@slonigiraf/db';
 
-import { MATH_DISPLAY_REQUIREMENTS_PROMPT } from './constants.js';
+import { MATH_DISPLAY_REQUIREMENTS_PROMPT } from '../constants.js';
 
 export interface MissingChapterConcept {
   description: string;

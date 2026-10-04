@@ -6,8 +6,8 @@ import type { ApiPromise, SubmittableResult } from '@polkadot/api';
 import type { SubmittableExtrinsic } from '@polkadot/api/types';
 import type { KeyringPair } from '@polkadot/keyring/types';
 import type { DispatchError } from '@polkadot/types/interfaces';
-import type { GeneratedAbility } from './abilities.js';
-import { prepareAbilityForPublishing } from './abilities.js';
+import type { GeneratedAbility } from '../abilities.js';
+import { prepareAbilityForPublishing } from '../abilities.js';
 
 import { deleteAbility, getAbilities, getBookChapters, getBookConceptsForBookPage, getBookPages, getExercisesForBookPage, getSetting, hydrateAbilityContent, putBookChapter, SettingKey, storeAbility, updateBookChapterTitle, updateBookFields } from '@slonigiraf/db';
 import { digestFromCIDv1, getCIDFromBytes, getIPFSContentIDAndPinIt, getIPFSContentIDForBytesAndPinIt, getIPFSDataFromContentID, KatexSpan, LawType, parseJson, useInfo, useIpfsContext, useLoginContext } from '@slonigiraf/slonig-components';
@@ -21,13 +21,14 @@ import { useApi } from '@polkadot/react-hooks';
 import { FormatBalance } from '@polkadot/react-query';
 import { BN_ZERO, u8aToHex } from '@polkadot/util';
 
-import { COURSE_NAMES_PROMPT, OPENAI_MODELS } from './constants.js';
-import { openRouterRequestGate } from './openRouterConcurrency.js';
+import { COURSE_NAMES_PROMPT, OPENAI_MODELS } from '../constants.js';
+import { openRouterRequestGate } from '../openRouterConcurrency.js';
+import { bookModulePublishJson, finalBookCourseJson, initialBookCourseJson } from './bookPublishing.js';
 import { parseNameSuggestions } from './courseNames.js';
 import KnowledgeTargetSelector from './KnowledgeTargetSelector.js';
-import { parseStoredAbility } from './abilities.js';
-import { randomIdHex } from './util.js';
-import { isTikzCode } from './Edit/tikz.js';
+import { parseStoredAbility } from '../abilities.js';
+import { randomIdHex } from '../util.js';
+import { isTikzCode } from '../Edit/tikz.js';
 import { loadStoredBookStandards, moduleStandardsText, standardsChapterKey } from './standards.js';
 import { sortExercisesForDisplay } from './learningOrder.js';
 
@@ -457,7 +458,7 @@ function SkillsCourse ({ book }: { book: Book }): React.ReactElement {
     skillId,
     async (value) => {
       if (isTikzCode(value)) {
-        const { renderTikzToSvg } = await import('./Edit/TikzDisplay.js');
+        const { renderTikzToSvg } = await import('../Edit/TikzDisplay.js');
         const svg = await renderTikzToSvg(value);
         const bytes = new TextEncoder().encode(svg);
 
@@ -933,6 +934,12 @@ function SkillsCourse ({ book }: { book: Book }): React.ReactElement {
       return;
     }
 
+    if (!api.tx.utility?.batchAll) {
+      showInfo('This chain does not support atomic batch publishing.', 'error');
+
+      return;
+    }
+
     setIsPublishing(true);
     setPublishStatus('Saving resumable knowledge IDs…');
 
@@ -944,42 +951,40 @@ function SkillsCourse ({ book }: { book: Book }): React.ReactElement {
       }
 
       const savedCourseId = isKnowledgeId(storedBook.knowledgeId) ? storedBook.knowledgeId : randomIdHex();
-      const savedCourse = await loadKnowledgeItem(savedCourseId);
+      let savedCourse = await loadKnowledgeItem(savedCourseId);
       const standardsByChapter = loadStoredBookStandards(book.id);
       const templateRecordChanges = new Map<string, string>();
-      const preparedChapters = savedCourse
-        ? publishableChapters
-        : await Promise.all(publishableChapters.map(async ({ chapter, templates }) => {
-          const moduleId = isKnowledgeId(chapter.knowledgeId) ? chapter.knowledgeId : randomIdHex();
-          const preparedTemplates = await Promise.all(templates.map(async (row) => {
-            const skillId = isKnowledgeId(row.template.i) ? row.template.i : randomIdHex();
-            const { localAbility, publishAbility } = await preparePublishedAbility(row.template, skillId);
-            const didLocalTemplateChange = JSON.stringify(localAbility) !== JSON.stringify(row.template);
-            let recordId = row.recordId;
+      const preparedChapters = await Promise.all(publishableChapters.map(async ({ chapter, templates }) => {
+        const moduleId = isKnowledgeId(chapter.knowledgeId) ? chapter.knowledgeId : randomIdHex();
+        const preparedTemplates = await Promise.all(templates.map(async (row) => {
+          const skillId = isKnowledgeId(row.template.i) ? row.template.i : randomIdHex();
+          const { localAbility, publishAbility } = await preparePublishedAbility(row.template, skillId);
+          const didLocalTemplateChange = JSON.stringify(localAbility) !== JSON.stringify(row.template);
+          let recordId = row.recordId;
 
-            // Persist only the local representation. storeAbility moves q[].p/q[].i
-            // visual payloads into Image rows and leaves image ids in the stored
-            // Ability. The IPFS CID substitutions in publishAbility exist only for
-            // this final publishing operation.
-            if (didLocalTemplateChange) {
-              const newRecordId = await storeAbility(row.moduleId, JSON.stringify(localAbility), row.displayOrder);
+          // Persist only the local representation. storeAbility moves q[].p/q[].i
+          // visual payloads into Image rows and leaves image ids in the stored
+          // Ability. The IPFS CID substitutions in publishAbility exist only for
+          // this final publishing operation.
+          if (didLocalTemplateChange) {
+            const newRecordId = await storeAbility(row.moduleId, JSON.stringify(localAbility), row.displayOrder);
 
-              if (newRecordId !== row.recordId) {
-                await deleteAbility(row.recordId);
-                templateRecordChanges.set(row.recordId, newRecordId);
-                recordId = newRecordId;
-              }
+            if (newRecordId !== row.recordId) {
+              await deleteAbility(row.recordId);
+              templateRecordChanges.set(row.recordId, newRecordId);
+              recordId = newRecordId;
             }
-
-            return { ...row, recordId, template: publishAbility };
-          }));
-
-          if (chapter.knowledgeId !== moduleId) {
-            await putBookChapter({ ...chapter, knowledgeId: moduleId });
           }
 
-          return { chapter: { ...chapter, knowledgeId: moduleId }, templates: preparedTemplates };
+          return { ...row, recordId, template: publishAbility };
         }));
+
+        if (chapter.knowledgeId !== moduleId) {
+          await putBookChapter({ ...chapter, knowledgeId: moduleId });
+        }
+
+        return { chapter: { ...chapter, knowledgeId: moduleId }, templates: preparedTemplates };
+      }));
       const updatedBook = {
         ...storedBook,
         courseOrder: storedBook.courseOrder?.map((key) => key.startsWith('template:')
@@ -998,31 +1003,55 @@ function SkillsCourse ({ book }: { book: Book }): React.ReactElement {
       });
       setStoredBook(updatedBook);
 
+      if (savedCourse && savedCourse.json.t !== LawType.COURSE) {
+        throw new Error(`Saved course ID ${savedCourseId} belongs to another knowledge type.`);
+      }
+
+      // A generated book follows the same parent-child model as manual module
+      // creation: the Course must exist first, and each Module then stores the
+      // Course knowledge id in `p`. Publish an empty Course shell in its own
+      // transaction so Modules can never be created before their parent exists.
+      if (!savedCourse) {
+        setPublishStatus('Publishing course shell before modules…');
+
+        const initialCourse = initialBookCourseJson(savedCourseId, courseName.trim());
+        const initialCourseDigest = await pinKnowledgeItem(initialCourse);
+        const courseCreate = api.tx.laws.create(savedCourseId, initialCourseDigest, BN_ZERO);
+        const { partialFee } = await courseCreate.paymentInfo(currentPair);
+        const balances = await api.derive.balances.all(currentPair.address);
+        const existentialDeposit = new BN(api.consts.balances.existentialDeposit.toString());
+        const requiredBalance = new BN(partialFee.toString()).add(existentialDeposit);
+
+        if (balances.availableBalance.lt(requiredBalance)) {
+          throw new Error('Your balance is insufficient for the course publishing fee and the existential deposit.');
+        }
+
+        await submitTransaction(courseCreate, currentPair, api);
+        savedCourse = { amount: BN_ZERO, digestHex: initialCourseDigest, json: initialCourse };
+        setOnChainIds((ids) => new Set([...ids, savedCourseId]));
+      }
+
       const skillTransactions: SubmittableExtrinsic<'promise'>[] = [];
       const moduleTransactions: SubmittableExtrinsic<'promise'>[] = [];
       let insertionTotal = BN_ZERO;
 
-      if (!savedCourse) {
-        setPublishStatus('Preparing unpublished skills and modules…');
+      setPublishStatus('Preparing unpublished skills and modules…');
 
-        for (const { chapter, templates } of preparedChapters) {
-          for (const { template } of templates) {
-            const existingSkill = await loadKnowledgeItem(template.i);
+      for (const { templates } of preparedChapters) {
+        for (const { template } of templates) {
+          const existingSkill = await loadKnowledgeItem(template.i);
 
-            if (existingSkill) {
-              if (existingSkill.json.t !== LawType.SKILL) {
-                throw new Error(`Saved skill ID ${template.i} belongs to another knowledge type.`);
-              }
-            } else {
-              const digest = await pinKnowledgeItem({ ...template });
-
-              skillTransactions.push(api.tx.laws.create(template.i, digest, skillPrice || BN_ZERO));
-              insertionTotal = insertionTotal.add(skillPrice || BN_ZERO);
+          if (existingSkill) {
+            if (existingSkill.json.t !== LawType.SKILL) {
+              throw new Error(`Saved skill ID ${template.i} belongs to another knowledge type.`);
             }
+          } else {
+            const digest = await pinKnowledgeItem({ ...template });
+
+            skillTransactions.push(api.tx.laws.create(template.i, digest, skillPrice || BN_ZERO));
+            insertionTotal = insertionTotal.add(skillPrice || BN_ZERO);
           }
         }
-      } else if (savedCourse.json.t !== LawType.COURSE) {
-        throw new Error(`Saved course ID ${savedCourseId} belongs to another knowledge type.`);
       }
 
       for (const { chapter, templates } of preparedChapters) {
@@ -1030,6 +1059,12 @@ function SkillsCourse ({ book }: { book: Book }): React.ReactElement {
 
         if (!isKnowledgeId(moduleId)) {
           throw new Error(`Chapter “${chapter.title}” has no valid saved module ID.`);
+        }
+
+        const orderedSkillIds = templates.map(({ template }) => template.i);
+
+        if (orderedSkillIds.some((id) => !isKnowledgeId(id))) {
+          throw new Error(`Module “${chapter.title}” contains an Ability without a valid saved skill ID.`);
         }
 
         const chapterStandards = chapter.id === undefined
@@ -1042,57 +1077,44 @@ function SkillsCourse ({ book }: { book: Book }): React.ReactElement {
             throw new Error(`Saved module ID ${moduleId} belongs to another knowledge type.`);
           }
 
-          const orderedSkillIds = templates.map(({ template }) => template.i);
-
-          if (orderedSkillIds.some((id) => !isKnowledgeId(id))) {
-            throw new Error(`Published module “${chapter.title}” contains an Ability without a valid saved skill ID.`);
-          }
-
           const existingSkillIds = Array.isArray(existingModule.json.e)
             ? existingModule.json.e.filter((id): id is string => typeof id === 'string')
             : [];
           const orderChanged = JSON.stringify(existingSkillIds) !== JSON.stringify(orderedSkillIds);
+          const parentChanged = existingModule.json.p !== savedCourseId;
           const standardsChanged = Boolean(chapterStandards) && existingModule.json.s !== chapterStandards;
 
-          if (orderChanged || standardsChanged) {
+          if (orderChanged || parentChanged || standardsChanged) {
             const digest = await pinKnowledgeItem({
               ...existingModule.json,
               e: orderedSkillIds,
+              p: savedCourseId,
               ...(chapterStandards ? { s: chapterStandards } : {})
             });
 
             moduleTransactions.push(api.tx.laws.edit(moduleId, existingModule.digestHex, digest, existingModule.amount));
           }
-        } else if (!savedCourse) {
-          const moduleJson = {
-            e: templates.map(({ template }) => template.i),
-            h: chapter.title,
-            i: moduleId,
-            p: savedCourseId,
-            ...(chapterStandards ? { s: chapterStandards } : {}),
-            t: LawType.MODULE
-          };
+        } else {
+          const moduleJson = bookModulePublishJson({
+            courseId: savedCourseId,
+            moduleId,
+            skillIds: orderedSkillIds,
+            standards: chapterStandards,
+            title: chapter.title
+          });
           const digest = await pinKnowledgeItem(moduleJson);
 
           moduleTransactions.push(api.tx.laws.create(moduleId, digest, modulePrice || BN_ZERO));
           insertionTotal = insertionTotal.add(modulePrice || BN_ZERO);
-        } else {
-          throw new Error(`Published course module ${moduleId} could not be loaded.`);
         }
       }
 
-      setPublishStatus('Preparing the course and selected list…');
+      setPublishStatus('Preparing modules, course membership, and selected list…');
 
-      const moduleIds = savedCourse && Array.isArray(savedCourse.json.e)
-        ? savedCourse.json.e.filter((id): id is string => typeof id === 'string')
-        : preparedChapters.map(({ chapter }) => chapter.knowledgeId);
-      const courseJson = savedCourse
-        ? { ...savedCourse.json, e: moduleIds, h: courseName.trim(), i: savedCourseId, t: LawType.COURSE }
-        : { e: moduleIds, h: courseName.trim(), i: savedCourseId, t: LawType.COURSE };
+      const moduleIds = preparedChapters.map(({ chapter }) => chapter.knowledgeId).filter(isKnowledgeId);
+      const courseJson = finalBookCourseJson(savedCourseId, courseName.trim(), moduleIds, savedCourse.json);
       const courseDigest = await pinKnowledgeItem(courseJson);
-      const courseTransaction = savedCourse
-        ? api.tx.laws.edit(savedCourseId, savedCourse.digestHex, courseDigest, savedCourse.amount)
-        : api.tx.laws.create(savedCourseId, courseDigest, BN_ZERO);
+      const courseTransaction = api.tx.laws.edit(savedCourseId, savedCourse.digestHex, courseDigest, savedCourse.amount);
       const existingIds = Array.isArray(selectedList.json.e)
         ? selectedList.json.e.filter((id): id is string => typeof id === 'string')
         : [];
@@ -1118,10 +1140,6 @@ function SkillsCourse ({ book }: { book: Book }): React.ReactElement {
         childTransactions.push(api.tx.laws.edit(knowledgeId, selectedList.digestHex, updatedListDigest, selectedList.amount));
       }
 
-      if (!api.tx.utility?.batchAll) {
-        throw new Error('This chain does not support atomic batch publishing.');
-      }
-
       const batch = api.tx.utility.batchAll(childTransactions);
       const { partialFee } = await batch.paymentInfo(currentPair);
       const balances = await api.derive.balances.all(currentPair.address);
@@ -1132,14 +1150,14 @@ function SkillsCourse ({ book }: { book: Book }): React.ReactElement {
         throw new Error('Your balance is insufficient for insertion prices, the batch fee, and the existential deposit.');
       }
 
-      setPublishStatus(`Publishing ${childTransactions.length} operations in one atomic batch…`);
+      setPublishStatus(`Publishing ${childTransactions.length} module/course operations in one atomic batch…`);
       await submitTransaction(batch, currentPair, api);
       setOnChainIds((ids) => new Set([
         ...ids,
         savedCourseId,
         ...preparedChapters.flatMap(({ chapter, templates }) => [chapter.knowledgeId, ...templates.map(({ template }) => template.i)]).filter(isKnowledgeId)
       ]));
-      setPublishStatus(`Published “${courseName.trim()}” in one batch.`);
+      setPublishStatus(`Published “${courseName.trim()}”. Course created first; modules linked to it.`);
       showInfo('Course published.');
     } catch (error) {
       const message = errorMessage(error);
