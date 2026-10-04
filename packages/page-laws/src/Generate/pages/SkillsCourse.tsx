@@ -885,7 +885,7 @@ function SkillsCourse ({ book }: { book: Book }): React.ReactElement {
         skillPrice,
         storedBook
       });
-      setPublishStatus(`Published “${courseName.trim()}”. Course created first; modules linked to it.`);
+      setPublishStatus(`Published “${courseName.trim()}”. Abilities and modules were published in safe batches, then the course was finalized atomically.`);
       showInfo('Course published.');
     } catch (error) {
       const message = errorMessage(error);

@@ -58,6 +58,233 @@ export const chapterOutlineKey = (id: number): string => `chapter:${id}`;
 export const templateOutlineKey = (id: string): string => `template:${id}`;
 export const isKnowledgeId = (value: string | undefined): value is string => !!value && /^0x[\da-f]{64}$/i.test(value);
 
+const BATCH_SAFETY_PERCENT = 85;
+const FALLBACK_WEIGHT_PERCENT = 64;
+const MAX_PUBLISH_BATCH_CALLS = 1000;
+
+interface SimpleWeight {
+  proofSize: BN;
+  refTime: BN;
+}
+
+interface PublishOperation {
+  amount: BN;
+  id?: string;
+  transaction: SubmittableExtrinsic<'promise'>;
+}
+
+interface PublishBatch {
+  ids: string[];
+  operationCount: number;
+  operations: PublishOperation[];
+  partialFee: BN;
+  transaction: SubmittableExtrinsic<'promise'>;
+}
+
+interface PublishLimits {
+  maxCalls: number;
+  maxEncodedLength?: number;
+  maxWeight?: SimpleWeight;
+}
+
+function valueToBn (value: unknown): BN {
+  if (BN.isBN(value)) {
+    return value;
+  }
+
+  if (value && typeof value === 'object' && typeof (value as { toBn?: unknown }).toBn === 'function') {
+    return (value as { toBn: () => BN }).toBn();
+  }
+
+  return new BN(String(value));
+}
+
+function weightToSimple (weight: unknown): SimpleWeight {
+  if (weight && typeof weight === 'object' && 'refTime' in weight) {
+    const structured = weight as { proofSize?: unknown; refTime: unknown };
+
+    return {
+      proofSize: structured.proofSize === undefined ? BN_ZERO : valueToBn(structured.proofSize),
+      refTime: valueToBn(structured.refTime)
+    };
+  }
+
+  return { proofSize: BN_ZERO, refTime: valueToBn(weight) };
+}
+
+function scaleWeight (weight: SimpleWeight, percent: number): SimpleWeight {
+  return {
+    proofSize: weight.proofSize.muln(percent).divn(100),
+    refTime: weight.refTime.muln(percent).divn(100)
+  };
+}
+
+function exceedsWeight (weight: SimpleWeight, limit: SimpleWeight): boolean {
+  return weight.refTime.gt(limit.refTime) || (!limit.proofSize.isZero() && weight.proofSize.gt(limit.proofSize));
+}
+
+function readPublishLimits (api: ApiPromise): PublishLimits {
+  const utilityConsts = api.consts.utility as unknown as { batchedCallsLimit?: unknown };
+  const runtimeBatchLimit = utilityConsts.batchedCallsLimit === undefined
+    ? MAX_PUBLISH_BATCH_CALLS
+    : valueToBn(utilityConsts.batchedCallsLimit).toNumber();
+  const systemConsts = api.consts.system as unknown as {
+    blockLength?: { max?: { normal?: unknown } };
+    blockWeights?: {
+      maxBlock: unknown;
+      perClass: { normal: { maxExtrinsic: { isSome: boolean; unwrap: () => unknown } } };
+    };
+  };
+  const normalMaxLength = systemConsts.blockLength?.max?.normal;
+  let maxWeight: SimpleWeight | undefined;
+
+  if (systemConsts.blockWeights) {
+    const { maxBlock, perClass } = systemConsts.blockWeights;
+
+    maxWeight = perClass.normal.maxExtrinsic.isSome
+      ? scaleWeight(weightToSimple(perClass.normal.maxExtrinsic.unwrap()), BATCH_SAFETY_PERCENT)
+      : scaleWeight(weightToSimple(maxBlock), FALLBACK_WEIGHT_PERCENT);
+  }
+
+  return {
+    maxCalls: Math.max(1, Math.min(runtimeBatchLimit, MAX_PUBLISH_BATCH_CALLS)),
+    maxEncodedLength: normalMaxLength === undefined
+      ? undefined
+      : valueToBn(normalMaxLength).muln(BATCH_SAFETY_PERCENT).divn(100).toNumber(),
+    maxWeight
+  };
+}
+
+function splitOperations (operations: PublishOperation[]): [PublishOperation[], PublishOperation[]] {
+  const middle = Math.ceil(operations.length / 2);
+
+  return [operations.slice(0, middle), operations.slice(middle)];
+}
+
+async function buildPublishBatch (
+  api: ApiPromise,
+  currentPair: KeyringPair,
+  batchAll: (transactions: SubmittableExtrinsic<'promise'>[]) => SubmittableExtrinsic<'promise'>,
+  limits: PublishLimits,
+  operations: PublishOperation[]
+): Promise<PublishBatch[]> {
+  const transaction = operations.length === 1
+    ? operations[0].transaction
+    : batchAll(operations.map(({ transaction }) => transaction));
+
+  if (limits.maxEncodedLength !== undefined && transaction.encodedLength > limits.maxEncodedLength) {
+    if (operations.length === 1) {
+      throw new Error(`A publishing transaction is too large (${transaction.encodedLength} bytes; safe limit ${limits.maxEncodedLength} bytes).`);
+    }
+
+    const [left, right] = splitOperations(operations);
+
+    return [
+      ...await buildPublishBatch(api, currentPair, batchAll, limits, left),
+      ...await buildPublishBatch(api, currentPair, batchAll, limits, right)
+    ];
+  }
+
+  const paymentInfo = await transaction.paymentInfo(currentPair);
+
+  if (limits.maxWeight && exceedsWeight(weightToSimple(paymentInfo.weight), limits.maxWeight)) {
+    if (operations.length === 1) {
+      throw new Error('A single publishing transaction exceeds the chain safe weight limit.');
+    }
+
+    const [left, right] = splitOperations(operations);
+
+    return [
+      ...await buildPublishBatch(api, currentPair, batchAll, limits, left),
+      ...await buildPublishBatch(api, currentPair, batchAll, limits, right)
+    ];
+  }
+
+  return [{
+    ids: operations.map(({ id }) => id).filter((id): id is string => !!id),
+    operationCount: operations.length,
+    operations,
+    partialFee: new BN(paymentInfo.partialFee.toString()),
+    transaction
+  }];
+}
+
+async function buildPublishBatches (
+  api: ApiPromise,
+  currentPair: KeyringPair,
+  batchAll: (transactions: SubmittableExtrinsic<'promise'>[]) => SubmittableExtrinsic<'promise'>,
+  operations: PublishOperation[]
+): Promise<PublishBatch[]> {
+  if (!operations.length) {
+    return [];
+  }
+
+  const limits = readPublishLimits(api);
+  const batches: PublishBatch[] = [];
+
+  for (let start = 0; start < operations.length; start += limits.maxCalls) {
+    const chunk = operations.slice(start, start + limits.maxCalls);
+
+    batches.push(...await buildPublishBatch(api, currentPair, batchAll, limits, chunk));
+  }
+
+  return batches;
+}
+
+function isResourceLimitError (error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+
+  return /TooManyCalls|ExhaustsResources|exhaust(?:s|ed)?.*resources|block.*(?:limit|weight)|transaction.*(?:large|size)|exceed(?:s|ed)?.*(?:weight|length|size)|proof.?size/i.test(message);
+}
+
+async function submitPublishBatches (
+  batches: PublishBatch[],
+  phase: string,
+  api: ApiPromise,
+  currentPair: KeyringPair,
+  batchAll: (transactions: SubmittableExtrinsic<'promise'>[]) => SubmittableExtrinsic<'promise'>,
+  onPublishedIds: (ids: string[]) => void,
+  onStatus: (status: string) => void
+): Promise<void> {
+  const operationTotal = batches.reduce((total, batch) => total + batch.operationCount, 0);
+  const pendingBatches = [...batches];
+  let completed = 0;
+  let index = 0;
+
+  while (index < pendingBatches.length) {
+    const batch = pendingBatches[index];
+
+    onStatus(`Publishing ${phase}: ${completed}/${operationTotal} operations (batch ${index + 1}/${pendingBatches.length})…`);
+
+    try {
+      await submitTransaction(batch.transaction, currentPair, api);
+    } catch (error) {
+      if (!isResourceLimitError(error) || batch.operations.length === 1) {
+        throw error;
+      }
+
+      const [left, right] = splitOperations(batch.operations);
+      const limits = readPublishLimits(api);
+      const replacement = [
+        ...await buildPublishBatch(api, currentPair, batchAll, limits, left),
+        ...await buildPublishBatch(api, currentPair, batchAll, limits, right)
+      ];
+
+      pendingBatches.splice(index, 1, ...replacement);
+      onStatus(`Blockchain resource limit reached; retrying ${phase} with smaller batches…`);
+      continue;
+    }
+
+    completed += batch.operationCount;
+
+    if (batch.ids.length) {
+      onPublishedIds(batch.ids);
+    }
+
+    index++;
+  }
+}
+
 function transactionError (api: ApiPromise, { events }: SubmittableResult): string {
   return events
     .filter(({ event }) => api.events.system.ExtrinsicFailed.is(event))
@@ -115,6 +342,7 @@ export async function publishProcessedBook ({ api, bookId, courseName, currentPa
     throw new Error('This chain does not support atomic batch publishing.');
   }
 
+  const createAtomicBatch = (transactions: SubmittableExtrinsic<'promise'>[]): SubmittableExtrinsic<'promise'> => batchAll(transactions);
   const selectedList = await loadKnowledgeItem(knowledgeId);
 
   if (!selectedList || selectedList.json.t !== LawType.LIST) {
@@ -203,9 +431,8 @@ export async function publishProcessedBook ({ api, bookId, courseName, currentPa
     onPublishedIds([savedCourseId]);
   }
 
-  const skillTransactions: SubmittableExtrinsic<'promise'>[] = [];
-  const moduleTransactions: SubmittableExtrinsic<'promise'>[] = [];
-  let insertionTotal = BN_ZERO;
+  const skillOperations: PublishOperation[] = [];
+  const moduleOperations: PublishOperation[] = [];
 
   onStatus('Preparing unpublished skills and modules…');
 
@@ -220,8 +447,9 @@ export async function publishProcessedBook ({ api, bookId, courseName, currentPa
       } else {
         const digest = await pinKnowledgeItem({ ...template });
 
-        skillTransactions.push(api.tx.laws.create(template.i, digest, skillPrice || BN_ZERO));
-        insertionTotal = insertionTotal.add(skillPrice || BN_ZERO);
+        const amount = skillPrice || BN_ZERO;
+
+        skillOperations.push({ amount, id: template.i, transaction: api.tx.laws.create(template.i, digest, amount) });
       }
     }
   }
@@ -264,7 +492,11 @@ export async function publishProcessedBook ({ api, bookId, courseName, currentPa
           ...(chapterStandards ? { s: chapterStandards } : {})
         });
 
-        moduleTransactions.push(api.tx.laws.edit(moduleId, existingModule.digestHex, digest, existingModule.amount));
+        moduleOperations.push({
+          amount: existingModule.amount,
+          id: moduleId,
+          transaction: api.tx.laws.edit(moduleId, existingModule.digestHex, digest, existingModule.amount)
+        });
       }
     } else {
       const moduleJson = bookModulePublishJson({
@@ -276,8 +508,9 @@ export async function publishProcessedBook ({ api, bookId, courseName, currentPa
       });
       const digest = await pinKnowledgeItem(moduleJson);
 
-      moduleTransactions.push(api.tx.laws.create(moduleId, digest, modulePrice || BN_ZERO));
-      insertionTotal = insertionTotal.add(modulePrice || BN_ZERO);
+      const amount = modulePrice || BN_ZERO;
+
+      moduleOperations.push({ amount, id: moduleId, transaction: api.tx.laws.create(moduleId, digest, amount) });
     }
   }
 
@@ -304,26 +537,52 @@ export async function publishProcessedBook ({ api, bookId, courseName, currentPa
 
   const sortedIds = titledIds.map(({ id }) => id);
   const listChanged = JSON.stringify(existingIds) !== JSON.stringify(sortedIds);
-  const childTransactions = [...skillTransactions, ...moduleTransactions, courseTransaction];
+  const finalOperations: PublishOperation[] = [{
+    amount: savedCourse.amount,
+    id: savedCourseId,
+    transaction: courseTransaction
+  }];
 
   if (listChanged) {
     const updatedListDigest = await pinKnowledgeItem({ ...selectedList.json, e: sortedIds });
 
-    childTransactions.push(api.tx.laws.edit(knowledgeId, selectedList.digestHex, updatedListDigest, selectedList.amount));
+    finalOperations.push({
+      amount: selectedList.amount,
+      transaction: api.tx.laws.edit(knowledgeId, selectedList.digestHex, updatedListDigest, selectedList.amount)
+    });
   }
 
-  const batch = batchAll(childTransactions);
-  const { partialFee } = await batch.paymentInfo(currentPair);
+  const operationTotal = [...skillOperations, ...moduleOperations, ...finalOperations]
+    .reduce((total, { amount }) => total.add(amount), BN_ZERO);
+
+  onStatus('Calculating safe blockchain batches and publishing fees…');
+
+  const skillBatches = await buildPublishBatches(api, currentPair, createAtomicBatch, skillOperations);
+  const moduleBatches = await buildPublishBatches(api, currentPair, createAtomicBatch, moduleOperations);
+  // Keep the Course update and publishing-list update together. This small
+  // final batch is the commit point that makes a fully published Course
+  // discoverable; all large Ability/Module sets are published beforehand.
+  const finalBatches = await buildPublishBatches(api, currentPair, createAtomicBatch, finalOperations);
+
+  if (finalBatches.length !== 1) {
+    throw new Error('The final course/list commit does not fit in one atomic blockchain transaction.');
+  }
+
+  const totalFees = [...skillBatches, ...moduleBatches, ...finalBatches]
+    .reduce((total, batch) => total.add(batch.partialFee), BN_ZERO);
   const balances = await api.derive.balances.all(currentPair.address);
   const existentialDeposit = new BN(api.consts.balances.existentialDeposit.toString());
-  const requiredBalance = insertionTotal.add(new BN(partialFee.toString())).add(existentialDeposit);
+  const requiredBalance = operationTotal.add(totalFees).add(existentialDeposit);
 
   if (balances.availableBalance.lt(requiredBalance)) {
-    throw new Error('Your balance is insufficient for insertion prices, the batch fee, and the existential deposit.');
+    throw new Error('Your balance is insufficient for publishing prices, all batch fees, and the existential deposit.');
   }
 
-  onStatus(`Publishing ${childTransactions.length} module/course operations in one atomic batch…`);
-  await submitTransaction(batch, currentPair, api);
+  await submitPublishBatches(skillBatches, 'abilities', api, currentPair, createAtomicBatch, onPublishedIds, onStatus);
+  await submitPublishBatches(moduleBatches, 'modules', api, currentPair, createAtomicBatch, onPublishedIds, onStatus);
+
+  onStatus('Finalizing course and publishing-list membership…');
+  await submitTransaction(finalBatches[0].transaction, currentPair, api);
   onPublishedIds([
     savedCourseId,
     ...preparedChapters.flatMap(({ chapter, templates }) => [chapter.knowledgeId, ...templates.map(({ template }) => template.i)]).filter(isKnowledgeId)
