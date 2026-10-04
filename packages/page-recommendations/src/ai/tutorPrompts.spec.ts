@@ -10,6 +10,7 @@ import type { AiSkill } from './lessonStore.js';
 
 function nextStage(type: StageType, name: string): AlgorithmStage {
   return {
+    getMessages: () => [],
     getName: () => name,
     getType: () => type,
   } as unknown as AlgorithmStage;
@@ -34,6 +35,18 @@ function createSimilarStage(type: StageType): AlgorithmStage {
     getNext: () => [created, repeat],
     getPrevious: () => previous,
     getType: () => type,
+  } as unknown as AlgorithmStage;
+}
+
+function solveExerciseStage(nextTypes: StageType[]): AlgorithmStage {
+  const next = nextTypes.map((type, index) => nextStage(type, `Choice ${index + 1}`));
+
+  return {
+    getActionHint: () => 'Has the student answered correctly?',
+    getMessages: () => [{ title: 'Solve:', text: '', exercise: '2 + 2 = ?' }],
+    getNext: () => next,
+    getPrevious: () => null,
+    getType: () => StageType.begin_ask_to_solve_exercise,
   } as unknown as AlgorithmStage;
 }
 
@@ -148,6 +161,56 @@ describe('AI Tutor similar-exercise decisions', (): void => {
   });
 });
 
+describe('AI Tutor solve-first decision', (): void => {
+  it('routes a correct pre-check to next skill and an incorrect one to tutoring', (): void => {
+    const stage = solveExerciseStage([
+      StageType.next_skill,
+      StageType.begin_ask_to_create_similar_exercise,
+    ]);
+    const prompt = decisionPrompt(skill, stage, '4', '', '', 0);
+
+    assert.match(prompt, /If the answer is correct, return \{"nextStage": 0, "message": ""\}/);
+    assert.match(prompt, /If the answer is incorrect, incomplete, or ambiguous, return \{"nextStage": 1, "message": "<concise learner-facing explanation/);
+  });
+
+  it('preserves the original human tutorial solve branches', (): void => {
+    const stage = solveExerciseStage([
+      StageType.ask_to_create_similar_exercise,
+      StageType.ask_to_repeat_example_solution,
+    ]);
+    const prompt = decisionPrompt(skill, stage, '4', '', '', 0);
+
+    assert.match(prompt, /If the answer is correct, return \{"nextStage": 0, "message": ""\}/);
+    assert.match(prompt, /If the answer is incorrect, incomplete, or ambiguous, return \{"nextStage": 1, "message": "<concise learner-facing explanation/);
+  });
+});
+
+describe('AI Tutor decision explanation', (): void => {
+  it('returns grading and wrong-answer explanation in the same response', (): void => {
+    const stage = solveExerciseStage([
+      StageType.next_skill,
+      StageType.ask_to_repeat_example_solution,
+    ]);
+    const prompt = decisionPrompt(
+      skill,
+      stage,
+      'Student says 5',
+      '2 + 2 = ?',
+      '',
+      0,
+      { code: 'es', name: 'Spanish' },
+    );
+
+    assert.match(prompt, /exactly two keys: nextStage and message/i);
+    assert.match(prompt, /message must be an empty string when the student response is accepted/i);
+    assert.match(prompt, /specific mistake or missing step/i);
+    assert.match(prompt, /not hidden chain-of-thought/i);
+    assert.match(prompt, /Spanish \(es\)/i);
+    assert.match(prompt, /If the answer is correct, return \{"nextStage": 0, "message": ""\}/);
+    assert.match(prompt, /If the answer is incorrect, incomplete, or ambiguous, return \{"nextStage": 1, "message": "<concise learner-facing explanation/);
+  });
+});
+
 describe('AI Tutor generated fake solution wording', (): void => {
   it('wraps a generated fake solution with the required wording', (): void => {
     const stage = nextStage(StageType.provide_fake_solution, 'Fake solution');
@@ -216,6 +279,8 @@ describe('AI Tutor generated fake solution wording', (): void => {
       assert.match(prompt, /every code snippet in a fenced Markdown code block/i);
       assert.match(prompt, /opening fence MUST include the actual language identifier/i);
       assert.match(prompt, /Never return source code as plain prose, inline backticks, or an unlabeled/i);
+      assert.match(prompt, /<kx> is exclusively for mathematics/i);
+      assert.match(prompt, /Never put programming identifiers, keywords, function calls/i);
     }
   });
 

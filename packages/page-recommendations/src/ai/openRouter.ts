@@ -11,6 +11,7 @@ export interface TutorMessageResponse {
 
 export interface TutorDecisionResponse {
   nextStage: number;
+  message: string;
 }
 
 export type TutorTurn = TutorMessageResponse | TutorDecisionResponse;
@@ -47,13 +48,16 @@ function extractJson(text: string, responseKind: 'message' | 'nextStage'): Tutor
   const keys = Object.keys(parsed);
 
   if (responseKind === 'nextStage') {
-    if (keys.length !== 1 || keys[0] !== 'nextStage') {
-      throw new Error('The tutor decision response must contain only nextStage.');
+    if (keys.length !== 2 || !keys.includes('nextStage') || !keys.includes('message')) {
+      throw new Error('The tutor decision response must contain exactly nextStage and message.');
     }
     if (typeof parsed.nextStage !== 'number' || !Number.isInteger(parsed.nextStage)) {
       throw new Error('The tutor decision response has no integer nextStage index.');
     }
-    return { nextStage: parsed.nextStage };
+    if (typeof parsed.message !== 'string') {
+      throw new Error('The tutor decision response has no message string.');
+    }
+    return { nextStage: parsed.nextStage, message: parsed.message };
   }
 
   if (keys.length !== 1 || keys[0] !== 'message') {

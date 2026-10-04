@@ -25,6 +25,12 @@ export interface AiTutorStudentMessage<TMessage = unknown, TMedia = unknown, TVi
    * reload restores the same message without regenerating or recompiling it.
    */
   tutorStageMessages?: Record<string, TTutorStageMessage>;
+  /** Learner-facing explanation for the most recent unsuccessful response. */
+  wrongAnswerReasoning?: {
+    stageType: string;
+    text: string;
+    locale?: string;
+  };
   /** @deprecated Kept for compatibility with records written by older builds. */
   generatedStageText?: Record<string, string>;
 }

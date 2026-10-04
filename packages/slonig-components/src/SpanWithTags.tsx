@@ -1,16 +1,19 @@
 import React from 'react';
 import { InlineMath } from 'react-katex';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
-import { vs } from 'react-syntax-highlighter/dist/esm/styles/prism';
+import { vs } from 'react-syntax-highlighter/dist/esm/styles/prism/index.js';
 
 interface Props {
   content: string;
 }
 
+const codeFontFamily =
+  'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace';
+
 const SpanWithTags: React.FC<Props> = ({ content }) => {
   const parseContent = (value: string): React.ReactNode[] => {
     const regex =
-      /```([a-zA-Z0-9_-]+)?[ \t]*\n([\s\S]*?)```|<kx>([\s\S]*?)<\/kx>|<code>([\s\S]*?)<\/code>/g;
+      /```([a-zA-Z0-9_-]+)?[ \t]*\n([\s\S]*?)```|``((?:(?!``)[^\n])+)``|`([^`\n]+)`|<kx>([\s\S]*?)<\/kx>|<code>([\s\S]*?)<\/code>/g;
 
     const result: React.ReactNode[] = [];
 
@@ -31,8 +34,10 @@ const SpanWithTags: React.FC<Props> = ({ content }) => {
 
       const language = match[1];
       const code = match[2];
-      const katex = match[3];
-      const inlineCode = match[4];
+      const doubleBacktickCode = match[3];
+      const singleBacktickCode = match[4];
+      const katex = match[5];
+      const taggedInlineCode = match[6];
 
       // Render fenced code block
       if (code !== undefined) {
@@ -56,8 +61,7 @@ const SpanWithTags: React.FC<Props> = ({ content }) => {
                   color: '#6b7280',
                   fontSize: 12,
                   lineHeight: 1.4,
-                  fontFamily:
-                    'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace',
+                  fontFamily: codeFontFamily,
                 }}
               >
                 {language}
@@ -76,8 +80,7 @@ const SpanWithTags: React.FC<Props> = ({ content }) => {
               }}
               codeTagProps={{
                 style: {
-                  fontFamily:
-                    'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace',
+                  fontFamily: codeFontFamily,
                 },
               }}
               wrapLongLines
@@ -88,10 +91,23 @@ const SpanWithTags: React.FC<Props> = ({ content }) => {
         );
       }
 
-      // Render inline code
-      else if (inlineCode !== undefined) {
+      // Render inline code marked with one or two backticks or <code> tags
+      else if (doubleBacktickCode !== undefined || singleBacktickCode !== undefined || taggedInlineCode !== undefined) {
+        const inlineCode = doubleBacktickCode ?? singleBacktickCode ?? taggedInlineCode;
+
         result.push(
-          <code key={`inline-code-${offset}`}>
+          <code
+            key={`inline-code-${offset}`}
+            style={{
+              padding: '1px 4px',
+              border: '1px solid #e5e7eb',
+              borderRadius: 4,
+              background: '#fafafa',
+              fontFamily: codeFontFamily,
+              fontSize: '0.9em',
+              whiteSpace: 'pre-wrap',
+            }}
+          >
             {inlineCode}
           </code>
         );

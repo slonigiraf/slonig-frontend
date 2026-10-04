@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Button, Input, LinearProgress, Modal, Spinner, styled } from '@polkadot/react-components';
 import { setAppLanguage } from '@polkadot/react-components/i18n';
 import { Bubble, Confirmation, FullFindow, getIPFSDataFromContentID, SpanWithTags, loadFromSessionStorage, parseJson, ResizableImage, saveToSessionStorage, TikzEditor, useIpfsContext, useSettingValue, VerticalCenterItemsContainer } from '@slonigiraf/slonig-components';
-import { clearAiTutorGeneratedStageTexts, clearAiTutorStudentMessages, clearAiTutorTutorStageMessages, deleteAiTutorStudentMessage, getAiTutorStudentMessage, getAiTutorTutorStageMessage, getSetting, putAiTutorCurrentStageType, putAiTutorGeneratedStageText, putAiTutorStudentExercise, putAiTutorStudentMessage, putAiTutorTutorStageMessage, putAiTutorVisualDraft, SettingKey, storeSetting } from '@slonigiraf/db';
+import { clearAiTutorGeneratedStageTexts, clearAiTutorStudentMessages, clearAiTutorTutorStageMessages, deleteAiTutorStudentMessage, getAiTutorStudentMessage, getAiTutorTutorStageMessage, getSetting, putAiTutorCurrentStageType, putAiTutorGeneratedStageText, putAiTutorStudentExercise, putAiTutorStudentMessage, putAiTutorTutorStageMessage, putAiTutorVisualDraft, putAiTutorWrongAnswerReasoning, SettingKey, storeSetting } from '@slonigiraf/db';
 import type { AiTutorStudentMessage } from '@slonigiraf/db';
 import type { ModelSelectorRenderer } from './modelSelector.js';
 import { isAiTutorModelSelectionEnabled, resolveAiTutorModel } from './modelAccess.js';
@@ -15,6 +15,7 @@ import type { OpenRouterAttachment } from './openRouter.js';
 import { getLesson } from '@slonigiraf/db';
 import { decisionPrompt, formatGeneratedStageMessage, generatedStagePrompt } from './tutorPrompts.js';
 import { tutorSpeechChunks, tutorSpeechFallbackText, tutorSpeechHasKatex, tutorSpeechRewriteIsSafe, tutorSpeechRewritePrompt, tutorSpeechSourceText } from './tutorSpeech.js';
+import { sanitizeGeneratedTutorMarkup } from './tutorMarkup.js';
 import { skillTranscriptionKeywords, transcriptionLanguages } from './transcriptionHints.js';
 import { useTranslation } from '../translate.js';
 
@@ -663,7 +664,8 @@ function isCreateSimilarExerciseStage(stage: AlgorithmStage): boolean {
 }
 
 function isRepeatStage(stage: AlgorithmStage | undefined): boolean {
-  return stage?.getType() === StageType.ask_to_repeat_example_solution
+  return stage?.getType() === StageType.correct_fake_solution
+    || stage?.getType() === StageType.ask_to_repeat_example_solution
     || stage?.getType() === StageType.ask_to_repeat_similar_exercise;
 }
 
@@ -802,6 +804,8 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [tutorValidationMessage, setTutorValidationMessage] = useState('');
+  const [wrongAnswerReasoning, setWrongAnswerReasoning] = useState('');
+  const [reasoningOpen, setReasoningOpen] = useState(false);
   const storedOpenRouterKey = useSettingValue(SettingKey.OPENROUTER_TOKEN);
   const canChangeModel = isAiTutorModelSelectionEnabled();
   const [openRouterKey, setOpenRouterKey] = useState<string | undefined>(() => persistedOpenRouterKey || undefined);
@@ -858,7 +862,7 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
     stake: '0',
     studentName: tutorT('student'),
     t: tutorT,
-    variation: 'regular',
+    variation: 'ai_tutor',
   }) : undefined, [skill, tutorLocaleCode, tutorT]);
   const [algorithmStage, setAlgorithmStage] = useState<AlgorithmStage>();
   const submitInFlightRef = useRef(false);
@@ -930,6 +934,8 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
       setStudentExercise('');
       setStudentExerciseMedia([]);
       setLastStudentMessage(undefined);
+      setWrongAnswerReasoning('');
+      setReasoningOpen(false);
       return;
     }
 
@@ -973,6 +979,13 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
       setStudentExerciseMedia(restoredStudentExerciseMedia);
       setLastStudentMessage(persistedMessage);
       setAlgorithmStage(safeStage);
+      const persistedReasoning = startMode === 'continue'
+        && persistedState?.wrongAnswerReasoning?.stageType === safeStage.getType()
+        && persistedState.wrongAnswerReasoning.locale === tutorLocaleCode
+        ? sanitizeGeneratedTutorMarkup(persistedState.wrongAnswerReasoning.text)
+        : '';
+      setWrongAnswerReasoning(persistedReasoning);
+      setReasoningOpen(false);
       // Never hydrate text first and leave its TikZ compiling afterward. Old
       // records may predate prepared previews (or may contain a failed render),
       // so reveal them only when every attached TikZ is already usable. The
@@ -980,7 +993,10 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
       const canHydrateTutorMessage = Boolean(persistedTutorMessage?.text)
         && persistedTutorMessage?.locale === tutorLocaleCode
         && hasRenderableTutorTikzPreviews(persistedTutorMessage.text, persistedTutorMessage.tikzPreviews);
-      setCurrentAiText(canHydrateTutorMessage ? persistedTutorMessage?.text || '' : '');
+      const hydratedTutorText = canHydrateTutorMessage ? persistedTutorMessage?.text || '' : '';
+      setCurrentAiText(stageNeedsGeneratedText(safeStage)
+        ? sanitizeGeneratedTutorMarkup(hydratedTutorText)
+        : hydratedTutorText);
       setCurrentAiTikzPreviews(canHydrateTutorMessage ? persistedTutorMessage?.tikzPreviews || {} : {});
 
       // Restore uploaded files and student-authored TikZ once per lesson step.
@@ -1105,6 +1121,7 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
         AI_TUTOR_SESSION,
         generatedStageTextSessionKey(lessonId, lessonStep, stage.getType(), tutorLocaleCode),
       ) || undefined;
+      if (saved) saved = sanitizeGeneratedTutorMarkup(saved);
     }
     if (saved && (!requiresCorrectSolutionTikz || isTikzCode(saved))) {
       requiresGeneratedTikz ||= isTikzCode(saved);
@@ -1204,7 +1221,7 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
           undefined,
           generationAttachments,
         );
-        const generatedMessage = generated.message.trim();
+        const generatedMessage = sanitizeGeneratedTutorMarkup(generated.message.trim());
 
         if (!generatedMessage) throw new Error(t('The AI tutor returned no stage text.'));
         if (requiresGeneratedTikz && !isTikzCode(generatedMessage)) {
@@ -2044,6 +2061,8 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
     setCurrentAiTikzPreviews({});
     setStudentExerciseMedia([]);
     setLastStudentMessage(undefined);
+    setWrongAnswerReasoning('');
+    setReasoningOpen(false);
     resetComposer();
   }, [lessonId, lessonStep, moduleCid, moduleId, resetComposer, skills, studentId]);
 
@@ -2205,6 +2224,10 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
           currentAiText,
           studentExercise,
           studentMedia.filter((attachment) => attachment.kind === 'image').length + svgAttachments.length + (tikz ? 1 : 0),
+          {
+            code: tutorLocaleCode,
+            name: voiceLanguageInstructionName(tutorLocaleCode),
+          },
         ),
         undefined,
         media,
@@ -2217,6 +2240,34 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
         : undefined;
       if (!candidate) {
         throw new Error(t('The AI tutor did not choose one of the programmed TutoringAlgorithm branches.'));
+      }
+
+      setReasoningOpen(false);
+      setWrongAnswerReasoning('');
+      try {
+        await putAiTutorWrongAnswerReasoning(lessonId, lessonStep, undefined);
+      } catch {
+        // An explanation is optional UI help; persistence must not block tutoring.
+      }
+
+      // The question button follows the AI response contract directly: any
+      // non-empty `message` returned by the single grading request is available
+      // to the learner from the tutor bubble. Correct responses are prompted to
+      // return an empty message, but the UI deliberately does not duplicate that
+      // grading logic.
+      const reasoning = sanitizeGeneratedTutorMarkup(result.message.trim());
+      if (reasoning) {
+        setWrongAnswerReasoning(reasoning);
+        try {
+          await putAiTutorWrongAnswerReasoning(lessonId, lessonStep, {
+            stageType: candidate.getType(),
+            text: reasoning,
+            locale: tutorLocaleCode,
+          });
+        } catch {
+          // Keep the explanation available for this session even if durable
+          // storage is unavailable in the current browser mode.
+        }
       }
 
       // A successful autonomous correction advances out of the fake-solution
@@ -2418,10 +2469,23 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
 
   const hasComposerContent = Boolean(recording || answer.trim() || attachments.length > 0 || audioBlob || tikz);
   const canSubmit = !loading && hasComposerContent;
-  const blurEntireHistory = shouldBlurTutorReply && isRepeatStage(algorithmStage);
-  const isTypingReply = shouldBlurTutorReply && !blurEntireHistory;
+  // Keep tutor content readable when the student must work directly from it:
+  // the initial solve-first exercise and the intentionally fake solution. Other
+  // tutoring stages retain the existing blur behavior while the student replies.
+  const keepTutorMessageVisible = algorithmStage?.getType() === StageType.begin_ask_to_solve_exercise
+    || algorithmStage?.getType() === StageType.provide_fake_solution;
+  const blurTutorMessages = shouldBlurTutorReply && !keepTutorMessageVisible;
+  const blurEntireHistory = blurTutorMessages
+    && (isRepeatStage(algorithmStage) || Boolean(algorithmStage && isCreateSimilarExerciseStage(algorithmStage)));
+  // The student must be able to read the answer they just submitted while the
+  // tutor is classifying it. Repeat/create stages blur previous history, but applying
+  // that blur to the freshly submitted bubble before the tutor responds makes
+  // the student's own message disappear immediately after Send.
+  const keepSubmittedStudentMessageVisible = loading && submitInFlightRef.current;
+  const isTypingReply = blurTutorMessages && !blurEntireHistory;
   const renderedTutorMessageParts = useMemo(() => tutorMessageParts(currentAiText), [currentAiText]);
   const canRegenerateCurrentAnswer = Boolean(currentAiText && algorithmStage && stageNeedsGeneratedText(algorithmStage) && !loading);
+  const canShowWrongAnswerReasoning = Boolean(wrongAnswerReasoning && !loading);
   const voiceStatusLabel = voiceStatus === 'speaking'
     ? t('AI Tutor is speaking')
     : voiceStatus === 'listening'
@@ -2470,7 +2534,7 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
               onCopy={(event) => event.preventDefault()}
               onCut={(event) => event.preventDefault()}
             >
-              {lastStudentMessage && <StudentMessage className='history-blurrable'>
+              {lastStudentMessage && <StudentMessage className={keepSubmittedStudentMessageVisible ? '' : 'history-blurrable'}>
                 <StudentBubble>
                   <MessageRole>{t('You')}</MessageRole>
                   {lastStudentMessage.text && <MessageBody><SpanWithTags content={lastStudentMessage.text} /></MessageBody>}
@@ -2495,7 +2559,9 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
                 </StudentBubble>
               </StudentMessage>}
               {!loading && (currentAiText || currentStageImageCids.length > 0) && <TutorMessage className='history-blurrable'>
-                <TutorBubble className={isTypingReply ? 'is-replying' : ''}>
+                <TutorBubble
+                  className={isTypingReply ? 'is-replying' : ''}
+                >
                   <MessageRole>{t('AI Tutor')}</MessageRole>
                   {renderedTutorMessageParts.map((part, index) => {
                     if (part.type !== 'tikz') return <MessageBody key={`tutor-text-${index}`}><SpanWithTags content={part.value} /></MessageBody>;
@@ -2511,8 +2577,8 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
                   {currentStageImageCids.map((cid, index) => <QuestionImage key={`${cid}-${index}`}>
                     <ResizableImage cid={cid} />
                   </QuestionImage>)}
-                  {canRegenerateCurrentAnswer && <MessageActions>
-                    <RegenerateButton
+                  {(canRegenerateCurrentAnswer || canShowWrongAnswerReasoning) && <MessageActions>
+                    {canRegenerateCurrentAnswer && <RegenerateButton
                       type='button'
                       aria-label={t('Try again')}
                       title={t('Try again')}
@@ -2521,7 +2587,15 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
                       <svg aria-hidden='true' viewBox='0 0 24 24'>
                         <path d='M20 11a8.1 8.1 0 0 0-14.9-4.3L3 9m0 0V4m0 5h5M4 13a8.1 8.1 0 0 0 14.9 4.3L21 15m0 0v5m0-5h-5' />
                       </svg>
-                    </RegenerateButton>
+                    </RegenerateButton>}
+                    {canShowWrongAnswerReasoning && <ReasoningButton
+                      type='button'
+                      aria-label={t('Why was my response incorrect?')}
+                      title={t('Why was my response incorrect?')}
+                      onClick={() => setReasoningOpen(true)}
+                    >
+                      ?
+                    </ReasoningButton>}
                   </MessageActions>}
                 </TutorBubble>
               </TutorMessage>}
@@ -2570,12 +2644,12 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
                     setShouldBlurTutorReply(e.target.value.length > 0 || Boolean(audioBlob) || recording);
                     resizeAnswerInput(e.currentTarget);
                   }}
-                  onPaste={(e) => e.preventDefault()}
                   onKeyDown={(e) => {
                     if (e.key !== 'Enter' || e.shiftKey || e.nativeEvent.isComposing) return;
                     e.preventDefault();
                     if (canSubmit) void submitAnswer();
                   }}
+                  onPaste={(e) => e.preventDefault()}
                   placeholder={voiceMode ? t('Type') : t('Type your answer')}
                   disabled={loading}
                 />
@@ -2762,6 +2836,22 @@ export function AITutor({ modelSelector, moduleId, moduleCid, persistedOpenRoute
           </>}
         </Pane>
       </TutorContainer>
+      {reasoningOpen && wrongAnswerReasoning && <Modal
+        header={t('Why was my response incorrect?')}
+        onClose={() => setReasoningOpen(false)}
+        size='small'
+      >
+        <Modal.Content>
+          <ReasoningPopupBody
+            onContextMenu={(event) => event.preventDefault()}
+            onCopy={(event) => event.preventDefault()}
+            onCut={(event) => event.preventDefault()}
+            onDragStart={(event) => event.preventDefault()}
+          >
+            <SpanWithTags content={wrongAnswerReasoning} />
+          </ReasoningPopupBody>
+        </Modal.Content>
+      </Modal>}
       {keyDialogOpen && <Modal
         header={t('OpenRouter API key')}
         onClose={() => setKeyDialogOpen(false)}
@@ -3025,23 +3115,6 @@ const Progress = styled.div`
   }
 `;
 const Spacer = styled.div`width: 20px; flex: 0 0 20px;`;
-const CurrentSkillLabel = styled.div`
-  max-width: calc(100% - 80px);
-  margin: 8px auto 0;
-  padding: 5px 12px;
-  box-sizing: border-box;
-  overflow: hidden;
-  border: 1px solid #F39200;
-  border-radius: 999px;
-  background: rgb(243 146 0 / 8%);
-  color: #c17000;
-  font-size: 13px;
-  font-weight: 600;
-  line-height: 1.3;
-  text-align: center;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-`;
 const CloseButton = styled(Button)`
   position: relative;
   right: 0;
@@ -3130,9 +3203,10 @@ const StudentBubble = styled(MessageBubble)`
 const MessageActions = styled.div`
   display: flex;
   align-items: center;
-  justify-content: flex-start;
+  justify-content: flex-end;
+  gap: 16px;
   min-height: 28px;
-  margin-top: 4px;
+  margin: 4px -5px -4px 0;
 `;
 const MessageRole = styled.div`
   color: rgb(0 0 0 / 46%);
@@ -3143,7 +3217,7 @@ const MessageRole = styled.div`
 const RegenerateButton = styled.button`
   width: 28px;
   height: 28px;
-  margin: 0 0 -4px -5px;
+  margin: 0;
   padding: 5px;
   display: inline-flex;
   align-items: center;
@@ -3169,10 +3243,24 @@ const RegenerateButton = styled.button`
     color: rgb(0 0 0 / 74%);
   }
 `;
+const ReasoningButton = styled(RegenerateButton)`
+  padding: 0 0 1px;
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 1;
+`;
 const MessageBody = styled.div`
   color: rgb(0 0 0 / 88%);
   font-size: 17px;
   line-height: 1.55;
+`;
+const ReasoningPopupBody = styled.div`
+  color: rgb(0 0 0 / 88%);
+  font-size: 16px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  user-select: none;
+  -webkit-user-select: none;
 `;
 const ThinkingIndicator = styled.div`
   min-height: 34px;

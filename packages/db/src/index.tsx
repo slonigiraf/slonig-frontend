@@ -3063,6 +3063,20 @@ export async function putAiTutorCurrentStageType(lessonId: string, lessonStep: n
     });
 }
 
+export async function putAiTutorWrongAnswerReasoning(lessonId: string, lessonStep: number, reasoning: AiTutorStudentMessage['wrongAnswerReasoning'] | undefined): Promise<void> {
+    await updateAiTutorStudentMessageRecord(lessonId, lessonStep, (record) => {
+        const next = { ...record };
+
+        if (reasoning) {
+            next.wrongAnswerReasoning = reasoning;
+        } else {
+            delete next.wrongAnswerReasoning;
+        }
+
+        return next;
+    });
+}
+
 export async function getAiTutorTutorStageMessage<TTutorStageMessage>(lessonId: string, lessonStep: number, stageType: string): Promise<TTutorStageMessage | undefined> {
     const record = await db.aiTutorStudentMessages.get(aiTutorStudentMessageKey(lessonId, lessonStep));
 
