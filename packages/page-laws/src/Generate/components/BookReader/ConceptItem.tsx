@@ -9,7 +9,7 @@ import { Button, Dropdown, Input, Modal } from '@polkadot/react-components';
 
 import { type ConceptChapterNavigationItem } from '../../book/processing/concepts/conceptRecognition.js';
 import ConceptForm from './ConceptForm.js';
-import { ConceptItemContainer } from './ConceptItem.styles.js';
+import { ConceptItemContainer } from './ConceptItem.js';
 
 function ConceptItem ({ chapterIndex: initialChapterIndex, chapters, concept, conceptNumber, firstPage, onDelete, onFix, onGoToPage, onReorderPointerCancel, onReorderPointerDown, onReorderPointerMove, onReorderPointerUp, onSave }: { chapterIndex: number; chapters: ConceptChapterNavigationItem[]; concept: BookConcept; conceptNumber: number; firstPage?: number; onDelete: (concept: BookConcept) => Promise<void>; onFix: (concept: BookConcept) => Promise<void>; onGoToPage: (pageNumber: number) => void; onReorderPointerCancel?: (event: React.PointerEvent<HTMLLIElement>) => void; onReorderPointerDown?: (event: React.PointerEvent<HTMLLIElement>) => void; onReorderPointerMove?: (event: React.PointerEvent<HTMLLIElement>) => void; onReorderPointerUp?: (event: React.PointerEvent<HTMLLIElement>) => void; onSave: (concept: BookConcept, title: string, description: string, chapterIndex: number) => Promise<void> }): React.ReactElement {
   const [chapterIndex, setChapterIndex] = useState(initialChapterIndex);

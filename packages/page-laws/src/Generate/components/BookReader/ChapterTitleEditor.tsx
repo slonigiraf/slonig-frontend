@@ -7,7 +7,7 @@ import React, { useCallback, useState } from 'react';
 
 import { Button, Input, Modal } from '@polkadot/react-components';
 
-import { ChapterTitleEditorContent } from './ChapterTitleEditor.styles.js';
+import { ChapterTitleEditorContent } from './ChapterTitleEditor.js';
 
 function ChapterTitleEditor ({ chapter, onClose, onError, onSaved }: { chapter: BookChapter; onClose: () => void; onError: (error: string) => void; onSaved: () => void }): React.ReactElement {
   const [title, setTitle] = useState(chapter.title);

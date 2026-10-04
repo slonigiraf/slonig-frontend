@@ -9,8 +9,8 @@ import { Button, Modal } from '@polkadot/react-components';
 
 import { stripMarkdownImageReferences } from '../../book/processing/source/bookImageRefs.js';
 import { useTranslation } from '../../../common/translate.js';
-import type { ExerciseEditableFields } from '../../pages/BookReaderUtils.js';
-import { ExerciseEditForm, ExerciseHeading, ExerciseItemContainer } from './EditableExerciseItem.styles.js';
+import type { ExerciseEditableFields } from '../../pages/book-reader/index.js';
+import { ExerciseEditForm, ExerciseHeading, ExerciseItemContainer } from './EditableExerciseItem.js';
 
 function EditableExerciseItem ({ exercise, onError, onFix, onSave }: { exercise: Exercise; onError: (message: string) => void; onFix: (exercise: Exercise) => Promise<void>; onSave: (exerciseId: number, value: ExerciseEditableFields) => Promise<void> }): React.ReactElement {
   const { t } = useTranslation();
