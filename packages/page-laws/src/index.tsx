@@ -35,8 +35,8 @@ function LawsApp ({ basePath, onStatusChange }: Props): React.ReactElement<Props
       text: t('Create')
     },
     {
-      name: 'upload',
-      text: t('Upload')
+      name: 'generate',
+      text: t('Generate')
     }
   ]);
 
@@ -64,7 +64,7 @@ function LawsApp ({ basePath, onStatusChange }: Props): React.ReactElement<Props
           )}
           <Route
             element={<Upload />}
-            path='upload'
+            path='generate'
           />
           <Route
             element={

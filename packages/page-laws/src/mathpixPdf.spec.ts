@@ -6,15 +6,29 @@ import { describe, it } from 'node:test';
 
 import { strFromU8, strToU8, unzipSync } from 'fflate';
 
-import { createMathpixPageMmdZip, splitMathpixMmdByPage } from './mathpixPdf.js';
+import { createMathpixPageMmdZip, mathpixPdfSlices, splitMathpixMmdByPage } from './mathpixPdf.js';
 
 describe('Mathpix whole-PDF recognition helpers', (): void => {
+  it('slices PDFs into 40-page Mathpix requests', (): void => {
+    assert.deepEqual(mathpixPdfSlices(85), [
+      { endPage: 40, startPage: 1 },
+      { endPage: 80, startPage: 41 },
+      { endPage: 85, startPage: 81 }
+    ]);
+  });
+
   it('splits the concatenated MMD while preserving blank pages', (): void => {
     assert.deepEqual(splitMathpixMmdByPage('First page\n\\pagebreak\n\n\\pagebreak\nThird page\n\\pagebreak\n', 3), [
       'First page',
       '',
       'Third page'
     ]);
+  });
+
+  it('splits one 40-page Mathpix result back into 40 page MMD documents', (): void => {
+    const combined = Array.from({ length: 40 }, (_, index) => `Page ${index + 1}\n\\pagebreak\n`).join('');
+
+    assert.deepEqual(splitMathpixMmdByPage(combined, 40), Array.from({ length: 40 }, (_, index) => `Page ${index + 1}`));
   });
 
   it('requires one Mathpix page break per PDF page', (): void => {

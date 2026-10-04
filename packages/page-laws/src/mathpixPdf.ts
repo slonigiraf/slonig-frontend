@@ -9,6 +9,8 @@ const MATHPIX_POLL_INTERVAL_MS = 1000;
 const MATHPIX_MAX_POLL_ATTEMPTS = 3600;
 const PAGE_BREAK_PATTERN = /\\pagebreak[ \t]*(?:\r?\n)?/g;
 
+export const MATHPIX_PDF_SLICE_SIZE = 40;
+
 interface MathpixConversionStatus {
   error?: string;
   status?: string;
@@ -51,8 +53,54 @@ export interface MathpixPdfRecognitionResult {
 type MathpixProgressHandler = (completedPages: number) => void;
 type MathpixExternalCallHandler = (provider: 'mmd' | 'pdfv3') => void;
 
-function delay (ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+export interface MathpixPdfSlice {
+  endPage: number;
+  startPage: number;
+}
+
+function abortError (): Error {
+  const error = new Error('The operation was aborted.');
+
+  error.name = 'AbortError';
+
+  return error;
+}
+
+function delay (ms: number, signal?: AbortSignal): Promise<void> {
+  if (signal?.aborted) {
+    return Promise.reject(abortError());
+  }
+
+  return new Promise((resolve, reject) => {
+    const timeoutId = setTimeout(() => {
+      signal?.removeEventListener('abort', onAbort);
+      resolve();
+    }, ms);
+    const onAbort = (): void => {
+      clearTimeout(timeoutId);
+      signal?.removeEventListener('abort', onAbort);
+      reject(abortError());
+    };
+
+    signal?.addEventListener('abort', onAbort, { once: true });
+  });
+}
+
+export function mathpixPdfSlices (totalPages: number, sliceSize = MATHPIX_PDF_SLICE_SIZE): MathpixPdfSlice[] {
+  if (!Number.isInteger(totalPages) || totalPages <= 0 || !Number.isInteger(sliceSize) || sliceSize <= 0) {
+    return [];
+  }
+
+  const slices: MathpixPdfSlice[] = [];
+
+  for (let startPage = 1; startPage <= totalPages; startPage += sliceSize) {
+    slices.push({
+      endPage: Math.min(totalPages, startPage + sliceSize - 1),
+      startPage
+    });
+  }
+
+  return slices;
 }
 
 function normalizeArchivePath (value: string): string {
@@ -229,10 +277,10 @@ async function streamMathpixPages (pdfId: string, headers: Record<string, string
   }
 }
 
-async function waitForMathpixPdf (pdfId: string, headers: Record<string, string>, onProgress?: MathpixProgressHandler, onExternalCall?: MathpixExternalCallHandler): Promise<MathpixPdfStatus> {
+async function waitForMathpixPdf (pdfId: string, headers: Record<string, string>, onProgress?: MathpixProgressHandler, onExternalCall?: MathpixExternalCallHandler, signal?: AbortSignal): Promise<MathpixPdfStatus> {
   for (let attempt = 0; attempt < MATHPIX_MAX_POLL_ATTEMPTS; attempt++) {
     onExternalCall?.('pdfv3');
-    const response = await fetch(`https://api.mathpix.com/v3/pdf/${pdfId}`, { headers });
+    const response = await fetch(`https://api.mathpix.com/v3/pdf/${pdfId}`, { headers, signal });
     const status = await response.json() as MathpixPdfStatus;
 
     if (!response.ok) {
@@ -254,7 +302,7 @@ async function waitForMathpixPdf (pdfId: string, headers: Record<string, string>
       return status;
     }
 
-    await delay(MATHPIX_POLL_INTERVAL_MS);
+    await delay(MATHPIX_POLL_INTERVAL_MS, signal);
   }
 
   throw new Error('Mathpix timed out while recognizing the PDF.');
@@ -282,7 +330,7 @@ function splitWithStreamFallback (mmd: string, streamedPages: Map<number, string
   }
 }
 
-export async function recognizePdfWithMathpix (appId: string | undefined, apiKey: string, file: File, totalPages: number, onProgress?: MathpixProgressHandler, onExternalCall?: MathpixExternalCallHandler): Promise<MathpixPdfRecognitionResult> {
+export async function recognizePdfWithMathpix (appId: string | undefined, apiKey: string, file: File, totalPages: number, onProgress?: MathpixProgressHandler, onExternalCall?: MathpixExternalCallHandler, signal?: AbortSignal): Promise<MathpixPdfRecognitionResult> {
   const headers: Record<string, string> = { app_key: apiKey };
 
   if (appId?.trim()) {
@@ -301,7 +349,8 @@ export async function recognizePdfWithMathpix (appId: string | undefined, apiKey
   const response = await fetch('https://api.mathpix.com/v3/pdf', {
     body,
     headers,
-    method: 'POST'
+    method: 'POST',
+    signal
   });
   const result = await response.json() as { error?: string; pdf_id?: string };
 
@@ -311,6 +360,9 @@ export async function recognizePdfWithMathpix (appId: string | undefined, apiKey
 
   const streamedPages = new Map<number, string>();
   const streamAbort = new AbortController();
+  const abortStream = (): void => streamAbort.abort();
+
+  signal?.addEventListener('abort', abortStream, { once: true });
   const streamPromise = streamMathpixPages(result.pdf_id, headers, streamAbort.signal, streamedPages, onProgress, onExternalCall)
     .catch((error: unknown) => {
       if (!isAbortError(error)) {
@@ -321,10 +373,11 @@ export async function recognizePdfWithMathpix (appId: string | undefined, apiKey
   let status: MathpixPdfStatus;
 
   try {
-    status = await waitForMathpixPdf(result.pdf_id, headers, onProgress, onExternalCall);
+    status = await waitForMathpixPdf(result.pdf_id, headers, onProgress, onExternalCall, signal);
   } finally {
     streamAbort.abort();
     await streamPromise;
+    signal?.removeEventListener('abort', abortStream);
   }
 
   if (status.num_pages !== undefined && status.num_pages !== totalPages) {
@@ -334,8 +387,8 @@ export async function recognizePdfWithMathpix (appId: string | undefined, apiKey
   onExternalCall?.('mmd');
   onExternalCall?.('pdfv3');
   const [mmdResponse, linesResponse] = await Promise.all([
-    fetch(`https://api.mathpix.com/v3/pdf/${result.pdf_id}.mmd`, { headers }),
-    fetch(`https://api.mathpix.com/v3/pdf/${result.pdf_id}.lines.json`, { headers })
+    fetch(`https://api.mathpix.com/v3/pdf/${result.pdf_id}.mmd`, { headers, signal }),
+    fetch(`https://api.mathpix.com/v3/pdf/${result.pdf_id}.lines.json`, { headers, signal })
   ]);
 
   if (!mmdResponse.ok) {
@@ -361,7 +414,7 @@ export async function recognizePdfWithMathpix (appId: string | undefined, apiKey
 
   if (zipStatus?.status === 'completed') {
     onExternalCall?.('mmd');
-    const zipResponse = await fetch(`https://api.mathpix.com/v3/pdf/${result.pdf_id}.mmd.zip`, { headers });
+    const zipResponse = await fetch(`https://api.mathpix.com/v3/pdf/${result.pdf_id}.mmd.zip`, { headers, signal });
 
     if (zipResponse.ok) {
       try {

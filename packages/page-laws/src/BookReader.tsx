@@ -1,7 +1,7 @@
 // Copyright 2021-2026 @polkadot/app-laws authors & contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import type { Book, BookChapter, BookConcept, BookPage, BookProcessingStageKey, BookStageSpendKey, Exercise, MathpixHeading } from '@slonigiraf/db';
+import type { Book, BookChapter, BookConcept, BookPage, BookProcessingStageKey, BookStageSpendKey, Exercise } from '@slonigiraf/db';
 import type { PDFDocumentLoadingTask, PDFDocumentProxy, RenderTask } from 'pdfjs-dist';
 
 import { addBookStageSpend, applyBookChapterRefinements, assignBookConceptsToChapters, assignBookPageChapter, completeBookProcessingStage, createBookConcept, deleteAbilities, deleteBookChapters, deleteBookConcept, deleteExercise, getAbilities, getBookChapters, getBookConceptsForBookPage, getBookPages, getExercisesForBookPage, getSetting, incrementBookFixConceptsAttempts, isBookProcessingStageComplete, mergeBookChapterWithPrevious, putBookPage, reorderBookConcepts, replaceAbilities, replaceBookChapterAssignments, replaceExercisesForBookPage, replaceParsedBookPageContent, SettingKey, splitBookChapterAtPage, storeSetting, updateBookChapterTitle, updateBookConcept, updateBookFieldsAndStages, withBookProcessingStagesResetFrom, withCompletedBookProcessingStage } from '@slonigiraf/db';
@@ -42,6 +42,7 @@ import { embeddingCosineDistance, loadStandardsCatalogsForBookSubject, loadStore
 import { cachedConceptEmbeddingMap, ensureConceptEmbeddingCache, ensureStandardEmbeddingCache } from './standardsEmbeddings.js';
 import Skills, { type AutoRunProgress, type PipelineAction } from './Skills.js';
 import SkillsCourse from './SkillsCourse.js';
+import { mathpixPdfSlices, recognizePdfWithMathpix, type MathpixPdfRecognitionResult } from './mathpixPdf.js';
 import { extractPdfOutlineChapterBoundaries, loadPdfJs } from './pdf.js';
 import { AiPriceEstimate } from './PriceEstimate.js';
 import ProcessingPopup, { type ProcessingStatus } from './ProcessingPopup.js';
@@ -880,8 +881,6 @@ async function generateChapterContentWithEmptyConceptRetry(client: OpenAI, model
   }
 }
 
-const MATHPIX_PAGE_CONCURRENCY = 50;
-
 const pageSessionKey = (bookId: number): string => `knowledge-upload-book-${bookId}-page`;
 
 function getSessionPage(bookId: number): number {
@@ -920,35 +919,8 @@ function storeSessionRecognitionAttempted(bookId: number): void {
   }
 }
 
-const delay = (milliseconds: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, milliseconds));
-
 function abortError (): DOMException {
   return new DOMException('Processing aborted.', 'AbortError');
-}
-
-async function abortableDelay (milliseconds: number, signal?: AbortSignal): Promise<void> {
-  if (!signal) {
-    await delay(milliseconds);
-    return;
-  }
-
-  if (signal.aborted) {
-    throw abortError();
-  }
-
-  await new Promise<void>((resolve, reject) => {
-    const timer = setTimeout(() => {
-      signal.removeEventListener('abort', onAbort);
-      resolve();
-    }, milliseconds);
-    const onAbort = (): void => {
-      clearTimeout(timer);
-      signal.removeEventListener('abort', onAbort);
-      reject(abortError());
-    };
-
-    signal.addEventListener('abort', onAbort, { once: true });
-  });
 }
 
 async function fetchWithProcessingSignal (input: RequestInfo | URL, init: RequestInit | undefined, processingSignal?: AbortSignal): Promise<Response> {
@@ -1395,116 +1367,38 @@ async function requestChapterBoundaries(client: OpenAI, model: string, prompt: s
   return parseChapterBoundaries(content, totalPages);
 }
 
-async function createSinglePagePdf (file: File, pageNumber: number): Promise<Blob> {
+async function createPdfPageSliceFactory (file: File): Promise<(startPage: number, endPage: number) => Promise<File>> {
   const { PDFDocument } = await import('pdf-lib');
   const sourcePdf = await PDFDocument.load(await file.arrayBuffer());
-  const pagePdf = await PDFDocument.create();
-  const [page] = await pagePdf.copyPages(sourcePdf, [pageNumber - 1]);
+  const baseName = file.name.replace(/\.pdf$/i, '');
 
-  pagePdf.addPage(page);
+  return async (startPage: number, endPage: number): Promise<File> => {
+    if (!Number.isInteger(startPage) || !Number.isInteger(endPage) || startPage < 1 || endPage < startPage || endPage > sourcePdf.getPageCount()) {
+      throw new Error(`Invalid PDF page range ${startPage}-${endPage}.`);
+    }
 
-  const bytes = await pagePdf.save();
-  const buffer = new ArrayBuffer(bytes.byteLength);
+    const pagePdf = await PDFDocument.create();
+    const pageIndexes = Array.from({ length: endPage - startPage + 1 }, (_, index) => startPage + index - 1);
+    const copiedPages = await pagePdf.copyPages(sourcePdf, pageIndexes);
 
-  new Uint8Array(buffer).set(bytes);
+    copiedPages.forEach((page) => pagePdf.addPage(page));
 
-  return new Blob([buffer], { type: 'application/pdf' });
+    const bytes = await pagePdf.save();
+    const buffer = new ArrayBuffer(bytes.byteLength);
+
+    new Uint8Array(buffer).set(bytes);
+
+    return new File([buffer], `${baseName}-pages-${startPage}-${endPage}.pdf`, { type: 'application/pdf' });
+  };
 }
 
-async function recognizePageWithMathpix (appId: string | undefined, apiKey: string, file: File, pageNumber: number, onExternalCall?: (provider: Exclude<BookExternalCallProvider, 'openrouter'>) => void, signal?: AbortSignal): Promise<Pick<BookPage, 'mathpixHeadings' | 'pageMMD' | 'pageMMDZip'>> {
-  const headers: Record<string, string> = { app_key: apiKey };
+function mathpixHeadingsForRecognitionPage (recognition: MathpixPdfRecognitionResult, pageIndex: number): ReturnType<typeof extractMathpixHeadingsFromLines> {
+  const linePages = recognition.lines.pages ?? [];
+  const zeroBasedLinePages = linePages.some(({ page }) => page === 0);
+  const expectedLinePage = zeroBasedLinePages ? pageIndex : pageIndex + 1;
+  const linesPage = linePages.find(({ page }) => page === expectedLinePage) ?? linePages[pageIndex];
 
-  if (appId?.trim()) {
-    headers.app_id = appId.trim();
-  }
-
-  const body = new FormData();
-  const pagePdf = await createSinglePagePdf(file, pageNumber);
-  const fileName = `${file.name.replace(/\.pdf$/i, '')}-page-${pageNumber}.pdf`;
-
-  body.append('file', pagePdf, fileName);
-  body.append('options_json', JSON.stringify({
-    conversion_formats: { 'mmd.zip': true }
-  }));
-
-  onExternalCall?.('pdfv3');
-  const response = await fetch('https://api.mathpix.com/v3/pdf', {
-    body,
-    headers,
-    method: 'POST',
-    signal
-  });
-  const result = await response.json() as { error?: string; pdf_id?: string };
-
-  if (!response.ok || !result.pdf_id) {
-    throw new Error(result.error || 'Mathpix could not start PDF recognition.');
-  }
-
-  for (let attempt = 0; attempt < 120; attempt++) {
-    onExternalCall?.('pdfv3');
-    const statusResponse = await fetch(`https://api.mathpix.com/v3/pdf/${result.pdf_id}`, { headers, signal });
-    const statusResult = await statusResponse.json() as {
-      conversion_status?: Record<string, { error?: string; status?: string }>;
-      error?: string;
-      status?: string;
-    };
-    const zipStatus = statusResult.conversion_status?.['mmd.zip'];
-
-    if (!statusResponse.ok) {
-      throw new Error(statusResult.error || 'Unable to check Mathpix PDF recognition.');
-    }
-
-    if (statusResult.status === 'error') {
-      throw new Error(statusResult.error || 'Mathpix could not recognize the PDF page.');
-    }
-
-    const zipConversionFinished = !zipStatus || zipStatus.status === 'completed' || zipStatus.status === 'error';
-
-    if (statusResult.status === 'completed' && zipConversionFinished) {
-      onExternalCall?.('mmd');
-      onExternalCall?.('pdfv3');
-      const [mmdResponse, linesResponse] = await Promise.all([
-        fetch(`https://api.mathpix.com/v3/pdf/${result.pdf_id}.mmd`, { headers, signal }),
-        fetch(`https://api.mathpix.com/v3/pdf/${result.pdf_id}.lines.json`, { headers, signal })
-      ]);
-
-      if (!mmdResponse.ok) {
-        throw new Error('Unable to download the MMD text from Mathpix.');
-      }
-
-      let mathpixHeadings: MathpixHeading[] = [];
-      let pageMMDZip: Blob | undefined;
-
-      if (linesResponse.ok) {
-        try {
-          mathpixHeadings = extractMathpixHeadingsFromLines(await linesResponse.json());
-        } catch {
-          // The normal MMD result is still usable when optional line metadata fails.
-        }
-      }
-
-      // The ZIP contains embedded page images, but blank pages can have valid
-      // MMD even when Mathpix reports that this optional conversion failed.
-      if (zipStatus?.status === 'completed') {
-        onExternalCall?.('mmd');
-        const zipResponse = await fetch(`https://api.mathpix.com/v3/pdf/${result.pdf_id}.mmd.zip`, { headers, signal });
-
-        if (zipResponse.ok) {
-          pageMMDZip = await zipResponse.blob();
-        }
-      }
-
-      return {
-        mathpixHeadings,
-        pageMMD: (await mmdResponse.text()).trim(),
-        pageMMDZip
-      };
-    }
-
-    await abortableDelay(1000, signal);
-  }
-
-  throw new Error('Mathpix timed out while recognizing the PDF page.');
+  return linesPage ? extractMathpixHeadingsFromLines({ pages: [linesPage] }) : [];
 }
 
 interface Props {
@@ -4463,23 +4357,43 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
         return;
       }
 
-      const { mathpixHeadings, pageMMD, pageMMDZip } = await recognizePageWithMathpix(appId, apiKey, file, pageNumber, addRecognizeExternalCall, currentReaderProcessingSignal());
+      const slice = mathpixPdfSlices(totalPages).find(({ endPage, startPage }) => pageNumber >= startPage && pageNumber <= endPage);
 
-      addRecognizeCost(MATHPIX_PDF_PAGE_PRICE_USD);
+      if (!slice) {
+        throw new Error(`Unable to determine the 40-page PDF slice containing page ${pageNumber}.`);
+      }
 
-      const recognizedPage: BookPage = {
-        ...pages.get(pageNumber),
-        bookId: book.id,
-        chapter: pages.get(pageNumber)?.chapter ?? '',
-        conceptsProcessed: pages.get(pageNumber)?.conceptsProcessed ?? false,
-        mathpixHeadings,
-        pageMMD,
-        pageMMDZip,
-        pageNumber
-      };
+      const pageCount = slice.endPage - slice.startPage + 1;
+      const createPdfPageSlice = await createPdfPageSliceFactory(file);
+      const sliceFile = await createPdfPageSlice(slice.startPage, slice.endPage);
+      const recognition = await recognizePdfWithMathpix(appId, apiKey, sliceFile, pageCount, undefined, addRecognizeExternalCall, currentReaderProcessingSignal());
 
-      await putBookPage(recognizedPage);
-      const updatedPages = new Map(pages).set(pageNumber, recognizedPage);
+      if (recognition.pages.length !== pageCount) {
+        throw new Error(`Mathpix returned ${recognition.pages.length} pages for PDF pages ${slice.startPage}-${slice.endPage}.`);
+      }
+
+      addRecognizeCost(MATHPIX_PDF_PAGE_PRICE_USD * pageCount);
+
+      const updatedPages = new Map(pages);
+
+      for (let index = 0; index < pageCount; index++) {
+        const currentPageNumber = slice.startPage + index;
+        const storedPage = updatedPages.get(currentPageNumber);
+        const recognized = recognition.pages[index];
+        const recognizedPage: BookPage = {
+          ...storedPage,
+          bookId: book.id,
+          chapter: storedPage?.chapter ?? '',
+          conceptsProcessed: storedPage?.conceptsProcessed ?? false,
+          mathpixHeadings: mathpixHeadingsForRecognitionPage(recognition, index),
+          pageMMD: recognized.pageMMD,
+          pageMMDZip: recognized.pageMMDZip,
+          pageNumber: currentPageNumber
+        };
+
+        await putBookPage(recognizedPage);
+        updatedPages.set(currentPageNumber, recognizedPage);
+      }
 
       setPages(updatedPages);
 
@@ -4489,7 +4403,7 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
 
       setActivePane('text');
     } catch (recognitionError) {
-      setError(recognitionError instanceof Error ? recognitionError.message : 'Unable to recognize this page.');
+      setError(recognitionError instanceof Error ? recognitionError.message : 'Unable to recognize this PDF slice.');
     } finally {
       setProcessingPage(undefined);
     }
@@ -4527,39 +4441,58 @@ function BookReader({ ageTabRequest, assignAllStandardsRequest, autoRunAll = fal
     const processingSignal = currentReaderProcessingSignal();
 
     try {
-      const pageNumbers = Array.from({ length: totalPages }, (_, index) => index + 1);
-      const results = await mapConcurrent(pageNumbers, MATHPIX_PAGE_CONCURRENCY, async (currentPageNumber) => {
+      const createPdfPageSlice = await createPdfPageSliceFactory(file);
+      let failedPages = 0;
+
+      for (const { endPage, startPage } of mathpixPdfSlices(totalPages)) {
+        const pageCount = endPage - startPage + 1;
+        let storedPageCount = 0;
+
         try {
-          const { mathpixHeadings, pageMMD, pageMMDZip } = await recognizePageWithMathpix(appId, apiKey, file, currentPageNumber, addRecognizeExternalCall, processingSignal);
+          if (processingSignal.aborted) {
+            const abortError = new Error('The operation was aborted.');
 
-          addRecognizeCost(MATHPIX_PDF_PAGE_PRICE_USD);
+            abortError.name = 'AbortError';
+            throw abortError;
+          }
 
-          const storedPage = pages.get(currentPageNumber);
-          const recognizedPage: BookPage = {
-            ...storedPage,
-            bookId: book.id,
-            chapter: storedPage?.chapter ?? '',
-            conceptsProcessed: storedPage?.conceptsProcessed ?? false,
-            mathpixHeadings,
-            pageMMD,
-            pageMMDZip,
-            pageNumber: currentPageNumber
-          };
+          const sliceFile = await createPdfPageSlice(startPage, endPage);
+          const recognition = await recognizePdfWithMathpix(appId, apiKey, sliceFile, pageCount, undefined, addRecognizeExternalCall, processingSignal);
 
-          await putBookPage(recognizedPage);
-          setPages((current) => new Map(current).set(currentPageNumber, recognizedPage));
-          setRecognizedPageCount((count) => count + 1);
+          if (recognition.pages.length !== pageCount) {
+            throw new Error(`Mathpix returned ${recognition.pages.length} pages for PDF pages ${startPage}-${endPage}.`);
+          }
 
-          return true;
+          addRecognizeCost(MATHPIX_PDF_PAGE_PRICE_USD * pageCount);
+
+          for (let index = 0; index < pageCount; index++) {
+            const currentPageNumber = startPage + index;
+            const storedPage = pages.get(currentPageNumber);
+            const recognized = recognition.pages[index];
+            const recognizedPage: BookPage = {
+              ...storedPage,
+              bookId: book.id,
+              chapter: storedPage?.chapter ?? '',
+              conceptsProcessed: storedPage?.conceptsProcessed ?? false,
+              mathpixHeadings: mathpixHeadingsForRecognitionPage(recognition, index),
+              pageMMD: recognized.pageMMD,
+              pageMMDZip: recognized.pageMMDZip,
+              pageNumber: currentPageNumber
+            };
+
+            await putBookPage(recognizedPage);
+            storedPageCount++;
+            setPages((current) => new Map(current).set(currentPageNumber, recognizedPage));
+            setRecognizedPageCount((count) => count + 1);
+          }
         } catch (error) {
-          if (processingSignal.aborted || (error instanceof DOMException && error.name === 'AbortError')) {
+          if (processingSignal.aborted || (error instanceof Error && error.name === 'AbortError')) {
             throw error;
           }
 
-          return false;
+          failedPages += pageCount - storedPageCount;
         }
-      });
-      const failedPages = results.filter((succeeded) => !succeeded).length;
+      }
 
       if (failedPages) {
         setError(`${failedPages} of ${totalPages} pages could not be recognized.`);
