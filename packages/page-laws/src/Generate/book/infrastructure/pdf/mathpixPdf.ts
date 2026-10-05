@@ -5,11 +5,16 @@ import { strFromU8, strToU8, unzipSync, zipSync } from 'fflate';
 
 import { markdownImageReferences } from '../../domain/content/markdownImages.js';
 
-const MATHPIX_POLL_INTERVAL_MS = 1000;
-const MATHPIX_MAX_POLL_ATTEMPTS = 3600;
+const MATHPIX_POLL_INTERVAL_MS = 5000;
+const MATHPIX_MAX_POLL_ATTEMPTS = 720;
+const MATHPIX_MAX_FETCH_ATTEMPTS = 6;
+const MATHPIX_RETRY_BASE_DELAY_MS = 1000;
+const MATHPIX_RETRY_MAX_DELAY_MS = 30_000;
+const MATHPIX_STREAM_COMPLETION_GRACE_MS = 5000;
 const PAGE_BREAK_PATTERN = /\\pagebreak[ \t]*(?:\r?\n)?/g;
 
 export const MATHPIX_PDF_SLICE_SIZE = 40;
+export const MATHPIX_PDF_SLICE_CONCURRENCY = 4;
 
 interface MathpixConversionStatus {
   error?: string;
@@ -30,9 +35,30 @@ interface MathpixStreamPage {
   text?: string;
 }
 
+interface MathpixLine {
+  conversion_output?: boolean;
+  text?: string;
+  text_display?: string;
+  [key: string]: unknown;
+}
+
 interface MathpixLinesPage {
+  lines?: MathpixLine[];
   page?: number;
   [key: string]: unknown;
+}
+
+interface MathpixMmdLine {
+  text?: string;
+}
+
+interface MathpixMmdLinesPage {
+  lines?: MathpixMmdLine[];
+  page?: number;
+}
+
+interface MathpixMmdLinesDocument {
+  pages?: MathpixMmdLinesPage[];
 }
 
 export interface MathpixLinesDocument {
@@ -202,11 +228,11 @@ export function splitMathpixMmdByPage (mmd: string, totalPages: number): string[
   const parts = mmd.split(PAGE_BREAK_PATTERN);
   const pageBreakCount = parts.length - 1;
 
-  if (pageBreakCount < totalPages) {
-    if (totalPages === 1 && pageBreakCount === 0) {
-      return [mmd.trim()];
-    }
-
+  // A trailing page break is useful but is not required to unambiguously split
+  // the document. N pages need only N - 1 separators; Mathpix normally emits
+  // N markers when include_page_breaks=true, but some completed jobs omit the
+  // final marker. Accept those results instead of throwing away the whole slice.
+  if (parts.length < totalPages) {
     throw new Error(`Mathpix returned ${pageBreakCount} page breaks for a ${totalPages}-page PDF.`);
   }
 
@@ -238,6 +264,90 @@ function isAbortError (error: unknown): boolean {
   return error instanceof Error && error.name === 'AbortError';
 }
 
+function retryAfterMs (response: Response): number | undefined {
+  const retryAfter = response.headers.get('retry-after');
+
+  if (!retryAfter?.trim()) {
+    return undefined;
+  }
+
+  const seconds = Number(retryAfter);
+
+  if (Number.isFinite(seconds)) {
+    return Math.max(0, seconds * 1000);
+  }
+
+  const retryDate = Date.parse(retryAfter);
+
+  return Number.isNaN(retryDate) ? undefined : Math.max(0, retryDate - Date.now());
+}
+
+function isRetryableMathpixStatus (status: number): boolean {
+  return status === 408 || status === 425 || status === 429 || (status >= 500 && status <= 599);
+}
+
+async function isNonRetryableMathpixQuota (response: Response): Promise<boolean> {
+  if (response.status !== 429) {
+    return false;
+  }
+
+  try {
+    const body = await response.clone().json() as {
+      error_info?: { id?: string; limit_name?: string };
+    };
+    const errorId = body.error_info?.id?.toLocaleLowerCase();
+    const limitName = body.error_info?.limit_name?.toLocaleLowerCase();
+
+    return errorId === 'quota_exceeded' || Boolean(limitName?.includes('monthly'));
+  } catch {
+    return false;
+  }
+}
+
+function isRetryableFetchError (error: unknown): boolean {
+  if (isAbortError(error)) {
+    return false;
+  }
+
+  return error instanceof TypeError || (error instanceof Error && /(?:network|fetch|timed out|timeout)/i.test(error.message));
+}
+
+async function mathpixFetch (input: RequestInfo | URL, init: RequestInit, signal?: AbortSignal, onRequest?: () => void): Promise<Response> {
+  let lastError: unknown;
+
+  for (let attempt = 0; attempt < MATHPIX_MAX_FETCH_ATTEMPTS; attempt++) {
+    if (signal?.aborted) {
+      throw abortError();
+    }
+
+    try {
+      onRequest?.();
+      const response = await fetch(input, { ...init, ...(signal ? { signal } : {}) });
+
+      if (!isRetryableMathpixStatus(response.status) || attempt === MATHPIX_MAX_FETCH_ATTEMPTS - 1 || await isNonRetryableMathpixQuota(response)) {
+        return response;
+      }
+
+      const retryDelay = Math.min(
+        MATHPIX_RETRY_MAX_DELAY_MS,
+        retryAfterMs(response) ?? MATHPIX_RETRY_BASE_DELAY_MS * (2 ** attempt)
+      );
+
+      await delay(retryDelay, signal);
+    } catch (error) {
+      lastError = error;
+
+      if (!isRetryableFetchError(error) || attempt === MATHPIX_MAX_FETCH_ATTEMPTS - 1) {
+        throw error;
+      }
+
+      await delay(Math.min(MATHPIX_RETRY_MAX_DELAY_MS, MATHPIX_RETRY_BASE_DELAY_MS * (2 ** attempt)), signal);
+    }
+  }
+
+  throw lastError instanceof Error ? lastError : new Error('Mathpix request failed after retries.');
+}
+
 function parseStreamEvent (data: string): MathpixStreamPage | undefined {
   try {
     const parsed = JSON.parse(data) as MathpixStreamPage;
@@ -249,11 +359,10 @@ function parseStreamEvent (data: string): MathpixStreamPage | undefined {
 }
 
 async function streamMathpixPages (pdfId: string, headers: Record<string, string>, signal: AbortSignal, streamedPages: Map<number, string>, onProgress?: MathpixProgressHandler, onExternalCall?: MathpixExternalCallHandler): Promise<void> {
-  onExternalCall?.('pdfv3');
-  const response = await fetch(`https://api.mathpix.com/v3/pdf/${pdfId}/stream`, {
+  const response = await mathpixFetch(`https://api.mathpix.com/v3/pdf/${pdfId}/stream`, {
     headers: { ...headers, Accept: 'text/event-stream' },
     signal
-  });
+  }, signal, () => onExternalCall?.('pdfv3'));
 
   if (!response.ok || !response.body) {
     throw new Error('Unable to stream Mathpix PDF recognition progress.');
@@ -293,8 +402,7 @@ async function streamMathpixPages (pdfId: string, headers: Record<string, string
 
 async function waitForMathpixPdf (pdfId: string, headers: Record<string, string>, onProgress?: MathpixProgressHandler, onExternalCall?: MathpixExternalCallHandler, signal?: AbortSignal): Promise<MathpixPdfStatus> {
   for (let attempt = 0; attempt < MATHPIX_MAX_POLL_ATTEMPTS; attempt++) {
-    onExternalCall?.('pdfv3');
-    const response = await fetch(`https://api.mathpix.com/v3/pdf/${pdfId}`, { headers, signal });
+    const response = await mathpixFetch(`https://api.mathpix.com/v3/pdf/${pdfId}`, { headers, signal }, signal, () => onExternalCall?.('pdfv3'));
     const status = await response.json() as MathpixPdfStatus;
 
     if (!response.ok) {
@@ -334,7 +442,79 @@ function pageMmdFromStream (streamedPages: Map<number, string>, totalPages: numb
     : undefined;
 }
 
-function splitWithStreamFallback (mmd: string, streamedPages: Map<number, string>, totalPages: number): string[] {
+async function waitForStreamedPages (streamedPages: Map<number, string>, totalPages: number, signal?: AbortSignal): Promise<void> {
+  const deadline = Date.now() + MATHPIX_STREAM_COMPLETION_GRACE_MS;
+
+  while (streamedPages.size < totalPages && Date.now() < deadline) {
+    await delay(Math.min(100, Math.max(1, deadline - Date.now())), signal);
+  }
+}
+
+function pageMmdFromMmdLines (document: MathpixMmdLinesDocument, totalPages: number): string[] | undefined {
+  const byPage = new Map<number, string>();
+
+  for (const page of document.pages ?? []) {
+    const pageNumber = page.page;
+
+    if (typeof pageNumber !== 'number' || !Number.isInteger(pageNumber) || pageNumber < 1 || pageNumber > totalPages) {
+      continue;
+    }
+
+    byPage.set(pageNumber, (page.lines ?? [])
+      .map(({ text }) => text ?? '')
+      .join('\n')
+      .replace(PAGE_BREAK_PATTERN, '')
+      .trim());
+  }
+
+  const pages = Array.from({ length: totalPages }, (_, index) => byPage.get(index + 1));
+
+  return pages.every((page): page is string => page !== undefined) ? pages : undefined;
+}
+
+function pageMmdFromLines (document: MathpixLinesDocument, totalPages: number): string[] | undefined {
+  const byPage = new Map<number, string>();
+
+  for (const page of document.pages ?? []) {
+    const pageNumber = page.page;
+
+    if (typeof pageNumber !== 'number' || !Number.isInteger(pageNumber) || pageNumber < 1 || pageNumber > totalPages) {
+      continue;
+    }
+
+    byPage.set(pageNumber, (page.lines ?? [])
+      .filter(({ conversion_output }) => conversion_output !== false)
+      .map(({ text, text_display }) => text_display ?? text ?? '')
+      .join('\n')
+      .replace(PAGE_BREAK_PATTERN, '')
+      .trim());
+  }
+
+  const pages = Array.from({ length: totalPages }, (_, index) => byPage.get(index + 1));
+
+  return pages.every((page): page is string => page !== undefined) ? pages : undefined;
+}
+
+async function recoverPageMmd (pdfId: string, headers: Record<string, string>, lines: MathpixLinesDocument, totalPages: number, onExternalCall?: MathpixExternalCallHandler, signal?: AbortSignal): Promise<string[] | undefined> {
+  const linesMmdResponse = await mathpixFetch(`https://api.mathpix.com/v3/pdf/${pdfId}.lines.mmd.json`, { headers, signal }, signal, () => onExternalCall?.('pdfv3'));
+
+  if (linesMmdResponse.ok) {
+    try {
+      const mmdLines = await linesMmdResponse.json() as MathpixMmdLinesDocument;
+      const recovered = pageMmdFromMmdLines(mmdLines, totalPages);
+
+      if (recovered) {
+        return recovered;
+      }
+    } catch {
+      // Fall through to the current lines.json representation below.
+    }
+  }
+
+  return pageMmdFromLines(lines, totalPages);
+}
+
+async function splitWithFallbacks (pdfId: string, headers: Record<string, string>, mmd: string, streamedPages: Map<number, string>, lines: MathpixLinesDocument, totalPages: number, onExternalCall?: MathpixExternalCallHandler, signal?: AbortSignal): Promise<string[]> {
   try {
     return splitMathpixMmdByPage(mmd, totalPages);
   } catch (error) {
@@ -342,6 +522,12 @@ function splitWithStreamFallback (mmd: string, streamedPages: Map<number, string
 
     if (streamed) {
       return streamed;
+    }
+
+    const recovered = await recoverPageMmd(pdfId, headers, lines, totalPages, onExternalCall, signal);
+
+    if (recovered) {
+      return recovered;
     }
 
     throw error;
@@ -367,13 +553,12 @@ export async function recognizePdfWithMathpix (appId: string | undefined, apiKey
       streaming: true
     }));
 
-    onExternalCall?.('pdfv3');
-    const response = await fetch('https://api.mathpix.com/v3/pdf', {
+    const response = await mathpixFetch('https://api.mathpix.com/v3/pdf', {
       body,
       headers,
       method: 'POST',
       signal
-    });
+    }, signal, () => onExternalCall?.('pdfv3'));
     const result = await response.json() as { error?: string; pdf_id?: string };
 
     if (!response.ok || !result.pdf_id) {
@@ -389,17 +574,29 @@ export async function recognizePdfWithMathpix (appId: string | undefined, apiKey
   const abortStream = (): void => streamAbort.abort();
 
   signal?.addEventListener('abort', abortStream, { once: true });
+  let streamFinished = false;
   const streamPromise = streamMathpixPages(pdfId, headers, streamAbort.signal, streamedPages, onProgress, onExternalCall)
     .catch((error: unknown) => {
       if (!isAbortError(error)) {
         console.warn('Mathpix page streaming failed; continuing with status polling.', error);
       }
+    })
+    .finally(() => {
+      streamFinished = true;
     });
 
   let status: MathpixPdfStatus;
 
   try {
     status = await waitForMathpixPdf(pdfId, headers, onProgress, onExternalCall, signal);
+
+    // status=completed can race slightly ahead of delivery of the final SSE page
+    // events. Keep the stream alive for a short grace period so page_idx can be
+    // used as the authoritative fallback when the concatenated MMD is missing
+    // one or more page-break markers.
+    if (!streamFinished && streamedPages.size < totalPages) {
+      await waitForStreamedPages(streamedPages, totalPages, signal);
+    }
   } finally {
     streamAbort.abort();
     await streamPromise;
@@ -410,11 +607,9 @@ export async function recognizePdfWithMathpix (appId: string | undefined, apiKey
     throw new MathpixPdfTerminalError(`Mathpix reported ${status.num_pages} pages for a ${totalPages}-page PDF.`);
   }
 
-  onExternalCall?.('mmd');
-  onExternalCall?.('pdfv3');
   const [mmdResponse, linesResponse] = await Promise.all([
-    fetch(`https://api.mathpix.com/v3/pdf/${pdfId}.mmd`, { headers, signal }),
-    fetch(`https://api.mathpix.com/v3/pdf/${pdfId}.lines.json`, { headers, signal })
+    mathpixFetch(`https://api.mathpix.com/v3/pdf/${pdfId}.mmd`, { headers, signal }, signal, () => onExternalCall?.('mmd')),
+    mathpixFetch(`https://api.mathpix.com/v3/pdf/${pdfId}.lines.json`, { headers, signal }, signal, () => onExternalCall?.('pdfv3'))
   ]);
 
   if (!mmdResponse.ok) {
@@ -422,7 +617,6 @@ export async function recognizePdfWithMathpix (appId: string | undefined, apiKey
   }
 
   const mmd = await mmdResponse.text();
-  const pageMmd = splitWithStreamFallback(mmd, streamedPages, totalPages);
   let lines: MathpixLinesDocument = {};
 
   if (linesResponse.ok) {
@@ -433,14 +627,15 @@ export async function recognizePdfWithMathpix (appId: string | undefined, apiKey
     }
   }
 
+  const pageMmd = await splitWithFallbacks(pdfId, headers, mmd, streamedPages, lines, totalPages, onExternalCall, signal);
+
   const zipStatus = status.conversion_status?.['mmd.zip'];
   let archiveEntries: Record<string, Uint8Array> = {};
   let archiveMmdEntryName: string | undefined;
   let archivePageMmd: string[] | undefined;
 
   if (zipStatus?.status === 'completed') {
-    onExternalCall?.('mmd');
-    const zipResponse = await fetch(`https://api.mathpix.com/v3/pdf/${pdfId}.mmd.zip`, { headers, signal });
+    const zipResponse = await mathpixFetch(`https://api.mathpix.com/v3/pdf/${pdfId}.mmd.zip`, { headers, signal }, signal, () => onExternalCall?.('mmd'));
 
     if (zipResponse.ok) {
       try {
@@ -449,10 +644,19 @@ export async function recognizePdfWithMathpix (appId: string | undefined, apiKey
 
         if (mmdEntry) {
           archiveMmdEntryName = mmdEntry[0];
-          archivePageMmd = splitMathpixMmdByPage(strFromU8(mmdEntry[1]), totalPages);
+
+          try {
+            archivePageMmd = splitMathpixMmdByPage(strFromU8(mmdEntry[1]), totalPages);
+          } catch (error) {
+            // Keep the archive images. The recovered per-page MMD can still
+            // reference them even when the archive's combined MMD is missing
+            // one or more page-break markers.
+            console.warn('Mathpix MMD ZIP is missing page boundaries; using recovered page MMD with archive images.', error);
+            archivePageMmd = undefined;
+          }
         }
       } catch (error) {
-        console.warn('Mathpix MMD ZIP could not be split by page; creating text-only page ZIPs.', error);
+        console.warn('Mathpix MMD ZIP could not be read; creating text-only page ZIPs.', error);
         archiveEntries = {};
         archiveMmdEntryName = undefined;
         archivePageMmd = undefined;

@@ -5,8 +5,9 @@ import type { BookPage, BookProcessingStageKey } from '@slonigiraf/db';
 import { deleteMathpixPdfJob, getMathpixPdfJob, getSetting, putBookPage, putMathpixPdfJob, SettingKey, storeSetting } from '@slonigiraf/db';
 import type { Dispatch, SetStateAction } from 'react';
 import { useCallback, useState } from 'react';
+import { mapConcurrent } from '../../../../common/concurrency.js';
 import { MATHPIX_PDF_PAGE_PRICE_USD } from '../../../book/application/config.js';
-import { MathpixPdfTerminalError, mathpixPdfSlices, recognizePdfWithMathpix } from '../../../book/infrastructure/pdf/mathpixPdf.js';
+import { MathpixPdfTerminalError, MATHPIX_PDF_SLICE_CONCURRENCY, mathpixPdfSlices, recognizePdfWithMathpix } from '../../../book/infrastructure/pdf/mathpixPdf.js';
 import { createPdfPageSliceFactory, mathpixHeadingsForRecognitionPage } from '../../../book/application/workspace/bookReaderProcessing.js';
 import type { RecognitionTarget } from '../../../shared/types/bookWorkspace.js';
 import type { BookExternalCallProvider } from '../../../book/infrastructure/storage/bookExternalCalls.js';
@@ -221,7 +222,7 @@ export function useBookRecognitionController ({
 
     try {
       const createPdfPageSlice = await createPdfPageSliceFactory(file);
-      const failedPagesBySlice = await Promise.all(mathpixPdfSlices(totalPages).map(async ({ endPage, startPage }) => {
+      const sliceResults = await mapConcurrent(mathpixPdfSlices(totalPages), MATHPIX_PDF_SLICE_CONCURRENCY, async ({ endPage, startPage }) => {
         const pageCount = endPage - startPage + 1;
         const existingRecognizedPages = Array.from({ length: pageCount }, (_, index) => pages.get(startPage + index)).filter(isRecognizedPage).length;
         let newlyStoredPageCount = 0;
@@ -239,7 +240,7 @@ export function useBookRecognitionController ({
           // final page write and pending-job cleanup.
           if (existingRecognizedPages === pageCount) {
             await deleteMathpixPdfJob(bookId, startPage, endPage);
-            return 0;
+            return { endPage, failedPages: 0, startPage };
           }
 
           const pendingJob = await getMathpixPdfJob(bookId, startPage, endPage);
@@ -282,7 +283,7 @@ export function useBookRecognitionController ({
           }
 
           await deleteMathpixPdfJob(bookId, startPage, endPage);
-          return 0;
+          return { endPage, failedPages: 0, startPage };
         } catch (error) {
           if (processingSignal.aborted || (error instanceof Error && error.name === 'AbortError')) {
             throw error;
@@ -296,13 +297,25 @@ export function useBookRecognitionController ({
             }
           }
 
-          return Math.max(0, pageCount - existingRecognizedPages - newlyStoredPageCount);
+          return {
+            endPage,
+            error: error instanceof Error ? error.message : 'Unknown Mathpix error.',
+            failedPages: Math.max(0, pageCount - existingRecognizedPages - newlyStoredPageCount),
+            startPage
+          };
         }
-      }));
-      const failedPages = failedPagesBySlice.reduce((total, count) => total + count, 0);
+      });
+      const failedPages = sliceResults.reduce((total, { failedPages }) => total + failedPages, 0);
 
       if (failedPages) {
-        setError(`${failedPages} of ${totalPages} pages could not be recognized.`);
+        const failedSlices = sliceResults.filter(({ failedPages }) => failedPages > 0);
+        const visibleFailures = failedSlices.slice(0, 5).map(({ endPage, error, startPage }) => `${startPage}-${endPage}: ${error ?? 'Unknown Mathpix error.'}`);
+        const hiddenFailureCount = Math.max(0, failedSlices.length - visibleFailures.length);
+        const details = visibleFailures.length
+          ? ` Failed ranges: ${visibleFailures.join('; ')}${hiddenFailureCount ? `; +${hiddenFailureCount} more` : ''}`
+          : '';
+
+        setError(`${failedPages} of ${totalPages} pages could not be recognized.${details}`);
       } else {
         await completeStage('recognize');
         recognitionCompleted = true;

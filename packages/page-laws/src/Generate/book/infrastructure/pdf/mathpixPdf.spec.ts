@@ -31,10 +31,17 @@ describe('Mathpix whole-PDF recognition helpers', (): void => {
     assert.deepEqual(splitMathpixMmdByPage(combined, 40), Array.from({ length: 40 }, (_, index) => `Page ${index + 1}`));
   });
 
-  it('requires one Mathpix page break per PDF page', (): void => {
+  it('accepts a missing trailing Mathpix page break', (): void => {
+    assert.deepEqual(splitMathpixMmdByPage('First page\n\\pagebreak\nSecond page', 2), [
+      'First page',
+      'Second page'
+    ]);
+  });
+
+  it('still rejects results with too few page boundaries', (): void => {
     assert.throws(
-      () => splitMathpixMmdByPage('First page\n\\pagebreak\nSecond page', 2),
-      /1 page breaks for a 2-page PDF/
+      () => splitMathpixMmdByPage('First page\n\\pagebreak\nSecond and third page', 3),
+      /1 page breaks for a 3-page PDF/
     );
   });
 
@@ -93,6 +100,162 @@ describe('Mathpix whole-PDF recognition helpers', (): void => {
       assert.equal(result.pages[0]?.pageMMD, 'Recovered page');
       assert.equal(calls.some(({ method, url }) => method === 'POST' && url === 'https://api.mathpix.com/v3/pdf'), false);
       assert.equal(calls.some(({ url }) => url === 'https://api.mathpix.com/v3/pdf/saved-pdf'), true);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  it('retries transient Mathpix rate limits while reconnecting to a saved PDF job', async (): Promise<void> => {
+    const originalFetch = globalThis.fetch;
+    let statusCalls = 0;
+
+    globalThis.fetch = async (input: RequestInfo | URL): Promise<Response> => {
+      const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
+
+      if (url === 'https://api.mathpix.com/v3/pdf/rate-limited-pdf/stream') {
+        return new Response('', { status: 200 });
+      }
+
+      if (url === 'https://api.mathpix.com/v3/pdf/rate-limited-pdf') {
+        statusCalls++;
+
+        if (statusCalls === 1) {
+          return Response.json({
+            error: 'Too many requests',
+            error_info: { id: 'rate_limit_exceeded' }
+          }, {
+            headers: { 'Retry-After': '0' },
+            status: 429
+          });
+        }
+
+        return Response.json({
+          conversion_status: { 'mmd.zip': { status: 'error' } },
+          num_pages: 1,
+          num_pages_completed: 1,
+          status: 'completed'
+        });
+      }
+
+      if (url === 'https://api.mathpix.com/v3/pdf/rate-limited-pdf.mmd') {
+        return new Response('Recovered after rate limit', { status: 200 });
+      }
+
+      if (url === 'https://api.mathpix.com/v3/pdf/rate-limited-pdf.lines.json') {
+        return Response.json({ pages: [] });
+      }
+
+      throw new Error(`Unexpected fetch: ${url}`);
+    };
+
+    try {
+      const result = await recognizePdfWithMathpix(undefined, 'api-key', new File([], 'slice.pdf'), 1, undefined, undefined, undefined, { pdfId: 'rate-limited-pdf' });
+
+      assert.equal(result.pages[0]?.pageMMD, 'Recovered after rate limit');
+      assert.equal(statusCalls, 2);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  it('waits briefly for final streamed pages when concatenated MMD is missing page breaks', async (): Promise<void> => {
+    const originalFetch = globalThis.fetch;
+    const encoder = new TextEncoder();
+
+    globalThis.fetch = async (input: RequestInfo | URL): Promise<Response> => {
+      const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
+
+      if (url === 'https://api.mathpix.com/v3/pdf/stream-race-pdf/stream') {
+        const body = new ReadableStream<Uint8Array>({
+          start (controller) {
+            controller.enqueue(encoder.encode('data: {"page_idx":1,"pdf_selected_len":2,"text":"Stream page one"}\n\n'));
+            setTimeout(() => {
+              controller.enqueue(encoder.encode('data: {"page_idx":2,"pdf_selected_len":2,"text":"Stream page two"}\n\n'));
+              controller.close();
+            }, 20);
+          }
+        });
+
+        return new Response(body, { status: 200 });
+      }
+
+      if (url === 'https://api.mathpix.com/v3/pdf/stream-race-pdf') {
+        return Response.json({
+          conversion_status: { 'mmd.zip': { status: 'error' } },
+          num_pages: 2,
+          num_pages_completed: 2,
+          status: 'completed'
+        });
+      }
+
+      if (url === 'https://api.mathpix.com/v3/pdf/stream-race-pdf.mmd') {
+        return new Response('Concatenated output without any page break marker', { status: 200 });
+      }
+
+      if (url === 'https://api.mathpix.com/v3/pdf/stream-race-pdf.lines.json') {
+        return Response.json({ pages: [] });
+      }
+
+      throw new Error(`Unexpected fetch: ${url}`);
+    };
+
+    try {
+      const result = await recognizePdfWithMathpix(undefined, 'api-key', new File([], 'slice.pdf'), 2, undefined, undefined, undefined, { pdfId: 'stream-race-pdf' });
+
+      assert.deepEqual(result.pages.map(({ pageMMD }) => pageMMD), ['Stream page one', 'Stream page two']);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  it('recovers page boundaries from per-page MMD lines when a completed job has too few page breaks', async (): Promise<void> => {
+    const originalFetch = globalThis.fetch;
+    const requested: string[] = [];
+
+    globalThis.fetch = async (input: RequestInfo | URL): Promise<Response> => {
+      const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
+
+      requested.push(url);
+
+      if (url === 'https://api.mathpix.com/v3/pdf/missing-breaks-pdf/stream') {
+        return new Response('', { status: 200 });
+      }
+
+      if (url === 'https://api.mathpix.com/v3/pdf/missing-breaks-pdf') {
+        return Response.json({
+          conversion_status: { 'mmd.zip': { status: 'error' } },
+          num_pages: 3,
+          num_pages_completed: 3,
+          status: 'completed'
+        });
+      }
+
+      if (url === 'https://api.mathpix.com/v3/pdf/missing-breaks-pdf.mmd') {
+        return new Response('Page one\n\\pagebreak\nPage two and page three were merged', { status: 200 });
+      }
+
+      if (url === 'https://api.mathpix.com/v3/pdf/missing-breaks-pdf.lines.json') {
+        return Response.json({ pages: [{ page: 1, lines: [] }, { page: 2, lines: [] }, { page: 3, lines: [] }] });
+      }
+
+      if (url === 'https://api.mathpix.com/v3/pdf/missing-breaks-pdf.lines.mmd.json') {
+        return Response.json({
+          pages: [
+            { page: 1, lines: [{ text: 'Recovered page one' }] },
+            { page: 2, lines: [] },
+            { page: 3, lines: [{ text: 'Recovered page three' }] }
+          ]
+        });
+      }
+
+      throw new Error(`Unexpected fetch: ${url}`);
+    };
+
+    try {
+      const result = await recognizePdfWithMathpix(undefined, 'api-key', new File([], 'slice.pdf'), 3, undefined, undefined, undefined, { pdfId: 'missing-breaks-pdf' });
+
+      assert.deepEqual(result.pages.map(({ pageMMD }) => pageMMD), ['Recovered page one', '', 'Recovered page three']);
+      assert.equal(requested.includes('https://api.mathpix.com/v3/pdf/missing-breaks-pdf.lines.mmd.json'), true);
     } finally {
       globalThis.fetch = originalFetch;
     }
