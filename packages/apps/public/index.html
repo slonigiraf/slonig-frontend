@@ -12,6 +12,30 @@
   <title>
     <%= htmlWebpackPlugin.options.PAGE_TITLE %>
   </title>
+  <script>
+    // Register before webpack-dev-server's client bundle. Polkadot WsProvider
+    // reconnects after an abnormal 1006 close, but rejects any RPC promises
+    // that were in flight when the socket died. Treat that one transport error
+    // as recoverable and prevent later global rejection listeners (including
+    // webpack-dev-server's runtime overlay) from promoting it to a fatal UI.
+    (() => {
+      const recoverableWsClose = /^disconnected from wss?:\/\/.*:\s*1006::/i;
+
+      window.addEventListener('unhandledrejection', (event) => {
+        const reason = event.reason;
+        const message = reason instanceof Error
+          ? reason.message
+          : reason && typeof reason === 'object' && typeof reason.message === 'string'
+            ? reason.message
+            : String(reason || '');
+
+        if (recoverableWsClose.test(message)) {
+          event.preventDefault();
+          event.stopImmediatePropagation();
+        }
+      });
+    })();
+  </script>
   <script type="text/javascript" src="env-config.js"></script>
   <style>
     :root {

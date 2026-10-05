@@ -5,6 +5,7 @@
 import '@polkadot/api-augment/substrate';
 
 export { createNamedHook } from './createNamedHook.js';
+export { isRecoverableWsError } from './isRecoverableWsError.js';
 export * from './ctx/index.js';
 export { useAccountId } from './useAccountId.js';
 export { useAccountInfo } from './useAccountInfo.js';

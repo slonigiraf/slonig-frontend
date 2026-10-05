@@ -11,6 +11,23 @@ module.exports = merge(
   baseConfig(__dirname, 'development'),
   {
     devServer: {
+      client: {
+        overlay: {
+          // @polkadot/rpc-provider rejects in-flight requests with code 1006
+          // when a laptop sleeps or the network temporarily disappears. The
+          // provider reconnects automatically, so keep the dev overlay for real
+          // runtime failures while ignoring this expected transport interruption.
+          runtimeErrors: (error) => {
+            const message = error instanceof Error
+              ? error.message
+              : error && typeof error === 'object' && typeof error.message === 'string'
+                ? error.message
+                : String(error || '');
+
+            return !/^disconnected from wss?:\/\/.*:\s*1006::/i.test(message);
+          }
+        }
+      },
       hot: true,
       open: false,
       port: 3000,

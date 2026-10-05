@@ -15,7 +15,7 @@ import { ApiPromise, ScProvider, WsProvider } from '@polkadot/api';
 import { deriveMapCache, setDeriveCache } from '@polkadot/api-derive/util';
 import { ethereumChains, typesBundle } from '@polkadot/apps-config';
 import { TokenUnit } from '@polkadot/react-components/InputConsts/units';
-import { useApiUrl, useEndpoint, useQueue } from '@polkadot/react-hooks';
+import { isRecoverableWsError, useApiUrl, useEndpoint, useQueue } from '@polkadot/react-hooks';
 import { ApiCtx } from '@polkadot/react-hooks/ctx/Api';
 import { ApiSigner } from '@polkadot/react-signer/signers';
 import { keyring } from '@polkadot/ui-keyring';
@@ -263,6 +263,10 @@ export function ApiCtxRoot({ apiUrl, children, isElectron, store }: Props): Reac
   // initial initialization
   useEffect((): void => {
     const onError = (error: unknown): void => {
+      if (isRecoverableWsError(error)) {
+        return;
+      }
+
       console.error(error);
 
       setApiError((error as Error).message);
@@ -270,7 +274,10 @@ export function ApiCtxRoot({ apiUrl, children, isElectron, store }: Props): Reac
 
     createApi(apiUrl, new ApiSigner(statics.registry, queuePayload, queueSetTxStatus), onError)
       .then((types): void => {
-        statics.api.on('connected', () => setIsApiConnected(true));
+        statics.api.on('connected', () => {
+          setApiError(null);
+          setIsApiConnected(true);
+        });
         statics.api.on('disconnected', () => setIsApiConnected(false));
         statics.api.on('error', onError);
         statics.api.on('ready', (): void => {
