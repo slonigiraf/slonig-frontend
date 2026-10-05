@@ -11,6 +11,7 @@ const MATHPIX_MAX_FETCH_ATTEMPTS = 6;
 const MATHPIX_RETRY_BASE_DELAY_MS = 1000;
 const MATHPIX_RETRY_MAX_DELAY_MS = 30_000;
 const MATHPIX_STREAM_COMPLETION_GRACE_MS = 5000;
+const MATHPIX_MAX_MISSING_INDEXED_PAGES = 2;
 const PAGE_BREAK_PATTERN = /\\pagebreak[ \t]*(?:\r?\n)?/g;
 
 export const MATHPIX_PDF_SLICE_SIZE = 40;
@@ -225,14 +226,19 @@ export function splitMathpixMmdByPage (mmd: string, totalPages: number): string[
     return [];
   }
 
+  if (totalPages === 1) {
+    return [mmd.replace(PAGE_BREAK_PATTERN, '').trim()];
+  }
+
   const parts = mmd.split(PAGE_BREAK_PATTERN);
   const pageBreakCount = parts.length - 1;
 
-  // A trailing page break is useful but is not required to unambiguously split
-  // the document. N pages need only N - 1 separators; Mathpix normally emits
-  // N markers when include_page_breaks=true, but some completed jobs omit the
-  // final marker. Accept those results instead of throwing away the whole slice.
-  if (parts.length < totalPages) {
+  // Never infer page identity from N - 1 separators. A missing separator in the
+  // middle of the document is indistinguishable from a missing trailing marker
+  // and silently shifts every later page. Numbered Mathpix outputs (SSE page_idx
+  // or lines.mmd.json/lines.json page) are used before this fallback, so only
+  // trust combined MMD when Mathpix emitted a marker for every source page.
+  if (pageBreakCount < totalPages) {
     throw new Error(`Mathpix returned ${pageBreakCount} page breaks for a ${totalPages}-page PDF.`);
   }
 
@@ -467,9 +473,14 @@ function pageMmdFromMmdLines (document: MathpixMmdLinesDocument, totalPages: num
       .trim());
   }
 
-  const pages = Array.from({ length: totalPages }, (_, index) => byPage.get(index + 1));
+  if (byPage.size < Math.max(1, totalPages - MATHPIX_MAX_MISSING_INDEXED_PAGES)) {
+    return undefined;
+  }
 
-  return pages.every((page): page is string => page !== undefined) ? pages : undefined;
+  // A completed Mathpix job can omit an entirely blank/unrecognized page from
+  // the line document. Preserve the source PDF numbering by materializing that
+  // missing index as an empty page instead of shifting the following pages.
+  return Array.from({ length: totalPages }, (_, index) => byPage.get(index + 1) ?? '');
 }
 
 function pageMmdFromLines (document: MathpixLinesDocument, totalPages: number): string[] | undefined {
@@ -490,9 +501,11 @@ function pageMmdFromLines (document: MathpixLinesDocument, totalPages: number): 
       .trim());
   }
 
-  const pages = Array.from({ length: totalPages }, (_, index) => byPage.get(index + 1));
+  if (byPage.size < Math.max(1, totalPages - MATHPIX_MAX_MISSING_INDEXED_PAGES)) {
+    return undefined;
+  }
 
-  return pages.every((page): page is string => page !== undefined) ? pages : undefined;
+  return Array.from({ length: totalPages }, (_, index) => byPage.get(index + 1) ?? '');
 }
 
 async function recoverPageMmd (pdfId: string, headers: Record<string, string>, lines: MathpixLinesDocument, totalPages: number, onExternalCall?: MathpixExternalCallHandler, signal?: AbortSignal): Promise<string[] | undefined> {
@@ -515,23 +528,22 @@ async function recoverPageMmd (pdfId: string, headers: Record<string, string>, l
 }
 
 async function splitWithFallbacks (pdfId: string, headers: Record<string, string>, mmd: string, streamedPages: Map<number, string>, lines: MathpixLinesDocument, totalPages: number, onExternalCall?: MathpixExternalCallHandler, signal?: AbortSignal): Promise<string[]> {
-  try {
-    return splitMathpixMmdByPage(mmd, totalPages);
-  } catch (error) {
-    const streamed = pageMmdFromStream(streamedPages, totalPages);
+  // Page numbering must come from an explicit Mathpix page index whenever
+  // possible. Separator counts alone cannot tell whether a missing marker was
+  // at the end or in the middle (which would shift every later page).
+  const streamed = pageMmdFromStream(streamedPages, totalPages);
 
-    if (streamed) {
-      return streamed;
-    }
-
-    const recovered = await recoverPageMmd(pdfId, headers, lines, totalPages, onExternalCall, signal);
-
-    if (recovered) {
-      return recovered;
-    }
-
-    throw error;
+  if (streamed) {
+    return streamed;
   }
+
+  const recovered = await recoverPageMmd(pdfId, headers, lines, totalPages, onExternalCall, signal);
+
+  if (recovered) {
+    return recovered;
+  }
+
+  return splitMathpixMmdByPage(mmd, totalPages);
 }
 
 export async function recognizePdfWithMathpix (appId: string | undefined, apiKey: string, file: File, totalPages: number, onProgress?: MathpixProgressHandler, onExternalCall?: MathpixExternalCallHandler, signal?: AbortSignal, resume?: MathpixPdfResumeOptions): Promise<MathpixPdfRecognitionResult> {

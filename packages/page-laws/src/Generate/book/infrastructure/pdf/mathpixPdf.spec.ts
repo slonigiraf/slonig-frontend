@@ -31,11 +31,11 @@ describe('Mathpix whole-PDF recognition helpers', (): void => {
     assert.deepEqual(splitMathpixMmdByPage(combined, 40), Array.from({ length: 40 }, (_, index) => `Page ${index + 1}`));
   });
 
-  it('accepts a missing trailing Mathpix page break', (): void => {
-    assert.deepEqual(splitMathpixMmdByPage('First page\n\\pagebreak\nSecond page', 2), [
-      'First page',
-      'Second page'
-    ]);
+  it('does not guess page numbers when one of the Mathpix page breaks is missing', (): void => {
+    assert.throws(
+      () => splitMathpixMmdByPage('First page\n\\pagebreak\nSecond page', 2),
+      /1 page breaks for a 2-page PDF/
+    );
   });
 
   it('still rejects results with too few page boundaries', (): void => {
@@ -203,6 +203,57 @@ describe('Mathpix whole-PDF recognition helpers', (): void => {
       const result = await recognizePdfWithMathpix(undefined, 'api-key', new File([], 'slice.pdf'), 2, undefined, undefined, undefined, { pdfId: 'stream-race-pdf' });
 
       assert.deepEqual(result.pages.map(({ pageMMD }) => pageMMD), ['Stream page one', 'Stream page two']);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  it('uses numbered page data before a superficially valid N-1 separator split', async (): Promise<void> => {
+    const originalFetch = globalThis.fetch;
+
+    globalThis.fetch = async (input: RequestInfo | URL): Promise<Response> => {
+      const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
+
+      if (url === 'https://api.mathpix.com/v3/pdf/middle-missing-break-pdf/stream') {
+        return new Response('', { status: 200 });
+      }
+
+      if (url === 'https://api.mathpix.com/v3/pdf/middle-missing-break-pdf') {
+        return Response.json({
+          conversion_status: { 'mmd.zip': { status: 'error' } },
+          num_pages: 3,
+          num_pages_completed: 3,
+          status: 'completed'
+        });
+      }
+
+      if (url === 'https://api.mathpix.com/v3/pdf/middle-missing-break-pdf.mmd') {
+        // Two separators for three pages used to be accepted as if only the
+        // final trailing marker were missing. In this fixture PDF page 2 is
+        // actually blank/missing, so that interpretation would shift page 3.
+        return new Response('PDF page one\n\\pagebreak\nPDF page three\n\\pagebreak\n', { status: 200 });
+      }
+
+      if (url === 'https://api.mathpix.com/v3/pdf/middle-missing-break-pdf.lines.json') {
+        return Response.json({ pages: [{ page: 1, lines: [] }, { page: 3, lines: [] }] });
+      }
+
+      if (url === 'https://api.mathpix.com/v3/pdf/middle-missing-break-pdf.lines.mmd.json') {
+        return Response.json({
+          pages: [
+            { page: 1, lines: [{ text: 'PDF page one' }] },
+            { page: 3, lines: [{ text: 'PDF page three' }] }
+          ]
+        });
+      }
+
+      throw new Error(`Unexpected fetch: ${url}`);
+    };
+
+    try {
+      const result = await recognizePdfWithMathpix(undefined, 'api-key', new File([], 'slice.pdf'), 3, undefined, undefined, undefined, { pdfId: 'middle-missing-break-pdf' });
+
+      assert.deepEqual(result.pages.map(({ pageMMD }) => pageMMD), ['PDF page one', '', 'PDF page three']);
     } finally {
       globalThis.fetch = originalFetch;
     }
