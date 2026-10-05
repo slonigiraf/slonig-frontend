@@ -29,6 +29,7 @@ import type { ExerciseTemplate } from './ExerciseTemplate.js';
 import type { AiTutorStudentMessage } from './AiTutorStudentMessage.js';
 import type { StandardEmbedding } from './StandardEmbedding.js';
 import type { ConceptEmbedding } from './ConceptEmbedding.js';
+import type { MathpixPdfJob } from './MathpixPdfJob.js';
 
 type LegacyBookSkill = Omit<Skill, 'exerciseIds'> & { bookExerciseIds?: number[] };
 type LegacyExerciseTemplate = Omit<ExerciseTemplate, 'skillId'> & { bookSkillId: number };
@@ -89,6 +90,7 @@ export class SlonigDB extends Dexie {
   aiTutorStudentMessages!: Table<AiTutorStudentMessage, string>;
   standardEmbeddings!: Table<StandardEmbedding, string>;
   conceptEmbeddings!: Table<ConceptEmbedding, number>;
+  mathpixPdfJobs!: Table<MathpixPdfJob, [number, number, number]>;
 
   constructor(name = 'slonig') {
     super(name);
@@ -587,6 +589,12 @@ export class SlonigDB extends Dexie {
     this.version(96).stores({
       conceptEmbeddings: '&id,bookId,model',
       standardEmbeddings: '&id,model'
+    });
+    // Keep in-flight Mathpix PDF ids across reloads. Recognition is performed
+    // in deterministic page slices, so the compound range key identifies the
+    // one remote job that can be resumed for that slice.
+    this.version(97).stores({
+      mathpixPdfJobs: '&[bookId+startPage+endPage],bookId,pdfId'
     });
 
   }

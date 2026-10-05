@@ -6,7 +6,7 @@ import { describe, it } from 'node:test';
 
 import { strFromU8, strToU8, unzipSync } from 'fflate';
 
-import { createMathpixPageMmdZip, mathpixPdfSlices, splitMathpixMmdByPage } from './mathpixPdf.js';
+import { createMathpixPageMmdZip, mathpixPdfSlices, recognizePdfWithMathpix, splitMathpixMmdByPage } from './mathpixPdf.js';
 
 describe('Mathpix whole-PDF recognition helpers', (): void => {
   it('slices PDFs into 40-page Mathpix requests', (): void => {
@@ -51,5 +51,101 @@ describe('Mathpix whole-PDF recognition helpers', (): void => {
     assert.deepEqual(Object.keys(entries).sort(), ['images/figure-2.png', 'page.mmd']);
     assert.equal(strFromU8(entries['page.mmd']), pageMmd);
     assert.equal(strFromU8(entries['images/figure-2.png']), 'two');
+  });
+
+  it('reconnects to a saved Mathpix pdf id without submitting the PDF again', async (): Promise<void> => {
+    const originalFetch = globalThis.fetch;
+    const calls: Array<{ method: string; url: string }> = [];
+
+    globalThis.fetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+      const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
+      const method = init?.method ?? 'GET';
+
+      calls.push({ method, url });
+
+      if (url === 'https://api.mathpix.com/v3/pdf/saved-pdf/stream') {
+        return new Response('', { status: 200 });
+      }
+
+      if (url === 'https://api.mathpix.com/v3/pdf/saved-pdf') {
+        return Response.json({
+          conversion_status: { 'mmd.zip': { status: 'error' } },
+          num_pages: 1,
+          num_pages_completed: 1,
+          status: 'completed'
+        });
+      }
+
+      if (url === 'https://api.mathpix.com/v3/pdf/saved-pdf.mmd') {
+        return new Response('Recovered page', { status: 200 });
+      }
+
+      if (url === 'https://api.mathpix.com/v3/pdf/saved-pdf.lines.json') {
+        return Response.json({ pages: [] });
+      }
+
+      throw new Error(`Unexpected fetch: ${method} ${url}`);
+    };
+
+    try {
+      const result = await recognizePdfWithMathpix(undefined, 'api-key', new File([], 'slice.pdf'), 1, undefined, undefined, undefined, { pdfId: 'saved-pdf' });
+
+      assert.equal(result.pages[0]?.pageMMD, 'Recovered page');
+      assert.equal(calls.some(({ method, url }) => method === 'POST' && url === 'https://api.mathpix.com/v3/pdf'), false);
+      assert.equal(calls.some(({ url }) => url === 'https://api.mathpix.com/v3/pdf/saved-pdf'), true);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  it('exposes a new pdf id before it starts waiting for Mathpix', async (): Promise<void> => {
+    const originalFetch = globalThis.fetch;
+    let persistedPdfId: string | undefined;
+
+    globalThis.fetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+      const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
+
+      if (url === 'https://api.mathpix.com/v3/pdf' && init?.method === 'POST') {
+        return Response.json({ pdf_id: 'new-pdf' });
+      }
+
+      if (url === 'https://api.mathpix.com/v3/pdf/new-pdf/stream') {
+        return new Response('', { status: 200 });
+      }
+
+      if (url === 'https://api.mathpix.com/v3/pdf/new-pdf') {
+        assert.equal(persistedPdfId, 'new-pdf', 'the caller must be able to persist the id before polling starts');
+
+        return Response.json({
+          conversion_status: { 'mmd.zip': { status: 'error' } },
+          num_pages: 1,
+          num_pages_completed: 1,
+          status: 'completed'
+        });
+      }
+
+      if (url === 'https://api.mathpix.com/v3/pdf/new-pdf.mmd') {
+        return new Response('Fresh page', { status: 200 });
+      }
+
+      if (url === 'https://api.mathpix.com/v3/pdf/new-pdf.lines.json') {
+        return Response.json({ pages: [] });
+      }
+
+      throw new Error(`Unexpected fetch: ${init?.method ?? 'GET'} ${url}`);
+    };
+
+    try {
+      const result = await recognizePdfWithMathpix(undefined, 'api-key', new File([], 'slice.pdf'), 1, undefined, undefined, undefined, {
+        onPdfId: async (pdfId) => {
+          persistedPdfId = pdfId;
+        }
+      });
+
+      assert.equal(result.pages[0]?.pageMMD, 'Fresh page');
+      assert.equal(persistedPdfId, 'new-pdf');
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
   });
 });

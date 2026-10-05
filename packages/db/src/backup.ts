@@ -15,7 +15,8 @@ const CACHE_TABLES = new Set([
   'cidCache',
   'aiTutorStudentMessages',
   'standardEmbeddings',
-  'conceptEmbeddings'
+  'conceptEmbeddings',
+  'mathpixPdfJobs'
 ]);
 
 export function shouldExportDatabaseRow (tableName: string, value?: unknown, includeEverything = false): boolean {

@@ -50,6 +50,20 @@ export interface MathpixPdfRecognitionResult {
   pages: MathpixRecognizedPage[];
 }
 
+export interface MathpixPdfResumeOptions {
+  /** Existing remote Mathpix job to reconnect to instead of submitting again. */
+  pdfId?: string;
+  /** Called immediately after a new Mathpix job is accepted, before polling it. */
+  onPdfId?: (pdfId: string) => Promise<void> | void;
+}
+
+export class MathpixPdfTerminalError extends Error {
+  constructor (message: string) {
+    super(message);
+    this.name = 'MathpixPdfTerminalError';
+  }
+}
+
 type MathpixProgressHandler = (completedPages: number) => void;
 type MathpixExternalCallHandler = (provider: 'mmd' | 'pdfv3') => void;
 
@@ -284,6 +298,10 @@ async function waitForMathpixPdf (pdfId: string, headers: Record<string, string>
     const status = await response.json() as MathpixPdfStatus;
 
     if (!response.ok) {
+      if (response.status === 404) {
+        throw new MathpixPdfTerminalError(status.error || 'The saved Mathpix PDF job no longer exists.');
+      }
+
       throw new Error(status.error || 'Unable to check Mathpix PDF recognition.');
     }
 
@@ -292,7 +310,7 @@ async function waitForMathpixPdf (pdfId: string, headers: Record<string, string>
     }
 
     if (status.status === 'error') {
-      throw new Error(status.error || 'Mathpix could not recognize the PDF.');
+      throw new MathpixPdfTerminalError(status.error || 'Mathpix could not recognize the PDF.');
     }
 
     const zipStatus = status.conversion_status?.['mmd.zip'];
@@ -330,32 +348,40 @@ function splitWithStreamFallback (mmd: string, streamedPages: Map<number, string
   }
 }
 
-export async function recognizePdfWithMathpix (appId: string | undefined, apiKey: string, file: File, totalPages: number, onProgress?: MathpixProgressHandler, onExternalCall?: MathpixExternalCallHandler, signal?: AbortSignal): Promise<MathpixPdfRecognitionResult> {
+export async function recognizePdfWithMathpix (appId: string | undefined, apiKey: string, file: File, totalPages: number, onProgress?: MathpixProgressHandler, onExternalCall?: MathpixExternalCallHandler, signal?: AbortSignal, resume?: MathpixPdfResumeOptions): Promise<MathpixPdfRecognitionResult> {
   const headers: Record<string, string> = { app_key: apiKey };
 
   if (appId?.trim()) {
     headers.app_id = appId.trim();
   }
-  const body = new FormData();
 
-  body.append('file', file, file.name);
-  body.append('options_json', JSON.stringify({
-    conversion_formats: { 'mmd.zip': true },
-    include_page_breaks: true,
-    streaming: true
-  }));
+  let pdfId = resume?.pdfId?.trim();
 
-  onExternalCall?.('pdfv3');
-  const response = await fetch('https://api.mathpix.com/v3/pdf', {
-    body,
-    headers,
-    method: 'POST',
-    signal
-  });
-  const result = await response.json() as { error?: string; pdf_id?: string };
+  if (!pdfId) {
+    const body = new FormData();
 
-  if (!response.ok || !result.pdf_id) {
-    throw new Error(result.error || 'Mathpix could not start PDF recognition.');
+    body.append('file', file, file.name);
+    body.append('options_json', JSON.stringify({
+      conversion_formats: { 'mmd.zip': true },
+      include_page_breaks: true,
+      streaming: true
+    }));
+
+    onExternalCall?.('pdfv3');
+    const response = await fetch('https://api.mathpix.com/v3/pdf', {
+      body,
+      headers,
+      method: 'POST',
+      signal
+    });
+    const result = await response.json() as { error?: string; pdf_id?: string };
+
+    if (!response.ok || !result.pdf_id) {
+      throw new Error(result.error || 'Mathpix could not start PDF recognition.');
+    }
+
+    pdfId = result.pdf_id;
+    await resume?.onPdfId?.(pdfId);
   }
 
   const streamedPages = new Map<number, string>();
@@ -363,7 +389,7 @@ export async function recognizePdfWithMathpix (appId: string | undefined, apiKey
   const abortStream = (): void => streamAbort.abort();
 
   signal?.addEventListener('abort', abortStream, { once: true });
-  const streamPromise = streamMathpixPages(result.pdf_id, headers, streamAbort.signal, streamedPages, onProgress, onExternalCall)
+  const streamPromise = streamMathpixPages(pdfId, headers, streamAbort.signal, streamedPages, onProgress, onExternalCall)
     .catch((error: unknown) => {
       if (!isAbortError(error)) {
         console.warn('Mathpix page streaming failed; continuing with status polling.', error);
@@ -373,7 +399,7 @@ export async function recognizePdfWithMathpix (appId: string | undefined, apiKey
   let status: MathpixPdfStatus;
 
   try {
-    status = await waitForMathpixPdf(result.pdf_id, headers, onProgress, onExternalCall, signal);
+    status = await waitForMathpixPdf(pdfId, headers, onProgress, onExternalCall, signal);
   } finally {
     streamAbort.abort();
     await streamPromise;
@@ -381,14 +407,14 @@ export async function recognizePdfWithMathpix (appId: string | undefined, apiKey
   }
 
   if (status.num_pages !== undefined && status.num_pages !== totalPages) {
-    throw new Error(`Mathpix reported ${status.num_pages} pages for a ${totalPages}-page PDF.`);
+    throw new MathpixPdfTerminalError(`Mathpix reported ${status.num_pages} pages for a ${totalPages}-page PDF.`);
   }
 
   onExternalCall?.('mmd');
   onExternalCall?.('pdfv3');
   const [mmdResponse, linesResponse] = await Promise.all([
-    fetch(`https://api.mathpix.com/v3/pdf/${result.pdf_id}.mmd`, { headers, signal }),
-    fetch(`https://api.mathpix.com/v3/pdf/${result.pdf_id}.lines.json`, { headers, signal })
+    fetch(`https://api.mathpix.com/v3/pdf/${pdfId}.mmd`, { headers, signal }),
+    fetch(`https://api.mathpix.com/v3/pdf/${pdfId}.lines.json`, { headers, signal })
   ]);
 
   if (!mmdResponse.ok) {
@@ -414,7 +440,7 @@ export async function recognizePdfWithMathpix (appId: string | undefined, apiKey
 
   if (zipStatus?.status === 'completed') {
     onExternalCall?.('mmd');
-    const zipResponse = await fetch(`https://api.mathpix.com/v3/pdf/${result.pdf_id}.mmd.zip`, { headers, signal });
+    const zipResponse = await fetch(`https://api.mathpix.com/v3/pdf/${pdfId}.mmd.zip`, { headers, signal });
 
     if (zipResponse.ok) {
       try {

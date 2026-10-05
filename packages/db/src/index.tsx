@@ -39,10 +39,11 @@ import type { Image } from './db/Image.js';
 import type { AiTutorStudentMessage } from './db/AiTutorStudentMessage.js';
 import type { StandardEmbedding } from './db/StandardEmbedding.js';
 import type { ConceptEmbedding } from './db/ConceptEmbedding.js';
+import type { MathpixPdfJob } from './db/MathpixPdfJob.js';
 import { shouldExportDatabaseRow } from './backup.js';
 
 export { BOOK_PROCESSING_STAGES, getBookCompletedStages, isBookProcessingStageComplete, withBookProcessingStagesResetFrom, withCompletedBookProcessingStage } from './db/Book.js';
-export type { LearnRequest, TutorAction, CanceledInsurance, Reexamination, LetterTemplate, CanceledLetter, Reimbursement, Letter, Insurance, Lesson, Pseudonym, Setting, Signer, UsageRight, Agreement, Ability, AbilityExercise, AbilityValue, Image, Book, BookProcessingStageKey, BookStageSpend, BookStageSpendKey, BookSubject, BookPage, MathpixHeading, BookChapter, BookConcept, Exercise, Skill, ExerciseTemplate, AiTutorStudentMessage, StandardEmbedding, ConceptEmbedding };
+export type { LearnRequest, TutorAction, CanceledInsurance, Reexamination, LetterTemplate, CanceledLetter, Reimbursement, Letter, Insurance, Lesson, Pseudonym, Setting, Signer, UsageRight, Agreement, Ability, AbilityExercise, AbilityValue, Image, Book, BookProcessingStageKey, BookStageSpend, BookStageSpendKey, BookSubject, BookPage, MathpixHeading, BookChapter, BookConcept, Exercise, Skill, ExerciseTemplate, AiTutorStudentMessage, StandardEmbedding, ConceptEmbedding, MathpixPdfJob };
 export type { ImageType } from './db/Image.js';
 
 const EXERCISE_ABILITY_MODULE = /^book-(\d+)-exercise-(\d+)$/;
@@ -643,7 +644,7 @@ export async function getBookByContentHash(contentHash: string): Promise<Book | 
 }
 
 export async function deleteBook(id: number): Promise<void> {
-    await db.transaction('rw', db.books, db.bookPages, db.bookChapters, db.bookConcepts, db.conceptEmbeddings, db.exercises, db.skills, db.exerciseTemplates, db.abilities, db.images, async () => {
+    await db.transaction('rw', db.books, db.bookPages, db.bookChapters, db.bookConcepts, db.conceptEmbeddings, db.exercises, db.skills, db.exerciseTemplates, db.abilities, db.images, db.mathpixPdfJobs, async () => {
         const pageKeys = await db.bookPages.where('bookId').equals(id).primaryKeys();
         const chapterIds = (await db.bookChapters.where('bookId').equals(id).primaryKeys()) as number[];
         const skillIds = (await Promise.all(chapterIds.map((chapterId) => db.skills.where('chapterId').equals(chapterId).primaryKeys()))).flat() as number[];
@@ -675,11 +676,24 @@ export async function deleteBook(id: number): Promise<void> {
         }
         await db.bookChapters.where('bookId').equals(id).delete();
         await db.conceptEmbeddings.where('bookId').equals(id).delete();
+        await db.mathpixPdfJobs.where('bookId').equals(id).delete();
     });
 }
 
 export async function putBookPage(bookPage: BookPage): Promise<void> {
     await db.bookPages.put(bookPage);
+}
+
+export async function getMathpixPdfJob(bookId: number, startPage: number, endPage: number): Promise<MathpixPdfJob | undefined> {
+    return db.mathpixPdfJobs.get([bookId, startPage, endPage]);
+}
+
+export async function putMathpixPdfJob(job: MathpixPdfJob): Promise<void> {
+    await db.mathpixPdfJobs.put(job);
+}
+
+export async function deleteMathpixPdfJob(bookId: number, startPage: number, endPage: number): Promise<void> {
+    await db.mathpixPdfJobs.delete([bookId, startPage, endPage]);
 }
 
 export async function putBookChapter(chapter: BookChapter): Promise<number> {

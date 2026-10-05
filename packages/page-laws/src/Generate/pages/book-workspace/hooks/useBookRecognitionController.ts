@@ -2,14 +2,32 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { BookPage, BookProcessingStageKey } from '@slonigiraf/db';
-import { getSetting, putBookPage, SettingKey, storeSetting } from '@slonigiraf/db';
+import { deleteMathpixPdfJob, getMathpixPdfJob, getSetting, putBookPage, putMathpixPdfJob, SettingKey, storeSetting } from '@slonigiraf/db';
 import type { Dispatch, SetStateAction } from 'react';
 import { useCallback, useState } from 'react';
 import { MATHPIX_PDF_PAGE_PRICE_USD } from '../../../book/application/config.js';
-import { mathpixPdfSlices, recognizePdfWithMathpix } from '../../../book/infrastructure/pdf/mathpixPdf.js';
+import { MathpixPdfTerminalError, mathpixPdfSlices, recognizePdfWithMathpix } from '../../../book/infrastructure/pdf/mathpixPdf.js';
 import { createPdfPageSliceFactory, mathpixHeadingsForRecognitionPage } from '../../../book/application/workspace/bookReaderProcessing.js';
 import type { RecognitionTarget } from '../../../shared/types/bookWorkspace.js';
 import type { BookExternalCallProvider } from '../../../book/infrastructure/storage/bookExternalCalls.js';
+
+function isRecognizedPage (page: BookPage | undefined): boolean {
+  return page?.pageMMD !== undefined;
+}
+
+function isRecognizedSlice (pages: Map<number, BookPage>, startPage: number, endPage: number): boolean {
+  for (let currentPage = startPage; currentPage <= endPage; currentPage++) {
+    if (!isRecognizedPage(pages.get(currentPage))) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+function recognizedPageTotal (pages: Map<number, BookPage>, totalPages: number): number {
+  return Array.from({ length: totalPages }, (_, index) => pages.get(index + 1)).filter(isRecognizedPage).length;
+}
 
 interface UseBookRecognitionControllerOptions {
   addRecognizeCost: (costUsd: number) => void;
@@ -63,6 +81,7 @@ export function useBookRecognitionController ({
     setError('');
     setOpenRouterSpent(0);
     setProcessingPage(pageNumber);
+    let activeSlice: { endPage: number; startPage: number } | undefined;
 
     try {
       const [appId, apiKey] = await Promise.all([
@@ -84,16 +103,43 @@ export function useBookRecognitionController ({
         throw new Error(`Unable to determine the 40-page PDF slice containing page ${pageNumber}.`);
       }
 
+      activeSlice = slice;
+
+      // A completed slice is already durable in IndexedDB. Avoid paying for a
+      // second Mathpix submission, and clean up a stale pending-job row if the
+      // previous session reloaded after storing all pages but before deleting it.
+      if (isRecognizedSlice(pages, slice.startPage, slice.endPage)) {
+        await deleteMathpixPdfJob(bookId, slice.startPage, slice.endPage);
+
+        if (totalPages && recognizedPageTotal(pages, totalPages) === totalPages) {
+          await completeStage('recognize');
+        }
+
+        setActivePane('text');
+        return;
+      }
+
       const pageCount = slice.endPage - slice.startPage + 1;
+      const pendingJob = await getMathpixPdfJob(bookId, slice.startPage, slice.endPage);
       const createPdfPageSlice = await createPdfPageSliceFactory(file);
       const sliceFile = await createPdfPageSlice(slice.startPage, slice.endPage);
-      const recognition = await recognizePdfWithMathpix(appId, apiKey, sliceFile, pageCount, undefined, addRecognizeExternalCall, currentReaderProcessingSignal());
+      const recognition = await recognizePdfWithMathpix(appId, apiKey, sliceFile, pageCount, undefined, addRecognizeExternalCall, currentReaderProcessingSignal(), {
+        pdfId: pendingJob?.pdfId,
+        onPdfId: async (pdfId) => {
+          await putMathpixPdfJob({
+            bookId,
+            created: Date.now(),
+            endPage: slice.endPage,
+            pdfId,
+            startPage: slice.startPage
+          });
+          addRecognizeCost(MATHPIX_PDF_PAGE_PRICE_USD * pageCount);
+        }
+      });
 
       if (recognition.pages.length !== pageCount) {
         throw new Error(`Mathpix returned ${recognition.pages.length} pages for PDF pages ${slice.startPage}-${slice.endPage}.`);
       }
-
-      addRecognizeCost(MATHPIX_PDF_PAGE_PRICE_USD * pageCount);
 
       const updatedPages = new Map(pages);
 
@@ -116,14 +162,26 @@ export function useBookRecognitionController ({
         updatedPages.set(currentPageNumber, recognizedPage);
       }
 
+      // The remote job is no longer needed only after every page in the slice
+      // has been durably stored. A reload before this point leaves the pdfId in
+      // IndexedDB so the next run can reconnect instead of submitting again.
+      await deleteMathpixPdfJob(bookId, slice.startPage, slice.endPage);
       setPages(updatedPages);
 
-      if (totalPages && Array.from({ length: totalPages }, (_, index) => updatedPages.get(index + 1)).every((page) => page?.pageMMD !== undefined)) {
+      if (totalPages && recognizedPageTotal(updatedPages, totalPages) === totalPages) {
         await completeStage('recognize');
       }
 
       setActivePane('text');
     } catch (recognitionError) {
+      if (activeSlice && recognitionError instanceof MathpixPdfTerminalError) {
+        try {
+          await deleteMathpixPdfJob(bookId, activeSlice.startPage, activeSlice.endPage);
+        } catch (deleteError) {
+          console.error(deleteError);
+        }
+      }
+
       setError(recognitionError instanceof Error ? recognitionError.message : 'Unable to recognize this PDF slice.');
     } finally {
       setProcessingPage(undefined);
@@ -138,7 +196,7 @@ export function useBookRecognitionController ({
     setError('');
     setOpenRouterSpent(0);
     setIsRecognizingAll(true);
-    setRecognizedPageCount(0);
+    setRecognizedPageCount(recognizedPageTotal(pages, totalPages));
 
     const [appId, apiKey] = await Promise.all([
       getSetting(SettingKey.MATHPIX_APP_ID),
@@ -165,7 +223,8 @@ export function useBookRecognitionController ({
       const createPdfPageSlice = await createPdfPageSliceFactory(file);
       const failedPagesBySlice = await Promise.all(mathpixPdfSlices(totalPages).map(async ({ endPage, startPage }) => {
         const pageCount = endPage - startPage + 1;
-        let storedPageCount = 0;
+        const existingRecognizedPages = Array.from({ length: pageCount }, (_, index) => pages.get(startPage + index)).filter(isRecognizedPage).length;
+        let newlyStoredPageCount = 0;
 
         try {
           if (processingSignal.aborted) {
@@ -175,14 +234,27 @@ export function useBookRecognitionController ({
             throw abortError;
           }
 
+          // The entire chunk is already durable, so no Mathpix request is
+          // needed. Also remove a stale job row left by a reload between the
+          // final page write and pending-job cleanup.
+          if (existingRecognizedPages === pageCount) {
+            await deleteMathpixPdfJob(bookId, startPage, endPage);
+            return 0;
+          }
+
+          const pendingJob = await getMathpixPdfJob(bookId, startPage, endPage);
           const sliceFile = await createPdfPageSlice(startPage, endPage);
-          const recognition = await recognizePdfWithMathpix(appId, apiKey, sliceFile, pageCount, undefined, addRecognizeExternalCall, processingSignal);
+          const recognition = await recognizePdfWithMathpix(appId, apiKey, sliceFile, pageCount, undefined, addRecognizeExternalCall, processingSignal, {
+            pdfId: pendingJob?.pdfId,
+            onPdfId: async (pdfId) => {
+              await putMathpixPdfJob({ bookId, created: Date.now(), endPage, pdfId, startPage });
+              addRecognizeCost(MATHPIX_PDF_PAGE_PRICE_USD * pageCount);
+            }
+          });
 
           if (recognition.pages.length !== pageCount) {
             throw new Error(`Mathpix returned ${recognition.pages.length} pages for PDF pages ${startPage}-${endPage}.`);
           }
-
-          addRecognizeCost(MATHPIX_PDF_PAGE_PRICE_USD * pageCount);
 
           for (let index = 0; index < pageCount; index++) {
             const currentPageNumber = startPage + index;
@@ -200,18 +272,31 @@ export function useBookRecognitionController ({
             };
 
             await putBookPage(recognizedPage);
-            storedPageCount++;
+
+            if (!isRecognizedPage(storedPage)) {
+              newlyStoredPageCount++;
+              setRecognizedPageCount((count) => count + 1);
+            }
+
             setPages((current) => new Map(current).set(currentPageNumber, recognizedPage));
-            setRecognizedPageCount((count) => count + 1);
           }
 
+          await deleteMathpixPdfJob(bookId, startPage, endPage);
           return 0;
         } catch (error) {
           if (processingSignal.aborted || (error instanceof Error && error.name === 'AbortError')) {
             throw error;
           }
 
-          return pageCount - storedPageCount;
+          if (error instanceof MathpixPdfTerminalError) {
+            try {
+              await deleteMathpixPdfJob(bookId, startPage, endPage);
+            } catch (deleteError) {
+              console.error(deleteError);
+            }
+          }
+
+          return Math.max(0, pageCount - existingRecognizedPages - newlyStoredPageCount);
         }
       }));
       const failedPages = failedPagesBySlice.reduce((total, count) => total + count, 0);
