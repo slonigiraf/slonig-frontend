@@ -4,7 +4,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { deduplicateConceptCandidates, deduplicateConceptsPrompt, parseDeduplicateConceptPairs, type DeduplicateConceptCandidatePair, type DeduplicateConceptInput } from './deduplicateConcepts.js';
+import { deduplicateConceptCandidates, deduplicateConceptCandidatesAcrossChapters, deduplicateConceptCandidatesWithinChapters, deduplicateConceptsPrompt, parseDeduplicateConceptPairs, type DeduplicateConceptCandidatePair, type DeduplicateConceptInput } from './deduplicateConcepts.js';
 
 const concepts: DeduplicateConceptInput[] = [
   { chapterId: 2, chapterTitle: 'Earlier', conceptId: 10, description: 'Understand equivalent fractions.', title: 'Equivalent fractions' },
@@ -40,6 +40,39 @@ describe('Deduplicate concepts', (): void => {
     assert.equal(generated.length, 1);
     assert.equal(generated[0].conceptIdA, 10);
     assert.equal(generated[0].conceptIdB, 20);
+  });
+
+  it('can restrict the first pass to duplicate candidates inside the same chapter', (): void => {
+    const scopedConcepts: DeduplicateConceptInput[] = [
+      { chapterId: 2, chapterTitle: 'Earlier', conceptId: 10, description: 'a', title: 'a' },
+      { chapterId: 2, chapterTitle: 'Earlier', conceptId: 11, description: 'a copy', title: 'a copy' },
+      { chapterId: 7, chapterTitle: 'Later', conceptId: 20, description: 'a cross chapter copy', title: 'a cross chapter copy' }
+    ];
+    const embeddings = new Map<number, number[]>([
+      [10, [1, 0]],
+      [11, [0.999, 0.01]],
+      [20, [0.998, 0.02]]
+    ]);
+    const generated = deduplicateConceptCandidatesWithinChapters(scopedConcepts, embeddings, 0.1, 5);
+
+    assert.deepEqual(generated.map(({ conceptIdA, conceptIdB }) => [conceptIdA, conceptIdB]), [[10, 11]]);
+  });
+
+  it('can restrict the second pass to candidates from different chapters', (): void => {
+    const scopedConcepts: DeduplicateConceptInput[] = [
+      { chapterId: 2, chapterTitle: 'Earlier', conceptId: 10, description: 'a', title: 'a' },
+      { chapterId: 2, chapterTitle: 'Earlier', conceptId: 11, description: 'a copy', title: 'a copy' },
+      { chapterId: 7, chapterTitle: 'Later', conceptId: 20, description: 'a cross chapter copy', title: 'a cross chapter copy' }
+    ];
+    const embeddings = new Map<number, number[]>([
+      [10, [1, 0]],
+      [11, [0.999, 0.01]],
+      [20, [0.998, 0.02]]
+    ]);
+    const generated = deduplicateConceptCandidatesAcrossChapters(scopedConcepts, embeddings, 0.1, 5);
+
+    assert.equal(generated.some(({ conceptIdA, conceptIdB }) => conceptIdA === 10 && conceptIdB === 11), false);
+    assert.equal(generated.some(({ conceptIdA, conceptIdB }) => conceptIdB === 20 && (conceptIdA === 10 || conceptIdA === 11)), true);
   });
 
   it('rejects AI pairs that were not selected by embeddings', (): void => {

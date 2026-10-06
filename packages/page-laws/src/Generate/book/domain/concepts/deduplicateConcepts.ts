@@ -63,7 +63,7 @@ export function deduplicateConceptsPrompt (
 
 The book language is ${bookLanguage || 'unknown'}, the book topic/subject is ${bookSubject || 'unknown'}, and the learner age is ${Number.isSafeInteger(learnerAge) ? learnerAge : 'unknown'}.
 
-The embedding stage already compared the entire book and selected semantically close candidate pairs. Review ONLY the supplied candidate pairs. A candidate is not automatically a duplicate: confirm a pair only when both concepts teach essentially the same independently learnable knowledge unit. Be conservative. Reject pairs that are merely related, prerequisite/dependent, examples of one another, broader/narrower versions, neighboring skills, or concepts that share vocabulary. Different mathematical procedures, cases, properties, representations, or levels of generality are not duplicates unless they truly express the same learning target.
+The embedding stage selected semantically close candidate pairs for this deduplication pass. Review ONLY the supplied candidate pairs. A candidate is not automatically a duplicate: confirm a pair only when both concepts teach essentially the same independently learnable knowledge unit. Be conservative. Reject pairs that are merely related, prerequisite/dependent, examples of one another, broader/narrower versions, neighboring skills, or concepts that share vocabulary. Different mathematical procedures, cases, properties, representations, or levels of generality are not duplicates unless they truly express the same learning target.
 
 Compare title AND description. Ignore superficial wording differences. Do not rewrite, merge, add, or otherwise modify concepts. Do not return a pair that is absent from candidatePairs.
 
@@ -108,9 +108,10 @@ function cosineDistance (left: number[], right: number[]): number | undefined {
   return Number.isFinite(similarity) ? Math.max(0, Math.min(2, 1 - similarity)) : undefined;
 }
 
-export function deduplicateConceptCandidates (
+function deduplicateConceptCandidatesFiltered (
   concepts: DeduplicateConceptInput[],
   embeddings: ReadonlyMap<number, number[]>,
+  pairAllowed: (left: DeduplicateConceptInput, right: DeduplicateConceptInput) => boolean,
   maxDistance = DEDUPLICATION_MAX_COSINE_DISTANCE,
   maxNeighborsPerConcept = DEDUPLICATION_MAX_NEIGHBORS_PER_CONCEPT
 ): DeduplicateConceptCandidatePair[] {
@@ -124,7 +125,7 @@ export function deduplicateConceptCandidates (
     }
 
     const nearest = concepts.flatMap((other, otherIndex) => {
-      if (otherIndex === conceptIndex) {
+      if (otherIndex === conceptIndex || !pairAllowed(concept, other)) {
         return [];
       }
 
@@ -150,6 +151,33 @@ export function deduplicateConceptCandidates (
   });
 
   return Array.from(byPair.values()).sort((a, b) => a.cosineDistance - b.cosineDistance || a.conceptIdA - b.conceptIdA || a.conceptIdB - b.conceptIdB);
+}
+
+export function deduplicateConceptCandidates (
+  concepts: DeduplicateConceptInput[],
+  embeddings: ReadonlyMap<number, number[]>,
+  maxDistance = DEDUPLICATION_MAX_COSINE_DISTANCE,
+  maxNeighborsPerConcept = DEDUPLICATION_MAX_NEIGHBORS_PER_CONCEPT
+): DeduplicateConceptCandidatePair[] {
+  return deduplicateConceptCandidatesFiltered(concepts, embeddings, () => true, maxDistance, maxNeighborsPerConcept);
+}
+
+export function deduplicateConceptCandidatesWithinChapters (
+  concepts: DeduplicateConceptInput[],
+  embeddings: ReadonlyMap<number, number[]>,
+  maxDistance = DEDUPLICATION_MAX_COSINE_DISTANCE,
+  maxNeighborsPerConcept = DEDUPLICATION_MAX_NEIGHBORS_PER_CONCEPT
+): DeduplicateConceptCandidatePair[] {
+  return deduplicateConceptCandidatesFiltered(concepts, embeddings, (left, right) => left.chapterId === right.chapterId, maxDistance, maxNeighborsPerConcept);
+}
+
+export function deduplicateConceptCandidatesAcrossChapters (
+  concepts: DeduplicateConceptInput[],
+  embeddings: ReadonlyMap<number, number[]>,
+  maxDistance = DEDUPLICATION_MAX_COSINE_DISTANCE,
+  maxNeighborsPerConcept = DEDUPLICATION_MAX_NEIGHBORS_PER_CONCEPT
+): DeduplicateConceptCandidatePair[] {
+  return deduplicateConceptCandidatesFiltered(concepts, embeddings, (left, right) => left.chapterId !== right.chapterId, maxDistance, maxNeighborsPerConcept);
 }
 
 export function parseDeduplicateConceptPairs (content: string, concepts: DeduplicateConceptInput[], candidates?: DeduplicateConceptCandidatePair[]): DeduplicateConceptPair[] {

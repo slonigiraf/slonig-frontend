@@ -482,24 +482,12 @@ function isBookProcessingStageAfter(stage: BookProcessingStageKey, candidate: Bo
     return BOOK_PROCESSING_STAGES.indexOf(candidate) > BOOK_PROCESSING_STAGES.indexOf(stage);
 }
 
-/** Delete all chapter identities and page-to-chapter assignments for one book. */
-async function clearBookChapterAssignments(bookId: number): Promise<void> {
-    await db.bookChapters.where('bookId').equals(bookId).delete();
-    await db.bookPages.where('bookId').equals(bookId).modify({
-        chapter: '',
-        chapterId: undefined,
-        conceptsProcessed: false,
-        excludedFromAnalysis: undefined
-    });
-    await db.books.update(bookId, { chapterOrder: [] });
-}
-
 /**
- * Delete persisted artifacts produced strictly after the stage being invalidated.
- * The stage's own rows are intentionally preserved here because this helper is
- * also used for manual edits that only invalidate downstream work. Explicit
- * stage-rerun cleanup that must replace stage-owned rows is handled by the
- * rerun entry point.
+ * Delete persisted artifacts produced strictly after the stage being rerun.
+ * The stage's own rows are intentionally preserved because many reruns replace
+ * or reconcile them as part of the stage itself. Downstream rows, however,
+ * must never survive with foreign keys or semantic assumptions from the old
+ * upstream snapshot.
  */
 async function clearBookEntitiesAfterProcessingStage(bookId: number, stage: BookProcessingStageKey): Promise<void> {
     const clearChapters = isBookProcessingStageAfter(stage, 'chapters');
@@ -551,7 +539,14 @@ async function clearBookEntitiesAfterProcessingStage(bookId: number, stage: Book
     }
 
     if (clearChapters) {
-        await clearBookChapterAssignments(bookId);
+        await db.bookChapters.where('bookId').equals(bookId).delete();
+        await db.bookPages.where('bookId').equals(bookId).modify({
+            chapter: '',
+            chapterId: undefined,
+            conceptsProcessed: false,
+            excludedFromAnalysis: undefined
+        });
+        await db.books.update(bookId, { chapterOrder: [] });
     }
 }
 
@@ -669,16 +664,6 @@ export async function resetBookProcessingStagesFrom(id: number, stage: BookProce
         }
 
         await clearBookEntitiesAfterProcessingStage(id, stage);
-
-        // An explicit Chapters rerun is a replacement operation: old chapter
-        // identities must not be reused by the next identification pass. This
-        // is intentionally different from updateBookFieldsAndStages(...,
-        // { resetFrom: 'chapters' }), which is also used after manual chapter
-        // edits and therefore only invalidates downstream entities.
-        if (stage === 'chapters') {
-            await clearBookChapterAssignments(id);
-        }
-
         const updated = withBookProcessingStagesResetFrom({ ...book, completedStages: getBookCompletedStages(book) }, stage);
 
         await db.books.update(id, { completedStages: updated.completedStages });

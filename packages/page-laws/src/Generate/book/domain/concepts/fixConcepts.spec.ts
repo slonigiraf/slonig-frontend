@@ -55,11 +55,13 @@ describe('fix concepts', (): void => {
     assert.match(prompt, /incorrectly bundles multiple independently teachable skills/);
     assert.match(prompt, /Writing numerals 0-5/);
     assert.match(prompt, /normal removals plus additions/);
+    assert.match(prompt, /Duplicate detection is explicitly OUT OF SCOPE/i);
+    assert.match(prompt, /later Deduplicate Concepts stage/i);
     assert.match(prompt, /removeConceptIndexes/);
     assert.match(prompt, /conceptIndex/);
   });
 
-  it('keeps only complete missing concepts and removes exact title duplicates', (): void => {
+  it('keeps complete Fix proposals without deduplicating them', (): void => {
     const result = parseMissingChapterConcepts(JSON.stringify({
       concepts: [
         { title: 'Numerator', description: 'A renamed duplicate.', pageNumber: 4 },
@@ -70,7 +72,11 @@ describe('fix concepts', (): void => {
       ]
     }), [{ title: 'Numerator', description: 'The top number in a fraction.' }], new Set([4, 5]));
 
-    assert.deepEqual(result, { concepts: [{ title: 'Denominator', description: 'The bottom number in a fraction.', pageNumber: 5 }], removeConceptIndexes: [] });
+    assert.deepEqual(result, { concepts: [
+      { title: 'Numerator', description: 'A renamed duplicate.', pageNumber: 4 },
+      { title: 'Denominator', description: 'The bottom number in a fraction.', pageNumber: 5 },
+      { title: 'Denominator', description: 'Duplicate candidate.', pageNumber: 5 }
+    ], removeConceptIndexes: [] });
   });
 
   it('accepts a split proposal as one removal plus isolated replacement concepts', (): void => {

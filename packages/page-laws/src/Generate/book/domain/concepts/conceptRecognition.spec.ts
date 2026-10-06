@@ -63,7 +63,7 @@ describe('chapter concept recognition', (): void => {
     const prompt = BOOK_CHAPTER_EXTRACTION_REQUEST_PROMPT('Algebra', [
       { imageNames: [], pageNumber: 6, text: 'First page text' },
       { imageNames: ['figure.png'], pageNumber: 7, text: 'Second page text' }
-    ]);
+    ], 11);
 
     assert.match(prompt, /complete supplied chapter/i);
     assert.match(prompt, /smallest useful knowledge unit/i);
@@ -78,6 +78,8 @@ describe('chapter concept recognition', (): void => {
     assert.match(prompt, /Could a learner know one meaningful part/i);
     assert.match(prompt, /Favor over-splitting over under-splitting/i);
     assert.match(prompt, /earliest supplied page/i);
+    assert.match(prompt, /learner age is 11/i);
+    assert.match(prompt, /Do NOT omit a concept/i);
     assert.match(prompt, /--- page 6 ---/);
     assert.match(prompt, /--- page 7 ---/);
     assert.match(prompt, /"pageNumber":12/);

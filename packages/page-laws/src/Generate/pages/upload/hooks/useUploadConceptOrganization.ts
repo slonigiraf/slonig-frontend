@@ -13,7 +13,7 @@ import type { BookReaderCommandAction, PendingBookProcessingAction } from '../..
 import { estimateAiInput } from '../../../book/application/pricing/aiEstimate.js';
 import { conceptsForRefinementChapter, refineChapterPrompt } from '../../../book/domain/chapters/refineChapters.js';
 import { conceptChaptersFromPages } from '../../../book/domain/concepts/conceptRecognition.js';
-import { conceptDeduplicationInput, deduplicateConceptCandidates, deduplicateConceptsPrompt } from '../../../book/domain/concepts/deduplicateConcepts.js';
+import { conceptDeduplicationInput, deduplicateConceptCandidatesAcrossChapters, deduplicateConceptCandidatesWithinChapters, deduplicateConceptsPrompt } from '../../../book/domain/concepts/deduplicateConcepts.js';
 import { conceptsForSortChapter, sortChapterConceptsPrompt } from '../../../book/domain/concepts/sortConcepts.js';
 import { conceptEmbeddingInput } from '../../../book/infrastructure/ai/standardsEmbeddings.js';
 import { useTranslation } from '../../../../common/translate.js';
@@ -112,10 +112,30 @@ export function useUploadConceptOrganization ({ embeddingModel, generateAllConce
         return;
       }
 
-      const candidates = deduplicateConceptCandidates(concepts, embeddings);
+      const conceptsByChapter = new Map<number, DeduplicateConceptInput[]>();
 
-      setDeduplicateConceptsEstimate(candidates.length
-        ? estimateAiInput(generateAllConceptsModel, [deduplicateConceptsPrompt(concepts, candidates, selectedBook.subject, selectedBook.language, selectedBook.age)], Math.max(300, candidates.length * 30))
+      concepts.forEach((concept) => conceptsByChapter.set(concept.chapterId, [...(conceptsByChapter.get(concept.chapterId) ?? []), concept]));
+      const withinChapterPasses = Array.from(conceptsByChapter.values()).map((chapterConcepts) => ({
+        candidates: deduplicateConceptCandidatesWithinChapters(chapterConcepts, embeddings),
+        concepts: chapterConcepts
+      }));
+      const withinChapterRequests = withinChapterPasses.flatMap(({ candidates, concepts: chapterConcepts }) => candidates.length
+        ? [deduplicateConceptsPrompt(chapterConcepts, candidates, selectedBook.subject, selectedBook.language, selectedBook.age)]
+        : []);
+      // The exact second-pass survivor set is only known after AI confirms the
+      // first pass. Estimate conservatively by comparing all concepts across
+      // chapters; execution will compare fewer concepts after local deletions.
+      const crossChapterCandidates = deduplicateConceptCandidatesAcrossChapters(concepts, embeddings);
+      const requests = [
+        ...withinChapterRequests,
+        ...(crossChapterCandidates.length
+          ? [deduplicateConceptsPrompt(concepts, crossChapterCandidates, selectedBook.subject, selectedBook.language, selectedBook.age)]
+          : [])
+      ];
+      const candidateCount = withinChapterPasses.reduce((count, { candidates }) => count + candidates.length, 0) + crossChapterCandidates.length;
+
+      setDeduplicateConceptsEstimate(requests.length
+        ? estimateAiInput(generateAllConceptsModel, requests, Math.max(300, candidateCount * 30))
         : t('No close embedding candidates require AI confirmation.'));
     }).catch(() => setError(t('Unable to estimate Deduplicate concepts cost.')));
   }, [embeddingModel, generateAllConceptsModel, isDeduplicateConceptsConfirmationOpen, selectedBook, t, requestProcessing, setBooks, setError, setPendingProcessingAction]);

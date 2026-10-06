@@ -8,7 +8,7 @@ import { useCallback, useEffect } from 'react';
 import { mapConcurrent } from '../../../../common/concurrency.js';
 import { OPENROUTER_CONCURRENCY } from '../../../../openrouter/concurrency.js';
 import type { ConceptChapterNavigationItem } from '../../../book/domain/concepts/conceptRecognition.js';
-import { deduplicateConceptCandidates, type DeduplicateConceptInput } from '../../../book/domain/concepts/deduplicateConcepts.js';
+import { deduplicateConceptCandidatesAcrossChapters, deduplicateConceptCandidatesWithinChapters, type DeduplicateConceptInput, type DeduplicateConceptPair } from '../../../book/domain/concepts/deduplicateConcepts.js';
 import { chapterLevelMissingConcept } from '../../../book/domain/concepts/fixConcepts.js';
 import { cachedConceptEmbeddingMap, ensureConceptEmbeddingCache } from '../../../book/infrastructure/ai/standardsEmbeddings.js';
 import { fixConceptsChapterKey, loadFixConceptsChapterStatuses, storeFixConceptsChapterStatuses, type FixConceptsChapterStatuses } from '../../../book/infrastructure/storage/fixConceptsProgress.js';
@@ -422,10 +422,35 @@ export function useBookConceptQuality ({
         throw new Error('Concept Embedings are missing or stale. Run Embedings again before deduplication.');
       }
 
-      const candidates = deduplicateConceptCandidates(inputs, embeddings);
-      const duplicatePairs = candidates.length
-        ? await requestDeduplicateConceptPairs(client, model, inputs, candidates, book, addDeduplicateConceptsCost)
+      const inputsByChapter = new Map<number, DeduplicateConceptInput[]>();
+
+      inputs.forEach((input) => inputsByChapter.set(input.chapterId, [...(inputsByChapter.get(input.chapterId) ?? []), input]));
+
+      // Pass 1: deduplicate independently inside each chapter. This removes the
+      // intentional repetition produced by the three Concept-identification
+      // runs before any cross-book candidate search is attempted.
+      const withinChapterPairs = (await mapConcurrent(Array.from(inputsByChapter.values()), OPENROUTER_CONCURRENCY, async (chapterInputs): Promise<DeduplicateConceptPair[]> => {
+        if (chapterInputs.length < 2) {
+          return [];
+        }
+
+        const candidates = deduplicateConceptCandidatesWithinChapters(chapterInputs, embeddings);
+
+        return candidates.length
+          ? requestDeduplicateConceptPairs(client, model, chapterInputs, candidates, book, addDeduplicateConceptsCost)
+          : [];
+      })).flat();
+      const deletedWithinChapterIds = new Set(withinChapterPairs.map(({ deletedConceptId }) => deletedConceptId));
+      const survivingInputs = inputs.filter(({ conceptId }) => !deletedWithinChapterIds.has(conceptId));
+
+      // Pass 2: compare only the chapter-local survivors, and only across
+      // different chapters. This avoids repeating same-chapter comparisons and
+      // shrinks the book-wide candidate set substantially.
+      const crossChapterCandidates = deduplicateConceptCandidatesAcrossChapters(survivingInputs, embeddings);
+      const crossChapterPairs = crossChapterCandidates.length
+        ? await requestDeduplicateConceptPairs(client, model, survivingInputs, crossChapterCandidates, book, addDeduplicateConceptsCost)
         : [];
+      const duplicatePairs = [...withinChapterPairs, ...crossChapterPairs];
       const inputById = new Map(inputs.map((input) => [input.conceptId, input] as const));
       const pairs = duplicatePairs.map(({ deletedConceptId, keptConceptId }): DeduplicateConceptsReviewPair => {
         const deleted = conceptsById.get(deletedConceptId);

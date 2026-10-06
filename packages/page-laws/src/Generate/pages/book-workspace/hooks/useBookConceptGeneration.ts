@@ -96,6 +96,11 @@ export function useBookConceptGeneration ({
       return;
     }
 
+    if (book.age === undefined) {
+      setError('Set the learner age before generating concepts.');
+      return;
+    }
+
     const chapterPages = currentConceptChapter.pageNumbers.flatMap((chapterPageNumber) => {
       const page = pages.get(chapterPageNumber);
 
@@ -121,7 +126,7 @@ export function useBookConceptGeneration ({
 
       const client = createOpenRouterClient(key, currentReaderProcessingSignal());
       const chapterInputs = await getChapterConceptInputs(chapterPages);
-      const generatedConcepts = await generateChapterContentWithEmptyConceptRetry(client, selectedModel, currentConceptChapter.title, chapterInputs, chapterInputs.length > 0, addConceptsCost);
+      const generatedConcepts = await generateChapterContentWithEmptyConceptRetry(client, selectedModel, currentConceptChapter.title, chapterInputs, book.age, chapterInputs.length > 0, addConceptsCost);
       const stored = await storeGeneratedChapterConcepts(book.id, chapterPages, generatedConcepts);
       const updatedPages = new Map(pages);
       const references = new Map<string, number>();
@@ -148,7 +153,7 @@ export function useBookConceptGeneration ({
       setIsGeneratingChapterConcepts(false);
       setProcessingPage(undefined);
     }
-  }, [currentReaderProcessingSignal, addConceptsCost, completeStage, book.id, currentConceptChapter, isGeneratingAllConcepts, isIdentifyingChapters, isRecognizingAll, pageNumber, pages, processingPage, refreshConceptCounts, refreshEntityCounts, revealPane, selectedModel, totalPages]);
+  }, [currentReaderProcessingSignal, addConceptsCost, completeStage, book.age, book.id, currentConceptChapter, isGeneratingAllConcepts, isIdentifyingChapters, isRecognizingAll, pageNumber, pages, processingPage, refreshConceptCounts, refreshEntityCounts, revealPane, selectedModel, totalPages]);
   const closePageGenerationConfirmation = useCallback((): void => setIsPageGenerationConfirmationOpen(false), []);
   const confirmPageGeneration = useCallback((): void => {
     setIsPageGenerationConfirmationOpen(false);
@@ -160,6 +165,12 @@ export function useBookConceptGeneration ({
 
   const generateAllConcepts = useCallback(async (): Promise<void> => {
     if (!totalPages || processingPage !== undefined || isGeneratingAllConcepts || isRecognizingAll || isIdentifyingChapters) {
+      return;
+    }
+
+    if (book.age === undefined) {
+      setError('Set the learner age before generating concepts.');
+      onProcessingComplete();
       return;
     }
 
@@ -247,7 +258,7 @@ export function useBookConceptGeneration ({
           return {
             chapter,
             chapterPages,
-            generatedConcepts: await generateChapterContentWithEmptyConceptRetry(client, generateAllConceptsModel, chapter.title, chapterInputs, chapterInputs.length > 0, addConceptsCost),
+            generatedConcepts: await generateChapterContentWithEmptyConceptRetry(client, generateAllConceptsModel, chapter.title, chapterInputs, book.age, chapterInputs.length > 0, addConceptsCost),
             status: 'fulfilled' as const
           };
         } catch (reason) {
@@ -323,7 +334,7 @@ export function useBookConceptGeneration ({
       setIsGeneratingAllConcepts(false);
       onProcessingComplete();
     }
-  }, [currentReaderProcessingSignal, addConceptsCost, completeStage, book.id, conceptChapters, generateAllConceptsModel, generateOnlyMissingConcepts, isGeneratingAllConcepts, isIdentifyingChapters, isRecognizingAll, loadConceptCountsByChapter, onProcessingComplete, pageNumber, pages, processingPage, refreshConceptCounts, refreshEntityCounts, revealPane, totalPages]);
+  }, [currentReaderProcessingSignal, addConceptsCost, completeStage, book.age, book.id, conceptChapters, generateAllConceptsModel, generateOnlyMissingConcepts, isGeneratingAllConcepts, isIdentifyingChapters, isRecognizingAll, loadConceptCountsByChapter, onProcessingComplete, pageNumber, pages, processingPage, refreshConceptCounts, refreshEntityCounts, revealPane, totalPages]);
 
 
   return {

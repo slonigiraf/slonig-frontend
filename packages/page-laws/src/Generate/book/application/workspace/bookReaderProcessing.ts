@@ -23,6 +23,8 @@ interface ChapterConceptInputPage {
   pageNumber: number;
 }
 
+export const CONCEPT_IDENTIFICATION_RUNS = 3;
+
 function conceptGenerationErrorMessage (error: unknown): string {
   const message = error instanceof Error
     ? error.message
@@ -45,7 +47,7 @@ async function runConceptRequestWithRetry<T>(request: () => Promise<T>): Promise
   return openRouterRequestGate.run(request);
 }
 
-async function requestGeneratedChapterContent(client: OpenAI, model: string, chapterTitle: string, pages: ChapterConceptInputPage[], onCost?: OpenRouterCostReporter): Promise<GeneratedChapterConcepts> {
+async function requestGeneratedChapterContent(client: OpenAI, model: string, chapterTitle: string, pages: ChapterConceptInputPage[], learnerAge: number | undefined, onCost?: OpenRouterCostReporter): Promise<GeneratedChapterConcepts> {
   const usablePages = pages.filter(({ input }) => input.text.trim() || input.images.length);
 
   if (!usablePages.length) {
@@ -56,7 +58,7 @@ async function requestGeneratedChapterContent(client: OpenAI, model: string, cha
     messages: [{
       content: [
         {
-          text: BOOK_CHAPTER_EXTRACTION_REQUEST_PROMPT(chapterTitle, usablePages.map(({ input, pageNumber }) => ({ imageNames: input.images.map(({ name }) => name), pageNumber, text: input.text }))),
+          text: BOOK_CHAPTER_EXTRACTION_REQUEST_PROMPT(chapterTitle, usablePages.map(({ input, pageNumber }) => ({ imageNames: input.images.map(({ name }) => name), pageNumber, text: input.text })), learnerAge),
           type: 'text'
         },
         ...usablePages.flatMap(({ input, pageNumber }) => input.images.length
@@ -221,11 +223,11 @@ function getChapterStandardsConceptRows(concepts: BookConcept[], chapter: Concep
   });
 }
 
-async function generateChapterContentWithEmptyConceptRetry(client: OpenAI, model: string, chapterTitle: string, pages: ChapterConceptInputPage[], retryEmptyConcepts: boolean, onCost?: OpenRouterCostReporter): Promise<GeneratedChapterConcepts> {
+async function generateSingleChapterIdentificationRunWithEmptyRetry(client: OpenAI, model: string, chapterTitle: string, pages: ChapterConceptInputPage[], learnerAge: number | undefined, retryEmptyConcepts: boolean, onCost?: OpenRouterCostReporter): Promise<GeneratedChapterConcepts> {
   let firstResult: GeneratedChapterConcepts;
 
   try {
-    firstResult = await requestGeneratedChapterContent(client, model, chapterTitle, pages, onCost);
+    firstResult = await requestGeneratedChapterContent(client, model, chapterTitle, pages, learnerAge, onCost);
   } catch (error) {
     // A structurally invalid model response is nondeterministic and worth one
     // fresh attempt. API transport/provider failures are already retried inside
@@ -234,7 +236,7 @@ async function generateChapterContentWithEmptyConceptRetry(client: OpenAI, model
       throw error;
     }
 
-    return requestGeneratedChapterContent(client, model, chapterTitle, pages, onCost);
+    return requestGeneratedChapterContent(client, model, chapterTitle, pages, learnerAge, onCost);
   }
 
   if (firstResult.concepts.length || !retryEmptyConcepts) {
@@ -242,7 +244,7 @@ async function generateChapterContentWithEmptyConceptRetry(client: OpenAI, model
   }
 
   try {
-    const secondResult = await requestGeneratedChapterContent(client, model, chapterTitle, pages, onCost);
+    const secondResult = await requestGeneratedChapterContent(client, model, chapterTitle, pages, learnerAge, onCost);
 
     return secondResult.concepts.length ? secondResult : firstResult;
   } catch (error) {
@@ -254,6 +256,19 @@ async function generateChapterContentWithEmptyConceptRetry(client: OpenAI, model
     // leave the whole chapter permanently blocking exercise generation.
     return firstResult;
   }
+}
+
+async function generateChapterContentWithEmptyConceptRetry(client: OpenAI, model: string, chapterTitle: string, pages: ChapterConceptInputPage[], learnerAge: number | undefined, retryEmptyConcepts: boolean, onCost?: OpenRouterCostReporter): Promise<GeneratedChapterConcepts> {
+  const runs: GeneratedChapterConcepts[] = [];
+
+  // Run concept identification multiple independent times for recall. Do not
+  // merge/deduplicate the inventories here: repeated concepts are intentional
+  // evidence that later Deduplicate Concepts will resolve after Fix Concepts.
+  for (let run = 0; run < CONCEPT_IDENTIFICATION_RUNS; run++) {
+    runs.push(await generateSingleChapterIdentificationRunWithEmptyRetry(client, model, chapterTitle, pages, learnerAge, retryEmptyConcepts, onCost));
+  }
+
+  return { concepts: runs.flatMap(({ concepts }) => concepts) };
 }
 
 function abortError (): DOMException {

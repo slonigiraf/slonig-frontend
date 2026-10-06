@@ -56,6 +56,11 @@ export function useUploadConceptGeneration ({ embeddingModel, generateAllConcept
       return;
     }
 
+    if (selectedBook.age === undefined) {
+      setError(t('Book learner age has not been set yet. Open the Age step, then detect it from text or enter it manually.'));
+      return;
+    }
+
     setGenerateConceptsEstimate(undefined);
     setGenerateOnlyMissingConcepts(false);
     setHasChaptersMissingConcepts(false);
@@ -64,6 +69,11 @@ export function useUploadConceptGeneration ({ embeddingModel, generateAllConcept
 
   const onRetryMissingConcepts = useCallback((): void => {
     if (!selectedBook) {
+      return;
+    }
+
+    if (selectedBook.age === undefined) {
+      setError(t('Book learner age has not been set yet. Open the Age step, then detect it from text or enter it manually.'));
       return;
     }
 
@@ -88,9 +98,10 @@ export function useUploadConceptGeneration ({ embeddingModel, generateAllConcept
         const chapterText = chapterPageNumbers.map((pageNumber) => `--- page ${pageNumber} ---\n${pageByNumber.get(pageNumber)?.pageMMD ?? ''}`).join('\n\n');
         const estimatedRequest = chapterText.padEnd(chapterText.length + 2_000);
 
-        // Concept extraction can retry an empty chapter response once, so
-        // estimate two whole-chapter requests per chapter conservatively.
-        return [estimatedRequest, estimatedRequest];
+        // Concept identification deliberately runs three independent times for
+        // recall. Each run can retry one valid-but-empty response once, so
+        // conservatively estimate six whole-chapter requests per chapter.
+        return Array.from({ length: 6 }, () => estimatedRequest);
       });
 
       if (isCurrent) {

@@ -52,10 +52,6 @@ export function chapterLevelMissingConcept (
   };
 }
 
-function normalizeConceptText (value: string): string {
-  return value.toLocaleLowerCase().replace(/\s+/g, ' ').trim();
-}
-
 export function parseMissingChapterConcepts (content: string, existingConcepts: Array<Pick<BookConcept, 'description' | 'title'>> = [], allowedPageNumbers?: Set<number>): FixChapterConceptsResult {
   const json = content.replace(/^```json\s*|\s*```$/gi, '').trim();
   let parsed: Partial<FixChapterConceptsResult>;
@@ -70,10 +66,6 @@ export function parseMissingChapterConcepts (content: string, existingConcepts: 
     throw new Error('OpenRouter returned invalid Fix Concepts data.');
   }
 
-  const existingTitles = new Set(existingConcepts.map(({ title }) => normalizeConceptText(title)));
-  const existingPairs = new Set(existingConcepts.map(({ description, title }) => normalizeConceptText(`${title}\n${description}`)));
-  const seenTitles = new Set<string>();
-  const seenPairs = new Set<string>();
   const concepts = parsed.concepts.flatMap((value): MissingChapterConcept[] => {
     if (typeof value !== 'object' || value === null) {
       return [];
@@ -87,15 +79,10 @@ export function parseMissingChapterConcepts (content: string, existingConcepts: 
 
     const trimmedTitle = title.trim();
     const trimmedDescription = description.trim();
-    const titleKey = normalizeConceptText(trimmedTitle);
-    const pairKey = normalizeConceptText(`${trimmedTitle}\n${trimmedDescription}`);
 
-    if (!trimmedTitle || !trimmedDescription || existingTitles.has(titleKey) || existingPairs.has(pairKey) || seenTitles.has(titleKey) || seenPairs.has(pairKey)) {
+    if (!trimmedTitle || !trimmedDescription) {
       return [];
     }
-
-    seenTitles.add(titleKey);
-    seenPairs.add(pairKey);
 
     return [{ description: trimmedDescription, pageNumber, title: trimmedTitle }];
   });

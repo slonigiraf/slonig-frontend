@@ -22,8 +22,7 @@ import {
   replaceExercisesForBookPage,
   replaceSkillsForChapter,
   resetBookProcessingStagesFrom,
-  storeAbility,
-  updateBookFieldsAndStages
+  storeAbility
 } from './index.js';
 
 async function seedLearningArtifacts(label: string) {
@@ -102,35 +101,13 @@ describe('book stage entity invalidation', (): void => {
     try {
       await resetBookProcessingStagesFrom(seeded.bookId, 'chapters');
 
-      assert.equal((await getBookChapters(seeded.bookId)).length, 0, 'a Chapters rerun must start with no chapters from the previous run');
+      assert.equal((await getBookChapters(seeded.bookId)).length, 1, 'the Chapters stage owns the chapter rows, so they remain for the rerun to replace');
       assert.equal((await getBookConceptsForBookPage(seeded.bookId, 1)).length, 0);
       assert.equal((await getConceptEmbeddings([seeded.conceptId])).length, 0);
       assert.equal((await getExercisesForBookPage([seeded.bookId, 1])).length, 0);
       assert.equal((await getSkillsForChapter(seeded.chapterId)).length, 0);
       assert.equal((await getAbilities(seeded.abilityModuleId)).length, 0);
-      const [page] = await getBookPages(seeded.bookId);
-
-      assert.equal(page?.chapterId, undefined);
-      assert.equal(page?.chapter, '');
-      assert.equal(page?.conceptsProcessed, false);
-    } finally {
-      await deleteBook(seeded.bookId);
-    }
-  });
-
-  it('keeps current chapters when a manual chapter edit only invalidates downstream stages', async (): Promise<void> => {
-    const seeded = await seedLearningArtifacts('manual-chapter-edit');
-
-    try {
-      await updateBookFieldsAndStages(seeded.bookId, {}, { resetFrom: 'chapters' });
-
-      const chapters = await getBookChapters(seeded.bookId);
-      const [page] = await getBookPages(seeded.bookId);
-
-      assert.equal(chapters.length, 1);
-      assert.equal(chapters[0]?.id, seeded.chapterId);
-      assert.equal(page?.chapterId, seeded.chapterId);
-      assert.equal((await getBookConceptsForBookPage(seeded.bookId, 1)).length, 0);
+      assert.equal((await getBookPages(seeded.bookId))[0]?.conceptsProcessed, false);
     } finally {
       await deleteBook(seeded.bookId);
     }

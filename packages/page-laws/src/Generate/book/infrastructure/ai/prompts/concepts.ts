@@ -41,10 +41,16 @@ Every pageNumber must be one of the supplied page numbers. Use an empty array wh
 // pages from one chapter together.
 export const BOOK_PAGE_EXTRACTION_PROMPT = BOOK_CHAPTER_EXTRACTION_PROMPT;
 
-export const BOOK_CHAPTER_EXTRACTION_REQUEST_PROMPT = (chapterTitle: string, pages: Array<{ imageNames: string[]; pageNumber: number; text: string }>): string => {
+export const BOOK_CHAPTER_EXTRACTION_REQUEST_PROMPT = (
+  chapterTitle: string,
+  pages: Array<{ imageNames: string[]; pageNumber: number; text: string }>,
+  learnerAge?: number
+): string => {
   return `${BOOK_CHAPTER_EXTRACTION_PROMPT}
 
 Chapter: ${chapterTitle}
+
+The learner age is ${Number.isSafeInteger(learnerAge) ? learnerAge : 'unknown'}. Use this age to choose age-appropriate wording, assumed background knowledge, and conceptual depth in titles/descriptions. Do NOT omit a concept that the chapter explicitly teaches merely because it seems advanced for that age; source coverage has priority.
 
 The following ordered pages and ${pages.reduce((count, { imageNames }) => count + imageNames.length, 0)} attached image(s) were extracted from Mathpix MMD ZIPs. Treat all supplied pages as one chapter-wide context. Use attached images only when they contain information needed to understand a concept introduced in this chapter. Ignore exercise-only images and exercise/solution content.
 
