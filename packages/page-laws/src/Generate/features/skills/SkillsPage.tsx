@@ -29,7 +29,7 @@ import { stripMarkdownImageReferences } from '../../book/infrastructure/pdf/book
 import { sortAbilitiesForDisplay, sortExercisesForDisplay } from '../../book/domain/concepts/learningOrder.js';
 import { resolveSharedChapterIndex } from '../../book/domain/chapters/chapterSelection.js';
 import { getSharedChapterSelection, storeSharedChapterSelection, subscribeSharedChapterSelection } from '../../book/infrastructure/storage/chapterSelectionStorage.js';
-import { abilityModuleId, abilityRepairInput, abilityWithImageDescriptions, cleanTikzResponse, exerciseAbilityModuleId, exerciseForPageReplacement, exerciseRepairInput, parseGeneratedSkills, parseTikzAiReview, requestChatContent, requestValidatedJson, storedAbilityImageId, tikzCompileRepairPrompt, tikzDetectedProblemsRepairPrompt, tikzFixReviewPrompt, tikzRequestPrompt, type ImageFixTarget, type StoredAbility, type TikzAiReview } from '../../book/application/abilities/abilityProcessing.js';
+import { abilityModuleId, abilityRepairInput, abilityWithImageDescriptions, cleanTikzResponse, exerciseAbilityModuleId, exerciseForPageReplacement, exerciseRepairInput, parseGeneratedSkills, parseTikzAiReview, requestChatContent, requestChatContentWithTruncationRetry, requestValidatedJson, storedAbilityImageId, tikzCompileRepairPrompt, tikzDetectedProblemsRepairPrompt, tikzFixReviewPrompt, tikzRequestPrompt, type ImageFixTarget, type StoredAbility, type TikzAiReview } from '../../book/application/abilities/abilityProcessing.js';
 import type { ExerciseEditableFields } from '../../shared/types/exercise.js';
 import { ChapterTitleEditor } from './components/SkillsComponents.js';
 import SkillsContentView from './components/SkillsContentView.js';
@@ -1217,7 +1217,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalAutoRunBus
           return;
         }
 
-        const content = await requestChatContent(
+        const content = await requestChatContentWithTruncationRetry(
           client,
           effectiveModel,
           'You convert precise educational visual specifications into valid, compact TikZ code. Follow the requested output contract exactly.',

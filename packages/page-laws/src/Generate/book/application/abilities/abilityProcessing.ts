@@ -19,6 +19,7 @@ import { reportOpenRouterCost } from '../../../../openrouter/cost.js';
 
 const AI_REQUEST_TIMEOUT_MS = 60_000;
 const MAX_VALIDATED_JSON_OUTPUT_TOKENS = 8_000;
+const MAX_CHAT_TRUNCATION_RETRY_OUTPUT_TOKENS = 8_000;
 
 class AiResponseTruncatedError extends Error {
   constructor () {
@@ -91,6 +92,22 @@ export async function requestChatContent (client: OpenAI, model: string, systemP
   }
 
   return content;
+}
+
+export async function requestChatContentWithTruncationRetry (client: OpenAI, model: string, systemPrompt: string, userPrompt: string, jsonObject: boolean, onCost?: OpenRouterCostReporter, maxOutputTokens?: number, signal?: AbortSignal, maxRetryOutputTokens = MAX_CHAT_TRUNCATION_RETRY_OUTPUT_TOKENS): Promise<string> {
+  let outputTokenBudget = maxOutputTokens;
+
+  while (true) {
+    try {
+      return await requestChatContent(client, model, systemPrompt, userPrompt, jsonObject, onCost, outputTokenBudget, signal);
+    } catch (error) {
+      if (!(error instanceof AiResponseTruncatedError) || outputTokenBudget === undefined || outputTokenBudget >= maxRetryOutputTokens) {
+        throw error;
+      }
+
+      outputTokenBudget = Math.min(maxRetryOutputTokens, Math.max(outputTokenBudget + 2_000, Math.ceil(outputTokenBudget * 1.5)));
+    }
+  }
 }
 
 export function parseGeneratedSkills (content: string, expectedCount: number): Array<{ description: string; title: string }> {
