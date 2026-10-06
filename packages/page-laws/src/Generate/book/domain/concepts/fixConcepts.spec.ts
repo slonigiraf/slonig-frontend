@@ -52,6 +52,9 @@ describe('fix concepts', (): void => {
     assert.match(prompt, /pageNumber/);
     assert.match(prompt, /page delimiters/);
     assert.match(prompt, /clearly do not belong/);
+    assert.match(prompt, /incorrectly bundles multiple independently teachable skills/);
+    assert.match(prompt, /Writing numerals 0-5/);
+    assert.match(prompt, /normal removals plus additions/);
     assert.match(prompt, /removeConceptIndexes/);
     assert.match(prompt, /conceptIndex/);
   });
@@ -68,6 +71,28 @@ describe('fix concepts', (): void => {
     }), [{ title: 'Numerator', description: 'The top number in a fraction.' }], new Set([4, 5]));
 
     assert.deepEqual(result, { concepts: [{ title: 'Denominator', description: 'The bottom number in a fraction.', pageNumber: 5 }], removeConceptIndexes: [] });
+  });
+
+  it('accepts a split proposal as one removal plus isolated replacement concepts', (): void => {
+    const result = parseMissingChapterConcepts(JSON.stringify({
+      concepts: Array.from({ length: 6 }, (_, numeral) => ({
+        title: `Writing numeral ${numeral}`,
+        description: `Write the numeral ${numeral} correctly.`,
+        pageNumber: 8
+      })),
+      removeConceptIndexes: [0]
+    }), [{ title: 'Writing numerals 0-5', description: 'Write the numerals from 0 through 5.' }], new Set([8]));
+
+    assert.equal(result.concepts.length, 6);
+    assert.deepEqual(result.concepts.map(({ title }) => title), [
+      'Writing numeral 0',
+      'Writing numeral 1',
+      'Writing numeral 2',
+      'Writing numeral 3',
+      'Writing numeral 4',
+      'Writing numeral 5'
+    ]);
+    assert.deepEqual(result.removeConceptIndexes, [0]);
   });
 
   it('keeps only valid unique existing-concept removal indexes', (): void => {

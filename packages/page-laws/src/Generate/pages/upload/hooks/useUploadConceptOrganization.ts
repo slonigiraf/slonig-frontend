@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { Book, BookPage } from '@slonigiraf/db';
-import { getBookConceptsForBookPage, getBookPages, getConceptEmbeddings, getSetting, isBookProcessingStageComplete, SettingKey, uncompleteBookProcessingStage } from '@slonigiraf/db';
+import { getBookConceptsForBookPage, getBookPages, getConceptEmbeddings, getSetting, isBookProcessingStageComplete, resetBookProcessingStagesFrom, SettingKey } from '@slonigiraf/db';
 import type { Dispatch, SetStateAction } from 'react';
 import { useCallback, useEffect, useState } from 'react';
 
@@ -11,7 +11,7 @@ import type { DeduplicateConceptInput } from '../../../book/domain/concepts/dedu
 import type { BookReaderCommandAction, PendingBookProcessingAction } from '../../../book/application/pipeline/bookPipeline.js';
 
 import { estimateAiInput } from '../../../book/application/pricing/aiEstimate.js';
-import { conceptsForRefinementChapter, refineChapterPrompt, withRefineChaptersIncomplete } from '../../../book/domain/chapters/refineChapters.js';
+import { conceptsForRefinementChapter, refineChapterPrompt } from '../../../book/domain/chapters/refineChapters.js';
 import { conceptChaptersFromPages } from '../../../book/domain/concepts/conceptRecognition.js';
 import { conceptDeduplicationInput, deduplicateConceptCandidates, deduplicateConceptsPrompt } from '../../../book/domain/concepts/deduplicateConcepts.js';
 import { conceptsForSortChapter, sortChapterConceptsPrompt } from '../../../book/domain/concepts/sortConcepts.js';
@@ -133,8 +133,18 @@ export function useUploadConceptOrganization ({ embeddingModel, generateAllConce
     }
 
     setPendingProcessingAction('deduplicateConcepts');
-    requestProcessing('deduplicateConcepts');
-  }, [requestProcessing, selectedBook, setBooks, setError, setPendingProcessingAction]);
+    resetBookProcessingStagesFrom(selectedBook.id, 'deduplicateConcepts')
+      .then((storedBook) => {
+        if (storedBook) {
+          setBooks((current) => current.map((book) => book.id === storedBook.id ? storedBook : book));
+        }
+        requestProcessing('deduplicateConcepts');
+      })
+      .catch(() => {
+        setPendingProcessingAction(undefined);
+        setError(t('Unable to clear downstream data before deduplicating concepts.'));
+      });
+  }, [requestProcessing, selectedBook, t, setBooks, setError, setPendingProcessingAction]);
 
   const onSortConcepts = useCallback((): void => {
     if (!selectedBook) {
@@ -191,15 +201,8 @@ export function useUploadConceptOrganization ({ embeddingModel, generateAllConce
       return;
     }
 
-    // Sort Concepts changes only display/learning order, but Refine Chapters
-    // depends on that exact order. A rerun therefore invalidates only the
-    // refinement marker; downstream data is left intact until Refine Chapters
-    // actually changes chapter membership.
-    const invalidatedBook = withRefineChaptersIncomplete(selectedBook);
-
-    setBooks((current) => current.map((book) => book.id === invalidatedBook.id ? invalidatedBook : book));
     setPendingProcessingAction('sortConcepts');
-    uncompleteBookProcessingStage(selectedBook.id, 'refineChapters')
+    resetBookProcessingStagesFrom(selectedBook.id, 'sortConcepts')
       .then((storedBook) => {
         if (storedBook) {
           setBooks((current) => current.map((book) => book.id === storedBook.id ? storedBook : book));
@@ -208,7 +211,7 @@ export function useUploadConceptOrganization ({ embeddingModel, generateAllConce
       })
       .catch(() => {
         setPendingProcessingAction(undefined);
-        setError(t('Unable to invalidate the Refine chapters stage before sorting.'));
+        setError(t('Unable to clear downstream data before sorting concepts.'));
       });
   }, [requestProcessing, selectedBook, t, setBooks, setError, setPendingProcessingAction]);
 
@@ -264,8 +267,18 @@ export function useUploadConceptOrganization ({ embeddingModel, generateAllConce
     }
 
     setPendingProcessingAction('refineChapters');
-    requestProcessing('refineChapters');
-  }, [requestProcessing, selectedBook, setBooks, setError, setPendingProcessingAction]);
+    resetBookProcessingStagesFrom(selectedBook.id, 'refineChapters')
+      .then((storedBook) => {
+        if (storedBook) {
+          setBooks((current) => current.map((book) => book.id === storedBook.id ? storedBook : book));
+        }
+        requestProcessing('refineChapters');
+      })
+      .catch(() => {
+        setPendingProcessingAction(undefined);
+        setError(t('Unable to clear downstream data before refining chapters.'));
+      });
+  }, [requestProcessing, selectedBook, t, setBooks, setError, setPendingProcessingAction]);
 
   return {
     closeDeduplicateConceptsConfirmation,

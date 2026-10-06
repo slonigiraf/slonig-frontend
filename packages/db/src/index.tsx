@@ -26,7 +26,7 @@ import { EXAMPLE_MODULE_KNOWLEDGE_CID, EXAMPLE_SKILL_KNOWLEDGE_ID } from "@sloni
 import { LearnRequest } from "./db/LearnRequest.js";
 import { ScheduledEvent, ScheduledEventType } from "./db/ScheduledEvent.js";
 import Dexie, { type Table } from "dexie";
-import { getBookCompletedStages, withBookProcessingStagesResetFrom, withCompletedBookProcessingStage } from './db/Book.js';
+import { BOOK_PROCESSING_STAGES, getBookCompletedStages, withBookProcessingStagesResetFrom, withCompletedBookProcessingStage } from './db/Book.js';
 import type { Book, BookProcessingStageKey, BookStageSpend, BookStageSpendKey, BookSubject } from './db/Book.js';
 import type { BookPage, MathpixHeading } from './db/BookPage.js';
 import type { BookConcept } from './db/BookConcept.js';
@@ -478,12 +478,89 @@ export async function updateBookFields(id: number, changes: Partial<Omit<Book, '
     });
 }
 
+function isBookProcessingStageAfter(stage: BookProcessingStageKey, candidate: BookProcessingStageKey): boolean {
+    return BOOK_PROCESSING_STAGES.indexOf(candidate) > BOOK_PROCESSING_STAGES.indexOf(stage);
+}
+
+/** Delete all chapter identities and page-to-chapter assignments for one book. */
+async function clearBookChapterAssignments(bookId: number): Promise<void> {
+    await db.bookChapters.where('bookId').equals(bookId).delete();
+    await db.bookPages.where('bookId').equals(bookId).modify({
+        chapter: '',
+        chapterId: undefined,
+        conceptsProcessed: false,
+        excludedFromAnalysis: undefined
+    });
+    await db.books.update(bookId, { chapterOrder: [] });
+}
+
+/**
+ * Delete persisted artifacts produced strictly after the stage being invalidated.
+ * The stage's own rows are intentionally preserved here because this helper is
+ * also used for manual edits that only invalidate downstream work. Explicit
+ * stage-rerun cleanup that must replace stage-owned rows is handled by the
+ * rerun entry point.
+ */
+async function clearBookEntitiesAfterProcessingStage(bookId: number, stage: BookProcessingStageKey): Promise<void> {
+    const clearChapters = isBookProcessingStageAfter(stage, 'chapters');
+    const clearConcepts = isBookProcessingStageAfter(stage, 'concepts');
+    const clearEmbeddings = isBookProcessingStageAfter(stage, 'embeddings');
+    const clearExercises = isBookProcessingStageAfter(stage, 'exercises');
+    const clearAbilities = isBookProcessingStageAfter(stage, 'abilities');
+
+    if (!clearChapters && !clearConcepts && !clearEmbeddings && !clearExercises && !clearAbilities) {
+        return;
+    }
+
+    const chapters = await db.bookChapters.where('bookId').equals(bookId).toArray();
+    const chapterIds = chapters.flatMap(({ id }) => id === undefined ? [] : [id]);
+
+    if (clearAbilities) {
+        const abilities = await db.abilities.filter(({ moduleId }) => moduleId.startsWith(`book-${bookId}-`)).toArray() as Ability[];
+        const imageIds = Array.from(new Set(abilities.flatMap(({ content }) => abilityImageIds(content))));
+        const skillIds = (await Promise.all(chapterIds.map((chapterId) => db.skills.where('chapterId').equals(chapterId).primaryKeys()))).flat() as number[];
+
+        if (abilities.length) {
+            await db.abilities.bulkDelete(abilities.map(({ id }) => id));
+        }
+        if (skillIds.length) {
+            await Promise.all(skillIds.map((skillId) => db.exerciseTemplates.where('skillId').equals(skillId).delete()));
+        }
+        await Promise.all(chapterIds.map((chapterId) => db.skills.where('chapterId').equals(chapterId).delete()));
+        await deleteUnreferencedAbilityImages(imageIds);
+    }
+
+    if (clearExercises) {
+        const exerciseIds = (await db.exercises.filter(({ bookPage }) => bookPage[0] === bookId).primaryKeys()) as number[];
+
+        if (exerciseIds.length) {
+            await db.exercises.bulkDelete(exerciseIds);
+        }
+    }
+
+    if (clearConcepts) {
+        const conceptIds = (await db.bookConcepts.filter(({ bookPage }) => bookPage[0] === bookId).primaryKeys()) as number[];
+
+        if (conceptIds.length) {
+            await db.bookConcepts.bulkDelete(conceptIds);
+        }
+        await db.conceptEmbeddings.where('bookId').equals(bookId).delete();
+        await db.bookPages.where('bookId').equals(bookId).modify({ conceptsProcessed: false });
+    } else if (clearEmbeddings) {
+        await db.conceptEmbeddings.where('bookId').equals(bookId).delete();
+    }
+
+    if (clearChapters) {
+        await clearBookChapterAssignments(bookId);
+    }
+}
+
 export async function updateBookFieldsAndStages(
     id: number,
     changes: Partial<Omit<Book, 'completedStages' | 'fixConceptsAttempts' | 'id' | 'processingStage' | 'stageSpend'>>,
     options: { complete?: BookProcessingStageKey[]; resetFrom?: BookProcessingStageKey; uncomplete?: BookProcessingStageKey[] } = {}
 ): Promise<Book | undefined> {
-    return db.transaction('rw', db.books, async () => {
+    return db.transaction('rw', db.books, db.bookPages, db.bookChapters, db.bookConcepts, db.conceptEmbeddings, db.exercises, db.skills, db.exerciseTemplates, db.abilities, db.images, async () => {
         const storedBook = await db.books.get(id);
 
         if (!storedBook) {
@@ -493,6 +570,7 @@ export async function updateBookFieldsAndStages(
         let updated: Book = { ...storedBook, ...changes, completedStages: getBookCompletedStages(storedBook) };
 
         if (options.resetFrom) {
+            await clearBookEntitiesAfterProcessingStage(id, options.resetFrom);
             updated = withBookProcessingStagesResetFrom(updated, options.resetFrom);
         }
 
@@ -583,11 +661,22 @@ export async function uncompleteBookProcessingStage(id: number, stage: BookProce
 }
 
 export async function resetBookProcessingStagesFrom(id: number, stage: BookProcessingStageKey): Promise<Book | undefined> {
-    return db.transaction('rw', db.books, async () => {
+    return db.transaction('rw', db.books, db.bookPages, db.bookChapters, db.bookConcepts, db.conceptEmbeddings, db.exercises, db.skills, db.exerciseTemplates, db.abilities, db.images, async () => {
         const book = await db.books.get(id);
 
         if (!book) {
             return undefined;
+        }
+
+        await clearBookEntitiesAfterProcessingStage(id, stage);
+
+        // An explicit Chapters rerun is a replacement operation: old chapter
+        // identities must not be reused by the next identification pass. This
+        // is intentionally different from updateBookFieldsAndStages(...,
+        // { resetFrom: 'chapters' }), which is also used after manual chapter
+        // edits and therefore only invalidates downstream entities.
+        if (stage === 'chapters') {
+            await clearBookChapterAssignments(id);
         }
 
         const updated = withBookProcessingStagesResetFrom({ ...book, completedStages: getBookCompletedStages(book) }, stage);
@@ -916,7 +1005,7 @@ export async function applyBookChapterRefinements(bookId: number, refinements: B
         return [];
     }
 
-    return db.transaction('rw', db.books, db.bookPages, db.bookChapters, db.bookConcepts, db.exercises, db.abilities, async () => {
+    return db.transaction('rw', db.books, db.bookPages, db.bookChapters, db.bookConcepts, db.exercises, db.skills, db.exerciseTemplates, db.abilities, db.images, async () => {
         const storedBook = await db.books.get(bookId);
 
         if (!storedBook) {
@@ -926,6 +1015,7 @@ export async function applyBookChapterRefinements(bookId: number, refinements: B
         // The structural mutation and its downstream-stage invalidation are one
         // commit. A failed refinement therefore leaves both the chapter graph
         // and the processing-stage invariant exactly as they were before.
+        await clearBookEntitiesAfterProcessingStage(bookId, 'refineChapters');
         const resetBook = withBookProcessingStagesResetFrom({ ...storedBook, completedStages: getBookCompletedStages(storedBook) }, 'exercises');
 
         await db.books.update(bookId, { completedStages: resetBook.completedStages });

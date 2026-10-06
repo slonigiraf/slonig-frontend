@@ -290,8 +290,18 @@ export function useUploadConceptGeneration ({ embeddingModel, generateAllConcept
     }
 
     setPendingProcessingAction('fixConcepts');
-    requestProcessing('fixConcepts');
-  }, [requestProcessing, selectedBook, setBooks, setEmbeddingModel, setError, setPendingProcessingAction]);
+    resetBookProcessingStagesFrom(selectedBook.id, 'fixConcepts')
+      .then((storedBook) => {
+        if (storedBook) {
+          setBooks((current) => current.map((book) => book.id === storedBook.id ? storedBook : book));
+        }
+        requestProcessing('fixConcepts');
+      })
+      .catch(() => {
+        setPendingProcessingAction(undefined);
+        setError(t('Unable to clear downstream data before fixing concepts.'));
+      });
+  }, [requestProcessing, selectedBook, t, setBooks, setEmbeddingModel, setError, setPendingProcessingAction]);
 
   const onEmbeddings = useCallback((): void => {
     if (!selectedBook) {

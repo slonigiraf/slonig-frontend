@@ -103,7 +103,7 @@ export function UploadStageDialogs ({ processing, selectedBook }: UploadStageDia
       onRun={conceptGeneration.confirmFixConcepts}
       runLabel={t('Run')}
     >
-      <p>{t('Review each chapter’s source text and current concept list using the book topic, language, and learner age. Fix concepts can propose strongly implied missing concepts and flag existing concepts that clearly do not belong to the chapter. You can add or remove concepts in the review before anything is saved.')}</p>
+      <p>{t('Review each chapter’s source text and current concept list using the book topic, language, and learner age. Fix concepts can propose strongly implied missing concepts, flag existing concepts that clearly do not belong, and split bundled concepts into isolated skills by proposing the original for removal plus its narrower replacements for addition. You can add or remove concepts in the review before anything is saved.')}</p>
       <Toggle
         isDisabled={!conceptGeneration.hasFailedFixConceptChapters}
         label={t('Only retry chapters that failed the last Fix concepts run')}
