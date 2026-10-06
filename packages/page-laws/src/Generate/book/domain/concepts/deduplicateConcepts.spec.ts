@@ -4,7 +4,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { deduplicateConceptCandidates, deduplicateConceptCandidatesAcrossChapters, deduplicateConceptCandidatesWithinChapters, deduplicateConceptsPrompt, parseDeduplicateConceptPairs, type DeduplicateConceptCandidatePair, type DeduplicateConceptInput } from './deduplicateConcepts.js';
+import { combineDeduplicateConceptPairs, DEDUPLICATE_CONCEPTS_RUNS, deduplicateConceptCandidates, deduplicateConceptCandidatesAcrossChapters, deduplicateConceptCandidatesWithinChapters, deduplicateConceptsPrompt, parseDeduplicateConceptPairs, type DeduplicateConceptCandidatePair, type DeduplicateConceptInput } from './deduplicateConcepts.js';
 
 const concepts: DeduplicateConceptInput[] = [
   { chapterId: 2, chapterTitle: 'Earlier', conceptId: 10, description: 'Understand equivalent fractions.', title: 'Equivalent fractions' },
@@ -13,6 +13,10 @@ const concepts: DeduplicateConceptInput[] = [
 ];
 
 describe('Deduplicate concepts', (): void => {
+  it('runs the duplicate confirmation workflow twice', (): void => {
+    assert.equal(DEDUPLICATE_CONCEPTS_RUNS, 2);
+  });
+
   const candidates: DeduplicateConceptCandidatePair[] = [
     { conceptIdA: 10, conceptIdB: 20, cosineDistance: 0.08 },
     { conceptIdA: 20, conceptIdB: 30, cosineDistance: 0.12 }
@@ -42,7 +46,7 @@ describe('Deduplicate concepts', (): void => {
     assert.equal(generated[0].conceptIdB, 20);
   });
 
-  it('can restrict the first pass to duplicate candidates inside the same chapter', (): void => {
+  it('can restrict the within-chapter phase to local duplicate candidates', (): void => {
     const scopedConcepts: DeduplicateConceptInput[] = [
       { chapterId: 2, chapterTitle: 'Earlier', conceptId: 10, description: 'a', title: 'a' },
       { chapterId: 2, chapterTitle: 'Earlier', conceptId: 11, description: 'a copy', title: 'a copy' },
@@ -58,7 +62,7 @@ describe('Deduplicate concepts', (): void => {
     assert.deepEqual(generated.map(({ conceptIdA, conceptIdB }) => [conceptIdA, conceptIdB]), [[10, 11]]);
   });
 
-  it('can restrict the second pass to candidates from different chapters', (): void => {
+  it('can restrict the cross-chapter phase to candidates from different chapters', (): void => {
     const scopedConcepts: DeduplicateConceptInput[] = [
       { chapterId: 2, chapterTitle: 'Earlier', conceptId: 10, description: 'a', title: 'a' },
       { chapterId: 2, chapterTitle: 'Earlier', conceptId: 11, description: 'a copy', title: 'a copy' },
@@ -123,6 +127,17 @@ describe('Deduplicate concepts', (): void => {
       () => parseDeduplicateConceptPairs('{"duplicatePairs":[{"conceptIdA":10,"conceptIdB":999}]}', concepts),
       /outside the supplied inventory/
     );
+  });
+
+  it('combines two independent duplicate runs into one canonical deletion graph', (): void => {
+    assert.deepEqual(combineDeduplicateConceptPairs([[
+      { deletedConceptId: 20, keptConceptId: 10 }
+    ], [
+      { deletedConceptId: 30, keptConceptId: 20 }
+    ]], concepts), [
+      { deletedConceptId: 20, keptConceptId: 10 },
+      { deletedConceptId: 30, keptConceptId: 10 }
+    ]);
   });
 
   it('accepts an empty duplicate list', (): void => {

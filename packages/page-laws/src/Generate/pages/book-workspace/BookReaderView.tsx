@@ -101,6 +101,7 @@ export function BookReaderView ({ controller }: Props): React.ReactElement {
     fixConceptsChapterStatuses,
     fixConceptsReview,
     fixConceptsReviewChapterIndex,
+    fixConceptsTargetChapterCount,
     fixExerciseWithAi,
     fixedConceptsChapterCount,
     generatedConceptsChapterCount,
@@ -470,7 +471,7 @@ export function BookReaderView ({ controller }: Props): React.ReactElement {
   const conceptsStatus = isGeneratingAllConcepts
     ? `Generating concepts by chapter… ${generatedConceptsChapterCount}/${conceptChapters.length}`
     : isFixingConcepts
-      ? `Fixing concepts by chapter… ${fixedConceptsChapterCount}/${conceptChapters.length}`
+      ? `Fixing concepts… ${fixedConceptsChapterCount}/${fixConceptsTargetChapterCount || conceptChapters.length} chapter checks`
       : isDeduplicatingConcepts
         ? 'Deduplicating concepts across chapters…'
       : isSortingConcepts
@@ -874,7 +875,6 @@ export function BookReaderView ({ controller }: Props): React.ReactElement {
       </div>)}
     </>;
   };
-  const selectedDeduplicateConceptPairs = deduplicateConceptsReview?.pairs.filter(({ selected }) => selected) ?? [];
   const deduplicateConceptCard = (concept: BookConcept, chapterId: number, chapterTitle: string, action?: React.ReactNode): React.ReactNode => <div className='fixConceptsReviewCard'>
     <div className='fixConceptsReviewConceptHeading'>
       <strong><SpanWithTags content={concept.title} /></strong>
@@ -903,7 +903,7 @@ export function BookReaderView ({ controller }: Props): React.ReactElement {
         <Modal.Content>
           <FixConceptsReviewContent>
             <div className='fixConceptsReviewIntro'>
-              <p><strong>No concept changes have been saved yet.</strong> Checked {deduplicateConceptsReview.checkedConceptCount} concepts across the whole book and found {deduplicateConceptsReview.pairs.length} duplicate deletion{deduplicateConceptsReview.pairs.length === 1 ? '' : 's'}.</p>
+              <p><strong>No concept changes have been saved yet.</strong> The duplicate review ran twice, then combined both result sets. Checked {deduplicateConceptsReview.checkedConceptCount} concepts across the whole book and found {deduplicateConceptsReview.pairs.length} duplicate deletion{deduplicateConceptsReview.pairs.length === 1 ? '' : 's'}.</p>
               <p>For every duplicate group, the concept with the lowest chapter id is kept; ties inside the same chapter are broken by the lowest concept id. Every other concept in the group is selected for deletion.</p>
             </div>
             <div className='fixConceptsReviewComparison'>
@@ -930,16 +930,6 @@ export function BookReaderView ({ controller }: Props): React.ReactElement {
                   : <p className='fixConceptsReviewEmpty'>No clear duplicate concepts were found.</p>}
               </div>
             </div>
-            <section className='fixConceptsDifference'>
-              <h3>Difference</h3>
-              {selectedDeduplicateConceptPairs.length
-                ? <>
-                  <p>{selectedDeduplicateConceptPairs.length} duplicate concept{selectedDeduplicateConceptPairs.length === 1 ? '' : 's'} selected for deletion. Use Keep above to exclude any proposed deletion.</p>
-                  <h4>Remove</h4>
-                  <ul>{selectedDeduplicateConceptPairs.map(({ deleted, deletedChapterId }) => <li key={`deduplicate-remove-${conceptReferenceKey(deleted)}`}><strong><SpanWithTags content={deleted.title} /></strong> — chapter {deletedChapterId}{conceptDisplayPage(deleted) !== undefined ? `, page ${conceptDisplayPage(deleted)}` : ''}</li>)}</ul>
-                </>
-                : <p>No deletions are selected. Applying will still mark the Deduplicate concepts stage complete.</p>}
-            </section>
             <Button.Group>
               <Button
                 icon='times'
@@ -965,7 +955,7 @@ export function BookReaderView ({ controller }: Props): React.ReactElement {
         <Modal.Content>
           <FixConceptsReviewContent>
           <div className='fixConceptsReviewIntro'>
-            <p><strong>No concept changes have been saved yet.</strong></p>
+            <p><strong>No concept changes have been saved yet.</strong> Each chapter was checked twice before combining these proposals, including same-chapter duplicate checks that can propose existing concepts for deletion.</p>
             <label>Chapter <select
               aria-label='Review Fix concepts chapter'
               disabled={isApplyingFixConceptsReview}
@@ -988,7 +978,7 @@ export function BookReaderView ({ controller }: Props): React.ReactElement {
                 <p>{currentFixConceptsReviewChapter.missing.length} concept{currentFixConceptsReviewChapter.missing.length === 1 ? '' : 's'} selected to add and {currentFixConceptsReviewChapter.removed.length} existing concept{currentFixConceptsReviewChapter.removed.length === 1 ? '' : 's'} selected to remove. Use Remove/Delete or Keep above to adjust the final changes before saving.</p>
                 {!!currentFixConceptsReviewChapter.missing.length && <>
                   <h4>Add</h4>
-                  <ul>{currentFixConceptsReviewChapter.missing.map((concept) => <li key={`add-${concept.pageNumber}-${concept.title}`}><strong><SpanWithTags content={concept.title} /></strong> — page {concept.pageNumber}</li>)}</ul>
+                  <ul>{currentFixConceptsReviewChapter.missing.map((concept, index) => <li key={`add-${concept.pageNumber}-${concept.title}-${index}`}><strong><SpanWithTags content={concept.title} /></strong> — page {concept.pageNumber}</li>)}</ul>
                 </>}
                 {!!currentFixConceptsReviewChapter.removed.length && <>
                   <h4>Remove</h4>

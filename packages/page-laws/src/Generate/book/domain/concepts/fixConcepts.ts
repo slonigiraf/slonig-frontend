@@ -3,6 +3,8 @@
 
 import type { BookConcept } from '@slonigiraf/db';
 
+export const FIX_CONCEPTS_RUNS = 2;
+
 
 export interface MissingChapterConcept {
   description: string;
@@ -18,6 +20,13 @@ export interface FixChapterConceptsResult {
 export interface FixedConcept {
   description: string;
   title: string;
+}
+
+export function combineFixChapterConceptsResults (results: FixChapterConceptsResult[]): FixChapterConceptsResult {
+  return {
+    concepts: results.flatMap(({ concepts }) => concepts),
+    removeConceptIndexes: Array.from(new Set(results.flatMap(({ removeConceptIndexes }) => removeConceptIndexes))).sort((a, b) => a - b)
+  };
 }
 
 export function parseFixedConcept (content: string): FixedConcept {

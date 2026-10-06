@@ -11,8 +11,9 @@ import type { BookReaderCommandAction, PendingBookProcessingAction } from '../..
 
 import { estimateAiInput } from '../../../book/application/pricing/aiEstimate.js';
 import { DEFAULT_STANDARDS_EMBEDDER } from '../../../book/application/config.js';
-import { conceptChaptersFromPages } from '../../../book/domain/concepts/conceptRecognition.js';
+import { CONCEPT_IDENTIFICATION_RUNS, conceptChaptersFromPages } from '../../../book/domain/concepts/conceptRecognition.js';
 import { fixChapterConceptsPrompt } from '../../../book/application/concepts/conceptPrompts.js';
+import { FIX_CONCEPTS_RUNS } from '../../../book/domain/concepts/fixConcepts.js';
 import { conceptEmbeddingInput } from '../../../book/infrastructure/ai/standardsEmbeddings.js';
 import { standardsChapterKey } from '../../../book/domain/standards/standards.js';
 import { clearFixConceptsChapterStatuses, failedFixConceptChapterKeys, fixConceptsChapterKey } from '../../../book/infrastructure/storage/fixConceptsProgress.js';
@@ -98,10 +99,10 @@ export function useUploadConceptGeneration ({ embeddingModel, generateAllConcept
         const chapterText = chapterPageNumbers.map((pageNumber) => `--- page ${pageNumber} ---\n${pageByNumber.get(pageNumber)?.pageMMD ?? ''}`).join('\n\n');
         const estimatedRequest = chapterText.padEnd(chapterText.length + 2_000);
 
-        // Concept identification deliberately runs three independent times for
+        // Concept identification deliberately runs two independent times for
         // recall. Each run can retry one valid-but-empty response once, so
-        // conservatively estimate six whole-chapter requests per chapter.
-        return Array.from({ length: 6 }, () => estimatedRequest);
+        // conservatively estimate four whole-chapter requests per chapter.
+        return Array.from({ length: CONCEPT_IDENTIFICATION_RUNS * 2 }, () => estimatedRequest);
       });
 
       if (isCurrent) {
@@ -281,7 +282,7 @@ export function useUploadConceptGeneration ({ embeddingModel, generateAllConcept
       }
 
       setFixConceptsEstimate(requests.length
-        ? estimateAiInput(generateAllConceptsModel, requests, 1_200)
+        ? estimateAiInput(generateAllConceptsModel, requests.flatMap((request) => Array.from({ length: FIX_CONCEPTS_RUNS }, () => request)), 1_200)
         : t('No chapters are available for Fix concepts.'));
     }).catch(() => setError(t('Unable to estimate Fix concepts cost.')));
   }, [fixOnlyFailedConcepts, generateAllConceptsModel, isFixConceptsConfirmationOpen, selectedBook, t, requestProcessing, setBooks, setEmbeddingModel, setError, setPendingProcessingAction]);

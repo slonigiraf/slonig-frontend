@@ -13,7 +13,7 @@ import { conceptBelongsToChapter, parseRefinedChapterGroups, refineChapterPrompt
 import { reportOpenRouterCost, type OpenRouterCostReporter } from '../../../../openrouter/cost.js';
 import { BOOK_CHAPTER_EXTRACTION_REQUEST_PROMPT } from '../../infrastructure/ai/prompts/concepts.js';
 import { extractMathpixHeadingsFromLines, parseChapterBoundaries, type ChapterBoundaryProposal } from '../../domain/chapters/chapterSegmentation.js';
-import { parseGeneratedChapterConcepts, type ConceptChapterNavigationItem, type GeneratedChapterConcepts } from '../../domain/concepts/conceptRecognition.js';
+import { CONCEPT_IDENTIFICATION_RUNS, parseGeneratedChapterConcepts, type ConceptChapterNavigationItem, type GeneratedChapterConcepts } from '../../domain/concepts/conceptRecognition.js';
 import { deduplicateConceptsPrompt, parseDeduplicateConceptPairs, type DeduplicateConceptCandidatePair, type DeduplicateConceptInput, type DeduplicateConceptPair } from '../../domain/concepts/deduplicateConcepts.js';
 import { mergeStandardsMatches, parseStandardsMatches, STANDARDS_MATCH_RUNS, standardsCandidatesFromEmbeddings, standardsConceptInputs, standardsMatchingPrompt, type CurriculumStandard, type StandardsCatalog } from '../../domain/standards/standards.js';
 import { type MathpixPdfRecognitionResult } from '../../infrastructure/pdf/mathpixPdf.js';
@@ -22,8 +22,6 @@ interface ChapterConceptInputPage {
   input: MMDZipInput;
   pageNumber: number;
 }
-
-export const CONCEPT_IDENTIFICATION_RUNS = 3;
 
 function conceptGenerationErrorMessage (error: unknown): string {
   const message = error instanceof Error
@@ -494,5 +492,5 @@ function mathpixHeadingsForRecognitionPage (recognition: MathpixPdfRecognitionRe
   return linesPage ? extractMathpixHeadingsFromLines({ pages: [linesPage] }) : [];
 }
 
-export { abortError, bytesToBase64, conceptGenerationErrorMessage, createOpenRouterClient, createPdfPageSliceFactory, extractMMDZipInput, fetchWithProcessingSignal, generateChapterContentWithEmptyConceptRetry, getChapterConceptInputs, getChapterStandardsConceptRows, getPageConceptInput, isRetryableConceptContentError, mathpixHeadingsForRecognitionPage, requestChapterBoundaries, requestChapterStandards, requestDeduplicateConceptPairs, requestGeneratedChapterContent, requestMissingChapterConcepts, requestRefinedChapterGroups, requestSortedChapterConceptIndexes, runConceptRequestWithRetry, storeGeneratedChapterConcepts };
+export { abortError, bytesToBase64, CONCEPT_IDENTIFICATION_RUNS, conceptGenerationErrorMessage, createOpenRouterClient, createPdfPageSliceFactory, extractMMDZipInput, fetchWithProcessingSignal, generateChapterContentWithEmptyConceptRetry, getChapterConceptInputs, getChapterStandardsConceptRows, getPageConceptInput, isRetryableConceptContentError, mathpixHeadingsForRecognitionPage, requestChapterBoundaries, requestChapterStandards, requestDeduplicateConceptPairs, requestGeneratedChapterContent, requestMissingChapterConcepts, requestRefinedChapterGroups, requestSortedChapterConceptIndexes, runConceptRequestWithRetry, storeGeneratedChapterConcepts };
 export type { ChapterConceptInputPage, MMDZipInput, StoredChapterConcepts };

@@ -23,6 +23,7 @@ export interface DeduplicateConceptCandidatePair {
   cosineDistance: number;
 }
 
+export const DEDUPLICATE_CONCEPTS_RUNS = 2;
 export const DEDUPLICATION_MAX_COSINE_DISTANCE = 0.3;
 export const DEDUPLICATION_MAX_NEIGHBORS_PER_CONCEPT = 5;
 
@@ -180,13 +181,7 @@ export function deduplicateConceptCandidatesAcrossChapters (
   return deduplicateConceptCandidatesFiltered(concepts, embeddings, (left, right) => left.chapterId !== right.chapterId, maxDistance, maxNeighborsPerConcept);
 }
 
-export function parseDeduplicateConceptPairs (content: string, concepts: DeduplicateConceptInput[], candidates?: DeduplicateConceptCandidatePair[]): DeduplicateConceptPair[] {
-  const parsed = parseResponse(content);
-
-  if (!isRecord(parsed) || !Array.isArray(parsed.duplicatePairs)) {
-    throw new Error('OpenRouter returned invalid Deduplicate Concepts data.');
-  }
-
+export function combineDeduplicateConceptPairs (results: DeduplicateConceptPair[][], concepts: DeduplicateConceptInput[]): DeduplicateConceptPair[] {
   const byId = new Map<number, DeduplicateConceptInput>();
 
   concepts.forEach((concept) => {
@@ -198,33 +193,14 @@ export function parseDeduplicateConceptPairs (content: string, concepts: Dedupli
   });
 
   const adjacency = new Map<number, Set<number>>();
-  const allowedPairs = candidates ? new Set(candidates.map(({ conceptIdA, conceptIdB }) => `${Math.min(conceptIdA, conceptIdB)}:${Math.max(conceptIdA, conceptIdB)}`)) : undefined;
 
-  parsed.duplicatePairs.forEach((value: unknown): void => {
-    if (
-      !isRecord(value) ||
-      typeof value.conceptIdA !== 'number' ||
-      !Number.isSafeInteger(value.conceptIdA) ||
-      typeof value.conceptIdB !== 'number' ||
-      !Number.isSafeInteger(value.conceptIdB) ||
-      value.conceptIdA === value.conceptIdB
-    ) {
-      throw new Error('OpenRouter returned an invalid duplicate Concept pair.');
+  results.flat().forEach(({ deletedConceptId, keptConceptId }) => {
+    if (deletedConceptId === keptConceptId || !byId.has(deletedConceptId) || !byId.has(keptConceptId)) {
+      throw new Error('Deduplicate Concepts received a duplicate relation outside the supplied inventory.');
     }
 
-    const conceptA = byId.get(value.conceptIdA);
-    const conceptB = byId.get(value.conceptIdB);
-
-    if (!conceptA || !conceptB) {
-      throw new Error('OpenRouter returned a duplicate Concept pair containing a concept outside the supplied inventory.');
-    }
-
-    if (allowedPairs && !allowedPairs.has(`${Math.min(value.conceptIdA, value.conceptIdB)}:${Math.max(value.conceptIdA, value.conceptIdB)}`)) {
-      throw new Error('OpenRouter returned a duplicate Concept pair outside the embedding candidate list.');
-    }
-
-    adjacency.set(value.conceptIdA, new Set([...(adjacency.get(value.conceptIdA) ?? []), value.conceptIdB]));
-    adjacency.set(value.conceptIdB, new Set([...(adjacency.get(value.conceptIdB) ?? []), value.conceptIdA]));
+    adjacency.set(deletedConceptId, new Set([...(adjacency.get(deletedConceptId) ?? []), keptConceptId]));
+    adjacency.set(keptConceptId, new Set([...(adjacency.get(keptConceptId) ?? []), deletedConceptId]));
   });
 
   const visited = new Set<number>();
@@ -277,6 +253,57 @@ export function parseDeduplicateConceptPairs (content: string, concepts: Dedupli
 
     return deletedA.chapterId - deletedB.chapterId || a.deletedConceptId - b.deletedConceptId;
   });
+}
+
+export function parseDeduplicateConceptPairs (content: string, concepts: DeduplicateConceptInput[], candidates?: DeduplicateConceptCandidatePair[]): DeduplicateConceptPair[] {
+  const parsed = parseResponse(content);
+
+  if (!isRecord(parsed) || !Array.isArray(parsed.duplicatePairs)) {
+    throw new Error('OpenRouter returned invalid Deduplicate Concepts data.');
+  }
+
+  const byId = new Map<number, DeduplicateConceptInput>();
+
+  concepts.forEach((concept) => {
+    if (!Number.isSafeInteger(concept.conceptId) || !Number.isSafeInteger(concept.chapterId) || byId.has(concept.conceptId)) {
+      throw new Error('Deduplicate Concepts received an invalid concept inventory.');
+    }
+
+    byId.set(concept.conceptId, concept);
+  });
+
+  const allowedPairs = candidates ? new Set(candidates.map(({ conceptIdA, conceptIdB }) => `${Math.min(conceptIdA, conceptIdB)}:${Math.max(conceptIdA, conceptIdB)}`)) : undefined;
+  const confirmedRelationships: DeduplicateConceptPair[] = [];
+
+  parsed.duplicatePairs.forEach((value: unknown): void => {
+    if (
+      !isRecord(value) ||
+      typeof value.conceptIdA !== 'number' ||
+      !Number.isSafeInteger(value.conceptIdA) ||
+      typeof value.conceptIdB !== 'number' ||
+      !Number.isSafeInteger(value.conceptIdB) ||
+      value.conceptIdA === value.conceptIdB
+    ) {
+      throw new Error('OpenRouter returned an invalid duplicate Concept pair.');
+    }
+
+    const conceptA = byId.get(value.conceptIdA);
+    const conceptB = byId.get(value.conceptIdB);
+
+    if (!conceptA || !conceptB) {
+      throw new Error('OpenRouter returned a duplicate Concept pair containing a concept outside the supplied inventory.');
+    }
+
+    if (allowedPairs && !allowedPairs.has(`${Math.min(value.conceptIdA, value.conceptIdB)}:${Math.max(value.conceptIdA, value.conceptIdB)}`)) {
+      throw new Error('OpenRouter returned a duplicate Concept pair outside the embedding candidate list.');
+    }
+
+    // Direction is irrelevant here. combineDeduplicateConceptPairs rebuilds
+    // connected duplicate groups and chooses the canonical concept globally.
+    confirmedRelationships.push({ deletedConceptId: value.conceptIdB, keptConceptId: value.conceptIdA });
+  });
+
+  return combineDeduplicateConceptPairs([confirmedRelationships], concepts);
 }
 
 export function conceptDeduplicationInput (

@@ -4,7 +4,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { chapterLevelMissingConcept, parseFixedConcept, parseMissingChapterConcepts } from './fixConcepts.js';
+import { chapterLevelMissingConcept, combineFixChapterConceptsResults, parseFixedConcept, parseMissingChapterConcepts } from './fixConcepts.js';
 import { fixChapterConceptsPrompt, fixSingleConceptPrompt } from '../../application/concepts/conceptPrompts.js';
 
 describe('fix concepts', (): void => {
@@ -55,7 +55,8 @@ describe('fix concepts', (): void => {
     assert.match(prompt, /incorrectly bundles multiple independently teachable skills/);
     assert.match(prompt, /Writing numerals 0-5/);
     assert.match(prompt, /normal removals plus additions/);
-    assert.match(prompt, /Duplicate detection is explicitly OUT OF SCOPE/i);
+    assert.match(prompt, /Duplicate review IS part of Fix Concepts/i);
+    assert.match(prompt, /LOWEST conceptIndex/i);
     assert.match(prompt, /later Deduplicate Concepts stage/i);
     assert.match(prompt, /removeConceptIndexes/);
     assert.match(prompt, /conceptIndex/);
@@ -77,6 +78,30 @@ describe('fix concepts', (): void => {
       { title: 'Denominator', description: 'The bottom number in a fraction.', pageNumber: 5 },
       { title: 'Denominator', description: 'Duplicate candidate.', pageNumber: 5 }
     ], removeConceptIndexes: [] });
+  });
+
+  it('combines two Fix concepts passes without dropping repeated concept proposals', (): void => {
+    assert.deepEqual(combineFixChapterConceptsResults([{
+      concepts: [
+        { title: 'Numerator', description: 'The top number in a fraction.', pageNumber: 4 },
+        { title: 'Denominator', description: 'The bottom number in a fraction.', pageNumber: 5 }
+      ],
+      removeConceptIndexes: [3, 1]
+    }, {
+      concepts: [
+        { title: 'Denominator', description: 'The bottom number in a fraction.', pageNumber: 5 },
+        { title: 'Equivalent fractions', description: 'Fractions can name the same value.', pageNumber: 6 }
+      ],
+      removeConceptIndexes: [1, 4]
+    }]), {
+      concepts: [
+        { title: 'Numerator', description: 'The top number in a fraction.', pageNumber: 4 },
+        { title: 'Denominator', description: 'The bottom number in a fraction.', pageNumber: 5 },
+        { title: 'Denominator', description: 'The bottom number in a fraction.', pageNumber: 5 },
+        { title: 'Equivalent fractions', description: 'Fractions can name the same value.', pageNumber: 6 }
+      ],
+      removeConceptIndexes: [1, 3, 4]
+    });
   });
 
   it('accepts a split proposal as one removal plus isolated replacement concepts', (): void => {

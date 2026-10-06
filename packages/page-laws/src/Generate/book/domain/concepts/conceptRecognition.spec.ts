@@ -5,9 +5,13 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
 import { BOOK_CHAPTER_EXTRACTION_REQUEST_PROMPT } from '../../infrastructure/ai/prompts/concepts.js';
-import { conceptChaptersFromPages, parseGeneratedChapterConcepts } from './conceptRecognition.js';
+import { CONCEPT_IDENTIFICATION_RUNS, conceptChaptersFromPages, parseGeneratedChapterConcepts } from './conceptRecognition.js';
 
 describe('chapter concept recognition', (): void => {
+  it('runs concept identification twice', (): void => {
+    assert.equal(CONCEPT_IDENTIFICATION_RUNS, 2);
+  });
+
   it('groups pages into whole chapters before AI processing', (): void => {
     assert.deepEqual(conceptChaptersFromPages([
       { chapter: 'One', chapterId: 10, pageNumber: 3 },

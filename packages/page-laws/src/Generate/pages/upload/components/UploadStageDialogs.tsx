@@ -103,7 +103,7 @@ export function UploadStageDialogs ({ processing, selectedBook }: UploadStageDia
       onRun={conceptGeneration.confirmFixConcepts}
       runLabel={t('Run')}
     >
-      <p>{t('Review each chapter’s source text and current concept list using the book topic, language, and learner age. Fix concepts can propose strongly implied missing concepts, flag existing concepts that clearly do not belong, and split bundled concepts into isolated skills by proposing the original for removal plus its narrower replacements for addition. You can add or remove concepts in the review before anything is saved.')}</p>
+      <p>{t('Review each chapter’s source text and current concept list twice using the book topic, language, and learner age, then combine both proposal sets before showing the review. Fix concepts can propose strongly implied missing concepts, flag existing concepts that clearly do not belong, split bundled concepts into isolated skills, and deduplicate clear repeated/paraphrased concepts inside the chapter by proposing duplicate copies for deletion. You can add or remove concepts in the review before anything is saved.')}</p>
       <Toggle
         isDisabled={!conceptGeneration.hasFailedFixConceptChapters}
         label={t('Only retry chapters that failed the last Fix concepts run')}
@@ -140,7 +140,7 @@ export function UploadStageDialogs ({ processing, selectedBook }: UploadStageDia
       onRun={conceptOrganization.confirmDeduplicateConcepts}
       runLabel={t('Run')}
     >
-      <p>{t('Use the cached concept Embedings to generate a small set of semantically close deletion candidates, then send only those candidates to the selected AI model for confirmation. Nothing is deleted until you review the confirmed duplicate groups. For every confirmed duplicate group, the concept with the lowest chapter id is kept; ties inside the same chapter are broken by the lowest concept id, and every other concept in the group is proposed for deletion.')}</p>
+      <p>{t('Run the embedding-assisted duplicate review twice before showing proposals. Each run uses the cached concept Embedings to generate a small set of semantically close deletion candidates, then sends only those candidates to the selected AI model for confirmation. The two result sets are combined before review. Nothing is deleted until you review the confirmed duplicate groups. For every confirmed duplicate group, the concept with the lowest chapter id is kept; ties inside the same chapter are broken by the lowest concept id, and every other concept in the group is proposed for deletion.')}</p>
       <AiPriceEstimate estimate={conceptOrganization.deduplicateConceptsEstimate} />
       <OpenRouterModelSelector
         className='batchModelSelect'

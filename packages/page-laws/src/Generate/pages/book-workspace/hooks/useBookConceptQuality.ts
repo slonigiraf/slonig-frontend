@@ -8,14 +8,15 @@ import { useCallback, useEffect } from 'react';
 import { mapConcurrent } from '../../../../common/concurrency.js';
 import { OPENROUTER_CONCURRENCY } from '../../../../openrouter/concurrency.js';
 import type { ConceptChapterNavigationItem } from '../../../book/domain/concepts/conceptRecognition.js';
-import { deduplicateConceptCandidatesAcrossChapters, deduplicateConceptCandidatesWithinChapters, type DeduplicateConceptInput, type DeduplicateConceptPair } from '../../../book/domain/concepts/deduplicateConcepts.js';
-import { chapterLevelMissingConcept } from '../../../book/domain/concepts/fixConcepts.js';
+import { combineDeduplicateConceptPairs, DEDUPLICATE_CONCEPTS_RUNS, deduplicateConceptCandidatesAcrossChapters, deduplicateConceptCandidatesWithinChapters, type DeduplicateConceptInput, type DeduplicateConceptPair } from '../../../book/domain/concepts/deduplicateConcepts.js';
+import { chapterLevelMissingConcept, combineFixChapterConceptsResults, FIX_CONCEPTS_RUNS, type FixChapterConceptsResult } from '../../../book/domain/concepts/fixConcepts.js';
 import { cachedConceptEmbeddingMap, ensureConceptEmbeddingCache } from '../../../book/infrastructure/ai/standardsEmbeddings.js';
 import { fixConceptsChapterKey, loadFixConceptsChapterStatuses, storeFixConceptsChapterStatuses, type FixConceptsChapterStatuses } from '../../../book/infrastructure/storage/fixConceptsProgress.js';
 import { conceptGenerationErrorMessage, createOpenRouterClient, requestDeduplicateConceptPairs, requestMissingChapterConcepts } from '../../../book/application/workspace/bookReaderProcessing.js';
 import { conceptReferenceKey, conceptsForNavigationChapter, deleteConceptAndDependencies, getBookConceptInventory, sortConceptsForDisplay } from '../../../book/application/workspace/bookReaderWorkspace.js';
 import { type DeduplicateConceptsReview, type DeduplicateConceptsReviewPair, type FixConceptsReview, type FixConceptsReviewChapter } from '../BookReaderTypes.js';
 import { type ReaderPane } from '../../../shared/types/bookWorkspace.js';
+
 interface DeduplicateInventory {
   conceptsById: Map<number, BookConcept>;
   inputs: DeduplicateConceptInput[];
@@ -148,7 +149,7 @@ export function useBookConceptQuality ({
     setOpenRouterSpent(0);
     setIsFixingConcepts(true);
     setFixedConceptsChapterCount(0);
-    setFixConceptsTargetChapterCount(targetChapters.length);
+    setFixConceptsTargetChapterCount(targetChapters.length * FIX_CONCEPTS_RUNS);
 
     try {
       const key = await getSetting(SettingKey.OPENROUTER_TOKEN);
@@ -160,25 +161,37 @@ export function useBookConceptQuality ({
       const client = createOpenRouterClient(key, currentReaderProcessingSignal());
       const pageLessConcepts = await getBookConceptsForBookPage(book.id, 0);
       const results = await mapConcurrent(targetChapters, OPENROUTER_CONCURRENCY, async (chapter) => {
-        try {
-          const before = sortConceptsForDisplay([
-            ...(await Promise.all(chapter.pageNumbers.map((chapterPageNumber) => getBookConceptsForBookPage(book.id, chapterPageNumber)))).flat(),
-            ...pageLessConcepts.filter(({ chapterId }) => chapterId !== undefined && chapterId === chapter.chapterId)
-          ]);
-          const chapterMmd = chapter.pageNumbers.map((chapterPageNumber) => `--- page ${chapterPageNumber} ---\n${pages.get(chapterPageNumber)?.pageMMD ?? ''}`).join('\n\n');
-          const fixes = await requestMissingChapterConcepts(client, model, chapter.title, chapterMmd, before, chapter.pageNumbers, book, addFixConceptsCost);
-          const removed = fixes.removeConceptIndexes.flatMap((conceptIndex): BookConcept[] => {
-            const concept = before[conceptIndex];
+        const before = sortConceptsForDisplay([
+          ...(await Promise.all(chapter.pageNumbers.map((chapterPageNumber) => getBookConceptsForBookPage(book.id, chapterPageNumber)))).flat(),
+          ...pageLessConcepts.filter(({ chapterId }) => chapterId !== undefined && chapterId === chapter.chapterId)
+        ]);
+        const chapterMmd = chapter.pageNumbers.map((chapterPageNumber) => `--- page ${chapterPageNumber} ---\n${pages.get(chapterPageNumber)?.pageMMD ?? ''}`).join('\n\n');
+        const fixesByPass: FixChapterConceptsResult[] = [];
+        const passFailures: string[] = [];
 
-            return concept?.id === undefined ? [] : [concept];
-          });
-
-          return { before, chapter, missing: fixes.concepts, removed, status: 'fulfilled' as const };
-        } catch (reason) {
-          return { chapter, reason, status: 'rejected' as const };
-        } finally {
-          setFixedConceptsChapterCount((count) => count + 1);
+        // Run independent passes against the same unsaved inventory for higher recall.
+        for (let passIndex = 0; passIndex < FIX_CONCEPTS_RUNS; passIndex++) {
+          try {
+            fixesByPass.push(await requestMissingChapterConcepts(client, model, chapter.title, chapterMmd, before, chapter.pageNumbers, book, addFixConceptsCost));
+          } catch (reason) {
+            passFailures.push(`Pass ${passIndex + 1}: ${conceptGenerationErrorMessage(reason)}`);
+          } finally {
+            setFixedConceptsChapterCount((count) => count + 1);
+          }
         }
+
+        if (!fixesByPass.length) {
+          return { chapter, reason: passFailures.join(' | '), status: 'rejected' as const };
+        }
+
+        const fixes = combineFixChapterConceptsResults(fixesByPass);
+        const removed = fixes.removeConceptIndexes.flatMap((conceptIndex): BookConcept[] => {
+          const concept = before[conceptIndex];
+
+          return concept?.id === undefined ? [] : [concept];
+        });
+
+        return { before, chapter, missing: fixes.concepts, removed, status: 'fulfilled' as const };
       });
       const successfulChapters = results.flatMap((result): FixConceptsReviewChapter[] => result.status === 'fulfilled'
         ? [{ before: result.before, chapter: result.chapter, missing: result.missing, removed: result.removed }]
@@ -426,31 +439,40 @@ export function useBookConceptQuality ({
 
       inputs.forEach((input) => inputsByChapter.set(input.chapterId, [...(inputsByChapter.get(input.chapterId) ?? []), input]));
 
-      // Pass 1: deduplicate independently inside each chapter. This removes the
-      // intentional repetition produced by the three Concept-identification
-      // runs before any cross-book candidate search is attempted.
-      const withinChapterPairs = (await mapConcurrent(Array.from(inputsByChapter.values()), OPENROUTER_CONCURRENCY, async (chapterInputs): Promise<DeduplicateConceptPair[]> => {
-        if (chapterInputs.length < 2) {
-          return [];
-        }
+      const runDeduplicateReview = async (): Promise<DeduplicateConceptPair[]> => {
+        // Phase 1: confirm duplicate candidates independently inside each
+        // chapter. This removes local repetition before the cross-book search.
+        const withinChapterPairs = (await mapConcurrent(Array.from(inputsByChapter.values()), OPENROUTER_CONCURRENCY, async (chapterInputs): Promise<DeduplicateConceptPair[]> => {
+          if (chapterInputs.length < 2) {
+            return [];
+          }
 
-        const candidates = deduplicateConceptCandidatesWithinChapters(chapterInputs, embeddings);
+          const candidates = deduplicateConceptCandidatesWithinChapters(chapterInputs, embeddings);
 
-        return candidates.length
-          ? requestDeduplicateConceptPairs(client, model, chapterInputs, candidates, book, addDeduplicateConceptsCost)
+          return candidates.length
+            ? requestDeduplicateConceptPairs(client, model, chapterInputs, candidates, book, addDeduplicateConceptsCost)
+            : [];
+        })).flat();
+        const deletedWithinChapterIds = new Set(withinChapterPairs.map(({ deletedConceptId }) => deletedConceptId));
+        const survivingInputs = inputs.filter(({ conceptId }) => !deletedWithinChapterIds.has(conceptId));
+
+        // Phase 2: compare only local survivors across different chapters.
+        const crossChapterCandidates = deduplicateConceptCandidatesAcrossChapters(survivingInputs, embeddings);
+        const crossChapterPairs = crossChapterCandidates.length
+          ? await requestDeduplicateConceptPairs(client, model, survivingInputs, crossChapterCandidates, book, addDeduplicateConceptsCost)
           : [];
-      })).flat();
-      const deletedWithinChapterIds = new Set(withinChapterPairs.map(({ deletedConceptId }) => deletedConceptId));
-      const survivingInputs = inputs.filter(({ conceptId }) => !deletedWithinChapterIds.has(conceptId));
 
-      // Pass 2: compare only the chapter-local survivors, and only across
-      // different chapters. This avoids repeating same-chapter comparisons and
-      // shrinks the book-wide candidate set substantially.
-      const crossChapterCandidates = deduplicateConceptCandidatesAcrossChapters(survivingInputs, embeddings);
-      const crossChapterPairs = crossChapterCandidates.length
-        ? await requestDeduplicateConceptPairs(client, model, survivingInputs, crossChapterCandidates, book, addDeduplicateConceptsCost)
-        : [];
-      const duplicatePairs = [...withinChapterPairs, ...crossChapterPairs];
+        return [...withinChapterPairs, ...crossChapterPairs];
+      };
+      const reviewRuns: DeduplicateConceptPair[][] = [];
+
+      // Run the complete duplicate review twice against the same unsaved
+      // inventory, then merge both result graphs before showing one popup.
+      for (let runIndex = 0; runIndex < DEDUPLICATE_CONCEPTS_RUNS; runIndex++) {
+        reviewRuns.push(await runDeduplicateReview());
+      }
+
+      const duplicatePairs = combineDeduplicateConceptPairs(reviewRuns, inputs);
       const inputById = new Map(inputs.map((input) => [input.conceptId, input] as const));
       const pairs = duplicatePairs.map(({ deletedConceptId, keptConceptId }): DeduplicateConceptsReviewPair => {
         const deleted = conceptsById.get(deletedConceptId);
