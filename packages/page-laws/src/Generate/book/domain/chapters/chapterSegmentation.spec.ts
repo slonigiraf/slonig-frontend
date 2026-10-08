@@ -68,12 +68,12 @@ describe('chapter segmentation', (): void => {
     const parsed = parseChapterBoundaries(JSON.stringify({ chapters: [
       { confidence: 0.6, startPage: 8, title: 'Chapter 1' },
       { confidence: 0.9, startPage: 8, title: 'Chapter One' },
-      { confidence: 0.8, startPage: 40, title: 'Chapter 2' }
+      { confidence: 0.8, startPage: 40, title: 'Untitled Chapter' }
     ] }), 100);
 
     assert.deepEqual(chapterAssignmentsFromBoundaries(parsed, 100), [
       { confidence: 0.9, startPage: 8, title: 'Chapter One' },
-      { confidence: 0.8, startPage: 40, title: 'Chapter 2' }
+      { confidence: 0.8, startPage: 40, title: 'Untitled Chapter' }
     ]);
   });
 
@@ -196,8 +196,8 @@ describe('chapter segmentation', (): void => {
     ];
 
     assert.deepEqual(stabilizeChapterBoundaries(model, [], 4, evidence).map(({ startPage, title }) => ({ startPage, title })), [
-      { startPage: 1, title: 'FIRST TOPIC' },
-      { startPage: 4, title: 'SECOND CHAPTER' }
+      { startPage: 1, title: 'First Topic' },
+      { startPage: 4, title: 'Second Chapter' }
     ]);
   });
 
@@ -224,7 +224,7 @@ describe('chapter segmentation', (): void => {
     const structural = [{ confidence: 0.985, startPage: 10, title: 'ОТЕЧЕСТВЕННАЯ ВОЙНА 1812 г.' }];
     const model = [{ confidence: 0.99, startPage: 10, title: 'Chapter 4' }];
 
-    assert.deepEqual(stabilizeChapterBoundaries(model, structural, 20), structural);
+    assert.deepEqual(stabilizeChapterBoundaries(model, structural, 20), [{ ...structural[0], title: 'Отечественная Война 1812 Г.' }]);
   });
 
 
@@ -254,7 +254,7 @@ describe('chapter segmentation', (): void => {
     assert.deepEqual(stabilizeChapterBoundaries([
       { confidence: 0.99, startPage: 7, title: '1.1. Изучая жизнь, мы выявляем ее основные признаки' }
     ], structural, 20, evidence).map(({ startPage, title }) => ({ startPage, title })), [
-      { startPage: 4, title: '1 Эволюция, ОСНОВНЫЕ Темы биологии методы научного исследования' }
+      { startPage: 4, title: 'Эволюция, Основные Темы Биологии Методы Научного Исследования' }
     ]);
   });
 
@@ -282,7 +282,7 @@ describe('chapter segmentation', (): void => {
     assert.deepEqual(stabilizeChapterBoundaries([
       { confidence: 0.99, startPage: 13, title: 'Элементы и соединения' }
     ], structural, 20, evidence).map(({ startPage, title }) => ({ startPage, title })), [
-      { startPage: 10, title: '2 Химическая основа жизни' }
+      { startPage: 10, title: 'Химическая Основа Жизни' }
     ]);
   });
 

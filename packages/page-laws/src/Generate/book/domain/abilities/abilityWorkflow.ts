@@ -1,11 +1,12 @@
 // Copyright 2021-2026 @polkadot/app-laws authors & contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import type { Exercise } from '@slonigiraf/db';
+import type { BookConcept, Exercise } from '@slonigiraf/db';
 import type { AbilityExerciseImagePrompts, GeneratedAbility } from '../../../../abilities/abilities.js';
 
 import { parseGeneratedAbilities } from '../../../../abilities/abilities.js';
 import { stripMarkdownImageReferences } from '../content/markdownImages.js';
+import { formatSentenceCaseTitle } from '../naming/sentenceCase.js';
 
 export type AbilityQuestionVisualMode = 'none' | 'required';
 export type AbilitySolutionVisualMode = 'none' | 'new' | 'modify-question';
@@ -160,7 +161,7 @@ export function parseAbilityBlueprints (content: string, expectedExerciseIds: nu
       }
 
       signatures.add(signature);
-      result.push({ exerciseId, input, method, operation, output, questionVisual, skillIndex, solutionVisual, title });
+      result.push({ exerciseId, input, method, operation, output, questionVisual, skillIndex, solutionVisual, title: formatSentenceCaseTitle(title) });
     });
   }
 
@@ -581,14 +582,18 @@ export async function generateAtomicAbilityExercise (
   language: string,
   chapterTitle: string,
   exercise: Exercise,
-  runJson: AbilityWorkflowJsonRunner
+  runJson: AbilityWorkflowJsonRunner,
+  sourceConcept?: Pick<BookConcept, 'title' | 'description'>
 ): Promise<AtomicAbilityConversion[]> {
   if (exercise.id === undefined) {
     throw new Error('Every source Exercise must have one unique id before Ability generation.');
   }
 
   const exerciseId = exercise.id;
-  const source = transportCompactAbilitySourceExercise(exercise);
+  const source = {
+    ...transportCompactAbilitySourceExercise(exercise),
+    ...(sourceConcept ? { sourceConcept: { title: sourceConcept.title, description: sourceConcept.description } } : {})
+  };
 
   return runJson(
     abilityGenerationRequestPrompt(language, chapterTitle, source),
@@ -637,6 +642,8 @@ export function abilityGenerationRequestPrompt (language: string, chapterTitle: 
 Chapter: ${chapterTitle}
 Language: ${language}
 
+SOURCE ALIGNMENT: The source contains its Exercise task, solution, questionVisual, solutionVisual, and (when linked) sourceConcept title and description. For EACH of the two generated tasks separately, verify that the question and answer exercise the exact same concept and complete Exercise-level skill as the source, including every inseparable operation, direction, representation, output format, solution method, reasoning depth, age-appropriate difficulty, and required visuals. Both tasks must follow the same reusable task template; only specific input parameters and their corresponding answers/visuals may vary. Never introduce an operation or topic not taught by the source Concept. If the Exercise and Concept appear inconsistent, keep the Exercise's actual required operation while remaining within the Concept's scope; do not generate unrelated tasks. Ability h must use sentence case ("This is an example of a title") with proper nouns/acronyms preserved.
+
 FINAL ABILITY
 Create exactly one Ability with exactly two concrete practice instances. The Ability must represent the complete source Exercise rather than one convenient sub-step. Both questions must preserve the same complete input type, operation or operation sequence, output type, method, direction, reasoning depth, and difficulty. Vary only concrete task data and independently recalculate each answer. Keep titles normally <=12 words, tasks <=32 words, and answers <=38 words. Do not use hints, tutorial prose, answer choices, book references, or placeholder task text such as "Task 1" or "Task 2". Use <kx>...</kx> for mathematical notation. ability.i="", ability.t=3, and q[].p/q[].i must remain empty because images are materialized later.
 
@@ -658,7 +665,7 @@ Language: ${language}
 
 Create exactly one Ability definition that represents the complete coherent skill trained by the source Exercise. Do not decompose it into atomic sub-skills. If the Exercise uses several inseparable steps or operations to reach its requested output, keep that sequence together in the same Ability. Preserve each supplied Exercise as one Ability.
 
-Describe the general input, the complete learner operation or operation sequence, the expected output, and the stable method. Keep the title short and observable. The two learner-facing practice instances generated later must exercise this same complete contract with different concrete data.
+Describe the general input, the complete learner operation or operation sequence, the expected output, and the stable method. Use sentence case for the Ability title ("This is an example of a title") with proper nouns preserved. Keep the title short and observable. The two learner-facing practice instances generated later must exercise this same complete contract with different concrete data.
 
 Visual contract: questionVisual="required" only when the learner must inspect task-essential visual/spatial information that cannot be moved into text without changing or revealing the task. solutionVisual="new" only for a newly created visual answer, "modify-question" only when the answer changes the supplied question visual, otherwise "none". A modify-question solution requires questionVisual="required". Never request decorative visuals.
 
@@ -675,7 +682,7 @@ export function abilityMaterializationPrompt (language: string, chapterTitle: st
 Chapter: ${chapterTitle}
 Language: ${language}
 
-Create exactly one Ability with exactly two concrete practice instances. Copy blueprint.title to ability.h unchanged. Both instances must train the same complete Exercise-level input, operation or operation sequence, output, method, direction, reasoning depth, and difficulty; vary only concrete task data and independently recalculate each answer. Keep tasks direct (normally <=32 words), answers compact (normally <=38 words), and titles <=12 words. No hints, tutorial prose, answer choices, book references, or redundant explanation. Use <kx>...</kx> for mathematical notation. ability.i="", t=3, and q[].p/q[].i remain empty because images are materialized later.
+Create exactly one Ability with exactly two concrete practice instances. Use sentence case for the Ability name ("This is an example of a title") while retaining proper nouns. Copy blueprint.title to ability.h unchanged. Both instances must train the same complete Exercise-level input, operation or operation sequence, output, method, direction, reasoning depth, and difficulty; vary only concrete task data and independently recalculate each answer. Keep tasks direct (normally <=32 words), answers compact (normally <=38 words), and titles <=12 words. No hints, tutorial prose, answer choices, book references, or redundant explanation. Use <kx>...</kx> for mathematical notation. ability.i="", t=3, and q[].p/q[].i remain empty because images are materialized later.
 
 Every q[].h must contain the actual learner-facing task. Never use placeholder task titles/text equal to "Task 1" or "Task 2" (ignoring case or surrounding whitespace).
 

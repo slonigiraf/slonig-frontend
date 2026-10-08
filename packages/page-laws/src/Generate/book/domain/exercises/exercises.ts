@@ -3,6 +3,8 @@
 
 import type { BookConcept, Exercise } from '@slonigiraf/db';
 
+import { formatSentenceCaseTitle } from '../naming/sentenceCase.js';
+
 export interface ExerciseRepairReview {
   errors: string[];
   exercise?: Exercise;
@@ -67,7 +69,7 @@ function parseCorrectedExercise (value: unknown, original: Exercise): Exercise {
     ...(imageDescription ? { imageDescription } : {}),
     solution: value.solution.trim(),
     ...(solutionImageDescription ? { solutionImageDescription } : {}),
-    title: value.title.trim()
+    title: formatSentenceCaseTitle(value.title)
   };
 }
 

@@ -53,9 +53,15 @@ describe('chapter concept recognition', (): void => {
     ] }), new Set([6, 7, 8]));
 
     assert.deepEqual(result.concepts, [
-      { description: 'First introduction', pageNumber: 6, title: 'Linear   equation' },
+      { description: 'First introduction', pageNumber: 6, title: 'Linear equation' },
       { description: 'Another concept', pageNumber: 7, title: 'Slope' }
     ]);
+  });
+
+  it('normalizes model-generated concept names to sentence case', (): void => {
+    const result = parseGeneratedChapterConcepts(JSON.stringify({ concepts: [{ description: 'Explore basics', pageNumber: 1, title: 'The Main Ideas in DNA' }] }), new Set([1]));
+
+    assert.equal(result.concepts[0].title, 'The main ideas in DNA');
   });
 
   it('rejects a concept that points outside the supplied chapter pages', (): void => {

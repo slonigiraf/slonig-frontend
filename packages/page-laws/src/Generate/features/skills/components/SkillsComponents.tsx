@@ -1,6 +1,7 @@
 // Copyright 2021-2026 @polkadot/app-laws authors & contributors
 // SPDX-License-Identifier: Apache-2.0
 
+import { formatChapterTitle } from '../../../book/domain/chapters/chapterTitles.js';
 import type { ExerciseEditableFields } from '../../../shared/types/exercise.js';
 import type { BookChapter, Exercise, Skill } from '@slonigiraf/db';
 import type { GeneratedAbility } from '../../../../abilities/abilities.js';
@@ -109,7 +110,7 @@ export function ChapterTitleEditor ({ chapter, onClose, onError, onSaved }: { ch
       return;
     }
 
-    updateBookChapterTitle(chapter.id, title.trim())
+    updateBookChapterTitle(chapter.id, formatChapterTitle(title))
       .then(() => {
         onSaved();
         onClose();

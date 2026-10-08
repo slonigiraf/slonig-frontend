@@ -43,7 +43,7 @@ function LawsApp ({ basePath, onStatusChange }: Props): React.ReactElement<Props
   const hidden = useMemo(
     () => isDeveloper
       ? []
-      : ['create'],
+      : ['create', 'generate'],
     [isDeveloper]
   );
 
@@ -62,10 +62,12 @@ function LawsApp ({ basePath, onStatusChange }: Props): React.ReactElement<Props
               path='create'
             />
           )}
-          <Route
-            element={<Generate />}
-            path='generate'
-          />
+          {isDeveloper && (
+            <Route
+              element={<Generate />}
+              path='generate'
+            />
+          )}
           <Route
             element={
               <Edit />

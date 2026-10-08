@@ -137,12 +137,14 @@ export function abilityRepairInput (
   chapterTitle?: string,
   learnerAge?: number,
   embeddingHints?: ReadonlyMap<string, AbilityEmbeddingValidationHint>,
-  sourceExercisesByModuleId?: ReadonlyMap<string, Exercise>
+  sourceExercisesByModuleId?: ReadonlyMap<string, Exercise>,
+  sourceConceptsById?: ReadonlyMap<number, { description: string; title: string }>
 ): unknown {
   return {
     abilities: batch.map(({ ability, content, id, moduleId }, index) => {
       const embeddingValidation = embeddingHints?.get(id);
       const sourceExercise = sourceExercisesByModuleId?.get(moduleId);
+      const sourceConcept = sourceExercise?.conceptId === undefined ? undefined : sourceConceptsById?.get(sourceExercise.conceptId);
 
       return {
         ability: ability
@@ -161,7 +163,8 @@ export function abilityRepairInput (
         ...(embeddingValidation ? { embeddingValidation } : {}),
         id,
         index,
-        ...(embeddingValidation?.needsAdditionalCheck && sourceExercise ? { sourceExercise: transportCompactAbilitySourceExercise(sourceExercise) } : {})
+        ...(sourceExercise ? { sourceExercise: transportCompactAbilitySourceExercise(sourceExercise) } : {}),
+        ...(sourceConcept ? { sourceConcept: { title: sourceConcept.title, description: sourceConcept.description } } : {})
       };
     }),
     bookLanguage: language,

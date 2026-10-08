@@ -1,6 +1,8 @@
 // Copyright 2021-2026 @polkadot/app-laws authors & contributors
 // SPDX-License-Identifier: Apache-2.0
 
+import { formatChapterTitle } from '../../../book/domain/chapters/chapterTitles.js';
+
 import type { Book, BookChapter, BookPage, BookProcessingStageKey } from '@slonigiraf/db';
 import { assignBookPageChapter, deleteAbilities, deleteBookChapters, getBookChapters, getBookPages, getExercisesForBookPage, getSetting, mergeBookChapterWithPrevious, replaceBookChapterAssignments, SettingKey, splitBookChapterAtPage, updateBookChapterTitle, updateBookFieldsAndStages, withBookProcessingStagesResetFrom, withCompletedBookProcessingStage } from '@slonigiraf/db';
 import type { PDFDocumentProxy } from 'pdfjs-dist';
@@ -190,7 +192,7 @@ export function useBookChapterActions ({
   }, [book.id, isDeletingChapters, pages, refreshChapterAssignments, refreshConceptCounts, refreshEntityCounts, selectedChapterIds, synchronizeChapterProcessingStage]);
 
   const saveCurrentChapterTitle = useCallback(async (): Promise<void> => {
-    const title = chapterTitleDraft.trim();
+    const title = formatChapterTitle(chapterTitleDraft);
 
     if (currentChapter?.id === undefined || !title) {
       return;
@@ -220,7 +222,7 @@ export function useBookChapterActions ({
   }, [book.id, pageNumber, refreshChapterAssignments, synchronizeChapterProcessingStage]);
 
   const startChapterHere = useCallback(async (): Promise<void> => {
-    const title = newChapterTitle.trim();
+    const title = formatChapterTitle(newChapterTitle);
 
     if (!title) {
       setError('Enter a chapter title first.');

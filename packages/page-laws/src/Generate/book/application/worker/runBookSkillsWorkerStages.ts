@@ -267,7 +267,7 @@ export async function runAbilitiesStage ({ book, command, cost, progress, signal
   }
 
   const content = await loadLearningContent(book.id);
-  const { allAbilities, allExercises, chapters } = content;
+  const { allAbilities, allConcepts, allExercises, chapters } = content;
 
   if (!allExercises.length) throw new Error('No Exercises are available to generate Abilities from.');
   if (allExercises.some(({ id }) => id === undefined)) throw new Error('Every Exercise must have an id before Abilities can be generated.');
@@ -284,9 +284,10 @@ export async function runAbilitiesStage ({ book, command, cost, progress, signal
   }
 
   const targetIds = new Set(targets.map(({ id }) => id as number));
+  const conceptsByIdForGeneration = new Map(allConcepts.flatMap((concept) => concept.id === undefined ? [] : [[concept.id, concept] as const]));
   const sources = chapters.flatMap(({ chapter, exercises }) => exercises
     .filter(({ id }) => id !== undefined && targetIds.has(id))
-    .map((exercise) => ({ chapterTitle: chapter.title, exercise })));
+    .map((exercise) => ({ chapterTitle: chapter.title, exercise, sourceConcept: exercise.conceptId === undefined ? undefined : conceptsByIdForGeneration.get(exercise.conceptId) })));
   const client = await requireClient(signal);
   const generatedByExerciseId = new Map<number, GeneratedAbility[]>();
   const conversionsCache = new Map<number, ExerciseAbilityConversion[]>();
@@ -298,7 +299,7 @@ export async function runAbilitiesStage ({ book, command, cost, progress, signal
   for (let attempt = 1; attempt <= maxAttempts && pending.size; attempt++) {
     const remaining = sources.filter(({ exercise }) => exercise.id !== undefined && pending.has(exercise.id) && !conversionsCache.has(exercise.id));
 
-    await mapConcurrent(remaining, OPENROUTER_CONCURRENCY, async ({ chapterTitle, exercise }) => {
+    await mapConcurrent(remaining, OPENROUTER_CONCURRENCY, async ({ chapterTitle, exercise, sourceConcept }) => {
       throwIfAborted();
       const systemPrompt = ABILITY_WORKFLOW_SYSTEM_PROMPT(book.language as string, chapterTitle, book.age);
       const runJson: AbilityWorkflowJsonRunner = (prompt, parse, options) => requestValidatedJson(
@@ -316,7 +317,7 @@ export async function runAbilitiesStage ({ book, command, cost, progress, signal
       );
 
       try {
-        const conversions = await generateExerciseAbility(book.language as string, chapterTitle, exercise, runJson);
+        const conversions = await generateExerciseAbility(book.language as string, chapterTitle, exercise, runJson, sourceConcept);
         const exerciseId = exercise.id as number;
         const sorted = conversions.sort((a, b) => a.skillIndex - b.skillIndex);
 
@@ -385,7 +386,7 @@ export async function runFixAbilitiesStage ({ book, command, cost, progress, sig
       client,
       command.options.model || DEFAULT_PROCESSING_MODEL,
       REPAIR_SYSTEM_PROMPT(book.language as string, book.age),
-      FIX_ABILITIES_REQUEST_PROMPT(abilityRepairInput(book.language as string, batch, chapterTitle, book.age, embeddingHints, exercisesByModuleId)),
+      FIX_ABILITIES_REQUEST_PROMPT(abilityRepairInput(book.language as string, batch, chapterTitle, book.age, embeddingHints, exercisesByModuleId, conceptsById)),
       (value) => parseAbilityRepairResult(value, batch.map(({ ability }) => ability), batch.map(({ id }) => id)),
       true,
       cost,

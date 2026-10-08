@@ -1,6 +1,8 @@
 // Copyright 2021-2026 @polkadot/app-laws authors & contributors
 // SPDX-License-Identifier: Apache-2.0
 
+import { formatSentenceCaseTitle } from '../Generate/book/domain/naming/sentenceCase.js';
+
 export interface GeneratedAbilityExercise {
   a: string;
   h: string;
@@ -208,6 +210,9 @@ export function validateGeneratedAbilityText (ability: GeneratedAbility): void {
 
 function parseGeneratedAbilityValue (value: unknown): GeneratedAbility {
   const template = parseAbilityValue(value);
+
+  // Only normalize new or repaired AI names, never rewrite existing stored records.
+  template.h = formatSentenceCaseTitle(template.h);
 
   // Distinct concrete inputs are a quality requirement, not a schema
   // requirement. Do not make the whole Ability-generation workflow fail just

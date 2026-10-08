@@ -12,7 +12,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import OpenAI from 'openai';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { Button, Input, InputBalance, Modal, styled } from '@polkadot/react-components';
+import { Button, InputBalance, Modal, styled } from '@polkadot/react-components';
 import { useApi } from '@polkadot/react-hooks';
 import { FormatBalance } from '@polkadot/react-query';
 import { BN_ZERO, u8aToHex } from '@polkadot/util';
@@ -21,11 +21,13 @@ import { OPENAI_MODELS } from '../../../openrouter/models.js';
 import { openRouterRequestGate } from '../../../openrouter/concurrency.js';
 import { COURSE_NAMES_PROMPT } from '../../book/infrastructure/ai/prompts/publishing.js';
 import { parseNameSuggestions } from '../../book/domain/publishing/courseNames.js';
+import { formatBookTitle, formatChapterTitle } from '../../book/domain/chapters/chapterTitles.js';
 import { chapterOutlineKey, type ChapterTemplates, isKnowledgeId, type KnowledgeItem, publishProcessedBook, templateOutlineKey, type TemplateRow } from '../../book/application/publishing/publishProcessedBook.js';
 import KnowledgeTargetSelector from './components/KnowledgeTargetSelector.js';
 import { parseStoredAbility } from '../../../abilities/abilities.js';
 import { isTikzCode } from '../../../Edit/tikz.js';
 import { sortExercisesForDisplay } from '../../book/domain/concepts/learningOrder.js';
+import { useAutosavedTitle, type TitleSaveStatus } from './useAutosavedTitle.js';
 
 type OutlineItem =
   | { chapter: BookChapter; key: string; type: 'chapter' }
@@ -116,6 +118,18 @@ function TemplateRowView ({ dragKey, isDraggingDisabled, isPublished, isPublishi
   );
 }
 
+function TitleSaveIndicator ({ onRetry, status }: { onRetry: () => void; status: TitleSaveStatus }): React.ReactElement | null {
+  if (status === 'idle') {
+    return null;
+  }
+
+  return <small aria-live='polite' className={`titleSaveIndicator titleSave--${status}`} role='status'>
+    {status === 'pending' ? 'Unsaved changes…' : status === 'saving' ? 'Saving…' : status === 'saved' ? 'Saved' : <>
+      Couldn't save. <button onClick={onRetry} type='button'>Retry</button>
+    </>}
+  </small>;
+}
+
 interface ChapterViewProps extends DraggableRowProps {
   chapter: BookChapter;
   isPublishing: boolean;
@@ -125,13 +139,17 @@ interface ChapterViewProps extends DraggableRowProps {
 }
 
 function ChapterView ({ chapter, dragKey, isDraggingDisabled, isPublished, isPublishing, onDelete, onDragStart, onDrop, onSaveName }: ChapterViewProps): React.ReactElement {
-  const [title, setTitle] = useState(chapter.title);
+  const { showInfo } = useInfo();
+  const [isEditingName, setIsEditingName] = useState(false);
+  const { flush, onChange, status, title } = useAutosavedTitle({
+    normalize: formatChapterTitle,
+    onError: (error) => showInfo(`Unable to rename the chapter: ${errorMessage(error)}`, 'error'),
+    save: (name) => onSaveName(chapter, name),
+    sourceTitle: chapter.title
+  });
   const deleteChapter = useCallback((): void => {
     onDelete(chapter).catch(console.error);
   }, [chapter, onDelete]);
-  const saveName = useCallback((): void => {
-    onSaveName(chapter, title).catch(console.error);
-  }, [chapter, onSaveName, title]);
   const dragStart = useCallback((event: React.DragEvent<HTMLDivElement>): void => {
     event.dataTransfer.effectAllowed = 'move';
     onDragStart(dragKey);
@@ -142,14 +160,12 @@ function ChapterView ({ chapter, dragKey, isDraggingDisabled, isPublished, isPub
     onDrop(dragKey);
   }, [dragKey, onDrop]);
 
-  useEffect((): void => setTitle(chapter.title), [chapter.title]);
-
   return (
     <div
       className='chapterNameRow outlineRow'
       data-outline-key={dragKey}
       data-outline-type='chapter'
-      draggable={!isDraggingDisabled}
+      draggable={!isDraggingDisabled && !isEditingName}
       onDragOver={dragOver}
       onDragStart={dragStart}
       onDrop={drop}
@@ -161,21 +177,29 @@ function ChapterView ({ chapter, dragKey, isDraggingDisabled, isPublished, isPub
       />
       <span className='dragHandle'>⋮⋮</span>
       <div className='chapterNameContent'>
-        <Input
-          isDisabled={isPublished || isPublishing}
-          label='Chapter name'
-          onBlur={saveName}
-          onChange={setTitle}
-          onEnter={saveName}
-          value={title}
-        />
+        <label className='courseTitleField'>
+          <span>Chapter name</span>
+          <span className='ui input ui--Input'>
+            <input
+              aria-label='Chapter name'
+              disabled={isPublished || isPublishing}
+              onBlur={() => { setIsEditingName(false); void flush(true); }}
+              onChange={(event) => onChange(event.currentTarget.value)}
+              onFocus={() => setIsEditingName(true)}
+              onKeyDown={(event) => { if (event.key === 'Enter') { event.currentTarget.blur(); } }}
+              type='text'
+              value={title}
+            />
+          </span>
+        </label>
+        <TitleSaveIndicator onRetry={() => { void flush(true); }} status={status} />
         {isPublished && <small>published</small>}
       </div>
     </div>
   );
 }
 
-function SkillsCourse ({ book }: { book: Book }): React.ReactElement {
+function SkillsCourse ({ book, onBookChange }: { book: Book; onBookChange: (updatedBook: Book) => void }): React.ReactElement {
   const { api } = useApi();
   const { showInfo } = useInfo();
   // kubo-rpc-client exposes part of its client tuple as `any` through the shared context.
@@ -183,7 +207,6 @@ function SkillsCourse ({ book }: { book: Book }): React.ReactElement {
   const { ipfs, isIpfsReady } = useIpfsContext();
   const { currentPair, isLoggedIn, setLoginIsRequired } = useLoginContext();
   const [storedBook, setStoredBook] = useState(book);
-  const [courseName, setCourseName] = useState(book.name);
   const [modulePrice, setModulePrice] = useState<BN | undefined>(BN_ZERO);
   const [skillPrice, setSkillPrice] = useState<BN | undefined>(BN_ZERO);
   const [knowledgeId, setKnowledgeId] = useState(book.publishingLocationId || '');
@@ -320,9 +343,26 @@ function SkillsCourse ({ book }: { book: Book }): React.ReactElement {
 
   useEffect((): void => {
     setStoredBook(book);
-    setCourseName(book.name);
     setKnowledgeId(book.publishingLocationId || '');
   }, [book]);
+
+  const saveBookName = useCallback(async (title: string): Promise<void> => {
+    const saved = await updateBookFields(book.id, { name: title });
+
+    if (!saved || saved.name !== title) {
+      throw new Error('Book name was not persisted.');
+    }
+
+    setStoredBook(saved);
+    onBookChange(saved);
+    setPublishStatus('Book name saved.');
+  }, [book.id, onBookChange]);
+  const { acceptSavedTitle: acceptSavedCourseName, flush: flushCourseName, onChange: changeCourseName, status: bookTitleSaveStatus, title: courseName } = useAutosavedTitle({
+    normalize: formatBookTitle,
+    onError: (error) => showInfo(`Unable to save the book name: ${errorMessage(error)}`, 'error'),
+    save: saveBookName,
+    sourceTitle: book.name
+  });
 
   const loadKnowledgeItem = useCallback(async (id: string): Promise<KnowledgeItem | undefined> => {
     const law = await api.query.laws.laws(id) as unknown as { isSome: boolean; unwrap: () => [Uint8Array, BN] };
@@ -410,19 +450,21 @@ function SkillsCourse ({ book }: { book: Book }): React.ReactElement {
       return;
     }
 
-    const title = titleValue.trim();
+    const title = formatChapterTitle(titleValue);
 
-    if (!title || title === chapter.title) {
+    if (!title) {
       return;
     }
 
-    try {
-      await updateBookChapterTitle(chapter.id, title);
-      setPublishStatus('Chapter name saved.');
-    } catch (error) {
-      showInfo(`Unable to rename the chapter: ${errorMessage(error)}`, 'error');
+    await updateBookChapterTitle(chapter.id, title);
+    const confirmedChapter = (await getBookChapters(chapter.bookId)).find(({ id }) => id === chapter.id);
+
+    if (confirmedChapter?.title !== title) {
+      throw new Error('Chapter name was not persisted.');
     }
-  }, [onChainIds, showInfo]);
+
+    setPublishStatus('Chapter name saved.');
+  }, [onChainIds]);
 
   const deleteTemplate = useCallback(async (recordId: string): Promise<void> => {
     try {
@@ -787,6 +829,7 @@ function SkillsCourse ({ book }: { book: Book }): React.ReactElement {
     setPublishStatus('Asking AI to fix book and chapter names…');
 
     try {
+      await flushCourseName(true);
       const key = await getSetting(SettingKey.OPENROUTER_TOKEN);
 
       if (!key) {
@@ -825,19 +868,23 @@ function SkillsCourse ({ book }: { book: Book }): React.ReactElement {
       }
 
       const suggestions = parseNameSuggestions(content, chapterIds);
-      const updatedBook = { ...storedBook, name: suggestions.bookName };
-
       await Promise.all(suggestions.chapters.map(({ id, title }) => updateBookChapterTitle(id, title)));
-      await updateBookFields(storedBook.id, { name: suggestions.bookName });
-      setStoredBook(updatedBook);
-      setCourseName(suggestions.bookName);
+      const savedBook = await updateBookFields(storedBook.id, { name: suggestions.bookName });
+
+      if (!savedBook) {
+        throw new Error('Book not found.');
+      }
+
+      setStoredBook(savedBook);
+      onBookChange(savedBook);
+      acceptSavedCourseName(suggestions.bookName);
       setPublishStatus('Book and editable chapter names fixed.');
     } catch (error) {
       setPublishStatus(`Unable to fix names: ${errorMessage(error)}`);
     } finally {
       setIsFixingNames(false);
     }
-  }, [courseChapters, courseName, isFixingNames, onChainIds, storedBook, templateCount]);
+  }, [acceptSavedCourseName, courseChapters, courseName, flushCourseName, isFixingNames, onBookChange, onChainIds, storedBook, templateCount]);
 
   const publish = useCallback(async (): Promise<void> => {
     if (!isLoggedIn || !currentPair) {
@@ -864,6 +911,7 @@ function SkillsCourse ({ book }: { book: Book }): React.ReactElement {
       return;
     }
 
+    await flushCourseName(true);
     setIsPublishing(true);
     setPublishStatus('Saving resumable knowledge IDs…');
 
@@ -871,7 +919,7 @@ function SkillsCourse ({ book }: { book: Book }): React.ReactElement {
       await publishProcessedBook({
         api,
         bookId: book.id,
-        courseName,
+        courseName: formatBookTitle(courseName),
         currentPair,
         knowledgeId,
         loadKnowledgeItem,
@@ -895,7 +943,7 @@ function SkillsCourse ({ book }: { book: Book }): React.ReactElement {
     } finally {
       setIsPublishing(false);
     }
-  }, [api, book.id, courseName, currentPair, isIpfsReady, isLoggedIn, knowledgeId, loadKnowledgeItem, modulePrice, pinKnowledgeItem, preparePublishedAbility, publishableChapters, setLoginIsRequired, showInfo, skillPrice, storedBook]);
+  }, [api, book.id, courseName, currentPair, flushCourseName, isIpfsReady, isLoggedIn, knowledgeId, loadKnowledgeItem, modulePrice, pinKnowledgeItem, preparePublishedAbility, publishableChapters, setLoginIsRequired, showInfo, skillPrice, storedBook]);
 
 
   return <StyledSkillsCourse>
@@ -913,11 +961,20 @@ function SkillsCourse ({ book }: { book: Book }): React.ReactElement {
         label={isPublishing ? 'Publishing…' : isCoursePublished ? 'Published' : 'Publish'}
         onClick={() => setIsPublishOpen(true)}
       />
-      <Input
-        label='Course name'
-        onChange={setCourseName}
-        value={courseName}
-      />
+      <label className='courseTitleField'>
+        <span>Course name</span>
+        <span className='ui input ui--Input'>
+          <input
+            aria-label='Course name'
+            onBlur={() => { void flushCourseName(true); }}
+            onChange={(event) => changeCourseName(event.currentTarget.value)}
+            onKeyDown={(event) => { if (event.key === 'Enter') { event.currentTarget.blur(); } }}
+            type='text'
+            value={courseName}
+          />
+        </span>
+      </label>
+      <TitleSaveIndicator onRetry={() => { void flushCourseName(true); }} status={bookTitleSaveStatus} />
       <Button
         icon='add'
         isDisabled={isOrganizationLocked}
@@ -1016,6 +1073,13 @@ const StyledSkillsCourse = styled.div`
   width: 100%;
 
   .courseColumn > .ui--Button { margin: 0 0 0.75rem; }
+  .courseTitleField { display: block; min-width: 0; width: 100%; }
+  .courseTitleField > span:first-child { display: block; margin-bottom: 0.3rem; }
+  .courseTitleField .ui.input { width: 100%; }
+  .courseTitleField input { box-sizing: border-box; width: 100%; }
+  .titleSaveIndicator { display: block; font-size: 0.8rem; margin: 0.15rem 0 0.55rem; }
+  .titleSave--error { color: var(--color-error, #b42318); }
+  .titleSaveIndicator button { background: transparent; border: 0; color: inherit; cursor: pointer; font: inherit; text-decoration: underline; }
   .publishTrigger.isPublished { font-weight: 700; }
   .courseOutline { margin-top: 0.5rem; }
   .outlineRow { align-items: center; display: flex; gap: 0.5rem; position: relative; }

@@ -7,6 +7,7 @@ import React, { useCallback, useState } from 'react';
 
 import { Button, Input, Modal } from '@polkadot/react-components';
 
+import { formatChapterTitle } from '../../../../book/domain/chapters/chapterTitles.js';
 import { ChapterTitleEditorContent } from './ChapterTitleEditor.styles.js';
 
 function ChapterTitleEditor ({ chapter, onClose, onError, onSaved }: { chapter: BookChapter; onClose: () => void; onError: (error: string) => void; onSaved: () => void }): React.ReactElement {
@@ -16,7 +17,7 @@ function ChapterTitleEditor ({ chapter, onClose, onError, onSaved }: { chapter: 
       return;
     }
 
-    updateBookChapterTitle(chapter.id, title.trim())
+    updateBookChapterTitle(chapter.id, formatChapterTitle(title))
       .then(() => {
         onSaved();
         onClose();

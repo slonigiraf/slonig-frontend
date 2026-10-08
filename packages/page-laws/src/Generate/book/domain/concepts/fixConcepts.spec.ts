@@ -26,6 +26,10 @@ describe('fix concepts', (): void => {
     });
   });
 
+  it('normalizes Fix with AI concept names', (): void => {
+    assert.equal(parseFixedConcept('{"title":"Finding the Main Idea","description":"An example description."}').title, 'Finding the main idea');
+  });
+
   it('stores Fix-generated concepts on their source page with the Fix attempt', (): void => {
     assert.deepEqual(chapterLevelMissingConcept(42, 7, {
       description: 'The bottom number in a fraction.',

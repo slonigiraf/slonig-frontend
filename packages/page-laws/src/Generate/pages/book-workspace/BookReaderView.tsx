@@ -1443,7 +1443,7 @@ export function BookReaderView ({ controller }: Props): React.ReactElement {
                           showPipeline={false}
                           view='preExercisesExercises'
                         /></div>
-                        : <div className='courseArea'><SkillsCourse book={book} /></div>}
+                        : <div className='courseArea'><SkillsCourse book={book} key={book.id} onBookChange={onBookChange} /></div>}
       </div>
     </StyledReader>
   );

@@ -7,9 +7,23 @@ import { strict as assert } from 'node:assert';
 
 import type { Exercise } from '@slonigiraf/db';
 
-import { assembleExerciseAbilityConversions, parseAbilityBlueprints, parseBlueprintAbilities, parseBlueprintVisualPlans, parseGeneratedAtomicAbility, runExerciseAbilityWorkflow, validateAbilityBlueprintEvidence } from './abilityWorkflow.js';
+import { abilityGenerationRequestPrompt, assembleExerciseAbilityConversions, parseAbilityBlueprints, parseBlueprintAbilities, parseBlueprintVisualPlans, parseGeneratedAtomicAbility, runExerciseAbilityWorkflow, validateAbilityBlueprintEvidence } from './abilityWorkflow.js';
 
 describe('one-Ability-per-Exercise workflow', (): void => {
+  it('requires the two generated tasks to match source Exercise and Concept evidence', (): void => {
+    const prompt = abilityGenerationRequestPrompt('en', 'Conversions', {
+      id: 42,
+      task: 'Convert whole kilometers to meters.',
+      solution: 'Multiply by 1000.',
+      sourceConcept: { title: 'Converting lengths', description: 'Convert kilometer measurements to meters by multiplying by 1000.' }
+    });
+
+    assert.match(prompt, /For EACH of the two generated tasks/);
+    assert.match(prompt, /sourceConcept/);
+    assert.match(prompt, /only specific input parameters/);
+    assert.match(prompt, /sentence case/);
+  });
+
   it('requires exactly one Ability blueprint for each source Exercise', (): void => {
     assert.throws(() => parseAbilityBlueprints(JSON.stringify({
       plans: [{

@@ -405,7 +405,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalAutoRunBus
       // plus any required visual specifications.
       return chapterContent.flatMap(({ chapter, exercises }) => exercises
         .filter(({ id }) => !generateOnlyMissingAbilities || id === undefined || !abilityModuleIds.has(exerciseAbilityModuleId(book.id, id)))
-        .map((exercise) => `${LEARNER_AGE_PROMPT(book.age)}\n${abilityGenerationRequestPrompt(language, chapter.title, transportCompactAbilitySourceExercise(exercise))}`));
+        .map((exercise) => `${LEARNER_AGE_PROMPT(book.age)}\n${abilityGenerationRequestPrompt(language, chapter.title, { ...transportCompactAbilitySourceExercise(exercise), ...(exercise.conceptId !== undefined && conceptsById.get(exercise.conceptId) ? { sourceConcept: conceptsById.get(exercise.conceptId) } : {}) })}`));
     }
 
     if (aiAction === 'fixExercises') {
@@ -413,7 +413,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalAutoRunBus
     }
 
     if (aiAction === 'fix') {
-      return chapterContent.filter(({ abilities }) => abilities.length > 0).map(({ abilities, chapter }) => FIX_ABILITIES_REQUEST_PROMPT(abilityRepairInput(language, abilities, chapter.title, book.age)));
+      return chapterContent.filter(({ abilities }) => abilities.length > 0).map(({ abilities, chapter }) => FIX_ABILITIES_REQUEST_PROMPT(abilityRepairInput(language, abilities, chapter.title, book.age, undefined, exercisesByModuleId, conceptsById)));
     }
 
     if (aiAction === 'images') {
@@ -429,7 +429,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalAutoRunBus
     }
 
     return [];
-  }, [abilityModuleIds, aiAction, book.age, book.id, chapterContent, generateOnlyMissingAbilities, imageFixTargets, imageGenerationTargetsForRun, language, skillSources]);
+  }, [abilityModuleIds, aiAction, book.age, book.id, chapterContent, conceptsById, exercisesByModuleId, generateOnlyMissingAbilities, imageFixTargets, imageGenerationTargetsForRun, language, skillSources]);
   const maxChapterAbilityCount = Math.max(1, ...chapterContent.map(({ abilities }) => abilities.length));
   const maxChapterExerciseCount = Math.max(1, ...chapterContent.map(({ exercises }) => exercises.length));
   const generationOutputTokens = aiAction === 'exercises' ? 3_200 : aiAction === 'fixExercises' ? maxChapterExerciseCount * 550 : aiAction === 'fix' ? maxChapterAbilityCount * 700 : aiAction === 'images' ? 2_400 : aiAction === 'fixImages' ? TIKZ_REVIEW_MAX_OUTPUT_TOKENS : aiAction === 'skills' ? BATCH_SIZE * 180 : 300;
@@ -537,7 +537,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalAutoRunBus
 
     const client = await createClient();
     const systemPrompt = REPAIR_SYSTEM_PROMPT(language, book.age);
-    const userPrompt = FIX_ABILITIES_REQUEST_PROMPT(abilityRepairInput(language, [record], chapterRow.chapter.title, book.age));
+    const userPrompt = FIX_ABILITIES_REQUEST_PROMPT(abilityRepairInput(language, [record], chapterRow.chapter.title, book.age, undefined, exercisesByModuleId, conceptsById));
     const result = await requestValidatedJson(
       client,
       effectiveModel,
@@ -566,7 +566,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalAutoRunBus
 
     setNotice('Ability fixed with AI.');
     refreshContent();
-  }, [addFixAbilitiesCost, book.age, chapterContent, createClient, effectiveModel, language, refreshContent]);
+  }, [addFixAbilitiesCost, book.age, chapterContent, conceptsById, createClient, effectiveModel, exercisesByModuleId, language, refreshContent]);
 
   const deleteConceptWithExercises = useCallback(async (conceptId: number): Promise<void> => {
     const referencedExercises = allExercises.filter(({ conceptId: exerciseConceptId, id }) => id !== undefined && exerciseConceptId === conceptId);
@@ -701,13 +701,13 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalAutoRunBus
       for (let attempt = 1; attempt <= maxAttempts && pending.size; attempt++) {
         const sourcesNeedingGeneration = chapterContent.flatMap(({ chapter, exercises: chapterExercises }) => chapterExercises
           .filter(({ id }) => id !== undefined && pending.has(id) && !conversionsByExerciseIdCache.has(id))
-          .map((exercise) => ({ chapterTitle: chapter.title, exercise })));
-        await mapConcurrent(sourcesNeedingGeneration, OPENROUTER_CONCURRENCY, async ({ chapterTitle, exercise }): Promise<void> => {
+          .map((exercise) => ({ chapterTitle: chapter.title, exercise, sourceConcept: exercise.conceptId === undefined ? undefined : conceptsById.get(exercise.conceptId) })));
+        await mapConcurrent(sourcesNeedingGeneration, OPENROUTER_CONCURRENCY, async ({ chapterTitle, exercise, sourceConcept }): Promise<void> => {
           const systemPrompt = ABILITY_WORKFLOW_SYSTEM_PROMPT(language, chapterTitle, book.age);
           const runJson: AbilityWorkflowJsonRunner = (prompt, parse, options) => requestValidatedJson(client, effectiveModel, systemPrompt, prompt, parse, true, addAbilitiesCost, options?.maxOutputTokens, options?.repairContext, options?.validationCycles ?? 1, signal);
 
           try {
-            const conversions = await generateExerciseAbility(language, chapterTitle, exercise, runJson);
+            const conversions = await generateExerciseAbility(language, chapterTitle, exercise, runJson, sourceConcept);
 
             lastAttemptError = '';
 
@@ -772,7 +772,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalAutoRunBus
     } finally {
       endProgress();
     }
-  }, [addAbilitiesCost, allAbilities.length, allExercises, beginProgress, book.age, endProgress, book.id, chapterContent, createClient, exercisesMissingAbilities, generateOnlyMissingAbilities, language, onAction, onContentChange, refresh, effectiveModel, completeStage, stageDone]);
+  }, [addAbilitiesCost, allAbilities.length, allExercises, beginProgress, book.age, endProgress, book.id, chapterContent, conceptsById, createClient, exercisesMissingAbilities, generateOnlyMissingAbilities, language, onAction, onContentChange, refresh, effectiveModel, completeStage, stageDone]);
 
   const fixExercises = useCallback(async (): Promise<void> => {
     const signal = beginProgress('Fixing Exercise errors', allExercises.length, 'fixExercises');
@@ -898,7 +898,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalAutoRunBus
 
       await mapConcurrent(batches, OPENROUTER_CONCURRENCY, async ({ batch, chapterTitle }) => {
         const systemPrompt = REPAIR_SYSTEM_PROMPT(language, book.age);
-        const userPrompt = FIX_ABILITIES_REQUEST_PROMPT(abilityRepairInput(language, batch, chapterTitle, book.age, embeddingHints, exercisesByModuleId));
+        const userPrompt = FIX_ABILITIES_REQUEST_PROMPT(abilityRepairInput(language, batch, chapterTitle, book.age, embeddingHints, exercisesByModuleId, conceptsById));
         const result = await requestValidatedJson(
           client,
           effectiveModel,

@@ -4,6 +4,7 @@
 import type { Exercise } from '@slonigiraf/db';
 
 import { GENERATE_EXERCISES_RECOVERY_PROMPT, GENERATE_EXERCISES_REQUEST_PROMPT } from '../../infrastructure/ai/prompts/exercises.js';
+import { formatSentenceCaseTitle } from '../../domain/naming/sentenceCase.js';
 
 export const MAX_EXERCISE_GENERATION_RETRIES = 3;
 
@@ -188,7 +189,7 @@ function generatedExercisesResult (content: string, concepts: LocatedProcessingC
     const solutionImageDescription = typeof item.solutionImageDescription === 'string' ? item.solutionImageDescription.trim() : '';
 
     return Number.isInteger(conceptIndex) && conceptIndex >= 0 && conceptIndex < concepts.length && typeof item.title === 'string' && item.title.trim() && typeof item.description === 'string' && item.description.trim() && typeof item.solution === 'string' && item.solution.trim()
-      ? [{ conceptIndex, description: item.description.trim(), ...(imageDescription ? { imageDescription } : {}), solution: item.solution.trim(), ...(solutionImageDescription ? { solutionImageDescription } : {}), source: 'generated', sourcePageNumber: concepts[conceptIndex].sourcePageNumber, title: item.title.trim() }]
+      ? [{ conceptIndex, description: item.description.trim(), ...(imageDescription ? { imageDescription } : {}), solution: item.solution.trim(), ...(solutionImageDescription ? { solutionImageDescription } : {}), source: 'generated', sourcePageNumber: concepts[conceptIndex].sourcePageNumber, title: formatSentenceCaseTitle(item.title) }]
       : [];
   });
   const exercisesByConcept = new Map<number, LocatedProcessingExercise>();

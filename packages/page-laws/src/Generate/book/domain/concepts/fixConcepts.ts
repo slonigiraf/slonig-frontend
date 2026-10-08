@@ -3,6 +3,8 @@
 
 import type { BookConcept } from '@slonigiraf/db';
 
+import { formatSentenceCaseTitle } from '../naming/sentenceCase.js';
+
 export const FIX_CONCEPTS_RUNS = 2;
 
 
@@ -43,7 +45,7 @@ export function parseFixedConcept (content: string): FixedConcept {
     throw new Error('OpenRouter returned invalid single Concept repair data.');
   }
 
-  return { description: parsed.description.trim(), title: parsed.title.trim() };
+  return { description: parsed.description.trim(), title: formatSentenceCaseTitle(parsed.title) };
 }
 
 export function chapterLevelMissingConcept (
@@ -57,7 +59,7 @@ export function chapterLevelMissingConcept (
     bookPage: [bookId, concept.pageNumber],
     chapterId,
     description: concept.description,
-    title: concept.title
+    title: formatSentenceCaseTitle(concept.title)
   };
 }
 
@@ -93,7 +95,7 @@ export function parseMissingChapterConcepts (content: string, existingConcepts: 
       return [];
     }
 
-    return [{ description: trimmedDescription, pageNumber, title: trimmedTitle }];
+    return [{ description: trimmedDescription, pageNumber, title: formatSentenceCaseTitle(trimmedTitle) }];
   });
 
   const removeConceptIndexes = Array.from(new Set((parsed.removeConceptIndexes ?? []).flatMap((value): number[] =>

@@ -1,6 +1,8 @@
 // Copyright 2021-2026 @polkadot/app-laws authors & contributors
 // SPDX-License-Identifier: Apache-2.0
 
+import { formatBookTitle, formatChapterTitle } from '../chapters/chapterTitles.js';
+
 export interface NameSuggestions {
   bookName: string;
   chapters: Array<{ id: number; title: string }>;
@@ -28,7 +30,7 @@ export function parseNameSuggestions (content: string, chapterIds: number[]): Na
   }
 
   return {
-    bookName: result.bookName.trim(),
-    chapters: chapters.map(({ id, title }) => ({ id, title: title.trim() }))
+    bookName: formatBookTitle(result.bookName),
+    chapters: chapters.map(({ id, title }) => ({ id, title: formatChapterTitle(title) }))
   };
 }

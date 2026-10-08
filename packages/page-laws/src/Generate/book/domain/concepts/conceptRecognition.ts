@@ -1,6 +1,8 @@
 // Copyright 2021-2026 @polkadot/app-laws authors & contributors
 // SPDX-License-Identifier: Apache-2.0
 
+import { formatSentenceCaseTitle } from '../naming/sentenceCase.js';
+
 export const CONCEPT_IDENTIFICATION_RUNS = 2;
 
 export interface GeneratedChapterConcept {
@@ -46,7 +48,7 @@ export function parseGeneratedChapterConcepts (content: string, allowedPageNumbe
 
   const seenTitles = new Set<string>();
   const concepts = parsed.concepts
-    .map(({ description, pageNumber, title }) => ({ description: description.trim(), pageNumber, title: title.trim() }))
+    .map(({ description, pageNumber, title }) => ({ description: description.trim(), pageNumber, title: formatSentenceCaseTitle(title) }))
     .filter(({ title }) => title)
     .sort((a, b) => a.pageNumber - b.pageNumber)
     .filter(({ title }) => {
