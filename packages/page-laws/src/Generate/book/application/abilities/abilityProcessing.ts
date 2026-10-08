@@ -173,12 +173,13 @@ export function abilityRepairInput (
   };
 }
 
-export function exerciseRepairInput (language: string, batch: Exercise[], chapterTitle?: string, learnerAge?: number): unknown {
+export function exerciseRepairInput (language: string, batch: Exercise[], chapterTitle?: string, learnerAge?: number, sourceConceptsById?: ReadonlyMap<number, { description: string; title: string }>): unknown {
   return {
     bookLanguage: language,
     ...(learnerAge === undefined ? {} : { learnerAge }),
     exercises: batch.map(({ conceptId, description, id, imageDescription = '', solution = '', solutionImageDescription = '', title }, index) => ({
       conceptId,
+      ...(conceptId !== undefined && sourceConceptsById?.has(conceptId) ? { sourceConcept: sourceConceptsById.get(conceptId) } : {}),
       exercise: { description: stripMarkdownImageReferences(description), imageDescription, solution, solutionImageDescription, title },
       id,
       index

@@ -6,7 +6,7 @@ import { describe, it } from 'node:test';
 
 import type { Exercise } from '@slonigiraf/db';
 
-import { abilityRepairInput, type StoredAbility } from './abilityProcessing.js';
+import { abilityRepairInput, exerciseRepairInput, type StoredAbility } from './abilityProcessing.js';
 
 describe('Ability repair source evidence', (): void => {
   it('always includes both source Exercise and source Concept without needing an embedding alert', (): void => {
@@ -18,5 +18,12 @@ describe('Ability repair source evidence', (): void => {
 
     assert.deepEqual(input.abilities[0].sourceConcept, sourceConcept);
     assert.ok(input.abilities[0].sourceExercise);
+  });
+  it('includes the source Concept in Fix exercises input', (): void => {
+    const exercise = { conceptId: 3, description: 'Convert distance.', id: 7, title: 'Old title', solution: 'Multiply.' } as Exercise;
+    const concept = { title: 'Distance conversion', description: 'Convert km to m.' };
+    const input = exerciseRepairInput('en', [exercise], 'Measurements', 11, new Map([[3, concept]])) as { exercises: Array<{ sourceConcept: typeof concept }> };
+
+    assert.deepEqual(input.exercises[0].sourceConcept, concept);
   });
 });

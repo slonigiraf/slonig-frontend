@@ -185,11 +185,12 @@ function hasForbiddenAbilityTaskTitle (ability: GeneratedAbility): boolean {
   return ability.q.some(({ h }) => isForbiddenAbilityTaskTitle(h));
 }
 
-export function validateGeneratedAbilityText (ability: GeneratedAbility): void {
+export function validateGeneratedAbilityText (ability: GeneratedAbility, validateTitleLength = true): void {
   // Learner-facing Abilities are intentionally much smaller than source-book
   // exercises. Keep this as a parser gate so later repair/regeneration stages
-  // cannot silently reintroduce tutorial prose.
-  if (!isSuccinct(ability.h, 12, 90)) {
+  // cannot silently reintroduce tutorial prose. Concept titles are sourced
+  // verbatim rather than generated, so they must not be shortened here.
+  if (validateTitleLength && !isSuccinct(ability.h, 12, 90)) {
     throw new Error('Ability title is too verbose.');
   }
 
@@ -208,11 +209,18 @@ export function validateGeneratedAbilityText (ability: GeneratedAbility): void {
   }
 }
 
-function parseGeneratedAbilityValue (value: unknown): GeneratedAbility {
-  const template = parseAbilityValue(value);
+function parseGeneratedAbilityValue (value: unknown, fixedTitle?: string): GeneratedAbility {
+  // The model is not asked for an Ability title during Exercise-to-Ability
+  // conversion. Inject the source Concept title before schema validation;
+  // ignore any title a model might return despite the requested JSON shape.
+  const template = parseAbilityValue(fixedTitle !== undefined && isRecord(value) ? { ...value, h: fixedTitle } : value);
 
-  // Only normalize new or repaired AI names, never rewrite existing stored records.
-  template.h = formatSentenceCaseTitle(template.h);
+  if (fixedTitle === undefined) {
+    // Retain title formatting for legacy generation paths without a source title.
+    template.h = formatSentenceCaseTitle(template.h);
+  } else {
+    template.h = fixedTitle;
+  }
 
   // Distinct concrete inputs are a quality requirement, not a schema
   // requirement. Do not make the whole Ability-generation workflow fail just
@@ -220,12 +228,12 @@ function parseGeneratedAbilityValue (value: unknown): GeneratedAbility {
   // audit prompts still require distinct inputs, and Fix abilities can repair a
   // duplicate pair afterwards. Keeping this parser structural prevents one
   // imperfect pair from discarding every Ability for the source Exercise.
-  validateGeneratedAbilityText(template);
+  validateGeneratedAbilityText(template, fixedTitle === undefined);
 
   return template;
 }
 
-export function parseGeneratedAbilities (content: string, expectedCount?: number, _options?: { allowIdenticalQuestionText?: boolean }): GeneratedAbility[] {
+export function parseGeneratedAbilities (content: string, expectedCount?: number, options?: { allowIdenticalQuestionText?: boolean; fixedTitle?: string }): GeneratedAbility[] {
   const parsed = parseResponse(content);
   const templates: unknown = Array.isArray(parsed) ? parsed : isRecord(parsed) ? parsed.abilities ?? parsed.templates : undefined;
 
@@ -238,7 +246,7 @@ export function parseGeneratedAbilities (content: string, expectedCount?: number
   }
 
   // Validate the entire response before callers persist any of its templates.
-  return templates.map((template) => parseGeneratedAbilityValue(template));
+  return templates.map((template) => parseGeneratedAbilityValue(template, options?.fixedTitle));
 }
 
 

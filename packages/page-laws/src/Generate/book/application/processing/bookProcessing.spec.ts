@@ -118,6 +118,7 @@ describe('book processing pipeline', (): void => {
 
     assert.equal(prompts.length, 1);
     assert.equal(result.pages[0].exercises.length, 2);
+    assert.deepEqual(result.pages[0].exercises.map(({ title }) => title), ['Reading a gauge', 'Conversion']);
     assert.equal(result.pages[0].exercises.filter(({ source }) => source === 'book').length, 0);
     assert.equal(result.pages[0].exercises.filter(({ source }) => source === 'generated').length, 2);
     assert.deepEqual(result.pages[0].exercises.filter(({ source }) => source === 'generated').map(({ conceptIndex }) => conceptIndex), [0, 1]);
@@ -143,6 +144,23 @@ describe('book processing pipeline', (): void => {
 
     assert.equal(result.pages[0].concepts[0].sourceId, 42);
     assert.equal(result.pages[0].exercises[0].conceptIndex, 0);
+    assert.equal(result.pages[0].exercises[0].title, 'Conversion');
+  });
+
+  it('copies the exact concept title even when AI omits or invents an Exercise title', async (): Promise<void> => {
+    const result = await processExtractedChapterContent({
+      chapter: 'Biology',
+      pages: [{ concepts: [{ title: 'DNA & RNA: TP53', description: 'Explain the difference.' }], pageNumber: 1 }]
+    }, () => Promise.resolve(JSON.stringify({ exercises: [{ conceptIndex: 0, description: 'Compare DNA and RNA.', solution: 'They differ.', title: 'Invented exercise heading' }] })));
+
+    assert.equal(result.pages[0].exercises[0].title, 'DNA & RNA: TP53');
+
+    const missingTitle = await processExtractedChapterContent({
+      chapter: 'Biology',
+      pages: [{ concepts: [{ title: 'DNA & RNA: TP53', description: 'Explain the difference.' }], pageNumber: 1 }]
+    }, () => Promise.resolve(JSON.stringify({ exercises: [{ conceptIndex: 0, description: 'Compare DNA and RNA.', solution: 'They differ.' }] })));
+
+    assert.equal(missingTitle.pages[0].exercises[0].title, 'DNA & RNA: TP53');
   });
 
   it('does not carry source book exercises forward when there are no concepts', async (): Promise<void> => {

@@ -7,7 +7,7 @@ import { strict as assert } from 'node:assert';
 
 import type { Exercise } from '@slonigiraf/db';
 
-import { abilityGenerationRequestPrompt, assembleExerciseAbilityConversions, parseAbilityBlueprints, parseBlueprintAbilities, parseBlueprintVisualPlans, parseGeneratedAtomicAbility, runExerciseAbilityWorkflow, validateAbilityBlueprintEvidence } from './abilityWorkflow.js';
+import { abilityGenerationRequestPrompt, assembleExerciseAbilityConversions, parseAbilityBlueprints, parseBlueprintAbilities, parseBlueprintVisualPlans, parseGeneratedAtomicAbility, generateExerciseAbility, runExerciseAbilityWorkflow, validateAbilityBlueprintEvidence } from './abilityWorkflow.js';
 
 describe('one-Ability-per-Exercise workflow', (): void => {
   it('requires the two generated tasks to match source Exercise and Concept evidence', (): void => {
@@ -21,7 +21,55 @@ describe('one-Ability-per-Exercise workflow', (): void => {
     assert.match(prompt, /For EACH of the two generated tasks/);
     assert.match(prompt, /sourceConcept/);
     assert.match(prompt, /only specific input parameters/);
-    assert.match(prompt, /sentence case/);
+    assert.match(prompt, /Do NOT generate, copy, or return an Ability title/);
+    assert.match(prompt, /NO Ability title field/);
+    assert.match(prompt, /"ability":\{"i":"","t":3,"q":\[/);
+    assert.doesNotMatch(prompt, /"h":"<exact sourceConcept.title>"/);
+  });
+
+  it('passes Concept context and sets the title in code without requesting an AI title', async (): Promise<void> => {
+    const exercise = {
+      conceptId: 12, description: 'Convert <kx>3</kx> km to m.', id: 42,
+      solution: '<kx>3000</kx> m', title: 'Old exercise title'
+    } as Exercise;
+    const concept = { title: 'Converting DNA & RNA distances', description: 'Explain and apply conversions.' };
+    const generated = await generateExerciseAbility('en', 'Conversions', exercise, (prompt, parse) => {
+      assert.match(prompt, /"sourceConcept":\{"title":"Converting DNA & RNA distances","description":"Explain and apply conversions\."\}/);
+      assert.match(prompt, /"task":"Convert/);
+      assert.match(prompt, /"ability":\{"i":"","t":3,"q":\[/);
+      return Promise.resolve(parse(JSON.stringify({
+        abilities: [{ exerciseId: 42, skillIndex: 0, ability: {
+          i: '', t: 3,
+          q: [
+            { h: 'Convert <kx>2</kx> km to m.', a: '<kx>2000</kx> m', p: '', i: '' },
+            { h: 'Convert <kx>4</kx> km to m.', a: '<kx>4000</kx> m', p: '', i: '' }
+          ]
+        }, imagePrompts: [{ changesImage: false, p: '', i: '' }, { changesImage: false, p: '', i: '' }] }]
+      })));
+    }, concept);
+
+    assert.equal(generated.length, 1);
+    assert.equal(generated[0].ability.h, concept.title);
+  });
+
+  it('ignores an unsolicited AI title and preserves even a long source Concept title verbatim', (): void => {
+    const exercise = { description: 'Convert units.', id: 42, title: 'Fallback exercise title', solution: 'Multiply.' } as Exercise;
+    const concept = {
+      title: 'An unusually long Original Concept Title That Must Be Kept Exactly As Written Regardless Of Any Length Limits Or Sentence Case Formatting',
+      description: 'The concept scope for this practice.'
+    };
+    const response = JSON.stringify({
+      abilities: [{ exerciseId: 42, skillIndex: 0, ability: {
+        h: 'A completely invented model title', i: '', t: 3,
+        q: [
+          { h: 'Convert <kx>2</kx> km to m.', a: '<kx>2000</kx> m', p: '', i: '' },
+          { h: 'Convert <kx>4</kx> km to m.', a: '<kx>4000</kx> m', p: '', i: '' }
+        ]
+      }, imagePrompts: [{ changesImage: false, p: '', i: '' }, { changesImage: false, p: '', i: '' }] }]
+    });
+
+    assert.equal(parseGeneratedAtomicAbility(response, exercise, concept)[0].ability.h, concept.title);
+    assert.equal(parseGeneratedAtomicAbility(response, exercise)[0].ability.h, exercise.title);
   });
 
   it('requires exactly one Ability blueprint for each source Exercise', (): void => {
@@ -228,7 +276,6 @@ describe('one-Ability-per-Exercise workflow', (): void => {
         exerciseId: 111,
         skillIndex: 0,
         ability: {
-          h: 'Read a graph value',
           i: '',
           q: [
             { a: '<kx>3</kx>', h: 'Read the value shown.', i: '', p: '' },
@@ -244,6 +291,7 @@ describe('one-Ability-per-Exercise workflow', (): void => {
     }), source);
 
     assert.equal(result.length, 1);
+    assert.equal(result[0].ability.h, source.title);
     assert.deepEqual(result[0].imagePrompts, [
       { changesImage: false, i: '', p: 'Graph with the mark at 3.' },
       { changesImage: false, i: '', p: 'Graph with the mark at 7.' }
@@ -292,7 +340,7 @@ describe('one-Ability-per-Exercise workflow', (): void => {
         {
           exerciseId: 12,
           skillIndex: 0,
-          ability: { h: 'Read a point and calculate horizontal distance', i: '', q: [{ a: '<kx>3</kx>', h: 'Read point A, then find its horizontal distance to <kx>x=5</kx>.', i: '', p: '' }, { a: '<kx>6</kx>', h: 'Read point B, then find its horizontal distance to <kx>x=3</kx>.', i: '', p: '' }], t: 3 },
+          ability: { i: '', q: [{ a: '<kx>3</kx>', h: 'Read point A, then find its horizontal distance to <kx>x=5</kx>.', i: '', p: '' }, { a: '<kx>6</kx>', h: 'Read point B, then find its horizontal distance to <kx>x=3</kx>.', i: '', p: '' }], t: 3 },
           imagePrompts: [
             { changesImage: false, i: '', p: 'Coordinate plane from -5 to 5 with point A at (2,1), labeled A.' },
             { changesImage: false, i: '', p: 'Coordinate plane from -5 to 5 with point B at (-3,2), labeled B.' }

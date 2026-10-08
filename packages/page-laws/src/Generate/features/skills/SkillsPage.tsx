@@ -26,6 +26,7 @@ import { mapConcurrent } from '../../../common/concurrency.js';
 import { OPENROUTER_CONCURRENCY } from '../../../openrouter/concurrency.js';
 import { useBookStageTimer } from '../../book/infrastructure/storage/bookStageTime.js';
 import { stripMarkdownImageReferences } from '../../book/infrastructure/pdf/bookImageRefs.js';
+import { abilityWithConceptTitle, exerciseWithConceptTitle } from '../../book/domain/concepts/conceptTitles.js';
 import { sortAbilitiesForDisplay, sortExercisesForDisplay } from '../../book/domain/concepts/learningOrder.js';
 import { resolveSharedChapterIndex } from '../../book/domain/chapters/chapterSelection.js';
 import { getSharedChapterSelection, storeSharedChapterSelection, subscribeSharedChapterSelection } from '../../book/infrastructure/storage/chapterSelectionStorage.js';
@@ -409,7 +410,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalAutoRunBus
     }
 
     if (aiAction === 'fixExercises') {
-      return chapterContent.filter(({ exercises }) => exercises.length > 0).map(({ chapter, exercises }) => FIX_EXERCISES_REQUEST_PROMPT(exerciseRepairInput(language, exercises, chapter.title, book.age)));
+      return chapterContent.filter(({ exercises }) => exercises.length > 0).map(({ chapter, exercises }) => FIX_EXERCISES_REQUEST_PROMPT(exerciseRepairInput(language, exercises, chapter.title, book.age, conceptsById)));
     }
 
     if (aiAction === 'fix') {
@@ -498,7 +499,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalAutoRunBus
 
     const client = await createClient();
     const systemPrompt = REPAIR_SYSTEM_PROMPT(language, book.age);
-    const userPrompt = FIX_EXERCISES_REQUEST_PROMPT(exerciseRepairInput(language, [exercise], chapterRow.chapter.title, book.age));
+    const userPrompt = FIX_EXERCISES_REQUEST_PROMPT(exerciseRepairInput(language, [exercise], chapterRow.chapter.title, book.age, conceptsById));
     const result = await requestValidatedJson(
       client,
       effectiveModel,
@@ -513,20 +514,22 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalAutoRunBus
     );
     const review = result.reviews.find(({ index }) => index === 0);
 
-    if (!review?.hasErrors || !review.exercise) {
+    const corrected = exerciseWithConceptTitle(review?.exercise ?? exercise, conceptsById);
+
+    if (!review?.hasErrors && corrected.title === exercise.title) {
       setNotice('AI review found no Exercise changes to apply.');
       return;
     }
 
     await saveExercise(exerciseId, {
-      description: review.exercise.description,
-      imageDescription: review.exercise.imageDescription,
-      solution: review.exercise.solution,
-      solutionImageDescription: review.exercise.solutionImageDescription,
-      title: review.exercise.title
+      description: corrected.description,
+      imageDescription: corrected.imageDescription,
+      solution: corrected.solution,
+      solutionImageDescription: corrected.solutionImageDescription,
+      title: corrected.title
     });
     setNotice('Exercise fixed with AI. Existing Abilities were kept linked to the edited Exercise.');
-  }, [addFixExercisesCost, book.age, chapterContent, createClient, effectiveModel, language, saveExercise]);
+  }, [addFixExercisesCost, book.age, chapterContent, conceptsById, createClient, effectiveModel, language, saveExercise]);
 
   const fixSingleAbility = useCallback(async (record: StoredAbility): Promise<void> => {
     const chapterRow = chapterContent.find(({ abilities }) => abilities.some(({ id }) => id === record.id));
@@ -552,12 +555,15 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalAutoRunBus
     );
     const review = result.reviews.find(({ index }) => index === 0);
 
-    if (!review?.hasErrors || !review.ability) {
+    const sourceExercise = exercisesByModuleId.get(record.moduleId);
+    const corrected = record.ability && abilityWithConceptTitle(review?.ability ?? record.ability, sourceExercise, conceptsById);
+
+    if (!corrected || (!review?.hasErrors && corrected.h === record.ability?.h)) {
       setNotice('AI review found no Ability changes to apply.');
       return;
     }
 
-    const validated = parseStoredAbility(JSON.stringify(review.ability));
+    const validated = parseStoredAbility(JSON.stringify(corrected));
     const newRecordId = await storeAbility(record.moduleId, JSON.stringify(validated), record.displayOrder);
 
     if (newRecordId !== record.id) {
@@ -707,6 +713,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalAutoRunBus
           const runJson: AbilityWorkflowJsonRunner = (prompt, parse, options) => requestValidatedJson(client, effectiveModel, systemPrompt, prompt, parse, true, addAbilitiesCost, options?.maxOutputTokens, options?.repairContext, options?.validationCycles ?? 1, signal);
 
           try {
+            if (!sourceConcept) throw new Error(`Source Concept is missing for Exercise ${exercise.id}.`);
             const conversions = await generateExerciseAbility(language, chapterTitle, exercise, runJson, sourceConcept);
 
             lastAttemptError = '';
@@ -797,7 +804,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalAutoRunBus
       await mapConcurrent(batches, OPENROUTER_CONCURRENCY, async ({ batch, chapterTitle }) => {
         const originalIds = batch.map(({ id }) => id as number);
         const systemPrompt = REPAIR_SYSTEM_PROMPT(language, book.age);
-        const userPrompt = FIX_EXERCISES_REQUEST_PROMPT(exerciseRepairInput(language, batch, chapterTitle, book.age));
+        const userPrompt = FIX_EXERCISES_REQUEST_PROMPT(exerciseRepairInput(language, batch, chapterTitle, book.age, conceptsById));
         const result = await requestValidatedJson(
           client,
           effectiveModel,
@@ -829,7 +836,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalAutoRunBus
             const id = original.id as number;
 
             if (!batchDuplicateIds.has(id)) {
-              replacements.set(id, { errors: review.errors, exercise: review.exercise });
+              replacements.set(id, { errors: review.errors, exercise: exerciseWithConceptTitle(review.exercise, conceptsById) });
             }
           }
         });
@@ -839,6 +846,16 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalAutoRunBus
 
       const duplicateIds = new Set(duplicatePairs.keys());
 
+      allExercises.forEach((exercise) => {
+        if (exercise.id !== undefined && !duplicateIds.has(exercise.id)) {
+          const existing = replacements.get(exercise.id);
+          const corrected = exerciseWithConceptTitle(existing?.exercise ?? exercise, conceptsById);
+
+          if (corrected.title !== exercise.title) {
+            replacements.set(exercise.id, { errors: [...(existing?.errors ?? []), 'Title must match its source Concept.'], exercise: corrected });
+          }
+        }
+      });
       duplicateIds.forEach((id) => replacements.delete(id));
       const review: ExerciseFixReviewResult = {
         checked: allExercises.length,
@@ -864,7 +881,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalAutoRunBus
     } finally {
       endProgress();
     }
-  }, [addFixExercisesCost, allExercises, beginProgress, book.age, endProgress, chapterContent, createClient, language, effectiveModel]);
+  }, [addFixExercisesCost, allExercises, beginProgress, book.age, endProgress, chapterContent, conceptsById, createClient, language, effectiveModel]);
 
   const fixAbilities = useCallback(async (): Promise<void> => {
     const signal = beginProgress('Fixing Ability errors', allAbilities.length, 'fixAbilities');
@@ -943,7 +960,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalAutoRunBus
             // Duplicate copies are deleted after the review phase, so do not
             // spend a write replacing a record that is about to disappear.
             if (!batchDuplicateIds.has(record.id)) {
-              replacements.set(record.id, { ability: review.ability, errors: review.errors, record });
+              replacements.set(record.id, { ability: abilityWithConceptTitle(review.ability, exercisesByModuleId.get(record.moduleId), conceptsById), errors: review.errors, record });
             }
           }
         });
@@ -953,6 +970,16 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalAutoRunBus
 
       const duplicateIds = new Set(duplicatePairs.keys());
 
+      allAbilities.forEach((record) => {
+        if (record.ability && !duplicateIds.has(record.id)) {
+          const existing = replacements.get(record.id);
+          const corrected = abilityWithConceptTitle(existing?.ability ?? record.ability, exercisesByModuleId.get(record.moduleId), conceptsById);
+
+          if (corrected.h !== record.ability.h) {
+            replacements.set(record.id, { ability: corrected, errors: [...(existing?.errors ?? []), 'Title must match its source Concept.'], record });
+          }
+        }
+      });
       duplicateIds.forEach((id) => replacements.delete(id));
 
       setFixReview({

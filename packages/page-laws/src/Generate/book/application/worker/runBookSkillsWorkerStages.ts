@@ -54,6 +54,7 @@ import {
 } from '../abilities/abilityProcessing.js';
 import { DEFAULT_PROCESSING_MODEL, DEFAULT_STANDARDS_EMBEDDER } from '../config.js';
 import { generateExerciseAbility, type AbilityWorkflowJsonRunner, type ExerciseAbilityConversion } from '../../domain/abilities/abilityWorkflow.js';
+import { abilityWithConceptTitle, exerciseWithConceptTitle } from '../../domain/concepts/conceptTitles.js';
 import { sortAbilitiesForDisplay, sortExercisesForDisplay } from '../../domain/concepts/learningOrder.js';
 import { parseExerciseRepairResult } from '../../domain/exercises/exercises.js';
 import { ABILITY_WORKFLOW_SYSTEM_PROMPT, FIX_ABILITIES_REQUEST_PROMPT, FIX_EXERCISES_REQUEST_PROMPT, REPAIR_SYSTEM_PROMPT } from '../../infrastructure/ai/prompts/abilities.js';
@@ -163,7 +164,8 @@ export async function runFixExercisesStage ({ book, command, cost, progress, sig
   }
 
   const content = await loadLearningContent(book.id);
-  const { allAbilities, allExercises, chapters, pageRows } = content;
+  const { allAbilities, allConcepts, allExercises, chapters, pageRows } = content;
+  const conceptsById = new Map(allConcepts.flatMap((concept) => concept.id === undefined ? [] : [[concept.id, concept] as const]));
 
   if (!allExercises.length) {
     throw new Error('No Exercises are available to fix.');
@@ -186,7 +188,7 @@ export async function runFixExercisesStage ({ book, command, cost, progress, sig
       client,
       command.options.model || DEFAULT_PROCESSING_MODEL,
       REPAIR_SYSTEM_PROMPT(book.language as string, book.age),
-      FIX_EXERCISES_REQUEST_PROMPT(exerciseRepairInput(book.language as string, batch, chapterTitle, book.age)),
+      FIX_EXERCISES_REQUEST_PROMPT(exerciseRepairInput(book.language as string, batch, chapterTitle, book.age, conceptsById)),
       (value) => parseExerciseRepairResult(value, batch, originalIds),
       true,
       cost,
@@ -202,7 +204,7 @@ export async function runFixExercisesStage ({ book, command, cost, progress, sig
         const id = batch[review.index]?.id;
 
         if (id !== undefined && !duplicateIds.has(id)) {
-          replacements.set(id, review.exercise);
+          replacements.set(id, exerciseWithConceptTitle(review.exercise, conceptsById));
         }
       }
     });
@@ -210,6 +212,14 @@ export async function runFixExercisesStage ({ book, command, cost, progress, sig
     await progress(Math.min(allExercises.length, completed), allExercises.length, 'Fixing Exercise errors');
   });
 
+  // A title mismatch must be fixed even when the AI omits the record from reviews.
+  allExercises.forEach((exercise) => {
+    if (exercise.id !== undefined && !duplicateIds.has(exercise.id)) {
+      const corrected = exerciseWithConceptTitle(replacements.get(exercise.id) ?? exercise, conceptsById);
+
+      if (corrected !== exercise && corrected.title !== exercise.title) replacements.set(exercise.id, corrected);
+    }
+  });
   duplicateIds.forEach((id) => replacements.delete(id));
   const abilityContentsByExerciseId = new Map<number, string[]>();
 
@@ -317,6 +327,7 @@ export async function runAbilitiesStage ({ book, command, cost, progress, signal
       );
 
       try {
+        if (!sourceConcept) throw new Error(`Source Concept is missing for Exercise ${exercise.id}.`);
         const conversions = await generateExerciseAbility(book.language as string, chapterTitle, exercise, runJson, sourceConcept);
         const exerciseId = exercise.id as number;
         const sorted = conversions.sort((a, b) => a.skillIndex - b.skillIndex);
@@ -406,13 +417,22 @@ export async function runFixAbilitiesStage ({ book, command, cost, progress, sig
     result.reviews.forEach((review) => {
       if (review.hasErrors && review.ability) {
         const record = batch[review.index];
-        if (record && !duplicateIds.has(record.id)) replacements.set(record.id, { ability: review.ability, record });
+        if (record && !duplicateIds.has(record.id)) replacements.set(record.id, { ability: abilityWithConceptTitle(review.ability, exercisesByModuleId.get(record.moduleId), conceptsById), record });
       }
     });
     completed += batch.length;
     await progress(Math.min(allAbilities.length, completed), allAbilities.length, 'Fixing Ability errors');
   });
 
+  // Fix legacy titles as well as content the model explicitly flagged.
+  allAbilities.forEach((record) => {
+    if (record.ability && !duplicatePairs.has(record.id)) {
+      const existing = replacements.get(record.id)?.ability ?? record.ability;
+      const corrected = abilityWithConceptTitle(existing, exercisesByModuleId.get(record.moduleId), conceptsById);
+
+      if (corrected.h !== record.ability.h) replacements.set(record.id, { ability: corrected, record });
+    }
+  });
   duplicatePairs.forEach((_, id) => replacements.delete(id));
   const duplicateConceptIds = new Set<number>();
   const duplicateExerciseIds = new Set<number>();
