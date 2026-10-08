@@ -320,5 +320,12 @@
   "End voice mode": "End voice mode",
   "Start voice mode": "Start voice mode",
   "Why was my response incorrect?": "Why was my response incorrect?",
-  "Type": "Type"
+  "Type": "Type",
+  "Microphone access is blocked. Open iPhone Settings → Apps → Chrome → Microphone and enable it, then return here and try again.": "Microphone access is blocked. Open iPhone Settings → Apps → Chrome → Microphone and enable it, then return here and try again.",
+  "Microphone access is blocked. Check Safari microphone permission in iPhone Settings, then return here and try again.": "Microphone access is blocked. Check Safari microphone permission in iPhone Settings, then return here and try again.",
+  "Microphone access is blocked. Open iPhone Settings and enable microphone access for your browser, then return here and try again.": "Microphone access is blocked. Open iPhone Settings and enable microphone access for your browser, then return here and try again.",
+  "Microphone access is blocked. Open Android Settings → Apps → your browser → Permissions → Microphone and allow access, then try again.": "Microphone access is blocked. Open Android Settings → Apps → your browser → Permissions → Microphone and allow access, then try again.",
+  "Microphone access is blocked. Allow microphone access for your browser in System Settings → Privacy & Security → Microphone, then try again.": "Microphone access is blocked. Allow microphone access for your browser in System Settings → Privacy & Security → Microphone, then try again.",
+  "Microphone access is blocked. Check Windows Settings → Privacy & security → Microphone and allow microphone access for your browser, then try again.": "Microphone access is blocked. Check Windows Settings → Privacy & security → Microphone and allow microphone access for your browser, then try again.",
+  "Microphone access is blocked. Enable microphone permission for this browser or website, then try again.": "Microphone access is blocked. Enable microphone permission for this browser or website, then try again."
 }

@@ -3,6 +3,7 @@
 
 import type { BookStageSpendKey } from '@slonigiraf/db';
 import { useEffect, useState } from 'react';
+import { useTranslation } from '../../../../common/translate.js';
 import { REFINE_CHAPTERS_SPEND_STAGE } from '../../../book/domain/chapters/refineChapters.js';
 import { useBookStageTimer } from '../../../book/infrastructure/storage/bookStageTime.js';
 import type { PendingBookProcessingAction } from '../../../book/application/pipeline/bookPipeline.js';
@@ -81,6 +82,7 @@ export function useBookReaderProcessingStatus ({
   standardsAssignedChapterCount,
   totalPages
 }: UseBookReaderProcessingStatusOptions) {
+  const { t } = useTranslation();
   const [lastReaderProcessing, setLastReaderProcessing] = useState<ProcessingStatus>();
   const processingTotal = isDetectingBookLanguage || isDetectingBookSubject || isDetectingBookAge || processingPage !== undefined || isEmbeddingConcepts || pendingProcessingAction === 'embeddings' || isDeduplicatingConcepts || pendingProcessingAction === 'deduplicateConcepts'
     ? 1
@@ -107,34 +109,34 @@ export function useBookReaderProcessingStatus ({
                   ? generatedExercisesPageCount
                   : generatedConceptsChapterCount;
   const processingLabel = isGeneratingChapterConcepts
-    ? `Processing chapter ${currentConceptChapterTitle || ''}`
+    ? t('Processing chapter {{chapter}}', { replace: { chapter: currentConceptChapterTitle || '' } })
     : processingPage !== undefined
-      ? `Processing page ${processingPage}`
+      ? t('Processing page {{page}}', { replace: { page: processingPage } })
       : isDetectingBookLanguage
-        ? 'Detecting book language'
+        ? t('Detecting book language')
         : isDetectingBookSubject
-          ? 'Detecting book subject'
+          ? t('Detecting book subject')
           : isDetectingBookAge
-            ? 'Detecting learner age'
+            ? t('Detecting learner age')
             : isRecognizingAll || pendingProcessingAction === 'recognize'
-              ? 'Recognizing pages'
+              ? t('Recognizing pages')
               : isIdentifyingChapters || pendingProcessingAction === 'chapters'
-                ? chapterIdentificationLabel
+                ? t(chapterIdentificationLabel)
                 : isFixingConcepts || pendingProcessingAction === 'fixConcepts'
-                  ? 'Finding missing chapter concepts'
+                  ? t('Finding missing chapter concepts')
                   : isEmbeddingConcepts || pendingProcessingAction === 'embeddings'
-                    ? 'Calculating concept Embedings'
+                    ? t('Calculating concept Embedings')
                     : isDeduplicatingConcepts || pendingProcessingAction === 'deduplicateConcepts'
-                      ? 'Finding duplicate concepts across the book'
+                      ? t('Finding duplicate concepts across the book')
                       : isSortingConcepts || pendingProcessingAction === 'sortConcepts'
-                        ? 'Sorting concepts by ZPD'
+                        ? t('Sorting concepts by ZPD')
                         : isRefiningChapters || pendingProcessingAction === 'refineChapters'
-                          ? 'Clustering concepts into thematic chapters'
+                          ? t('Clustering concepts into thematic chapters')
                           : isAssigningStandards || pendingProcessingAction === 'standards'
-                            ? 'Matching standards to chapter concepts'
+                            ? t('Matching standards to chapter concepts')
                             : isGeneratingAllExercises || pendingProcessingAction === 'exercises'
-                              ? 'Generating exercises'
-                              : 'Extracting concepts by chapter';
+                              ? t('Generating exercises')
+                              : t('Extracting concepts by chapter');
 
   const readerProcessingStage: BookStageSpendKey | undefined = confirmedProcessingStage
     ?? (isGeneratingChapterConcepts
@@ -213,7 +215,7 @@ export function useBookReaderProcessingStatus ({
 
   const processingPopupStatus = autoRunAll
     ? readerProcessing ?? autoRunProcessing ?? lastReaderProcessing ?? {
-      label: 'Preparing next stage…',
+      label: t('Preparing next stage…'),
       progressTotal: 1,
       progressValue: 0,
       spent: 0

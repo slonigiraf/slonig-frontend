@@ -1098,7 +1098,7 @@ export function BookReaderView ({ controller }: Props): React.ReactElement {
         />
       </StageRunPricePopup>}
       {processingPopupStatus && <ProcessingPopup
-        label={processingPopupStatus.label}
+        label={t(processingPopupStatus.label)}
         onAbort={abortProcessing}
         overallProgress={autoRunAll && autoRunProgress ? autoRunProgress : undefined}
         progressTotal={processingPopupStatus.progressTotal}
