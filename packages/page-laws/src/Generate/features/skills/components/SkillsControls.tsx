@@ -4,7 +4,7 @@
 import React from 'react';
 import type { AiAction, PipelineAction } from '../SkillsTypes.js';
 
-import { Dropdown, Toggle } from '@polkadot/react-components';
+import { Button, Dropdown, Toggle } from '@polkadot/react-components';
 
 import OpenRouterModelSelector from '../../../../openrouter/components/ModelSelector.js';
 import { AiPriceEstimate } from '../../../shared/ui/PriceEstimate.js';
@@ -84,6 +84,7 @@ export default function SkillsControls ({ abilitiesMissingImagesCount, abortProc
     />
   )}
   {showPipeline && <div className='pipeline'>
+    <div className='pipelineStageColumn'>
     <div className='pipelineRunGroup'>
       <button
         aria-label='Run selected stage'
@@ -107,6 +108,14 @@ export default function SkillsControls ({ abilitiesMissingImagesCount, abortProc
         }))}
         value={selectedPipelineKey}
       />
+    </div>
+    {selectedPipelineAction?.onSkip && !selectedPipelineAction.isDone && !autoRunAll && <Button
+      className='pipelineSkipButton'
+      icon='step-forward'
+      isDisabled={isBusy || selectedPipelineAction.isDisabled}
+      label='Skip Refine chapters (mark done)'
+      onClick={() => { void selectedPipelineAction.onSkip?.().catch(() => undefined); }}
+    />}
     </div>
     {pipelineControls && <div className='pipelineControls'>{pipelineControls}</div>}
   </div>}

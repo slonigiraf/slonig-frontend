@@ -345,19 +345,20 @@ export default function TikzVisual ({ alt, editorTitle, expandedPrompt, hasCompi
           value={rendered}
         />
       </ZoomablePreview>
-      <PreviewActions>
-        {onSave && <Button
-          icon='edit'
-          isDisabled={isSaving || !draft.trim()}
-          label='Edit'
-          onClick={openVisualEditor}
-        />}
-        {prompt?.trim() && <Button
+      {onSave && <Button
+        className='tikzEditOverlay'
+        icon='edit'
+        isDisabled={isSaving || !draft.trim()}
+        label={<span className='tikzEditAccessibleLabel'>Edit {alt} image</span>}
+        onClick={openVisualEditor}
+      />}
+      {prompt?.trim() && <PreviewActions>
+        <Button
           icon={isDetailsShown ? 'eye-slash' : 'eye'}
           label={isDetailsShown ? 'Hide visual prompt' : 'Show visual prompt'}
           onClick={toggleDetails}
-        />}
-      </PreviewActions>
+        />
+      </PreviewActions>}
     </PreviewBlock>}
     {showPreview && isPreviewBig && <ImageModal header=' ' onClose={closePreview} size='large'>
       <Modal.Content>
@@ -432,7 +433,44 @@ const PreviewBlock = styled.div`
   flex-direction: column;
   gap: 0.35rem;
   max-width: 100%;
+  position: relative;
   width: 150px;
+
+  .tikzEditOverlay.ui--Button {
+    align-items: center;
+    background: var(--bg-input, #fff);
+    border: 1px solid var(--border-table, #cfd5e1);
+    border-radius: 0.4rem;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.14);
+    display: flex;
+    height: 2rem;
+    justify-content: center;
+    margin: 0;
+    min-height: 2rem;
+    min-width: 2rem;
+    padding: 0.2rem;
+    position: absolute;
+    right: 0.2rem;
+    top: 0.2rem;
+    width: 2rem;
+    z-index: 1;
+
+    .ui--Icon {
+      margin: 0 !important;
+    }
+  }
+
+  .tikzEditAccessibleLabel {
+    border: 0;
+    clip-path: inset(50%);
+    height: 1px;
+    margin: -1px;
+    overflow: hidden;
+    padding: 0;
+    position: absolute;
+    white-space: nowrap;
+    width: 1px;
+  }
 `;
 
 const PreviewActions = styled.div`

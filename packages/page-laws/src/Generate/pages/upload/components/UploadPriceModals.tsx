@@ -4,7 +4,7 @@
 import type { Book } from '@slonigiraf/db';
 import React from 'react';
 
-import { Modal, styled } from '@polkadot/react-components';
+import { Modal, Toggle, styled } from '@polkadot/react-components';
 
 import type { BookExternalCalls } from '../../../book/infrastructure/storage/bookExternalCalls.js';
 import type { BookStageTimes } from '../../../book/infrastructure/storage/bookStageTime.js';
@@ -20,18 +20,26 @@ export interface FastForwardEstimate {
   aiUsd: number;
   pageCount: number;
   recognitionUsd: number;
+  refineChaptersUsd: number;
   remainingStages: number;
   totalUsd: number;
 }
 
 interface FastForwardPricePopupProps {
   estimate?: FastForwardEstimate;
+  canSkipRefineChapters: boolean;
   onClose: () => void;
   onRun: () => void;
+  onSkipRefineChaptersChange: (value: boolean) => void;
+  skipRefineChapters: boolean;
 }
 
-export function FastForwardPricePopup ({ estimate, onClose, onRun }: FastForwardPricePopupProps): React.ReactElement {
+export function FastForwardPricePopup ({ canSkipRefineChapters, estimate, onClose, onRun, onSkipRefineChaptersChange, skipRefineChapters }: FastForwardPricePopupProps): React.ReactElement {
   const { t } = useTranslation();
+  const skip = canSkipRefineChapters && skipRefineChapters;
+  const remainingStages = Math.max(0, (estimate?.remainingStages ?? 0) - (skip ? 1 : 0));
+  const aiUsd = Math.max(0, (estimate?.aiUsd ?? 0) - (skip ? estimate?.refineChaptersUsd ?? 0 : 0));
+  const totalUsd = (estimate?.recognitionUsd ?? 0) + aiUsd;
 
   return (
     <StageRunPricePopup
@@ -43,12 +51,17 @@ export function FastForwardPricePopup ({ estimate, onClose, onRun }: FastForward
     >
       <PriceContent>
         <p className='priceIntro'>{t('Run every remaining processing stage automatically, one by one. Publishing to blockchain is not included.')}</p>
+        {canSkipRefineChapters && <Toggle
+          label={t('Skip Refine chapters (mark the stage done without running it)')}
+          onChange={onSkipRefineChaptersChange}
+          value={skipRefineChapters}
+        />}
         {!estimate
           ? <div className='fastForwardEstimateStatus'>{t('Calculating price estimate…')}</div>
           : <>
             <div className='fastForwardEstimateHeading'>
               <strong>{t('Estimated processing cost')}</strong>
-              <span className='fastForwardStageBadge'>{estimate.remainingStages} {t(estimate.remainingStages === 1 ? 'stage' : 'stages')}</span>
+              <span className='fastForwardStageBadge'>{remainingStages} {t(remainingStages === 1 ? 'stage' : 'stages')}</span>
             </div>
             <div className='priceTableFrame'>
               <table className='priceTable fastForwardPriceTable'>
@@ -60,18 +73,18 @@ export function FastForwardPricePopup ({ estimate, onClose, onRun }: FastForward
                     </th>
                     <td>{formatOpenRouterSpend(estimate.recognitionUsd)}</td>
                   </tr>
-                  <tr className={estimate.aiUsd === 0 ? 'isZero' : undefined}>
+                  <tr className={aiUsd === 0 ? 'isZero' : undefined}>
                     <th scope='row'>
                       {t('AI / processing')}
                       <small className='priceSource'>{t('Remaining automated processing')}</small>
                     </th>
-                    <td>{formatOpenRouterSpend(estimate.aiUsd)}</td>
+                    <td>{formatOpenRouterSpend(aiUsd)}</td>
                   </tr>
                 </tbody>
                 <tfoot>
                   <tr>
                     <th scope='row'>{t('Estimated total')}</th>
-                    <td>≈ {formatOpenRouterSpend(estimate.totalUsd)}</td>
+                    <td>≈ {formatOpenRouterSpend(totalUsd)}</td>
                   </tr>
                 </tfoot>
               </table>

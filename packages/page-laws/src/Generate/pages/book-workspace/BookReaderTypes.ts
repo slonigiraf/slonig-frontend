@@ -12,6 +12,7 @@ import type { PipelineAction } from '../../shared/types/processing.js';
 export interface Props {
   autoRunAll?: boolean;
   autoRunStartKey?: string;
+  autoRunSkipRefineChapters?: boolean;
   book: Book;
   file: File;
   embeddingModel: string;

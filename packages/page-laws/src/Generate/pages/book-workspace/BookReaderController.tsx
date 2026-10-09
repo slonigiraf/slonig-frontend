@@ -33,6 +33,7 @@ export function useBookReaderController (props: Props) {
   const {
     autoRunAll = false,
     autoRunStartKey,
+    autoRunSkipRefineChapters,
     book,
     embeddingModel,
     file,
@@ -737,6 +738,7 @@ export function useBookReaderController (props: Props) {
   return {
     autoRunAll,
     autoRunStartKey,
+    autoRunSkipRefineChapters,
     book,
     embeddingModel,
     file,

@@ -325,6 +325,9 @@ export const StyledSkills = styled.div`
     width: 100%;
   }
 
+  .pipelineStageColumn { display: grid; gap: 0.35rem; min-width: 0; }
+  .pipelineSkipButton.ui--Button { justify-self: start; margin: 0; max-width: 100%; white-space: normal; }
+
   /* Keep the run button visually attached to the same Dropdown component used
      elsewhere in the app. This means the opened menu inherits the app's normal
      dropdown styling instead of maintaining a second, custom menu implementation. */
@@ -460,6 +463,11 @@ export const StyledSkills = styled.div`
     margin-left: 0 !important;
     margin-right: 0.25rem !important;
   }
+  @media only screen and (max-width: 650px) {
+    .pipeline { grid-template-columns: minmax(0, 1fr); }
+    .pipelineControls { flex-wrap: wrap; min-width: 0; padding-left: 0; white-space: normal; }
+    .pipelineFastForwardButton { margin-left: 0 !important; }
+  }
   .modelSelect { min-width: 11rem; }
   .chapterNavigation { align-items: center; display: grid; gap: 0.5rem; grid-template-columns: auto minmax(14rem, 1fr) auto minmax(8rem, 1fr) auto auto; margin-bottom: 1rem; }
   .exercisesChapterNavigation { background: var(--bg-page); display: flex; gap: 0.75rem; padding: 0.5rem 0; position: sticky; top: 0; z-index: 2; }
@@ -470,11 +478,10 @@ export const StyledSkills = styled.div`
   .chapterEditor { display: grid; gap: 1rem; }
   .columns { display: grid; gap: 1rem; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
   .columns > section, .singlePane { border: 1px solid var(--border-table); border-radius: 0.4rem; min-width: 0; overflow: auto; padding: 1rem; }
-  .contentCard { border-bottom: 1px solid var(--border-table); box-sizing: border-box; min-width: 0; padding: 0.75rem 16rem 0.75rem 10px; position: relative; }
-  .contentCard > .ui--Button { position: absolute; right: 10px; top: 10px; }
-  .abilityCard { border: 1px solid var(--border-table); border-radius: 0.4rem; margin-bottom: 0.75rem; padding: 0.85rem 1rem 1rem; }
-  .abilityCard .contentCardActions { margin-bottom: 0.75rem; max-width: none; position: static; }
-  .contentCardActions { align-items: center; display: flex; flex-wrap: wrap; gap: 0.35rem; justify-content: flex-end; max-width: 15rem; position: absolute; right: 10px; top: 10px; }
+  /* Exercises and abilities share the same in-flow action layout. A fixed
+     right-side reservation previously pushed exercise cards past mobile viewports. */
+  .contentCard { border: 1px solid var(--border-table); border-radius: 0.4rem; box-sizing: border-box; margin-bottom: 0.75rem; min-width: 0; overflow-wrap: anywhere; padding: 0.85rem 1rem 1rem; position: relative; }
+  .contentCardActions { align-items: center; display: flex; flex-wrap: wrap; gap: 0.35rem; justify-content: flex-end; margin-bottom: 0.75rem; max-width: 100%; min-width: 0; position: static; }
   .contentCard > strong { display: block; overflow-wrap: anywhere; }
   .fixReviewList { max-height: 60vh; overflow: auto; }
   .fixReviewItem { border-top: 1px solid var(--border-table); padding: 0.75rem 0; }
@@ -519,9 +526,14 @@ export const StyledSkills = styled.div`
   .tikzDiagnostics { color: #9f3a38; max-height: 8rem; }
   @media only screen and (max-width: 900px) { .columns, .duplicatePairComparison, .tikzDiffGrid { grid-template-columns: 1fr; } }
   @media only screen and (max-width: 600px) {
-    .contentCard { padding-right: 10px; padding-top: 4.1rem; }
-    .abilityCard { padding: 0.85rem 1rem 1rem; }
-    .contentCardActions { left: 10px; max-width: none; right: 10px; }
+    .contentCard { padding: 0.75rem; }
+    .contentCardActions { width: 100%; }
+    .chapterNavigation { display: flex; flex-wrap: wrap; min-width: 0; }
+    .exercisesChapterNavigation { gap: 0.35rem; }
+    .exercisesChapterNavigation .chapterSelectGroup { flex: 1 1 100%; min-width: 0; order: 2; }
+    .exercisesChapterNavigation .chapterSelectGroup label { min-width: 0; }
+    .exercisesChapterNavigation > span { flex: 1 1 auto; text-align: center; }
+    .exercisesChapterNavigation > .ui--Button:last-child { margin-left: auto; }
   }
 `;
 

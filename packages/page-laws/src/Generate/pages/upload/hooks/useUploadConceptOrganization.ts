@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { Book, BookPage } from '@slonigiraf/db';
-import { getBookConceptsForBookPage, getBookPages, getConceptEmbeddings, getSetting, isBookProcessingStageComplete, resetBookProcessingStagesFrom, SettingKey } from '@slonigiraf/db';
+import { completeBookProcessingStage, getBookConceptsForBookPage, getBookPages, getConceptEmbeddings, getSetting, isBookProcessingStageComplete, resetBookProcessingStagesFrom, SettingKey } from '@slonigiraf/db';
 import type { Dispatch, SetStateAction } from 'react';
 import { useCallback, useEffect, useState } from 'react';
 
@@ -300,6 +300,25 @@ export function useUploadConceptOrganization ({ embeddingModel, generateAllConce
       });
   }, [requestProcessing, selectedBook, t, setBooks, setError, setPendingProcessingAction]);
 
+  // Skipping leaves the chapter/concept data untouched, but commits the stage
+  // so the Exercises stage is unlocked just as after a successful refinement.
+  const skipRefineChapters = useCallback(async (): Promise<void> => {
+    if (!selectedBook || !isBookProcessingStageComplete(selectedBook, 'sortConcepts')) {
+      throw new Error('Sort concepts must be completed before skipping Refine chapters.');
+    }
+
+    try {
+      const storedBook = await completeBookProcessingStage(selectedBook.id, 'refineChapters');
+
+      if (!storedBook) throw new Error('Book not found.');
+      setBooks((current) => current.map((book) => book.id === storedBook.id ? storedBook : book));
+      setIsRefineChaptersConfirmationOpen(false);
+    } catch (error) {
+      setError(t('Unable to skip Refine chapters.'));
+      throw error;
+    }
+  }, [selectedBook, setBooks, setError, t]);
+
   return {
     closeDeduplicateConceptsConfirmation,
     closeRefineChaptersConfirmation,
@@ -314,6 +333,7 @@ export function useUploadConceptOrganization ({ embeddingModel, generateAllConce
     onDeduplicateConcepts,
     onRefineChapters,
     onSortConcepts,
+    skipRefineChapters,
     refineChaptersEstimate,
     sortConceptsEstimate
   };

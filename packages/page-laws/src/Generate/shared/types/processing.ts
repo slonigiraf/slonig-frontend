@@ -8,6 +8,7 @@ export interface PipelineAction {
   isDisabled: boolean;
   isResultComplete?: boolean;
   onClick: () => void;
+  onSkip?: () => Promise<void>;
   onRetryMissing?: () => void;
 }
 

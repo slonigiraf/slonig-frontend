@@ -209,11 +209,6 @@ export function BookItem ({ description, id, imageDescription, onDelete, onDelet
   }, [id, onError, onFix]);
 
   return <article aria-busy={isFixing} className='contentCard' tabIndex={-1}>
-    <strong>{rank !== undefined && <span>{rank}. </span>}<SpanWithTags content={title} /></strong>
-    {description && <p><SpanWithTags content={description} /></p>}
-    {imageDescription && <p><small>Required visual: <SpanWithTags content={imageDescription} /></small></p>}
-    {solution && <p><SpanWithTags content={solution} /></p>}
-    {solutionImageDescription && <p><small>Solution visual: <SpanWithTags content={solutionImageDescription} /></small></p>}
     <div className='contentCardActions'>
       {type === 'exercise' && onFix && <Button
         icon='robot'
@@ -233,6 +228,11 @@ export function BookItem ({ description, id, imageDescription, onDelete, onDelet
         onClick={remove}
       />
     </div>
+    <strong>{rank !== undefined && <span>{rank}. </span>}<SpanWithTags content={title} /></strong>
+    {description && <p><SpanWithTags content={description} /></p>}
+    {imageDescription && <p><small>Required visual: <SpanWithTags content={imageDescription} /></small></p>}
+    {solution && <p><SpanWithTags content={solution} /></p>}
+    {solutionImageDescription && <p><small>Solution visual: <SpanWithTags content={solutionImageDescription} /></small></p>}
     {isFixing && <FixingOverlay />}
     {isEditing && <Modal
       header='Edit Exercise'
@@ -316,12 +316,11 @@ export function SkillCard ({ bookId, onDeleted, onError, skill }: { bookId: numb
   }, [bookId, onDeleted, onError, skill.id]);
 
   return <article className='contentCard' tabIndex={-1}>
+    <div className='contentCardActions'>
+      <Button icon='trash' onClick={remove} />
+    </div>
     <strong><SpanWithTags content={skill.title} /></strong>
     {skill.description && <p><SpanWithTags content={skill.description} /></p>}
-    <Button
-      icon='trash'
-      onClick={remove}
-    />
   </article>;
 }
 

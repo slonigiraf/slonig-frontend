@@ -43,6 +43,7 @@ export function useUploadPricing ({ embeddingModel, readerFile, refreshBooks, se
   const [isFastForwardRunning, setIsFastForwardRunning] = useState(false);
   const [fastForwardStartKey, setFastForwardStartKey] = useState<string>();
   const [fastForwardEstimate, setFastForwardEstimate] = useState<FastForwardEstimate>();
+  const [skipRefineChaptersInFastForward, setSkipRefineChaptersInFastForward] = useState(false);
 
   const onPrice = useCallback((): void => {
     if (!selectedBook) {
@@ -82,6 +83,7 @@ export function useUploadPricing ({ embeddingModel, readerFile, refreshBooks, se
 
     setFastForwardStartKey(startKey);
     setFastForwardEstimate(undefined);
+    setSkipRefineChaptersInFastForward(false);
     setIsFastForwardConfirmationOpen(true);
 
     let document: PDFDocumentProxy | undefined;
@@ -125,10 +127,17 @@ export function useUploadPricing ({ embeddingModel, readerFile, refreshBooks, se
 
         return total + (recorded > 0 ? recorded : !useSpecializedFallback && typicalRecordedCost > 0 ? typicalRecordedCost : fallback);
       }, 0);
+      const refineChaptersUsd = remainingAiStages.reduce((total, { key }) => {
+        if (key !== 'refineChapters') return total;
+        const recorded = selectedBook.stageSpend?.[key] ?? 0;
+
+        return total + (recorded > 0 ? recorded : typicalRecordedCost > 0 ? typicalRecordedCost : regularFallback);
+      }, 0);
 
       setFastForwardEstimate({
         aiUsd,
         pageCount,
+        refineChaptersUsd,
         recognitionUsd,
         remainingStages: remaining.length,
         totalUsd: recognitionUsd + aiUsd
@@ -184,6 +193,8 @@ export function useUploadPricing ({ embeddingModel, readerFile, refreshBooks, se
     confirmFastForward,
     fastForwardEstimate,
     fastForwardStartKey,
+    skipRefineChaptersInFastForward,
+    setSkipRefineChaptersInFastForward,
     isFastForwardConfirmationOpen,
     isFastForwardRunning,
     isPriceOpen,

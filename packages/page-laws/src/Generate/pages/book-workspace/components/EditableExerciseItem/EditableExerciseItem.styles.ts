@@ -7,32 +7,33 @@ const ExerciseItemContainer = styled.li`
   border: 1px solid var(--border-table);
   border-radius: 0.4rem;
   box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
   list-style: none;
   margin-bottom: 0.75rem;
   min-height: 4rem;
-  padding: 0.75rem 16rem 0.75rem 0.75rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  padding: 0.75rem;
   position: relative;
+  width: 100%;
 
   &:last-child { margin-bottom: 0; }
   > p { margin: 0.35rem 0; }
 
   .exerciseItemActions {
     align-items: center;
+    align-self: flex-end;
     display: flex;
     flex-wrap: wrap;
     gap: 0.35rem;
     justify-content: flex-end;
-    max-width: 15rem;
-    position: absolute;
-    right: 0.65rem;
-    top: 0.65rem;
+    margin-bottom: 0.65rem;
+    max-width: 100%;
   }
 
   @media only screen and (max-width: 600px) {
-    padding-right: 0.65rem;
-    padding-top: 4.1rem;
-
-    .exerciseItemActions { left: 0.65rem; max-width: none; }
+    .exerciseItemActions { align-self: stretch; justify-content: flex-end; }
   }
 `;
 

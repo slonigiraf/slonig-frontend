@@ -108,7 +108,7 @@ function getSessionChapter (bookId: number, view: SkillsView): number {
   }
 }
 
-function Skills ({ autoRunAll = false, autoRunStartKey, book, externalAutoRunBusy = false, externalRefreshToken = 0, onAction, onAutoRunAbortReady, onAutoRunComplete, onAutoRunProcessingChange, onAutoRunProgressChange, onAbortAutoRun, onBookChange, onContentChange, onEntityCountsChange, onPipelineSelectionChange, pipelineOnly = false, pipelineControls, pipelinePrefix, pipelineSuffix, showPipeline = true, view }: SkillsProps): React.ReactElement {
+function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapters = false, book, externalAutoRunBusy = false, externalRefreshToken = 0, onAction, onAutoRunAbortReady, onAutoRunComplete, onAutoRunProcessingChange, onAutoRunProgressChange, onAbortAutoRun, onBookChange, onContentChange, onEntityCountsChange, onPipelineSelectionChange, pipelineOnly = false, pipelineControls, pipelinePrefix, pipelineSuffix, showPipeline = true, view }: SkillsProps): React.ReactElement {
   const language = book.language ?? '';
   const hasBookLanguage = Boolean(language);
   const hasBookSubject = Boolean(book.subject);
@@ -140,6 +140,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalAutoRunBus
   const autoRunTriggeredKeyRef = useRef('');
   const autoRunCompleteNotifiedRef = useRef(false);
   const autoRunRunStartedRef = useRef(false);
+  const autoRunSkippingRef = useRef(false);
   const autoRunRetryCountsRef = useRef<Map<string, number>>(new Map());
   const autoRunFinishedStageKeysRef = useRef<Set<string>>(new Set());
   const processingAbortControllerRef = useRef<AbortController | null>(null);
@@ -1672,6 +1673,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalAutoRunBus
       autoRunTriggeredKeyRef.current = '';
       autoRunCompleteNotifiedRef.current = false;
       autoRunRunStartedRef.current = false;
+      autoRunSkippingRef.current = false;
       autoRunRetryCountsRef.current = new Map();
       autoRunFinishedStageKeysRef.current = new Set();
       setAutoRunStageKeys([]);
@@ -1754,6 +1756,19 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalAutoRunBus
       const isTriggeredStage = autoRunTriggeredKeyRef.current === nextKey;
 
       if (!isTriggeredStage) {
+        // Commit the optional refinement exactly when its turn comes. Earlier
+        // stages may invalidate downstream completion, so do not pre-mark it
+        // when the Fast Forward confirmation is accepted.
+        if (autoRunSkipRefineChapters && nextKey === 'refineChapters' && !nextAction.isDone) {
+          if (nextAction.isDisabled || !nextAction.onSkip || autoRunSkippingRef.current) return;
+          autoRunSkippingRef.current = true;
+          void nextAction.onSkip().catch(() => {
+            setError('Fast Forward could not skip Refine chapters.');
+            onAbortAutoRun?.();
+          });
+          return;
+        }
+
         if (nextAction.isDone) {
           if (nextAction.onRetryMissing) {
             if (nextAction.isResultComplete === undefined) {
@@ -1828,7 +1843,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalAutoRunBus
       autoRunTriggeredKeyRef.current = '';
       autoRunRunStartedRef.current = false;
     }
-  }, [aiAction, autoRunAll, autoRunStageKeys, error, exerciseFixReview, externalAutoRunBusy, fixReview, imageFixReview, isBusy, isContentSnapshotCurrent, onAbortAutoRun, onAutoRunComplete, pipelineActions]);
+  }, [aiAction, autoRunAll, autoRunSkipRefineChapters, autoRunStageKeys, error, exerciseFixReview, externalAutoRunBusy, fixReview, imageFixReview, isBusy, isContentSnapshotCurrent, onAbortAutoRun, onAutoRunComplete, pipelineActions]);
 
   const autoRunCompletedCount = autoRunStageKeys.reduce((count, key) => {
     if (autoRunFinishedStageKeysRef.current.has(key)) {

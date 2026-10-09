@@ -28,6 +28,7 @@ export function UploadReader ({ book, file, isBusy, processing }: UploadReaderPr
     <BookReader
       autoRunAll={processing.pricing.isFastForwardRunning}
       autoRunStartKey={processing.pricing.fastForwardStartKey}
+      autoRunSkipRefineChapters={processing.pricing.skipRefineChaptersInFastForward}
       book={book}
       embeddingModel={processing.embeddingModel}
       fixOnlyFailedConcepts={processing.conceptGeneration.fixOnlyFailedConcepts}

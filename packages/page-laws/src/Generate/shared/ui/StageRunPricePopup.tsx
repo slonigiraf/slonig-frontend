@@ -11,10 +11,11 @@ interface StageRunPricePopupProps {
   isRunDisabled?: boolean;
   onClose: () => void;
   onRun: () => void;
+  onSkip?: () => void;
   runLabel?: string;
 }
 
-export default function StageRunPricePopup ({ children, header, isRunDisabled = false, onClose, onRun, runLabel = 'Run' }: StageRunPricePopupProps): React.ReactElement {
+export default function StageRunPricePopup ({ children, header, isRunDisabled = false, onClose, onRun, onSkip, runLabel = 'Run' }: StageRunPricePopupProps): React.ReactElement {
   return <Modal
     header={header}
     onClose={onClose}
@@ -23,6 +24,11 @@ export default function StageRunPricePopup ({ children, header, isRunDisabled = 
     <Modal.Content>
       {children}
       <Button.Group>
+        {onSkip && <Button
+          icon='step-forward'
+          label='Skip (mark done)'
+          onClick={onSkip}
+        />}
         <Button
           icon='play'
           isDisabled={isRunDisabled}

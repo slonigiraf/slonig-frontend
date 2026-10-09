@@ -44,6 +44,7 @@ export function BookReaderView ({ controller }: Props): React.ReactElement {
     autoRunAll,
     autoRunProgress,
     autoRunStartKey,
+    autoRunSkipRefineChapters,
     beginConceptPointerDrag,
     book,
     cancelConceptPointerDrag,
@@ -1108,6 +1109,7 @@ export function BookReaderView ({ controller }: Props): React.ReactElement {
       <Skills
         autoRunAll={autoRunAll}
         autoRunStartKey={autoRunStartKey}
+        autoRunSkipRefineChapters={autoRunSkipRefineChapters}
         book={book}
         externalAutoRunBusy={hasReaderProcessing}
         externalRefreshToken={skillsRefreshToken}

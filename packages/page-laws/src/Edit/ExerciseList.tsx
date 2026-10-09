@@ -147,19 +147,40 @@ const ExerciseList: React.FC<ExerciseListProps> = ({ exercises, areShownInitiall
 }
 
 const AbilityExercisesGrid = styled.div`
+  align-items: stretch;
   display: grid;
   gap: 1rem;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 21rem), 1fr));
   max-width: 60rem;
 
   > .ui--row {
-    align-items: flex-start !important;
+    align-items: stretch !important;
     border: 1px solid var(--border-table);
     border-radius: 0.4rem;
     box-sizing: border-box;
     margin-bottom: 0 !important;
     overflow-wrap: anywhere;
     padding: 0.75rem;
+    min-width: 0;
+    width: 100%;
+  }
+
+  > .ui--row > .exercise-display {
+    box-sizing: border-box;
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    min-width: 0;
+    width: 100%;
+  }
+
+  .exercise-header {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .abilityAnswer {
+    margin-top: auto;
   }
 `;
 

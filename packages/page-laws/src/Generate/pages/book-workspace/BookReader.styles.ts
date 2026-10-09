@@ -4,6 +4,9 @@
 import { styled } from '@polkadot/react-components';
 
 export const StyledReader = styled.div`
+  box-sizing: border-box;
+  max-width: 100%;
+  min-width: 0;
   position: relative;
   &.isMaximized {
     background: var(--bg-page);
@@ -65,6 +68,7 @@ export const StyledReader = styled.div`
     gap: 0.75rem;
     grid-column: 1 / -1;
     margin-bottom: 1rem;
+    min-width: 0;
   }
 
   .conceptPaneColumn {
@@ -201,6 +205,7 @@ export const StyledReader = styled.div`
     display: grid;
     gap: 1rem;
     grid-template-columns: minmax(0, 1fr) minmax(18rem, 1fr);
+    min-width: 0;
   }
 
   .detailsArea {
@@ -275,10 +280,12 @@ export const StyledReader = styled.div`
   }
 
   .tabPanel {
+    box-sizing: border-box;
     display: flex;
     flex: 1;
     flex-direction: column;
     min-height: 0;
+    min-width: 0;
     padding: 1rem;
   }
 
@@ -319,7 +326,17 @@ export const StyledReader = styled.div`
     box-shadow: 0 1px 2px rgba(24, 39, 75, 0.04);
     box-sizing: border-box;
     margin-bottom: 1rem;
+    min-width: 0;
+    overflow-wrap: anywhere;
     padding: 0.95rem 1rem 1rem;
+  }
+
+  .exerciseList {
+    box-sizing: border-box;
+    margin: 0.75rem 0 0;
+    min-width: 0;
+    padding: 0;
+    width: 100%;
   }
 
   .exerciseConceptCard:focus {
@@ -604,6 +621,26 @@ export const StyledReader = styled.div`
   }
 
   @media only screen and (max-width: 800px) {
+    .chapterNavigation {
+      display: grid;
+      gap: 0.4rem;
+      grid-template-columns: auto minmax(0, 1fr) auto;
+    }
+
+    .chapterNavigation > .ui--Button:last-child {
+      grid-column: 3;
+      grid-row: 1;
+    }
+
+    .chapterNavigation > span {
+      grid-column: 2;
+      grid-row: 2;
+      text-align: center;
+    }
+
+    .chapterSelectGroup, .chapterNavigation label { min-width: 0; }
+    .chapterNavigation select { min-width: 0; width: 100%; }
+
     .pageNavigation {
       grid-template-columns: auto 1fr auto;
     }

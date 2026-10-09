@@ -17,6 +17,7 @@ interface ProcessingToolbarHandlers {
   onIdentifyChapters: () => void;
   onRecognize: () => void;
   onRefineChapters: () => void;
+  onSkipRefineChapters: () => Promise<void>;
   onRetryMissingConcepts: () => void;
   onRetryMissingExercises: () => void;
   onShowAge: () => void;
@@ -122,7 +123,8 @@ export function createProcessingToolbars (
         label: label('refineChapters'),
         isDone: stage('sortConcepts') && isRefineChaptersComplete(book),
         isDisabled: blocked || !stage('sortConcepts') || !book.language || !book.subject || book.age === undefined,
-        onClick: handlers.onRefineChapters
+        onClick: handlers.onRefineChapters,
+        onSkip: handlers.onSkipRefineChapters
       },
       {
         key: 'exercises',

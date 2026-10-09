@@ -14,6 +14,7 @@ export type SkillsView = 'conceptsSkills' | 'preExercisesExercises';
 export interface SkillsProps {
   autoRunAll?: boolean;
   autoRunStartKey?: string;
+  autoRunSkipRefineChapters?: boolean;
   book: Book;
   externalAutoRunBusy?: boolean;
   onBookChange: (book: Book) => void;

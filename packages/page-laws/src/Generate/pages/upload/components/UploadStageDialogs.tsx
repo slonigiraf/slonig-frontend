@@ -11,6 +11,7 @@ import type { UploadProcessing } from '../hooks/useUploadProcessing.js';
 import OpenRouterEmbeddingModelSelector from '../../../../openrouter/components/EmbeddingModelSelector.js';
 import OpenRouterModelSelector from '../../../../openrouter/components/ModelSelector.js';
 import { MATHPIX_PDF_PAGE_PRICE_USD } from '../../../book/application/config.js';
+import { BOOK_PRICE_STAGES } from '../../../book/application/pipeline/bookPipeline.js';
 import { AiPriceEstimate, UnitPriceEstimate } from '../../../shared/ui/PriceEstimate.js';
 import StageRunPricePopup from '../../../shared/ui/StageRunPricePopup.js';
 import { useTranslation } from '../../../../common/translate.js';
@@ -25,12 +26,17 @@ export function UploadStageDialogs ({ processing, selectedBook }: UploadStageDia
   const { t } = useTranslation();
   const { conceptGeneration, conceptOrganization, metadata, pricing, standardsExercises } = processing;
   const isFastForwardRunning = pricing.isFastForwardRunning;
+  const startIndex = BOOK_PRICE_STAGES.findIndex(({ key }) => key === pricing.fastForwardStartKey);
+  const refineIndex = BOOK_PRICE_STAGES.findIndex(({ key }) => key === 'refineChapters');
 
   return <>
     {pricing.isFastForwardConfirmationOpen && <FastForwardPricePopup
+      canSkipRefineChapters={startIndex >= 0 && startIndex <= refineIndex}
       estimate={pricing.fastForwardEstimate}
       onClose={pricing.closeFastForwardConfirmation}
       onRun={pricing.confirmFastForward}
+      onSkipRefineChaptersChange={pricing.setSkipRefineChaptersInFastForward}
+      skipRefineChapters={pricing.skipRefineChaptersInFastForward}
     />}
     {pricing.isPriceOpen && <BookStatisticsModal
       book={pricing.priceBook}
@@ -170,6 +176,7 @@ export function UploadStageDialogs ({ processing, selectedBook }: UploadStageDia
       header={t('Refine chapters')}
       onClose={conceptOrganization.closeRefineChaptersConfirmation}
       onRun={conceptOrganization.confirmRefineChapters}
+      onSkip={() => { void conceptOrganization.skipRefineChapters().catch(() => undefined); }}
       runLabel={t('Run')}
     >
       <p>{t('Process each original chapter independently, clustering only the concepts that already belong to that chapter. Concepts from different original chapters are never placed in the same clustering request and can never be reordered together. Within each original chapter, Refine chapters may cut the already-sorted concept sequence into one, two, or three contiguous thematic groups, targeting roughly 7–10 concepts per resulting chapter when the themes support it.')}</p>
