@@ -9,7 +9,7 @@ import { strict as assert } from 'node:assert';
 
 import { ABILITY_WORKFLOW_SYSTEM_PROMPT, FIX_EXERCISES_PROMPT, REPAIR_SYSTEM_PROMPT } from '../../infrastructure/ai/prompts/abilities.js';
 import { GENERATE_EXERCISES_PROMPT } from '../../infrastructure/ai/prompts/exercises.js';
-import { missingGeneratedExerciseConceptIndexes, parseExerciseRepairResult } from './exercises.js';
+import { isMultipleChoiceExerciseDescription, missingGeneratedExerciseConceptIndexes, parseExerciseRepairResult } from './exercises.js';
 
 function createExercise (id: number, title = `Exercise <kx>${id}</kx>`): Exercise {
   return {
@@ -351,6 +351,27 @@ describe('exercise repair', (): void => {
     assert.match(prompt, /true\/false, correct\/incorrect, right\/wrong, does\/does not, can\/cannot/i);
     assert.match(prompt, /substantive answer content beyond a binary judgment/i);
     assert.match(prompt, /Do not evade this rule by replacing yes\/no with another two-option wording/i);
+  });
+
+  it('explicitly prohibits multiple-choice exercises during generation and recovery', (): void => {
+    const prompt = GENERATE_EXERCISES_PROMPT('English');
+
+    assert.match(prompt, /Never generate multiple-choice Exercises/i);
+    assert.match(prompt, /lettered or numbered answer lists/i);
+    assert.match(prompt, /Require an open-ended response/i);
+    assert.match(prompt, /including retry\/recovery generations/i);
+  });
+
+  it('detects multiple-choice prompts without confusing ordinary open-response tasks', (): void => {
+    assert.equal(isMultipleChoiceExerciseDescription('Which of the following is equal to 8?'), true);
+    assert.equal(isMultipleChoiceExerciseDescription('Select the correct answer: A or B.'), true);
+    assert.equal(isMultipleChoiceExerciseDescription('Calculate 3 + 4. A) 6 B) 7 C) 8'), true);
+    assert.equal(isMultipleChoiceExerciseDescription('Identify the shape:\n(A) circle\n(B) square'), true);
+    assert.equal(isMultipleChoiceExerciseDescription('What is 3 + 4? 1) 6 2) 7 3) 8'), true);
+    assert.equal(isMultipleChoiceExerciseDescription('Compute <kx>3+4</kx> and explain your method.'), false);
+    assert.equal(isMultipleChoiceExerciseDescription('Compare points A and B on the graph.'), false);
+    assert.equal(isMultipleChoiceExerciseDescription('Mark the correct point A on the diagram.'), false);
+    assert.equal(isMultipleChoiceExerciseDescription('Solve: 1) x + 2 = 4 2) y + 3 = 5.'), false);
   });
 
   it('asks generated Exercise solutions to show non-obvious solving steps', (): void => {

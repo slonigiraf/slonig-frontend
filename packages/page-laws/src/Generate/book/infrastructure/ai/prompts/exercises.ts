@@ -15,6 +15,8 @@ ${EXERCISE_QUESTION_BREVITY_PROMPT}
 
 ${EXERCISE_NON_BINARY_RESPONSE_PROMPT}
 
+Never generate multiple-choice Exercises. Do not provide answer options, selectable alternatives, lettered or numbered answer lists, or instructions to pick the correct option from a list. Require an open-ended response in which the learner independently produces the answer, calculation, explanation, or visual result. This rule applies to every Exercise, including retry/recovery generations, even if the source Concept mentions a multiple-choice question.
+
 Design each Exercise completely in this single generation pass. Compose the task text, solution, and any necessary question/solution visual descriptions together as one coherent final artifact. Do not draft a text-only exercise first and rely on a later visual audit, correction, or retrofit; no second visual-design pass will run. Before returning each Exercise, internally verify that the wording and visual requirements agree and that any required visual description is already final.
 
 Decide question and solution visuals from the learner's required input and output, not from the subject name. Use a nonempty imageDescription exactly when information needed to perform the target operation is intentionally encoded in a visual or spatial representation and moving that information into the text would change the operation or disclose what the learner is meant to determine. When imageDescription is used, keep answer-bearing visual facts there instead of duplicating them in the question text. imageDescription must be a complete standalone generation prompt for the required input visual, must omit the answer, and must not refer to a source page or unseen figure.

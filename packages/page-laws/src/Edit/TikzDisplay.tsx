@@ -209,8 +209,9 @@ const TikzHost = styled.div`
   &.tikzDisplay--thumbnail {
     border: 0;
     cursor: zoom-in;
+    height: 150px;
     margin-inline: 0;
-    max-height: 18rem;
+    max-height: 150px;
     max-width: min(100%, 32rem);
     min-height: 0;
     overflow: hidden;
@@ -220,7 +221,7 @@ const TikzHost = styled.div`
     > svg,
     > * > svg {
       height: auto;
-      max-height: 18rem;
+      max-height: 100%;
       max-width: 100%;
       width: 100%;
     }

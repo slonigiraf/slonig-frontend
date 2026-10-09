@@ -17,6 +17,41 @@ export interface ExerciseDuplicatePair {
   keptExerciseId: number;
 }
 
+/** Reject recognizable multiple-choice formats before generated exercises are saved. */
+export function isMultipleChoiceExerciseDescription (description: string): boolean {
+  if (
+    /\bmultiple[\s-]?choice\b/i.test(description) ||
+    /\bwhich(?:\s+one)?\s+of\s+(?:the\s+)?(?:following|these)\b/i.test(description) ||
+    /\b(?:choose|select|pick)(?:\s+(?:one|the|a))?(?:\s+(?:correct|best|right|most appropriate))?\s+(?:answer|option|choice)\b/i.test(description) ||
+    /\b(?:choose|select|pick)\s+(?:from|among|between)\b/i.test(description) ||
+    /\boption\s+[a-d]\b/i.test(description)
+  ) {
+    return true;
+  }
+
+  // Answer options often appear inline ("A) ... B) ...") or on separate
+  // lines. A single letter label is not enough to reject a regular exercise.
+  const labels = new Set<string>();
+
+  for (const match of description.matchAll(/(?:^|\s)(?:\(([a-d])\)|([a-d])[.):])\s*(?=\S)/gi)) {
+    labels.add((match[1] || match[2]).toUpperCase());
+  }
+
+  if (labels.size >= 2) {
+    return true;
+  }
+
+  // Numbered sub-questions can be legitimate, so only treat numbered options
+  // as choices when the stem also asks for a selection or poses a question.
+  const numberedLabels = new Set<string>();
+
+  for (const match of description.matchAll(/(?:^|\s)(?:\(([1-4])\)|([1-4])[.):])\s*(?=\S)/g)) {
+    numberedLabels.add(match[1] || match[2]);
+  }
+
+  return numberedLabels.size >= 2 && /\?|\b(?:which|choose|select|pick|correct|option)\b/i.test(description);
+}
+
 export function missingGeneratedExerciseConceptIndexes (
   concepts: Array<Pick<BookConcept, 'id'>>,
   exercises: Array<Pick<Exercise, 'conceptId' | 'source'>>

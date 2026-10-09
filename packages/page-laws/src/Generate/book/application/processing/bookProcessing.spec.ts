@@ -125,6 +125,35 @@ describe('book processing pipeline', (): void => {
     assert.match(result.pages[0].exercises.find(({ conceptIndex, source }) => source === 'generated' && conceptIndex === 0)?.imageDescription ?? '', /gauge/i);
   });
 
+  it('rejects multiple-choice exercises and recovers them as open-response tasks', async (): Promise<void> => {
+    const prompts: string[] = [];
+    const result = await processExtractedChapterContent({
+      chapter: 'Arithmetic',
+      pages: [{ concepts: [{ description: 'Add two values', title: 'Addition' }], pageNumber: 1 }]
+    }, (prompt) => {
+      prompts.push(prompt);
+
+      if (prompts.length === 1) {
+        return Promise.resolve(JSON.stringify({ exercises: [{
+          conceptIndex: 0,
+          description: 'What is <kx>3+4</kx>? A) 6 B) 7 C) 8',
+          solution: '<kx>7</kx>'
+        }] }));
+      }
+
+      assert.match(prompt, /Never generate multiple-choice Exercises/i);
+      return Promise.resolve(JSON.stringify({ exercises: [{
+        conceptIndex: 0,
+        description: 'Calculate <kx>3+4</kx>.',
+        solution: '<kx>3+4=7</kx>'
+      }] }));
+    });
+
+    assert.equal(prompts.length, 2);
+    assert.equal(result.pages[0].exercises.length, 1);
+    assert.equal(result.pages[0].exercises[0].description, 'Calculate <kx>3+4</kx>.');
+  });
+
   it('keeps source concept ids for local persistence without exposing them to the AI prompt', async (): Promise<void> => {
     const result = await processExtractedChapterContent({
       chapter: 'Chapter',
