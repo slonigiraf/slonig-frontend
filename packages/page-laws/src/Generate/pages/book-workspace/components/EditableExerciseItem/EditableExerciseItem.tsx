@@ -11,6 +11,7 @@ import { stripMarkdownImageReferences } from '../../../../book/infrastructure/pd
 import { useTranslation } from '../../../../../common/translate.js';
 import type { ExerciseEditableFields } from '../../../../shared/types/exercise.js';
 import FixingOverlay from '../../../../shared/ui/FixingOverlay.js';
+import ItemActionsMenu from '../../../../shared/ui/ItemActionsMenu.js';
 import { ExerciseEditForm, ExerciseItemContainer } from './EditableExerciseItem.styles.js';
 
 function EditableExerciseItem ({ exercise, onError, onFix, onSave }: { exercise: Exercise; onError: (message: string) => void; onFix: (exercise: Exercise) => Promise<void>; onSave: (exerciseId: number, value: ExerciseEditableFields) => Promise<void> }): React.ReactElement {
@@ -66,17 +67,12 @@ function EditableExerciseItem ({ exercise, onError, onFix, onSave }: { exercise:
 
   return <ExerciseItemContainer aria-busy={isFixing} className='exerciseItem'>
     <div className='exerciseItemActions'>
-      <Button
-        icon='robot'
-        isDisabled={exercise.id === undefined || isFixing || isSaving}
-        label={isFixing ? 'Fixing…' : 'Fix with AI'}
-        onClick={fix}
-      />
-      <Button
-        icon='edit'
-        isDisabled={exercise.id === undefined || isFixing}
-        label='Edit'
-        onClick={openEdit}
+      <ItemActionsMenu
+        actions={[
+          { label: isFixing ? 'Fixing…' : 'Fix with AI', isDisabled: exercise.id === undefined || isFixing || isSaving, onClick: fix },
+          { label: 'Edit', isDisabled: exercise.id === undefined || isFixing, onClick: openEdit }
+        ]}
+        label='Exercise'
       />
     </div>
     <p><b>{t('Question:')} </b>{description ? <SpanWithTags content={description} /> : n_a}</p>

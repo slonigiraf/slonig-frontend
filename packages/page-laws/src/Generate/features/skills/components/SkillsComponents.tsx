@@ -21,6 +21,7 @@ import { abilityModuleId, storedAbilityImageId } from '../../../book/application
 import { stripMarkdownImageReferences } from '../../../book/infrastructure/pdf/bookImageRefs.js';
 import { EditForm, FixResultsReviewContent } from '../SkillsStyles.js';
 import FixingOverlay from '../../../shared/ui/FixingOverlay.js';
+import ItemActionsMenu from '../../../shared/ui/ItemActionsMenu.js';
 
 const TikzDisplay = React.lazy(() => import('../../../../Edit/TikzDisplay.js'));
 
@@ -437,27 +438,14 @@ export function AbilityCard ({ onDeleted, onError, onFix, record, sourceExercise
 
   return <article aria-busy={isFixing} className='contentCard abilityCard' tabIndex={-1}>
     <div className='contentCardActions'>
-      <Button
-        icon='eye'
-        label='Show Exercise'
-        onClick={() => setIsSourceExerciseShown(true)}
-      />
-      <Button
-        icon='robot'
-        isDisabled={isFixing || isSaving}
-        label={isFixing ? 'Fixing…' : 'Fix with AI'}
-        onClick={fix}
-      />
-      <Button
-        icon='edit'
-        isDisabled={isFixing}
-        label='Edit'
-        onClick={openEdit}
-      />
-      <Button
-        icon='trash'
-        isDisabled={isFixing || isSaving}
-        onClick={remove}
+      <ItemActionsMenu
+        actions={[
+          { label: 'Show Exercise', onClick: () => setIsSourceExerciseShown(true) },
+          { label: isFixing ? 'Fixing…' : 'Fix with AI', isDisabled: isFixing || isSaving, onClick: fix },
+          { label: 'Edit', isDisabled: isFixing, onClick: openEdit },
+          { label: 'Delete', isDestructive: true, isDisabled: isFixing || isSaving, onClick: remove }
+        ]}
+        label='Ability'
       />
     </div>
     {record.ability

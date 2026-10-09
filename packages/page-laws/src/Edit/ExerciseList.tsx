@@ -120,7 +120,7 @@ const ExerciseList: React.FC<ExerciseListProps> = ({ exercises, areShownInitiall
                     >
                         <div className="exercise-display">
                             <div className="exercise-header">
-                                <span><SpanWithTags content={` ${index + 1}. ` + exercise.h} /></span>
+                                <span><SpanWithTags content={isAbilityInfo ? exercise.h : ` ${index + 1}. ` + exercise.h} /></span>
                                 {(exercise.p || (location === 'ability_info' && (exercise as AbilityExerciseWithPrompts).pPrompt)) && <ExerciseDetails><ExerciseVisual alt='Question' hasCompileError={(exercise as AbilityExerciseWithPrompts).pError === true} isAbilityInfo={location === 'ability_info'} label='Question visual prompt' onCompileStateChange={onAbilityVisualErrorChange ? (hasError, renderedValue) => onAbilityVisualErrorChange(index, 'p', hasError, renderedValue) : undefined} onSave={onAbilityVisualSave ? (value) => onAbilityVisualSave(index, 'p', value) : undefined} prompt={(exercise as AbilityExerciseWithPrompts).pPrompt} value={exercise.p} /></ExerciseDetails>}
                             </div>
 
