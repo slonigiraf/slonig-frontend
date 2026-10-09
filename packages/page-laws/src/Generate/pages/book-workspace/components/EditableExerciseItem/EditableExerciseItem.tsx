@@ -66,16 +66,18 @@ function EditableExerciseItem ({ exercise, onError, onFix, onSave }: { exercise:
   const description = stripMarkdownImageReferences(exercise.description);
 
   return <ExerciseItemContainer aria-busy={isFixing} className='exerciseItem'>
-    <div className='exerciseItemActions'>
-      <ItemActionsMenu
-        actions={[
-          { label: isFixing ? 'Fixing…' : 'Fix with AI', isDisabled: exercise.id === undefined || isFixing || isSaving, onClick: fix },
-          { label: 'Edit', isDisabled: exercise.id === undefined || isFixing, onClick: openEdit }
-        ]}
-        label='Exercise'
-      />
+    <div className='exerciseItemFirstRow'>
+      <p><b>{t('Question:')} </b>{description ? <SpanWithTags content={description} /> : n_a}</p>
+      <div className='exerciseItemActions'>
+        <ItemActionsMenu
+          actions={[
+            { label: isFixing ? 'Fixing…' : 'Fix with AI', isDisabled: exercise.id === undefined || isFixing || isSaving, onClick: fix },
+            { label: 'Edit', isDisabled: exercise.id === undefined || isFixing, onClick: openEdit }
+          ]}
+          label='Exercise'
+        />
+      </div>
     </div>
-    <p><b>{t('Question:')} </b>{description ? <SpanWithTags content={description} /> : n_a}</p>
     <p><b>{t('Question image:')} </b>{exercise.imageDescription ? <SpanWithTags content={exercise.imageDescription} /> : n_a}</p>
     <p><b>{t('Solution:')} </b>{exercise.solution ? <SpanWithTags content={exercise.solution} /> : n_a}</p>
     <p><b>{t('Answer image:')} </b>{exercise.solutionImageDescription ? <SpanWithTags content={exercise.solutionImageDescription} /> : n_a}</p>

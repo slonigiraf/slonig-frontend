@@ -21,19 +21,27 @@ const ExerciseItemContainer = styled.li`
   &:last-child { margin-bottom: 0; }
   > p { margin: 0.35rem 0; }
 
-  .exerciseItemActions {
-    align-items: center;
-    align-self: flex-end;
+  .exerciseItemFirstRow {
+    align-items: flex-start;
     display: flex;
-    flex-wrap: wrap;
-    gap: 0.35rem;
-    justify-content: flex-end;
-    margin-bottom: 0.65rem;
-    max-width: 100%;
+    gap: 0.75rem;
+    justify-content: space-between;
+    min-width: 0;
+    width: 100%;
+
+    > p {
+      flex: 1;
+      margin: 0.35rem 0;
+      min-width: 0;
+    }
   }
 
-  @media only screen and (max-width: 600px) {
-    .exerciseItemActions { align-self: stretch; justify-content: flex-end; }
+  .exerciseItemActions {
+    align-items: center;
+    display: flex;
+    flex: 0 0 auto;
+    gap: 0.35rem;
+    justify-content: flex-end;
   }
 `;
 
