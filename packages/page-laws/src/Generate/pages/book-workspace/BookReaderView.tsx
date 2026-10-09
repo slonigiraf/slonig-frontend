@@ -1089,7 +1089,7 @@ export function BookReaderView ({ controller }: Props): React.ReactElement {
         onRun={confirmPageGeneration}
       >
         <AiPriceEstimate estimate={chapterGenerationEstimate} />
-        <p>This sends the whole chapter to the AI in one request, deduplicates concepts across its pages, and saves each concept on the page where it was first introduced. Exercises in the book are ignored; generated exercises run in the next pipeline step.</p>
+        <p>This sends the whole chapter to the AI in one request, deduplicates concepts across its pages, and saves each concept on the page where it was first introduced. Exercises in the book are ignored; Abilities are generated directly from Concepts.</p>
         <OpenRouterModelSelector
           className='modelSelect'
           isDisabled={processingPage !== undefined || isGeneratingAllConcepts || isIdentifyingChapters || isRecognizingAll}
@@ -1166,7 +1166,7 @@ export function BookReaderView ({ controller }: Props): React.ReactElement {
           ['chapters', 'Chapters', revealedPanes.has('chapters') || isBookProcessingStageComplete(book, 'chapters'), chapters.length],
           ['textConcepts', 'Concepts', revealedPanes.has('textConcepts') || isBookProcessingStageComplete(book, 'concepts'), entityCounts.concepts],
           ['embeddings', 'Embedings', revealedPanes.has('embeddings') || isBookProcessingStageComplete(book, 'embeddings'), undefined],
-          ['conceptExercises', 'Exercises', revealedPanes.has('conceptExercises') || isBookProcessingStageComplete(book, 'exercises'), entityCounts.exercises],
+          ['conceptExercises', 'Exercises', revealedPanes.has('conceptExercises'), entityCounts.exercises],
           ['preExercisesExercises', 'Abilities', revealedPanes.has('preExercisesExercises') || isBookProcessingStageComplete(book, 'abilities'), entityCounts.abilities],
           ['standards', 'Standards', revealedPanes.has('standards') || isBookProcessingStageComplete(book, 'standards'), undefined],
           ['skillsCourse', 'Course', revealedPanes.has('skillsCourse') || isBookProcessingStageComplete(book, 'abilities'), undefined]

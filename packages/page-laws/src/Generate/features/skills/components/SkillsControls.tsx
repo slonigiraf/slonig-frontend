@@ -55,7 +55,7 @@ export default function SkillsControls ({ abilitiesMissingImagesCount, abortProc
       <AiPriceEstimate estimate={estimate} />
       {aiAction === 'exercises' && <Toggle
         isDisabled={!exercisesMissingAbilitiesCount}
-        label='Only for Exercises, missing an Ability'
+        label='Only for Concepts missing an Ability'
         onChange={setGenerateOnlyMissingAbilities}
         value={generateOnlyMissingAbilities}
       />}

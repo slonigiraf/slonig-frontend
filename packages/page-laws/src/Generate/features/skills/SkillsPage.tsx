@@ -22,9 +22,9 @@ import { conceptRedoStagesFrom, type ConceptRedoStage } from './conceptRedoStage
 import { addBookExternalCall } from '../../book/infrastructure/storage/bookExternalCalls.js';
 import { estimateAiInput } from '../../book/application/pricing/aiEstimate.js';
 import { DEFAULT_PROCESSING_MODEL, DEFAULT_STANDARDS_EMBEDDER } from '../../book/application/config.js';
-import { ABILITY_WORKFLOW_SYSTEM_PROMPT, FIX_ABILITIES_REQUEST_PROMPT, FIX_EXERCISES_REQUEST_PROMPT, REPAIR_SYSTEM_PROMPT, SKILLS_GENERATION_SYSTEM_PROMPT, SOURCES_TO_SKILLS_REQUEST_PROMPT } from '../../book/infrastructure/ai/prompts/abilities.js';
-import { LEARNER_AGE_PROMPT } from '../../book/infrastructure/ai/prompts/shared.js';
+import { ABILITY_WORKFLOW_SYSTEM_PROMPT, CONCEPT_ABILITY_WORKFLOW_SYSTEM_PROMPT, FIX_ABILITIES_REQUEST_PROMPT, FIX_EXERCISES_REQUEST_PROMPT, REPAIR_SYSTEM_PROMPT, SKILLS_GENERATION_SYSTEM_PROMPT, SOURCES_TO_SKILLS_REQUEST_PROMPT } from '../../book/infrastructure/ai/prompts/abilities.js';
 import { abilityGenerationRequestPrompt, generateExerciseAbility, transportCompactAbilitySourceExercise } from '../../book/domain/abilities/abilityWorkflow.js';
+import { conceptAbilityGenerationPrompt, generateConceptAbility } from '../../book/domain/abilities/conceptAbilityWorkflow.js';
 import { mapConcurrent } from '../../../common/concurrency.js';
 import { OPENROUTER_CONCURRENCY } from '../../../openrouter/concurrency.js';
 import { useBookStageTimer } from '../../book/infrastructure/storage/bookStageTime.js';
@@ -33,7 +33,7 @@ import { abilityWithConceptTitle, exerciseWithConceptTitle } from '../../book/do
 import { sortAbilitiesForDisplay, sortExercisesForDisplay } from '../../book/domain/concepts/learningOrder.js';
 import { resolveSharedChapterIndex } from '../../book/domain/chapters/chapterSelection.js';
 import { getSharedChapterSelection, storeSharedChapterSelection, subscribeSharedChapterSelection } from '../../book/infrastructure/storage/chapterSelectionStorage.js';
-import { abilityModuleId, abilityRepairInput, abilityWithImageDescriptions, cleanTikzResponse, exerciseAbilityModuleId, exerciseForPageReplacement, exerciseRepairInput, parseGeneratedSkills, parseTikzAiReview, requestAbilityRepairResult, requestChatContent, requestChatContentWithTruncationRetry, requestValidatedJson, storedAbilityImageId, tikzCompileRepairPrompt, tikzDetectedProblemsRepairPrompt, tikzFixReviewPrompt, tikzRequestPrompt, type ImageFixTarget, type StoredAbility, type TikzAiReview } from '../../book/application/abilities/abilityProcessing.js';
+import { abilityModuleId, abilityRepairInput, abilityWithImageDescriptions, cleanTikzResponse, conceptAbilityModuleId, exerciseAbilityModuleId, exerciseForPageReplacement, exerciseRepairInput, parseGeneratedSkills, parseTikzAiReview, requestAbilityRepairResult, requestChatContent, requestChatContentWithTruncationRetry, requestValidatedJson, storedAbilityImageId, tikzCompileRepairPrompt, tikzDetectedProblemsRepairPrompt, tikzFixReviewPrompt, tikzRequestPrompt, type ImageFixTarget, type StoredAbility, type TikzAiReview } from '../../book/application/abilities/abilityProcessing.js';
 import type { ExerciseEditableFields } from '../../shared/types/exercise.js';
 import { ChapterTitleEditor } from './components/SkillsComponents.js';
 import SkillsContentView from './components/SkillsContentView.js';
@@ -366,7 +366,10 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
         const exercises = sortExercisesForDisplay(pageRows.flatMap(({ exercises, page }) => exercises.filter(({ conceptId }) => conceptId !== undefined
           ? chapterConceptIds.has(conceptId)
           : page.chapter === chapter.title)));
-        const records = (await Promise.all(exercises.flatMap(({ id }) => id === undefined ? [] : [getAbilities(exerciseAbilityModuleId(book.id, id))]))).flat() as Array<{ content: string; displayOrder?: number; id: string; moduleId: string }>;
+        const conceptRecords = (await Promise.all(chapterConcepts.flatMap(({ id }) => id === undefined ? [] : [getAbilities(conceptAbilityModuleId(book.id, id))]))).flat();
+        const directConceptIds = new Set(conceptRecords.map(({ moduleId }) => Number(/-concept-(\d+)$/.exec(moduleId)?.[1])));
+        const legacyRecords = (await Promise.all(exercises.flatMap(({ id, conceptId }) => id === undefined || (conceptId !== undefined && directConceptIds.has(conceptId)) ? [] : [getAbilities(exerciseAbilityModuleId(book.id, id))]))).flat();
+        const records = [...conceptRecords, ...legacyRecords] as Array<{ content: string; displayOrder?: number; id: string; moduleId: string }>;
         const abilities = sortAbilitiesForDisplay(await Promise.all(records.map(async ({ content, displayOrder, id, moduleId }): Promise<StoredAbility> => {
           try {
             const hydratedContent = await hydrateAbilityContent(content);
@@ -450,12 +453,12 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
   const abilityModuleIds = useMemo(() => new Set(allAbilities.map(({ moduleId }) => moduleId)), [allAbilities]);
   const exerciseConceptIds = useMemo(() => new Set(allExercises.flatMap(({ conceptId }) => conceptId === undefined ? [] : [conceptId])), [allExercises]);
   const conceptsMissingExercises = useMemo(() => allConcepts.filter(({ id }) => id === undefined || !exerciseConceptIds.has(id)), [allConcepts, exerciseConceptIds]);
-  const exercisesMissingAbilities = useMemo(() => allExercises.filter(({ id }) => id === undefined || !abilityModuleIds.has(exerciseAbilityModuleId(book.id, id))), [abilityModuleIds, allExercises, book.id]);
-  const missingAbilityIndexesByChapter = useMemo(() => chapterContent.map(({ exercises }) => exercises.flatMap(({ id }, exerciseIndex) => id === undefined || !abilityModuleIds.has(exerciseAbilityModuleId(book.id, id)) ? [exerciseIndex] : [])), [abilityModuleIds, book.id, chapterContent]);
+  const exercisesMissingAbilities = useMemo(() => allConcepts.filter(({ id }) => id === undefined || !abilityModuleIds.has(conceptAbilityModuleId(book.id, id))), [abilityModuleIds, allConcepts, book.id]);
+  const missingAbilityIndexesByChapter = useMemo(() => chapterContent.map(({ concepts }) => concepts.flatMap(({ id }, conceptIndex) => id === undefined || !abilityModuleIds.has(conceptAbilityModuleId(book.id, id)) ? [conceptIndex] : [])), [abilityModuleIds, book.id, chapterContent]);
   const missingAbilityCountsByChapter = useMemo(() => missingAbilityIndexesByChapter.map((indexes) => indexes.length), [missingAbilityIndexesByChapter]);
   const currentMissingAbilityIndexes = missingAbilityIndexesByChapter[chapterIndex] ?? [];
   const focusAbilityExercise = useCallback((exerciseIndex: number): void => {
-    const conceptId = current?.exercises[exerciseIndex]?.conceptId;
+    const conceptId = current?.concepts[exerciseIndex]?.id;
     const conceptSection = Array.from(abilitiesOutputRef.current?.querySelectorAll<HTMLElement>('[data-concept-id]') ?? [])
       .find((section) => section.dataset.conceptId === String(conceptId))
       ?? abilitiesOutputRef.current?.querySelector<HTMLElement>('.orphanAbilities');
@@ -472,7 +475,16 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
       setGenerateOnlyMissingAbilities(false);
     }
   }, [exercisesMissingAbilities.length, generateOnlyMissingAbilities]);
-  const exercisesByModuleId = useMemo(() => new Map(allExercises.flatMap((exercise) => exercise.id === undefined ? [] : [[exerciseAbilityModuleId(book.id, exercise.id), exercise] as const])), [allExercises, book.id]);
+  const exercisesByModuleId = useMemo(() => {
+    const lookup = new Map(allExercises.flatMap((exercise) => exercise.id === undefined ? [] : [[exerciseAbilityModuleId(book.id, exercise.id), exercise] as const]));
+    for (const concept of allConcepts) {
+      if (concept.id !== undefined) lookup.set(conceptAbilityModuleId(book.id, concept.id), {
+        bookPage: concept.bookPage, conceptId: concept.id, description: concept.description,
+        id: concept.id, solution: '', source: 'generated', title: concept.title
+      });
+    }
+    return lookup;
+  }, [allConcepts, allExercises, book.id]);
   const exerciseTitlesByModuleId = useMemo(() => new Map(Array.from(exercisesByModuleId, ([moduleId, exercise]) => [moduleId, exercise.title] as const)), [exercisesByModuleId]);
   const conceptsById = useMemo(() => new Map(chapterContent.flatMap(({ concepts }) => concepts.flatMap((concept) => concept.id === undefined ? [] : [[concept.id, concept] as const]))), [chapterContent]);
   const imageGenerationTargets = useMemo(() => allAbilities.flatMap((record) => record.ability
@@ -552,12 +564,9 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
     }
 
     if (aiAction === 'exercises') {
-      // Ability generation is source-bounded and single-pass: each semantic
-      // request contains exactly one Exercise and returns only its final Ability
-      // plus any required visual specifications.
-      return chapterContent.flatMap(({ chapter, exercises }) => exercises
-        .filter(({ id }) => !generateOnlyMissingAbilities || id === undefined || !abilityModuleIds.has(exerciseAbilityModuleId(book.id, id)))
-        .map((exercise) => `${LEARNER_AGE_PROMPT(book.age)}\n${abilityGenerationRequestPrompt(language, chapter.title, { ...transportCompactAbilitySourceExercise(exercise), ...(exercise.conceptId !== undefined && conceptsById.get(exercise.conceptId) ? { sourceConcept: conceptsById.get(exercise.conceptId) } : {}) })}`));
+      return chapterContent.flatMap(({ chapter, concepts }) => concepts
+        .filter(({ id }) => !generateOnlyMissingAbilities || id === undefined || !abilityModuleIds.has(conceptAbilityModuleId(book.id, id)))
+        .map((concept) => conceptAbilityGenerationPrompt(language, chapter.title, concept, book.age)));
     }
 
     if (aiAction === 'fixExercises') {
@@ -742,7 +751,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
     }
 
     const sourceExercise = exercisesByModuleId.get(record.moduleId);
-    const conceptId = sourceExercise?.conceptId;
+    const conceptId = sourceExercise?.conceptId ?? Number(/-concept-(\d+)$/.exec(record.moduleId)?.[1]);
     const chapterRow = conceptId === undefined ? undefined : chapterContent.find(({ concepts }) => concepts.some(({ id }) => id === conceptId));
     const concept = chapterRow?.concepts.find(({ id }) => id === conceptId);
 
@@ -757,10 +766,9 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
     const stages = conceptRedoStagesFrom(start);
     const signal = beginProgress(`Regenerating Concept: ${concept.title}`, stages.length, start);
     const conceptMap = new Map([[conceptId, concept]]);
-    let conceptExercises = chapterRow.exercises.filter(({ conceptId: id }) => id === conceptId);
 
     const readAbilities = async (): Promise<StoredAbility[]> => {
-      const records = (await Promise.all(conceptExercises.map(async ({ id }) => id === undefined ? [] : getAbilities(exerciseAbilityModuleId(book.id, id))))).flat();
+      const records = await getAbilities(conceptAbilityModuleId(book.id, conceptId));
 
       return Promise.all(records.map(async ({ id, content, displayOrder, moduleId }): Promise<StoredAbility> => {
         const hydrated = await hydrateAbilityContent(content);
@@ -778,76 +786,22 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
         setProgress(stageIndex);
         setProgressLabel(`${stageIndex + 1}/${stages.length}: ${stage} — ${concept.title}`);
 
-        if (stage === 'exercises') {
-          const processed = await processExtractedChapterContent({
-            chapter: chapterRow.chapter.title,
-            pages: [{ concepts: [{ description: concept.description, sourceId: conceptId, title: concept.title }], pageNumber: concept.bookPage[1] }]
-          }, (prompt) => requestChatContent(client, effectiveModel, '', prompt, true, (cost) => addStageCost('exercises', cost), 3_500, signal), bookLanguageLabel(language), book.age);
-          const generated = processed.pages.flatMap(({ exercises }) => exercises).filter(({ conceptIndex }) => conceptIndex === 0);
-
-          if (generated.length !== 1) throw new Error('AI did not generate one valid Exercise for this Concept. Existing Exercises were not replaced.');
-          const exercise = generated[0];
-
-          if (signal.aborted) throw new Error('Concept regeneration was cancelled.');
-          conceptExercises = await replaceExercisesForConcept([book.id, concept.bookPage[1]], conceptId, [{
-            description: stripMarkdownImageReferences(exercise.description),
-            displayOrder: concept.displayOrder,
-            imageDescription: exercise.imageDescription,
-            solution: exercise.solution,
-            solutionImageDescription: exercise.solutionImageDescription,
-            source: 'generated',
-            title: concept.title
-          }]);
-        }
-
-        if (stage === 'fixExercises') {
-          if (!conceptExercises.length || conceptExercises.some(({ id }) => id === undefined)) throw new Error('No stored Exercises exist for this Concept. Start from Create Exercise.');
-          const result = await requestValidatedJson(
-            client, effectiveModel, REPAIR_SYSTEM_PROMPT(language, book.age),
-            FIX_EXERCISES_REQUEST_PROMPT(exerciseRepairInput(language, conceptExercises, chapterRow.chapter.title, book.age, conceptMap)),
-            (content) => parseExerciseRepairResult(content, conceptExercises, conceptExercises.map(({ id }) => id as number)),
-            true, addFixExercisesCost, undefined, undefined, 2, signal
-          );
-          const deletedIds = new Set(result.duplicatePairs.map(({ deletedExerciseId }) => deletedExerciseId));
-          const corrected = conceptExercises.filter(({ id }) => id === undefined || !deletedIds.has(id)).map((exercise) => {
-            const review = result.reviews.find(({ index: reviewIndex }) => reviewIndex === conceptExercises.indexOf(exercise));
-
-            return exerciseWithConceptTitle(review?.exercise ?? exercise, conceptMap);
-          });
-
-          if (!corrected.length) throw new Error('Exercise repair attempted to remove every Exercise for this Concept. Nothing was replaced.');
-          if (deletedIds.size || corrected.some((exercise, index) => JSON.stringify(exercise) !== JSON.stringify(conceptExercises[index]))) {
-            if (signal.aborted) throw new Error('Concept regeneration was cancelled.');
-            conceptExercises = await replaceExercisesForConcept([book.id, concept.bookPage[1]], conceptId, corrected.map(exerciseForPageReplacement));
-          }
-        }
-
         if (stage === 'abilities') {
-          if (!conceptExercises.length || conceptExercises.some(({ id }) => id === undefined)) throw new Error('No stored Exercises exist for this Concept. Start from Create Exercise.');
-          const generated = await mapConcurrent(conceptExercises, OPENROUTER_CONCURRENCY, async (exercise) => {
-            const systemPrompt = ABILITY_WORKFLOW_SYSTEM_PROMPT(language, chapterRow.chapter.title, book.age);
-            const runJson: AbilityWorkflowJsonRunner = (prompt, parse, options) => requestValidatedJson(
-              client, effectiveModel, systemPrompt, prompt, parse, true, addAbilitiesCost,
-              options?.maxOutputTokens, options?.repairContext, options?.validationCycles ?? 1, signal
-            );
-            const conversions = await generateExerciseAbility(language, chapterRow.chapter.title, exercise, runJson, concept);
-
-            if (conversions.length !== 1) throw new Error(`Unable to create exactly one Ability for Exercise ${exercise.id}.`);
-
-            return { exerciseId: exercise.id as number, contents: conversions.map((conversion) => JSON.stringify(abilityWithImageDescriptions(conversion))) };
-          });
-
-          for (const { contents, exerciseId } of generated) {
-            if (signal.aborted) throw new Error('Concept regeneration was cancelled.');
-            await replaceAbilities(exerciseAbilityModuleId(book.id, exerciseId), contents);
-          }
+          const runJson: AbilityWorkflowJsonRunner = (prompt, parse, options) => requestValidatedJson(
+            client, effectiveModel, CONCEPT_ABILITY_WORKFLOW_SYSTEM_PROMPT(language, chapterRow.chapter.title, book.age),
+            prompt, parse, true, addAbilitiesCost, options?.maxOutputTokens,
+            options?.repairContext, options?.validationCycles ?? 1, signal
+          );
+          const ability = await generateConceptAbility(language, chapterRow.chapter.title, concept, runJson, book.age);
+          if (signal.aborted) throw new Error('Concept regeneration was cancelled.');
+          await replaceAbilities(conceptAbilityModuleId(book.id, conceptId), [JSON.stringify(ability)]);
         }
 
         if (stage === 'fixAbilities') {
           const records = await readAbilities();
 
           if (!records.length || records.some(({ ability }) => !ability)) throw new Error('No valid Ability exists for this Concept. Start from Create Ability.');
-          const moduleExercises = new Map(conceptExercises.flatMap((exercise) => exercise.id === undefined ? [] : [[exerciseAbilityModuleId(book.id, exercise.id), exercise] as const]));
+          const moduleExercises = new Map([[conceptAbilityModuleId(book.id, conceptId), exercisesByModuleId.get(conceptAbilityModuleId(book.id, conceptId)) as Exercise]]);
           const result = await requestAbilityRepairResult(
             client, effectiveModel, REPAIR_SYSTEM_PROMPT(language, book.age),
             abilityRepairInput(language, records, chapterRow.chapter.title, book.age, undefined, moduleExercises, conceptMap),
@@ -867,16 +821,11 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
             return [{ content: JSON.stringify(validated), moduleId: row.moduleId }];
           });
 
-          for (const exercise of conceptExercises) {
-            const moduleId = exerciseAbilityModuleId(book.id, exercise.id as number);
-            const contents = fixed.filter((item) => item.moduleId === moduleId).map(({ content }) => content);
-
-            if (!contents.length) throw new Error('Ability repair removed the last Ability for an Exercise. Nothing was replaced.');
-            // Always rewrite visuals from their semantic prompts. This creates
-            // new Image rows, even when AI only corrected Ability text.
-            if (signal.aborted) throw new Error('Concept regeneration was cancelled.');
-            await replaceAbilities(moduleId, contents);
-          }
+          const moduleId = conceptAbilityModuleId(book.id, conceptId);
+          const contents = fixed.filter((item) => item.moduleId === moduleId).map(({ content }) => content);
+          if (!contents.length) throw new Error('Ability repair removed the last Ability for this Concept. Nothing was replaced.');
+          if (signal.aborted) throw new Error('Concept regeneration was cancelled.');
+          await replaceAbilities(moduleId, contents);
         }
 
         if (stage === 'images') {
@@ -998,112 +947,60 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
   }, [addOpenRouterCost, allSkills, beginProgress, book.id, endProgress, chapters, createClient, language, refresh, effectiveModel, skillSources]);
 
   const generateExercises = useCallback(async (): Promise<void> => {
-    const targetExercises = generateOnlyMissingAbilities ? exercisesMissingAbilities : allExercises;
-
-    const signal = beginProgress('Generating Abilities', targetExercises.length, 'abilities');
+    const targets = generateOnlyMissingAbilities ? exercisesMissingAbilities : allConcepts;
+    const signal = beginProgress('Generating Abilities from Concepts', targets.length, 'abilities');
 
     try {
-      if (!allExercises.length) {
-        throw new Error('No Exercises are available to generate Abilities from.');
-      }
-
-      if (!targetExercises.length) {
-        throw new Error('No Exercises are missing Abilities.');
-      }
-
-      if (targetExercises.some(({ id }) => id === undefined)) {
-        throw new Error('Every Exercise must have an id before Abilities can be generated.');
-      }
-
+      if (!allConcepts.length) throw new Error('No Concepts are available to generate Abilities from.');
+      if (!targets.length) throw new Error('No Concepts are missing Abilities.');
+      if (targets.some(({ id }) => id === undefined)) throw new Error('Every Concept must be saved before generating Abilities.');
       const client = await createClient();
-
-      const pending = new Map<number, Exercise>(targetExercises.map((exercise) => [exercise.id as number, exercise]));
-      // Keep each source Exercise one-to-one at persistence time: either its
-      // single locally validated Ability is ready, including any required visual
-      // descriptions, or its existing DB records are untouched.
-      const generatedByExerciseId = new Map<number, GeneratedAbility[]>();
-      // Keep locally valid one-pass conversions across retries without
-      // generating image bytes at this stage.
-      const conversionsByExerciseIdCache = new Map<number, ExerciseAbilityConversion[]>();
+      const pending = new Set(targets.map(({ id }) => id as number));
+      const generated = new Map<number, GeneratedAbility>();
+      let lastError = '';
       const maxAttempts = 3;
-      let lastAttemptError = '';
 
       for (let attempt = 1; attempt <= maxAttempts && pending.size; attempt++) {
-        const sourcesNeedingGeneration = chapterContent.flatMap(({ chapter, exercises: chapterExercises }) => chapterExercises
-          .filter(({ id }) => id !== undefined && pending.has(id) && !conversionsByExerciseIdCache.has(id))
-          .map((exercise) => ({ chapterTitle: chapter.title, exercise, sourceConcept: exercise.conceptId === undefined ? undefined : conceptsById.get(exercise.conceptId) })));
-        await mapConcurrent(sourcesNeedingGeneration, OPENROUTER_CONCURRENCY, async ({ chapterTitle, exercise, sourceConcept }): Promise<void> => {
-          const systemPrompt = ABILITY_WORKFLOW_SYSTEM_PROMPT(language, chapterTitle, book.age);
-          const runJson: AbilityWorkflowJsonRunner = (prompt, parse, options) => requestValidatedJson(client, effectiveModel, systemPrompt, prompt, parse, true, addAbilitiesCost, options?.maxOutputTokens, options?.repairContext, options?.validationCycles ?? 1, signal);
-
+        const sources = chapterContent.flatMap(({ chapter, concepts }) => concepts
+          .filter(({ id }) => id !== undefined && pending.has(id))
+          .map((concept) => ({ chapterTitle: chapter.title, concept })));
+        await mapConcurrent(sources, OPENROUTER_CONCURRENCY, async ({ chapterTitle, concept }) => {
+          const runJson: AbilityWorkflowJsonRunner = (prompt, parse, options) => requestValidatedJson(
+            client, effectiveModel, CONCEPT_ABILITY_WORKFLOW_SYSTEM_PROMPT(language, chapterTitle, book.age),
+            prompt, parse, true, addAbilitiesCost,
+            options?.maxOutputTokens, options?.repairContext, options?.validationCycles ?? 1, signal
+          );
           try {
-            if (!sourceConcept) throw new Error(`Source Concept is missing for Exercise ${exercise.id}.`);
-            const conversions = await generateExerciseAbility(language, chapterTitle, exercise, runJson, sourceConcept);
-
-            lastAttemptError = '';
-
-            if (conversions.length && exercise.id !== undefined) {
-              const exerciseId = exercise.id;
-              const sortedConversions = conversions.sort((a, b) => a.skillIndex - b.skillIndex);
-
-              conversionsByExerciseIdCache.set(exerciseId, sortedConversions);
-              // Persist visual requirements as text descriptions only. Actual image
-              // generation is deliberately not part of Abilities/Fix abilities.
-              generatedByExerciseId.set(exerciseId, sortedConversions.map(abilityWithImageDescriptions));
-              pending.delete(exerciseId);
-              // Update while concurrent requests finish instead of waiting for the
-              // whole attempt batch, so the round progress indicator moves live.
-              setProgress(generatedByExerciseId.size);
-            }
-          } catch (caught) {
-            if (signal.aborted) {
-              throw caught;
-            }
-
-            lastAttemptError = caught instanceof Error ? caught.message : 'Unknown OpenRouter Ability generation error.';
+            const ability = await generateConceptAbility(language, chapterTitle, concept, runJson, book.age);
+            generated.set(concept.id as number, ability);
+            pending.delete(concept.id as number);
+            setProgress(generated.size);
+          } catch (reason) {
+            if (signal.aborted) throw reason;
+            lastError = reason instanceof Error ? reason.message : String(reason);
           }
         });
       }
 
-      await Promise.all(Array.from(generatedByExerciseId, ([exerciseId, abilities]) => replaceAbilities(exerciseAbilityModuleId(book.id, exerciseId), abilities.map((ability) => JSON.stringify(ability)))));
-
-      if (generatedByExerciseId.size) {
-        // Keep downstream stage completion intact when filling or regenerating Abilities.
-        await completeStage(ABILITIES_STAGE);
-      } else if (allAbilities.length && !stageDone(ABILITIES_STAGE)) {
-        // Existing Abilities can still make this pipeline stage available even
-        // when this attempt produced no replacement rows.
-        await completeStage(ABILITIES_STAGE);
+      for (const [conceptId, ability] of generated) {
+        if (signal.aborted) throw new Error('Ability generation was canceled.');
+        await replaceAbilities(conceptAbilityModuleId(book.id, conceptId), [JSON.stringify(ability)]);
       }
-
+      if (generated.size || allAbilities.length) await completeStage(ABILITIES_STAGE);
       refresh();
       onContentChange?.();
-
-      if (generatedByExerciseId.size || allAbilities.length) {
-        onAction?.('preExercisesExercises');
+      if (generated.size || allAbilities.length) onAction?.('preExercisesExercises');
+      if (pending.size) {
+        const detail = lastError ? ` Last attempt: ${lastError}` : '';
+        if (!generated.size && !allAbilities.length) setError(`No Abilities were generated after ${maxAttempts} attempts.${detail}`);
+        else setNotice(`Generated Abilities for ${generated.size} of ${targets.length} Concepts; ${pending.size} remained unchanged.${detail}`);
       }
-
-      const generatedAbilityCount = Array.from(generatedByExerciseId.values()).reduce((count, abilities) => count + abilities.length, 0);
-
-      if (pending.size && generatedByExerciseId.size) {
-        const unresolved = Array.from(pending.values()).map(({ id, title }) => `${id}: ${title}`).join('; ');
-
-        setNotice(`Generated ${generatedAbilityCount} Abilities for ${generatedByExerciseId.size} of ${targetExercises.length} Exercises. ${pending.size} Exercise${pending.size === 1 ? '' : 's'} remained unchanged: ${unresolved}`);
-      } else if (!generatedByExerciseId.size && pending.size && allAbilities.length) {
-        setNotice(`No new Abilities were generated after ${maxAttempts} attempts. The existing ${allAbilities.length} Abilit${allAbilities.length === 1 ? 'y remains' : 'ies remain'} available; unresolved Exercises were left unchanged.`);
-      } else if (!generatedByExerciseId.size && pending.size) {
-        const suffix = lastAttemptError ? ` Last attempt: ${lastAttemptError}` : '';
-
-        setError(`No Abilities were generated after ${maxAttempts} attempts.${suffix}`);
-      }
-    } catch (caught) {
-      if (!signal.aborted) {
-        setError(caught instanceof Error ? caught.message : 'Unable to generate Abilities.');
-      }
+    } catch (reason) {
+      if (!signal.aborted) setError(reason instanceof Error ? reason.message : 'Unable to generate Abilities.');
     } finally {
       endProgress();
     }
-  }, [addAbilitiesCost, allAbilities.length, allExercises, beginProgress, book.age, endProgress, book.id, chapterContent, conceptsById, createClient, exercisesMissingAbilities, generateOnlyMissingAbilities, language, onAction, onContentChange, refresh, effectiveModel, completeStage, stageDone]);
+  }, [addAbilitiesCost, allAbilities.length, allConcepts, beginProgress, book.age, book.id, chapterContent, completeStage, createClient, effectiveModel, endProgress, exercisesMissingAbilities, generateOnlyMissingAbilities, language, onAction, onContentChange, refresh]);
 
   const fixExercises = useCallback(async (): Promise<void> => {
     const signal = beginProgress('Fixing Exercise errors', allExercises.length, 'fixExercises');
@@ -1525,9 +1422,9 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
     }
   }, [allAbilities, allExercises, book.id, bookPageContent, exerciseFixReview, onAction, onContentChange, refresh, completeStage, stageDone]);
   const openExerciseGeneration = useCallback((): void => {
-    setGenerateOnlyMissingAbilities(exercisesMissingAbilities.length > 0 && exercisesMissingAbilities.length < allExercises.length);
+    setGenerateOnlyMissingAbilities(exercisesMissingAbilities.length > 0 && exercisesMissingAbilities.length < allConcepts.length);
     setAiAction('exercises');
-  }, [allExercises.length, exercisesMissingAbilities.length]);
+  }, [allConcepts.length, exercisesMissingAbilities.length]);
   const retryMissingAbilities = useCallback((): void => {
     setGenerateOnlyMissingAbilities(true);
     setAiAction('exercises');
@@ -1755,23 +1652,14 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
   }, []);
 
   const pipelineActions = useMemo<PipelineAction[]>(() => [
-    ...(pipelinePrefix ?? []).map((action) => action.key === 'concepts'
+    ...(pipelinePrefix ?? []).filter((action) => action.key !== 'exercises' && action.key !== 'fixExercises').map((action) => action.key === 'concepts'
       ? { ...action, isResultComplete: chapterContent.length > 0 && chapterContent.every(({ concepts }) => concepts.length > 0) }
-      : action.key === 'exercises'
-        ? { ...action, isResultComplete: conceptsMissingExercises.length === 0 }
-        : action),
-    {
-      key: 'fixExercises',
-      label: 'Fix exercises',
-      isDone: stageDone(FIX_EXERCISES_STAGE),
-      isDisabled: isBusy || !hasBookLanguage || !hasBookSubject || !stageDone('exercises') || !allExercises.length,
-      onClick: openExerciseFix
-    },
+      : action),
     {
       key: 'abilities',
       label: 'Abilities',
       isDone: stageDone(ABILITIES_STAGE),
-      isDisabled: isBusy || !hasBookLanguage || !hasBookSubject || !stageDone(FIX_EXERCISES_STAGE) || !allExercises.length,
+      isDisabled: isBusy || !hasBookLanguage || !hasBookSubject || !stageDone('refineChapters') || !allConcepts.length,
       isResultComplete: exercisesMissingAbilities.length === 0,
       onClick: openExerciseGeneration,
       onRetryMissing: retryMissingAbilities

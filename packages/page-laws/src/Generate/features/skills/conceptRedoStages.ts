@@ -3,8 +3,6 @@
 
 /** Stages always execute in pipeline order and only for the selected Concept. */
 export const CONCEPT_REDO_STAGES = [
-  { key: 'exercises', label: 'Create Exercise' },
-  { key: 'fixExercises', label: 'Fix Exercise' },
   { key: 'abilities', label: 'Create Ability' },
   { key: 'fixAbilities', label: 'Fix Ability' },
   { key: 'images', label: 'Generate Images' },

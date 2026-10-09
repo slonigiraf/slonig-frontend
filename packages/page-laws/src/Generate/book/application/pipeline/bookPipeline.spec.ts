@@ -23,7 +23,7 @@ describe('Book processing pipeline metadata', (): void => {
   it('keeps reader commands scoped to executable reader-owned stages', (): void => {
     assert.deepEqual(BOOK_READER_COMMAND_ACTIONS, [
       'recognize', 'language', 'subject', 'age', 'chapters', 'concepts', 'fixConcepts',
-      'embeddings', 'deduplicateConcepts', 'sortConcepts', 'refineChapters', 'exercises', 'standards'
+      'embeddings', 'deduplicateConcepts', 'sortConcepts', 'refineChapters', 'abilities', 'standards'
     ]);
   });
 

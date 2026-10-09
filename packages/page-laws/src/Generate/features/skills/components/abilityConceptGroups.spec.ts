@@ -21,6 +21,19 @@ describe('Ability cards grouped under Concepts', (): void => {
     assert.deepEqual(result.unmatched, []);
   });
 
+  it('groups directly generated Concept Abilities without source Exercises', (): void => {
+    const result = groupAbilitiesByConcept(
+      [{ id: 7, title: 'Core concept' }],
+      [],
+      [{ moduleId: 'book-2-concept-7' }],
+      (id) => `book-2-exercise-${id}`,
+      (id) => `book-2-concept-${id}`
+    );
+
+    assert.deepEqual(result.groups[0].abilities.map(({ moduleId }) => moduleId), ['book-2-concept-7']);
+    assert.deepEqual(result.unmatched, []);
+  });
+
   it('keeps abilities for orphan exercises and unmatched records visible', (): void => {
     const result = groupAbilitiesByConcept(
       [{ id: 10 }],

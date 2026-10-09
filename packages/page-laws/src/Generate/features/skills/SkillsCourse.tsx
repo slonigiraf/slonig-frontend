@@ -34,6 +34,7 @@ type OutlineItem =
   | { key: string; row: TemplateRow; type: 'template' };
 
 const exerciseAbilityModuleId = (bookId: number, exerciseId: number): string => `book-${bookId}-exercise-${exerciseId}`;
+const conceptAbilityModuleId = (bookId: number, conceptId: number): string => `book-${bookId}-concept-${conceptId}`;
 
 function imageDataUrlToBytes (value: string): Uint8Array | undefined {
   const match = /^data:image\/[a-z0-9.+-]+;base64,(.+)$/i.exec(value.trim());
@@ -224,7 +225,7 @@ function SkillsCourse ({ book, onBookChange }: { book: Book; onBookChange: (upda
   const abilityDragPointerYRef = useRef<number | undefined>(undefined);
   const abilityAutoScrollFrameRef = useRef<number | undefined>(undefined);
   const chapters = useLiveQuery(async (): Promise<ChapterTemplates[]> => {
-    const [storedChapters, pages] = await Promise.all([getBookChapters(book.id), getBookPages(book.id)]);
+    const [storedChapters, pages, pageLessConcepts] = await Promise.all([getBookChapters(book.id), getBookPages(book.id), getBookConceptsForBookPage(book.id, 0)]);
     const pageRows = await Promise.all(pages.map(async (page) => ({
       concepts: await getBookConceptsForBookPage(book.id, page.pageNumber),
       exercises: await getExercisesForBookPage([book.id, page.pageNumber]),
@@ -245,12 +246,21 @@ function SkillsCourse ({ book, onBookChange }: { book: Book; onBookChange: (upda
       const exercises = sortExercisesForDisplay(pageRows.flatMap(({ exercises, page }) => exercises.filter(({ conceptId }) => conceptId !== undefined
         ? chapterConceptIds.has(conceptId)
         : page.chapter === chapter.title)));
-      const templates = (await Promise.all(exercises.map(async ({ id }) => {
-        if (id === undefined) {
-          return [];
-        }
-
-        const moduleId = exerciseAbilityModuleId(book.id, id);
+      const sources = [
+        ...[...pageRows.flatMap(({ concepts, page }) => concepts.filter((concept) => concept.id !== undefined && (concept.chapterId !== undefined ? concept.chapterId === chapter.id : page.chapter === chapter.title))), ...pageLessConcepts.filter(({ chapterId }) => chapterId === chapter.id)].flatMap(({ id }) => id === undefined ? [] : [conceptAbilityModuleId(book.id, id)]),
+        ...exercises.flatMap(({ id }) => id === undefined ? [] : [exerciseAbilityModuleId(book.id, id)])
+      ];
+      const directConceptModules = new Set<string>();
+      await Promise.all(sources.filter((moduleId) => moduleId.includes('-concept-')).map(async (moduleId) => {
+        if ((await getAbilities(moduleId)).length) directConceptModules.add(moduleId);
+      }));
+      const visibleModules = sources.filter((moduleId) => {
+        if (!moduleId.includes('-exercise-')) return true;
+        const exerciseId = Number(/-exercise-(\d+)$/.exec(moduleId)?.[1]);
+        const conceptId = exercises.find(({ id }) => id === exerciseId)?.conceptId;
+        return conceptId === undefined || !directConceptModules.has(conceptAbilityModuleId(book.id, conceptId));
+      });
+      const templates = (await Promise.all(visibleModules.map(async (moduleId) => {
         const records = await getAbilities(moduleId);
 
         const hydratedRecords = await Promise.all(records.map(async ({ content, displayOrder, id: recordId }) => {

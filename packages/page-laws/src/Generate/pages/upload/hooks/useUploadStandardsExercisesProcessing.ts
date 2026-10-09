@@ -317,14 +317,14 @@ export function useUploadStandardsExercisesProcessing ({ embeddingModel, generat
       return;
     }
 
-    setPendingProcessingAction('exercises');
+    setPendingProcessingAction('abilities');
 
-    resetBookProcessingStagesFrom(selectedBook.id, generateOnlyMissingExercises ? 'fixExercises' : 'exercises').then((updatedBook) => {
+    resetBookProcessingStagesFrom(selectedBook.id, 'abilities').then((updatedBook) => {
       if (updatedBook) {
         setBooks((current) => current.map((book) => book.id === updatedBook.id ? updatedBook : book));
       }
 
-      requestProcessing('exercises');
+      requestProcessing('abilities');
     }).catch(() => {
       setPendingProcessingAction(undefined);
       setError(t('Unable to reset the book processing stage.'));

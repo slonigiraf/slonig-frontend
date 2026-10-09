@@ -7,7 +7,7 @@ export function groupAbilitiesByConcept<
   TConcept extends { id?: number },
   TExercise extends { conceptId?: number; id?: number },
   TAbility extends { moduleId: string }
-> (concepts: TConcept[], exercises: TExercise[], abilities: TAbility[], exerciseModuleId: (id: number) => string): {
+> (concepts: TConcept[], exercises: TExercise[], abilities: TAbility[], exerciseModuleId: (id: number) => string, conceptModuleId?: (id: number) => string): {
   groups: Array<{ abilities: TAbility[]; concept: TConcept }>;
   withoutConcept: TAbility[];
   unmatched: TAbility[];
@@ -16,6 +16,13 @@ export function groupAbilitiesByConcept<
   const moduleIdsByConcept = new Map<number, Set<string>>();
   const knownModules = new Set<string>();
   const withoutConceptModules = new Set<string>();
+
+  for (const concept of concepts) {
+    if (concept.id === undefined || !conceptModuleId) continue;
+    const moduleId = conceptModuleId(concept.id);
+    knownModules.add(moduleId);
+    moduleIdsByConcept.set(concept.id, new Set([...(moduleIdsByConcept.get(concept.id) ?? []), moduleId]));
+  }
 
   for (const { conceptId, id } of exercises) {
     if (id === undefined) {

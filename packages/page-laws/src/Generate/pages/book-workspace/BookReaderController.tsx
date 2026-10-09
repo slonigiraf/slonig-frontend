@@ -63,7 +63,7 @@ export function useBookReaderController (props: Props) {
     }
 
     if (storedPane === 'standards' && !isBookProcessingStageComplete(book, 'fixImages')) {
-      return isBookProcessingStageComplete(book, 'fixExercises')
+      return isBookProcessingStageComplete(book, 'abilities')
         ? 'preExercisesExercises'
         : isBookProcessingStageComplete(book, 'concepts') ? 'textConcepts' : 'text';
     }

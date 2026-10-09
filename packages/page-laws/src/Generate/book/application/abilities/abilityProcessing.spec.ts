@@ -20,6 +20,18 @@ describe('Ability repair source evidence', (): void => {
     assert.deepEqual(input.abilities[0].sourceConcept, sourceConcept);
     assert.ok(input.abilities[0].sourceExercise);
   });
+  it('uses a direct source Concept without fabricating a source Exercise for Concept-linked Abilities', (): void => {
+    const record: StoredAbility = { ability: null, content: '{}', id: 'ability-concept', moduleId: 'book-1-concept-3' };
+    const concept = { title: 'Multiply equal groups', description: 'Use multiplication to count a rectangular array.' };
+    // Even if a previous caller supplied a synthetic Exercise object for this
+    // Concept module, it must not become authoritative sourceExercise evidence.
+    const syntheticExercise = { conceptId: 3, description: concept.description, id: 3, solution: '', title: concept.title } as Exercise;
+    const input = abilityRepairInput('en', [record], 'Arrays', 10, undefined,
+      new Map([[record.moduleId, syntheticExercise]]), new Map([[3, concept]])) as { abilities: Array<{ sourceConcept?: typeof concept; sourceExercise?: unknown }> };
+
+    assert.deepEqual(input.abilities[0].sourceConcept, concept);
+    assert.equal(input.abilities[0].sourceExercise, undefined);
+  });
   it('includes the source Concept in Fix exercises input', (): void => {
     const exercise = { conceptId: 3, description: 'Convert distance.', id: 7, title: 'Old title', solution: 'Multiply.' } as Exercise;
     const concept = { title: 'Distance conversion', description: 'Convert km to m.' };

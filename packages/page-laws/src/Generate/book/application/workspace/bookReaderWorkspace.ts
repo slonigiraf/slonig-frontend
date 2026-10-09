@@ -159,6 +159,7 @@ export function matchingLiveConcept (displayed: BookConcept, live: BookConcept[]
 }
 
 export const exerciseAbilityModuleId = (bookId: number, exerciseId: number): string => `book-${bookId}-exercise-${exerciseId}`;
+export const conceptAbilityModuleId = (bookId: number, conceptId: number): string => `book-${bookId}-concept-${conceptId}`;
 
 export async function deleteConceptAndDependencies (bookId: number, concept: BookConcept, pageNumbers: number[]): Promise<void> {
   if (concept.id === undefined) {
@@ -173,5 +174,6 @@ export async function deleteConceptAndDependencies (bookId: number, concept: Boo
     await deleteExercise(exercise.id as number);
   }
 
+  await deleteAbilities(conceptAbilityModuleId(bookId, concept.id));
   await deleteBookConcept(concept.id);
 }

@@ -37,6 +37,7 @@ import {
   abilityRepairInput,
   abilityWithImageDescriptions,
   cleanTikzResponse,
+  conceptAbilityModuleId,
   exerciseAbilityModuleId,
   exerciseForPageReplacement,
   exerciseRepairInput,
@@ -55,11 +56,12 @@ import {
   type TikzAiReview
 } from '../abilities/abilityProcessing.js';
 import { DEFAULT_PROCESSING_MODEL, DEFAULT_STANDARDS_EMBEDDER } from '../config.js';
-import { generateExerciseAbility, type AbilityWorkflowJsonRunner, type ExerciseAbilityConversion } from '../../domain/abilities/abilityWorkflow.js';
+import type { AbilityWorkflowJsonRunner } from '../../domain/abilities/abilityWorkflow.js';
+import { generateConceptAbility } from '../../domain/abilities/conceptAbilityWorkflow.js';
 import { abilityWithConceptTitle, exerciseWithConceptTitle } from '../../domain/concepts/conceptTitles.js';
 import { sortAbilitiesForDisplay, sortExercisesForDisplay } from '../../domain/concepts/learningOrder.js';
 import { parseExerciseRepairResult } from '../../domain/exercises/exercises.js';
-import { ABILITY_WORKFLOW_SYSTEM_PROMPT, FIX_EXERCISES_REQUEST_PROMPT, REPAIR_SYSTEM_PROMPT } from '../../infrastructure/ai/prompts/abilities.js';
+import { ABILITY_WORKFLOW_SYSTEM_PROMPT, CONCEPT_ABILITY_WORKFLOW_SYSTEM_PROMPT, FIX_EXERCISES_REQUEST_PROMPT, REPAIR_SYSTEM_PROMPT } from '../../infrastructure/ai/prompts/abilities.js';
 import { deleteConceptAndDependencies } from '../workspace/bookReaderWorkspace.js';
 import { conceptGenerationErrorMessage, createOpenRouterClient } from '../workspace/bookReaderProcessing.js';
 import type { BookProcessingWorkerCommand, BookProcessingWorkerServices } from './bookProcessingWorkerProtocol.js';
@@ -133,7 +135,10 @@ async function loadLearningContent (bookId: number): Promise<LearningContent> {
     const exercises = sortExercisesForDisplay(pageRows.flatMap(({ exercises, page }) => exercises.filter(({ conceptId }) => conceptId !== undefined
       ? conceptIds.has(conceptId)
       : page.chapter === chapter.title)));
-    const records = (await Promise.all(exercises.flatMap(({ id }) => id === undefined ? [] : [getAbilities(exerciseAbilityModuleId(bookId, id))]))).flat();
+    const conceptRecords = (await Promise.all(chapterConcepts.flatMap(({ id }) => id === undefined ? [] : [getAbilities(conceptAbilityModuleId(bookId, id))]))).flat();
+    const directConceptIds = new Set(conceptRecords.map(({ moduleId }) => Number(/-concept-(\d+)$/.exec(moduleId)?.[1])));
+    const legacyRecords = (await Promise.all(exercises.flatMap(({ id, conceptId }) => id === undefined || (conceptId !== undefined && directConceptIds.has(conceptId)) ? [] : [getAbilities(exerciseAbilityModuleId(bookId, id))]))).flat();
+    const records = [...conceptRecords, ...legacyRecords];
     const abilities = sortAbilitiesForDisplay(await Promise.all(records.map(async ({ content, displayOrder, id, moduleId }): Promise<StoredAbility> => {
       try {
         return { ability: parseStoredAbility(await hydrateAbilityContent(content)), content, displayOrder, id, moduleId };
@@ -278,68 +283,47 @@ export async function runAbilitiesStage ({ book, command, cost, progress, signal
     throw new Error('Set the book language and subject before generating Abilities.');
   }
 
-  const content = await loadLearningContent(book.id);
-  const { allAbilities, allConcepts, allExercises, chapters } = content;
+  const { allAbilities, allConcepts, chapters } = await loadLearningContent(book.id);
+  const concepts = allConcepts.filter((concept) => concept.id !== undefined);
 
-  if (!allExercises.length) throw new Error('No Exercises are available to generate Abilities from.');
-  if (allExercises.some(({ id }) => id === undefined)) throw new Error('Every Exercise must have an id before Abilities can be generated.');
-
+  if (!concepts.length) throw new Error('No Concepts are available to generate Abilities from.');
   const existingModuleIds = new Set(allAbilities.map(({ moduleId }) => moduleId));
   const targets = command.options.onlyMissingAbilities
-    ? allExercises.filter(({ id }) => id === undefined || !existingModuleIds.has(exerciseAbilityModuleId(book.id, id)))
-    : allExercises;
+    ? concepts.filter(({ id }) => !existingModuleIds.has(conceptAbilityModuleId(book.id, id as number)))
+    : concepts;
 
   if (!targets.length) {
     await completeBookProcessingStage(book.id, 'abilities');
-    await progress(allExercises.length, allExercises.length, 'Abilities already complete');
+    await progress(concepts.length, concepts.length, 'Abilities already complete');
     return;
   }
 
   const targetIds = new Set(targets.map(({ id }) => id as number));
-  const conceptsByIdForGeneration = new Map(allConcepts.flatMap((concept) => concept.id === undefined ? [] : [[concept.id, concept] as const]));
-  const sources = chapters.flatMap(({ chapter, exercises }) => exercises
+  const sources = chapters.flatMap(({ chapter, concepts }) => concepts
     .filter(({ id }) => id !== undefined && targetIds.has(id))
-    .map((exercise) => ({ chapterTitle: chapter.title, exercise, sourceConcept: exercise.conceptId === undefined ? undefined : conceptsByIdForGeneration.get(exercise.conceptId) })));
+    .map((concept) => ({ chapterTitle: chapter.title, concept })));
   const client = await requireClient(signal);
-  const generatedByExerciseId = new Map<number, GeneratedAbility[]>();
-  const conversionsCache = new Map<number, ExerciseAbilityConversion[]>();
+  const generated = new Map<number, GeneratedAbility>();
   const pending = new Set(targetIds);
   const maxAttempts = 3;
   let lastError = '';
 
-  await progress(0, targets.length, 'Generating Abilities');
+  await progress(0, targets.length, 'Generating Abilities from Concepts');
   for (let attempt = 1; attempt <= maxAttempts && pending.size; attempt++) {
-    const remaining = sources.filter(({ exercise }) => exercise.id !== undefined && pending.has(exercise.id) && !conversionsCache.has(exercise.id));
-
-    await mapConcurrent(remaining, OPENROUTER_CONCURRENCY, async ({ chapterTitle, exercise, sourceConcept }) => {
+    await mapConcurrent(sources.filter(({ concept }) => concept.id !== undefined && pending.has(concept.id)), OPENROUTER_CONCURRENCY, async ({ chapterTitle, concept }) => {
       throwIfAborted();
-      const systemPrompt = ABILITY_WORKFLOW_SYSTEM_PROMPT(book.language as string, chapterTitle, book.age);
       const runJson: AbilityWorkflowJsonRunner = (prompt, parse, options) => requestValidatedJson(
-        client,
-        command.options.model || DEFAULT_PROCESSING_MODEL,
-        systemPrompt,
-        prompt,
-        parse,
-        true,
-        cost,
-        options?.maxOutputTokens,
-        options?.repairContext,
-        options?.validationCycles ?? 1,
-        signal
+        client, command.options.model || DEFAULT_PROCESSING_MODEL,
+        CONCEPT_ABILITY_WORKFLOW_SYSTEM_PROMPT(book.language as string, chapterTitle, book.age),
+        prompt, parse, true, cost, options?.maxOutputTokens,
+        options?.repairContext, options?.validationCycles ?? 1, signal
       );
 
       try {
-        if (!sourceConcept) throw new Error(`Source Concept is missing for Exercise ${exercise.id}.`);
-        const conversions = await generateExerciseAbility(book.language as string, chapterTitle, exercise, runJson, sourceConcept);
-        const exerciseId = exercise.id as number;
-        const sorted = conversions.sort((a, b) => a.skillIndex - b.skillIndex);
-
-        if (sorted.length) {
-          conversionsCache.set(exerciseId, sorted);
-          generatedByExerciseId.set(exerciseId, sorted.map(abilityWithImageDescriptions));
-          pending.delete(exerciseId);
-          await progress(generatedByExerciseId.size, targets.length, 'Generating Abilities');
-        }
+        const ability = await generateConceptAbility(book.language as string, chapterTitle, concept, runJson, book.age);
+        generated.set(concept.id as number, ability);
+        pending.delete(concept.id as number);
+        await progress(generated.size, targets.length, 'Generating Abilities from Concepts');
       } catch (reason) {
         if (signal.aborted) throw reason;
         lastError = conceptGenerationErrorMessage(reason);
@@ -347,18 +331,15 @@ export async function runAbilitiesStage ({ book, command, cost, progress, signal
     });
   }
 
-  for (const [exerciseId, abilities] of generatedByExerciseId) {
+  for (const [conceptId, ability] of generated) {
     throwIfAborted();
-    await replaceAbilities(exerciseAbilityModuleId(book.id, exerciseId), abilities.map((ability) => JSON.stringify(ability)));
+    await replaceAbilities(conceptAbilityModuleId(book.id, conceptId), [JSON.stringify(ability)]);
   }
 
-  if (generatedByExerciseId.size || allAbilities.length) {
-    await completeBookProcessingStage(book.id, 'abilities');
+  if (pending.size) {
+    throw new Error(`${pending.size} of ${targets.length} Concept Abilities could not be generated after ${maxAttempts} attempts.${lastError ? ` Last attempt: ${lastError}` : ''}`);
   }
-
-  if (!generatedByExerciseId.size && pending.size && !allAbilities.length) {
-    throw new Error(`No Abilities were generated after ${maxAttempts} attempts.${lastError ? ` Last attempt: ${lastError}` : ''}`);
-  }
+  await completeBookProcessingStage(book.id, 'abilities');
 }
 
 export async function runFixAbilitiesStage ({ book, command, cost, progress, signal, throwIfAborted }: SkillsStageContext): Promise<void> {
@@ -377,6 +358,9 @@ export async function runFixAbilitiesStage ({ book, command, cost, progress, sig
   const client = await requireClient(signal);
   const embeddingModel = command.options.embeddingModel || await getSetting(SettingKey.CONCEPTS_EMBEDDER) || DEFAULT_STANDARDS_EMBEDDER;
   const exercisesByModuleId = new Map(allExercises.flatMap((exercise) => exercise.id === undefined ? [] : [[exerciseAbilityModuleId(book.id, exercise.id), exercise] as const]));
+  for (const concept of allConcepts) {
+    if (concept.id !== undefined) exercisesByModuleId.set(conceptAbilityModuleId(book.id, concept.id), { bookPage: concept.bookPage, conceptId: concept.id, description: concept.description, id: concept.id, solution: '', source: 'generated', title: concept.title });
+  }
   const conceptsById = new Map(allConcepts.flatMap((concept) => concept.id === undefined ? [] : [[concept.id, concept] as const]));
 
   await progress(0, allAbilities.length, 'Checking Ability/Exercise alignment');
@@ -441,8 +425,8 @@ export async function runFixAbilitiesStage ({ book, command, cost, progress, sig
 
   duplicatePairs.forEach(({ deleted }) => {
     const exercise = exercisesByModuleId.get(deleted.moduleId);
-    if (exercise?.id !== undefined) duplicateExerciseIds.add(exercise.id);
-    if (exercise?.conceptId !== undefined) duplicateConceptIds.add(exercise.conceptId);
+    if (deleted.moduleId.includes('-exercise-') && exercise?.id !== undefined) duplicateExerciseIds.add(exercise.id);
+    if (exercise?.conceptId !== undefined && deleted.moduleId.includes('-exercise-')) duplicateConceptIds.add(exercise.conceptId);
   });
 
   for (const { ability, record } of replacements.values()) {
@@ -463,7 +447,7 @@ export async function runFixAbilitiesStage ({ book, command, cost, progress, sig
     if (exercise?.conceptId === undefined) await deleteExerciseWithAbilities(book.id, exerciseId);
   }
   for (const { deleted } of duplicatePairs.values()) {
-    if (!exercisesByModuleId.get(deleted.moduleId)) await deleteAbility(deleted.id);
+    if (!exercisesByModuleId.get(deleted.moduleId) || deleted.moduleId.includes('-concept-')) await deleteAbility(deleted.id);
   }
 
   if (unresolved.length) {

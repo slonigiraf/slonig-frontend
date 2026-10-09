@@ -57,12 +57,12 @@ export const BOOK_READER_COMMAND_ACTIONS = [
   'deduplicateConcepts',
   'sortConcepts',
   'refineChapters',
-  'exercises',
+  'abilities',
   'standards'
 ] as const satisfies readonly BookProcessingStageKey[];
 
 export type BookReaderCommandAction = typeof BOOK_READER_COMMAND_ACTIONS[number];
-export type PendingBookProcessingAction = Exclude<BookReaderCommandAction, 'age' | 'language' | 'subject'>;
+export type PendingBookProcessingAction = Exclude<BookReaderCommandAction, 'age' | 'language' | 'subject'> | 'exercises';
 
 export interface BookProcessingCommand {
   action: BookReaderCommandAction;

@@ -13,8 +13,6 @@ export const BOOK_PROCESSING_STAGES = [
   'deduplicateConcepts',
   'sortConcepts',
   'refineChapters',
-  'exercises',
-  'fixExercises',
   'abilities',
   'fixAbilities',
   'images',
@@ -23,7 +21,8 @@ export const BOOK_PROCESSING_STAGES = [
   'fixStandards'
 ] as const;
 
-export type BookProcessingStageKey = typeof BOOK_PROCESSING_STAGES[number];
+/** Old stage identifiers remain readable in historical book data. */
+export type BookProcessingStageKey = typeof BOOK_PROCESSING_STAGES[number] | 'exercises' | 'fixExercises';
 
 export type BookStageSpendKey = BookProcessingStageKey | 'splitExercises';
 
@@ -127,7 +126,7 @@ export function withCompletedBookProcessingStage (book: Book, stage: BookProcess
 }
 
 export function withBookProcessingStagesResetFrom (book: Book, stage: BookProcessingStageKey): Book {
-  const stageIndex = BOOK_PROCESSING_STAGES.indexOf(stage);
+  const stageIndex = (BOOK_PROCESSING_STAGES as readonly BookProcessingStageKey[]).indexOf(stage);
 
   if (stageIndex < 0) {
     return { ...book, completedStages: getBookCompletedStages(book) };

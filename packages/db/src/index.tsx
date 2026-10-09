@@ -47,6 +47,7 @@ export type { LearnRequest, TutorAction, CanceledInsurance, Reexamination, Lette
 export type { ImageType } from './db/Image.js';
 
 const EXERCISE_ABILITY_MODULE = /^book-(\d+)-exercise-(\d+)$/;
+const CONCEPT_ABILITY_MODULE = /^book-(\d+)-concept-(\d+)$/;
 
 function finiteDisplayOrder(value: number | undefined): number | undefined {
     return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
@@ -300,6 +301,23 @@ async function moveAbilityToDisplayOrder(abilityId: string, requestedIndex: numb
         return undefined;
     }
 
+    const conceptMatch = CONCEPT_ABILITY_MODULE.exec(ability.moduleId);
+    if (conceptMatch) {
+        const concept = await db.bookConcepts.get(Number(conceptMatch[2]));
+        const chapterId = await chapterIdForConcept(concept);
+        if (chapterId !== undefined) {
+            const { concepts } = await chapterConceptsForLearningOrder(chapterId);
+            const rows = (await Promise.all(concepts.flatMap(({ id }) => id === undefined ? [] : [db.abilities.where('moduleId').equals(`book-${conceptMatch[1]}-concept-${id}`).toArray()]))).flat();
+            const ordered = orderedByDisplayOrder(rows, (a, b) => a.id.localeCompare(b.id));
+            const target = ordered.find(({ id }) => id === abilityId);
+            if (target) {
+                await Promise.all(moveToIndex(ordered, target, requestedIndex).map((row, index) => db.abilities.update(row.id, { displayOrder: index })));
+            }
+        } else {
+            await db.abilities.update(abilityId, { displayOrder: requestedIndex });
+        }
+        return db.abilities.get(abilityId);
+    }
     const exerciseId = exerciseIdFromAbilityModule(ability.moduleId);
     const exercise = exerciseId === undefined ? undefined : await db.exercises.get(exerciseId);
     const chapterId = await chapterIdForExercise(exercise);
@@ -424,11 +442,11 @@ async function syncChapterLearningDisplayOrder(chapterId: number, source: Learni
 }
 
 async function syncLearningDisplayOrderForAbilityModule(moduleId: string, source: LearningOrderSource = 'concept'): Promise<void> {
+    // Direct Concept abilities have no Exercise parent or order to synchronize.
+    if (CONCEPT_ABILITY_MODULE.test(moduleId)) return;
     const exerciseId = exerciseIdFromAbilityModule(moduleId);
 
-    if (exerciseId === undefined) {
-        return;
-    }
+    if (exerciseId === undefined) return;
 
     const chapterId = await chapterIdForExercise(await db.exercises.get(exerciseId));
 
@@ -479,7 +497,8 @@ export async function updateBookFields(id: number, changes: Partial<Omit<Book, '
 }
 
 function isBookProcessingStageAfter(stage: BookProcessingStageKey, candidate: BookProcessingStageKey): boolean {
-    return BOOK_PROCESSING_STAGES.indexOf(candidate) > BOOK_PROCESSING_STAGES.indexOf(stage);
+    const stages: readonly BookProcessingStageKey[] = BOOK_PROCESSING_STAGES;
+    return stages.indexOf(candidate) > stages.indexOf(stage);
 }
 
 /**
@@ -493,7 +512,7 @@ async function clearBookEntitiesAfterProcessingStage(bookId: number, stage: Book
     const clearChapters = isBookProcessingStageAfter(stage, 'chapters');
     const clearConcepts = isBookProcessingStageAfter(stage, 'concepts');
     const clearEmbeddings = isBookProcessingStageAfter(stage, 'embeddings');
-    const clearExercises = isBookProcessingStageAfter(stage, 'exercises');
+    const clearExercises = isBookProcessingStageAfter(stage, 'refineChapters');
     const clearAbilities = isBookProcessingStageAfter(stage, 'abilities');
 
     if (!clearChapters && !clearConcepts && !clearEmbeddings && !clearExercises && !clearAbilities) {
@@ -1001,7 +1020,7 @@ export async function applyBookChapterRefinements(bookId: number, refinements: B
         // commit. A failed refinement therefore leaves both the chapter graph
         // and the processing-stage invariant exactly as they were before.
         await clearBookEntitiesAfterProcessingStage(bookId, 'refineChapters');
-        const resetBook = withBookProcessingStagesResetFrom({ ...storedBook, completedStages: getBookCompletedStages(storedBook) }, 'exercises');
+        const resetBook = withBookProcessingStagesResetFrom({ ...storedBook, completedStages: getBookCompletedStages(storedBook) }, 'abilities');
 
         await db.books.update(bookId, { completedStages: resetBook.completedStages });
 
@@ -1436,13 +1455,19 @@ export async function createBookConcept(concept: Omit<BookConcept, 'id'>): Promi
 }
 
 export async function updateBookConcept(id: number, changes: Partial<Omit<BookConcept, 'id'>>): Promise<BookConcept | undefined> {
-    return db.transaction('rw', db.bookConcepts, db.conceptEmbeddings, db.bookPages, db.exercises, db.abilities, async () => {
+    return db.transaction('rw', db.bookConcepts, db.conceptEmbeddings, db.bookPages, db.exercises, db.abilities, db.images, async () => {
         const previous = await db.bookConcepts.get(id);
         const previousChapterId = await chapterIdForConcept(previous);
 
         await db.bookConcepts.update(id, changes);
         if (Object.prototype.hasOwnProperty.call(changes, 'title') || Object.prototype.hasOwnProperty.call(changes, 'description')) {
             await db.conceptEmbeddings.delete(id);
+            if (previous) {
+                const moduleId = `book-${previous.bookPage[0]}-concept-${id}`;
+                const rows = await db.abilities.where('moduleId').equals(moduleId).toArray() as Ability[];
+                await db.abilities.where('moduleId').equals(moduleId).delete();
+                await deleteUnreferencedAbilityImages(rows.flatMap(({ content }) => abilityImageIds(content)));
+            }
         }
         const concept = await db.bookConcepts.get(id);
         const nextChapterId = await chapterIdForConcept(concept);
@@ -1594,12 +1619,18 @@ export async function reorderBookConcepts(sortedIds: number[], explicitChapterId
 }
 
 export async function deleteBookConcept(id: number): Promise<void> {
-    await db.transaction('rw', db.bookConcepts, db.conceptEmbeddings, db.skills, db.bookPages, db.exercises, db.abilities, async () => {
+    await db.transaction('rw', db.bookConcepts, db.conceptEmbeddings, db.skills, db.bookPages, db.exercises, db.abilities, db.images, async () => {
         const concept = await db.bookConcepts.get(id);
         const chapterId = await chapterIdForConcept(concept);
 
         await db.bookConcepts.delete(id);
         await db.conceptEmbeddings.delete(id);
+        if (concept) {
+            const moduleId = `book-${concept.bookPage[0]}-concept-${id}`;
+            const records = await db.abilities.where('moduleId').equals(moduleId).toArray() as Ability[];
+            await db.abilities.where('moduleId').equals(moduleId).delete();
+            await deleteUnreferencedAbilityImages(records.flatMap(({ content }) => abilityImageIds(content)));
+        }
         const linkedSkills = await db.skills.filter(({ bookConceptIds }) => (bookConceptIds ?? []).includes(id)).toArray();
 
         await Promise.all(linkedSkills.flatMap((skill) => skill.id === undefined ? [] : [db.skills.update(skill.id, { bookConceptIds: (skill.bookConceptIds ?? []).filter((conceptId) => conceptId !== id) })]));

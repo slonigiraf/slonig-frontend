@@ -125,14 +125,6 @@ export function createProcessingToolbars (
         isDisabled: blocked || !stage('sortConcepts') || !book.language || !book.subject || book.age === undefined,
         onClick: handlers.onRefineChapters,
         onSkip: handlers.onSkipRefineChapters
-      },
-      {
-        key: 'exercises',
-        label: label('exercises'),
-        isDone: stage('exercises'),
-        isDisabled: blocked || !isRefineChaptersComplete(book) || !book.language || !book.subject,
-        onClick: handlers.onGenerateExercises,
-        onRetryMissing: handlers.onRetryMissingExercises
       }
     ],
     suffix: [

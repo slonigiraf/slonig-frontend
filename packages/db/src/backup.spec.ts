@@ -25,6 +25,7 @@ await describe('database backup filtering', async (): Promise<void> => {
 
     excludedTables.forEach((tableName) => assert.equal(shouldExportDatabaseRow(tableName), false));
     assert.equal(shouldExportDatabaseRow('abilities', { moduleId: 'book-42-exercise-7' }), false);
+    assert.equal(shouldExportDatabaseRow('abilities', { moduleId: 'book-42-concept-7' }), false);
     assert.equal(shouldExportDatabaseRow('abilities', { moduleId: 'published-module' }), true);
     assert.equal(shouldExportDatabaseRow('lessons'), true);
   });

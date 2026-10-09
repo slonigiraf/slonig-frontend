@@ -10,7 +10,7 @@ import type { StoredAbility } from '../../../book/application/abilities/abilityP
 import type { ConceptRedoStage } from '../conceptRedoStages.js';
 
 import { stripMarkdownImageReferences } from '../../../book/infrastructure/pdf/bookImageRefs.js';
-import { exerciseAbilityModuleId } from '../../../book/application/abilities/abilityProcessing.js';
+import { conceptAbilityModuleId, exerciseAbilityModuleId } from '../../../book/application/abilities/abilityProcessing.js';
 import { AbilityCard, BookItem, ChapterNavigation, SkillCard } from './SkillsComponents.js';
 import { groupAbilitiesByConcept, indexSourceExercisesByModuleId } from './abilityConceptGroups.js';
 
@@ -42,7 +42,7 @@ interface SkillsContentViewProps {
 
 export default function SkillsContentView ({ abilitiesOutputRef, allExercises, bookId, chapterContentOutputRef, chapterIndex, chapters, changeChapter, current, currentMissingAbilityIndexes, deleteConceptWithExercises, deleteExerciseWithAbilities, fixSingleAbility, fixSingleExercise, focusAbilityExercise, isBusy, missingAbilityCountsByChapter, onError, openChapterEditor, pipelineOnly, refresh, refreshContent, saveExercise, view }: SkillsContentViewProps): React.ReactElement {
   const abilityGroups = current
-    ? groupAbilitiesByConcept(current.concepts, current.exercises, current.abilities, (id) => exerciseAbilityModuleId(bookId, id))
+    ? groupAbilitiesByConcept(current.concepts, current.exercises, current.abilities, (id) => exerciseAbilityModuleId(bookId, id), (id) => conceptAbilityModuleId(bookId, id))
     : undefined;
   const sourceExercises = React.useMemo(() => indexSourceExercisesByModuleId(allExercises, (id) => exerciseAbilityModuleId(bookId, id)), [allExercises, bookId]);
   const conceptIds = new Set(current?.concepts.flatMap(({ id }) => id === undefined ? [] : [id]) ?? []);
@@ -120,11 +120,11 @@ export default function SkillsContentView ({ abilitiesOutputRef, allExercises, b
             <h3>Concepts and Abilities</h3>
             {!current.concepts.length && <p>No Concepts in this chapter.</p>}
             {!!currentMissingAbilityIndexes.length && <div className='missingAbilityNavigation'>
-              <span>Missing Abilities for Exercises:</span>
-              <span className='missingAbilityLinks'>{currentMissingAbilityIndexes.map((exerciseIndex, missingIndex) => <React.Fragment key={current.exercises[exerciseIndex].id ?? `exercise-${exerciseIndex}`}>
+              <span>Missing Abilities for Concepts:</span>
+              <span className='missingAbilityLinks'>{currentMissingAbilityIndexes.map((exerciseIndex, missingIndex) => <React.Fragment key={current.concepts[exerciseIndex].id ?? `concept-${exerciseIndex}`}>
                 {missingIndex > 0 && <span aria-hidden='true'>, </span>}
                 <button
-                  aria-label={`Go to Exercise ${exerciseIndex + 1}, missing an Ability`}
+                  aria-label={`Go to Concept ${exerciseIndex + 1}, missing an Ability`}
                   onClick={() => focusAbilityExercise(exerciseIndex)}
                   type='button'
                 >{exerciseIndex + 1}</button>

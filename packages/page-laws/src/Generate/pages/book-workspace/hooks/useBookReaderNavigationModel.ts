@@ -16,7 +16,7 @@ import { loadStoredBookStandards } from '../../../book/infrastructure/storage/st
 import { resolveSharedChapterIndex, type SharedChapterSelection } from '../../../book/domain/chapters/chapterSelection.js';
 import { getSharedChapterSelection, storeSharedChapterSelection, subscribeSharedChapterSelection } from '../../../book/infrastructure/storage/chapterSelectionStorage.js';
 import { clearFixConceptsChapterStatuses, fixConceptsChapterKey, storeFixConceptsChapterStatuses, type FixConceptsChapterStatuses } from '../../../book/infrastructure/storage/fixConceptsProgress.js';
-import { conceptEmbeddingDistanceMatrix, conceptsForNavigationChapter, exerciseAbilityModuleId, getBookConceptInventory } from '../../../book/application/workspace/bookReaderWorkspace.js';
+import { conceptEmbeddingDistanceMatrix, conceptsForNavigationChapter, conceptAbilityModuleId, exerciseAbilityModuleId, getBookConceptInventory } from '../../../book/application/workspace/bookReaderWorkspace.js';
 import { exerciseChapterSessionKey, readerMaximizedSessionKey, readerPaneSessionKey } from '../../../book/infrastructure/storage/bookReaderSession.js';
 import { type ConceptEmbeddingHeatmapEntry, type ExerciseChapterNavigationItem, type ReaderEntityCounts, type ReaderPane } from '../../../shared/types/bookWorkspace.js';
 interface UseBookReaderNavigationModelOptions {
@@ -229,7 +229,10 @@ export function useBookReaderNavigationModel ({
       return { concepts: pageConcepts, exercises: pageExercises };
     }));
     const allExercises = pageRows.flatMap(({ exercises }) => exercises);
-    const abilities = (await Promise.all(allExercises.flatMap(({ id }) => id === undefined ? [] : [getAbilities(exerciseAbilityModuleId(book.id, id))]))).flat();
+    const abilities = (await Promise.all([
+      ...pageRows.flatMap(({ concepts }) => concepts.flatMap(({ id }) => id === undefined ? [] : [getAbilities(conceptAbilityModuleId(book.id, id))])),
+      ...allExercises.flatMap(({ id }) => id === undefined ? [] : [getAbilities(exerciseAbilityModuleId(book.id, id))])
+    ])).flat();
 
     setEntityCounts({
       abilities: abilities.length,
@@ -414,7 +417,7 @@ export function useBookReaderNavigationModel ({
 
   useEffect(() => {
     if (activePane === 'standards' && !isBookProcessingStageComplete(book, 'fixImages')) {
-      setActivePane(isBookProcessingStageComplete(book, 'fixExercises')
+      setActivePane(isBookProcessingStageComplete(book, 'abilities')
         ? 'preExercisesExercises'
         : isBookProcessingStageComplete(book, 'concepts') ? 'textConcepts' : 'text');
     }

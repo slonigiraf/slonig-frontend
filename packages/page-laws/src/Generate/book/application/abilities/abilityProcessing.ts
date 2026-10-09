@@ -55,6 +55,7 @@ export interface TikzAiReview {
 
 export const abilityModuleId = (bookId: number, skillId: number): string => `book-${bookId}-skill-${skillId}`;
 export const exerciseAbilityModuleId = (bookId: number, exerciseId: number): string => `book-${bookId}-exercise-${exerciseId}`;
+export const conceptAbilityModuleId = (bookId: number, conceptId: number): string => `book-${bookId}-concept-${conceptId}`;
 
 function parseJson (content: string): unknown {
   const json = content.replace(/^```json\s*|\s*```$/g, '').trim();
@@ -145,7 +146,13 @@ export function abilityRepairInput (
     abilities: batch.map(({ ability, content, id, moduleId }, index) => {
       const embeddingValidation = embeddingHints?.get(id);
       const sourceExercise = sourceExercisesByModuleId?.get(moduleId);
-      const sourceConcept = sourceExercise?.conceptId === undefined ? undefined : sourceConceptsById?.get(sourceExercise.conceptId);
+      // Direct Concept -> Ability records have no source Exercise. Resolve the
+      // authoritative Concept from the module key; keep Exercise evidence only
+      // for genuine older Exercise-linked records.
+      const conceptLink = /-concept-(\d+)$/.exec(moduleId);
+      const conceptId = conceptLink ? Number(conceptLink[1]) : sourceExercise?.conceptId;
+      const sourceConcept = conceptId === undefined ? undefined : sourceConceptsById?.get(conceptId);
+      const legacySourceExercise = conceptLink ? undefined : sourceExercise;
 
       return {
         ability: ability
@@ -164,7 +171,7 @@ export function abilityRepairInput (
         ...(embeddingValidation ? { embeddingValidation } : {}),
         id,
         index,
-        ...(sourceExercise ? { sourceExercise: transportCompactAbilitySourceExercise(sourceExercise) } : {}),
+        ...(legacySourceExercise ? { sourceExercise: transportCompactAbilitySourceExercise(legacySourceExercise) } : {}),
         ...(sourceConcept ? { sourceConcept: { title: sourceConcept.title, description: sourceConcept.description } } : {})
       };
     }),

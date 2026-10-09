@@ -27,7 +27,7 @@ export function shouldExportDatabaseRow (tableName: string, value?: unknown, inc
   const moduleId = tableName === 'abilities' && value && typeof value === 'object'
     ? (value as { moduleId?: unknown }).moduleId
     : undefined;
-  const isBookParsingAbility = typeof moduleId === 'string' && /^book-\d+-exercise-\d+$/.test(moduleId);
+  const isBookParsingAbility = typeof moduleId === 'string' && /^book-\d+-(?:exercise|concept)-\d+$/.test(moduleId);
 
   return !CACHE_TABLES.has(tableName) && !BOOK_PARSING_TABLES.has(tableName) && !isBookParsingAbility;
 }
