@@ -32,15 +32,22 @@ const ExerciseVisual: React.FC<{ alt: string; hasCompileError?: boolean; isAbili
     const visiblePrompt = isAbilityInfo
         ? (prompt?.trim() || (!isTikzCode(value) && !isGeneratedAbilityVisual(value) ? value.trim() : ''))
         : '';
+    // The question's image prompt is part of the expanded image view, never
+    // the thumbnail. The branches below handle prompt-only (no image) cases.
+    const isQuestionVisual = isAbilityInfo && label === 'Question visual prompt';
+    const promptElement = visiblePrompt
+        ? <VisualPrompt><strong>{label}:</strong> <SpanWithTags content={visiblePrompt} /></VisualPrompt>
+        : null;
+    const expandedPrompt = isQuestionVisual ? promptElement : null;
 
     if (isTikzCode(value)) {
         return <>
             <React.Suspense fallback={<small>Loading TikZ renderer…</small>}>
                 {isAbilityInfo
-                    ? <TikzVisual alt={alt} hasCompileError={hasCompileError} onCompileStateChange={onCompileStateChange} onSave={onSave} value={value} />
+                    ? <TikzVisual alt={alt} expandedPrompt={expandedPrompt} hasCompileError={hasCompileError} onCompileStateChange={onCompileStateChange} onSave={onSave} value={value} />
                     : <TikzDisplay alt={alt} hasCompileError={hasCompileError} onCompileStateChange={onCompileStateChange} value={value} />}
             </React.Suspense>
-            {visiblePrompt && <VisualPrompt><strong>{label}:</strong> <SpanWithTags content={visiblePrompt} /></VisualPrompt>}
+            {!isQuestionVisual && promptElement}
         </>;
     }
 
@@ -53,9 +60,9 @@ const ExerciseVisual: React.FC<{ alt: string; hasCompileError?: boolean; isAbili
 
         return <>
             {isLocalOrRemoteImageUrl(imageValue)
-                ? <ExerciseImage alt={alt} value={imageValue} />
-                : <KnowledgeResizableImage alt={alt} cid={imageValue} />}
-            {visiblePrompt && <VisualPrompt><strong>{label}:</strong> <SpanWithTags content={visiblePrompt} /></VisualPrompt>}
+                ? <KnowledgeResizableImage alt={alt} expandedPrompt={expandedPrompt} src={imageValue} />
+                : <KnowledgeResizableImage alt={alt} cid={imageValue} expandedPrompt={expandedPrompt} />}
+            {!isQuestionVisual && promptElement}
         </>;
     }
 

@@ -3,24 +3,34 @@ import { Modal, Spinner, styled } from '@polkadot/react-components';
 import { useIpfsContext } from '@slonigiraf/slonig-components';
 import { getCachedIpfsImageUrl, loadCachedIpfsImageUrl } from './ipfsImageCache.js';
 
-interface Props {
+type Props = {
   alt?: string;
-  cid: string;
-}
+  expandedPrompt?: React.ReactNode;
+} & ({ cid: string; src?: never } | { cid?: never; src: string });
 
 /**
  * Keeps the existing ResizableImage interaction used by knowledge images
  * (click -> modal, pinch to zoom), while constraining the initial popup image
  * to the available viewport in both directions.
  */
-export default function KnowledgeResizableImage ({ alt = 'Image', cid }: Props): React.ReactElement {
+export default function KnowledgeResizableImage ({ alt = 'Image', cid, expandedPrompt, src: sourceSrc }: Props): React.ReactElement {
   const { ipfs, isIpfsReady } = useIpfsContext();
   const [isBig, setIsBig] = useState(false);
   const [scale, setScale] = useState(1);
-  const [src, setSrc] = useState<string | null>(() => getCachedIpfsImageUrl(cid) ?? null);
+  const [src, setSrc] = useState<string | null>(() => sourceSrc ?? (cid ? getCachedIpfsImageUrl(cid) : null) ?? null);
   const lastPinchDistance = useRef(0);
 
   useEffect(() => {
+    if (sourceSrc) {
+      setSrc(sourceSrc);
+      return;
+    }
+
+    if (!cid) {
+      setSrc(null);
+      return;
+    }
+
     let cancelled = false;
     const cached = getCachedIpfsImageUrl(cid);
 
@@ -35,7 +45,7 @@ export default function KnowledgeResizableImage ({ alt = 'Image', cid }: Props):
     }
 
     return () => { cancelled = true; };
-  }, [cid, ipfs, isIpfsReady]);
+  }, [cid, ipfs, isIpfsReady, sourceSrc]);
 
   const close = (): void => {
     setScale(1);
@@ -73,10 +83,12 @@ export default function KnowledgeResizableImage ({ alt = 'Image', cid }: Props):
         >
           <BigImage
             alt={alt}
+            className={expandedPrompt ? 'withExpandedPrompt' : undefined}
             src={src}
             style={{ transform: `scale(${scale})` }}
           />
         </Viewport>
+        {expandedPrompt && <ExpandedPrompt>{expandedPrompt}</ExpandedPrompt>}
       </Modal.Content>
     </ImageModal>}
   </>;
@@ -124,4 +136,15 @@ const BigImage = styled.img`
   padding-top: 5px;
   transform-origin: center center;
   width: 100%;
+
+  &.withExpandedPrompt {
+    max-height: calc(100dvh - 16rem);
+  }
+`;
+
+const ExpandedPrompt = styled.div`
+  border-top: 1px solid var(--border-table);
+  margin-top: 0.75rem;
+  padding: 0.75rem 0.5rem;
+  text-align: left;
 `;

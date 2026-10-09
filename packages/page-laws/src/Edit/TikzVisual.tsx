@@ -10,6 +10,7 @@ import { TIKZ_EDITOR_ORIGIN, TIKZ_EDITOR_URL, cacheTikzEditorSvg, parseTikzEdito
 interface Props {
   alt: string;
   editorTitle?: string;
+  expandedPrompt?: React.ReactNode;
   hasCompileError?: boolean;
   isEditorShownInitially?: boolean;
   onCompileStateChange?: (hasError: boolean, renderedValue: string) => Promise<void> | void;
@@ -28,7 +29,7 @@ interface PendingEditorSave {
 
 const EDITOR_SAVE_TIMEOUT_MS = 10_000;
 
-export default function TikzVisual ({ alt, editorTitle, hasCompileError = false, isEditorShownInitially = false, onCompileStateChange, onEditorClose, onSave, prompt, showPreview = true, value }: Props): React.ReactElement {
+export default function TikzVisual ({ alt, editorTitle, expandedPrompt, hasCompileError = false, isEditorShownInitially = false, onCompileStateChange, onEditorClose, onSave, prompt, showPreview = true, value }: Props): React.ReactElement {
   const [draft, setDraft] = useState(value);
   const [rendered, setRendered] = useState(value);
   const [isDetailsShown, setIsDetailsShown] = useState(false);
@@ -364,7 +365,7 @@ export default function TikzVisual ({ alt, editorTitle, hasCompileError = false,
           onTouchMove={handlePreviewTouchMove}
           onTouchStart={() => { lastPinchDistanceRef.current = 0; }}
         >
-          <ScaledPreview style={{ transform: `scale(${previewScale})` }}>
+          <ScaledPreview className={expandedPrompt ? 'withExpandedPrompt' : undefined} style={{ transform: `scale(${previewScale})` }}>
             <TikzDisplay
               alt={`${alt} TikZ preview`}
               displayMode='modal'
@@ -373,6 +374,7 @@ export default function TikzVisual ({ alt, editorTitle, hasCompileError = false,
             />
           </ScaledPreview>
         </PreviewViewport>
+        {expandedPrompt && <ExpandedPrompt>{expandedPrompt}</ExpandedPrompt>}
       </Modal.Content>
     </ImageModal>}
     {showPreview && !isVisualEditorShown && message && <EditorMessage>{message}</EditorMessage>}
@@ -482,6 +484,23 @@ const ScaledPreview = styled.div`
   max-width: 100%;
   transform-origin: center center;
   width: 100%;
+
+  &.withExpandedPrompt {
+    max-height: calc(100dvh - 16rem);
+
+    .tikzDisplay--modal,
+    .tikzDisplay--modal > svg,
+    .tikzDisplay--modal > * > svg {
+      max-height: calc(100dvh - 16rem);
+    }
+  }
+`;
+
+const ExpandedPrompt = styled.div`
+  border-top: 1px solid var(--border-table);
+  margin-top: 0.75rem;
+  padding: 0.75rem 0.5rem;
+  text-align: left;
 `;
 
 const VisualEditorOverlay = styled.div`
