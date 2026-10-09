@@ -3,7 +3,7 @@
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Button, Modal, styled } from '@polkadot/react-components';
+import { Button, Icon, Modal, styled } from '@polkadot/react-components';
 import TikzDisplay from './TikzDisplay.js';
 import { TIKZ_EDITOR_ORIGIN, TIKZ_EDITOR_URL, cacheTikzEditorSvg, parseTikzEditorMessage } from './tikzEditorBridge.js';
 
@@ -346,13 +346,14 @@ export default function TikzVisual ({ alt, editorTitle, expandedPrompt, hasCompi
             value={rendered}
           />
         </ZoomablePreview>
-        {onSave && <Button
+        {onSave && <button
           aria-label={`Edit ${alt} image`}
           className='tikzEditInline'
-          icon='edit'
-          isDisabled={isSaving || !draft.trim()}
+          disabled={isSaving || !draft.trim()}
           onClick={openVisualEditor}
-        />}
+          title={`Edit ${alt} image`}
+          type='button'
+        ><Icon icon='edit' /></button>}
       </PreviewRow>
       {prompt?.trim() && <PreviewActions>
         <Button
@@ -446,23 +447,41 @@ const PreviewRow = styled.div`
   max-width: 100%;
   min-width: 0;
 
-  .tikzEditInline.ui--Button {
+  .tikzEditInline {
     align-items: center;
-    background: var(--bg-input, #fff);
-    border: 1px solid var(--border-table, #cfd5e1);
-    border-radius: 0.4rem;
-    display: flex;
-    flex: 0 0 2rem;
-    height: 2rem;
+    background: transparent;
+    border: 0;
+    border-radius: 0.25rem;
+    box-shadow: none;
+    color: var(--color-text, #555);
+    cursor: pointer;
+    display: inline-flex;
+    flex: 0 0 1.75rem;
+    height: 1.75rem;
     justify-content: center;
     margin: 0;
-    min-height: 2rem;
-    min-width: 2rem;
-    padding: 0.2rem;
-    width: 2rem;
+    padding: 0;
+    width: 1.75rem;
 
     .ui--Icon {
       margin: 0 !important;
+      padding: 0;
+      height: 0.85rem;
+      width: 0.85rem;
+    }
+
+    &:hover:not(:disabled) {
+      background: var(--bg-menu, #f3f3f3);
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--color-primary, #1682d4);
+      outline-offset: 1px;
+    }
+
+    &:disabled {
+      cursor: not-allowed;
+      opacity: 0.45;
     }
   }
 `;

@@ -478,11 +478,11 @@ export const StyledSkills = styled.div`
   .chapterEditor { display: grid; gap: 1rem; }
   .columns { display: grid; gap: 1rem; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
   .columns > section, .singlePane { border: 1px solid var(--border-table); border-radius: 0.4rem; min-width: 0; overflow: auto; padding: 1rem; }
-  /* Exercises and abilities share the same in-flow action layout. A fixed
-     right-side reservation previously pushed exercise cards past mobile viewports. */
+  /* Overlay card actions instead of reserving a blank first row above the
+     Exercise/Ability content. Keep heading text clear of the controls. */
   .contentCard { border: 1px solid var(--border-table); border-radius: 0.4rem; box-sizing: border-box; margin-bottom: 0.75rem; min-width: 0; overflow-wrap: anywhere; padding: 0.85rem 1rem 1rem; position: relative; }
-  .contentCardActions { align-items: center; display: flex; flex-wrap: wrap; gap: 0.35rem; justify-content: flex-end; margin-bottom: 0.75rem; max-width: 100%; min-width: 0; position: static; }
-  .contentCard > strong { display: block; overflow-wrap: anywhere; }
+  .contentCardActions { align-items: center; display: flex; gap: 0.35rem; justify-content: flex-end; margin: 0; position: absolute; right: 0.75rem; top: 0.65rem; z-index: 1; }
+  .contentCard > strong { display: block; overflow-wrap: anywhere; padding-right: 2.75rem; }
   .fixReviewList { max-height: 60vh; overflow: auto; }
   .fixReviewItem { border-top: 1px solid var(--border-table); padding: 0.75rem 0; }
   .fixReviewItem:first-child { border-top: 0; }
@@ -527,7 +527,10 @@ export const StyledSkills = styled.div`
   @media only screen and (max-width: 900px) { .columns, .duplicatePairComparison, .tikzDiffGrid { grid-template-columns: 1fr; } }
   @media only screen and (max-width: 600px) {
     .contentCard { padding: 0.75rem; }
-    .contentCardActions { width: 100%; }
+    .contentCardActions { right: 0.5rem; top: 0.5rem; }
+    /* The Ability uses an exercise grid rather than a title, so only on
+       narrow screens reserve space for the floating actions. */
+    .abilityCard > .contentCardActions + div { padding-right: 2.5rem; }
     .chapterNavigation { display: flex; flex-wrap: wrap; min-width: 0; }
     .exercisesChapterNavigation { gap: 0.35rem; }
     .exercisesChapterNavigation .chapterSelectGroup { flex: 1 1 100%; min-width: 0; order: 2; }

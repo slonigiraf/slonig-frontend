@@ -211,22 +211,13 @@ export function BookItem ({ description, id, imageDescription, onDelete, onDelet
 
   return <article aria-busy={isFixing} className='contentCard' tabIndex={-1}>
     <div className='contentCardActions'>
-      {type === 'exercise' && onFix && <Button
-        icon='robot'
-        isDisabled={id === undefined || isFixing || isSaving}
-        label={isFixing ? 'Fixing…' : 'Fix with AI'}
-        onClick={fix}
-      />}
-      {type === 'exercise' && onSave && <Button
-        icon='edit'
-        isDisabled={id === undefined || isFixing}
-        label='Edit'
-        onClick={openEdit}
-      />}
-      <Button
-        icon='trash'
-        isDisabled={isFixing || isSaving}
-        onClick={remove}
+      <ItemActionsMenu
+        actions={[
+          ...(type === 'exercise' && onFix ? [{ label: isFixing ? 'Fixing…' : 'Fix with AI', isDisabled: id === undefined || isFixing || isSaving, onClick: fix }] : []),
+          ...(type === 'exercise' && onSave ? [{ label: 'Edit', isDisabled: id === undefined || isFixing, onClick: openEdit }] : []),
+          { label: 'Delete', isDestructive: true, isDisabled: id === undefined || isFixing || isSaving, onClick: remove }
+        ]}
+        label={type === 'exercise' ? 'Exercise' : 'Concept'}
       />
     </div>
     <strong>{rank !== undefined && <span>{rank}. </span>}<SpanWithTags content={title} /></strong>
