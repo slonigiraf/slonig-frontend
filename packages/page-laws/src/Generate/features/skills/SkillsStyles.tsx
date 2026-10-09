@@ -496,6 +496,9 @@ export const StyledSkills = styled.div`
   .missingAbilityLinks button:hover, .missingAbilityLinks button:focus-visible { text-decoration-thickness: 2px; }
   .abilityExerciseCard { background: var(--bg-input); border: 1px solid #dde1eb; border-radius: 0.7rem; box-shadow: 0 1px 2px rgba(24, 39, 75, 0.04); box-sizing: border-box; margin-bottom: 1rem; padding: 0.95rem 1rem 1rem; }
   .abilityExerciseCard:focus { outline: none; }
+  .abilityConceptCard > h4 { margin: 0 0 0.35rem; }
+  .abilityConceptCard > p { margin: 0.35rem 0 0.85rem; }
+  .abilityConceptCard .matchedAbilities { margin-top: 0.6rem; }
   .matchedAbilities { border-left: 3px solid var(--border-table); margin: 0 0 0.75rem 1.5rem; padding-left: 0.75rem; }
   .matchedAbilities .contentCard { background: var(--bg-input); }
   .matchedAbilities .contentCard:last-child { border-bottom: 0; }

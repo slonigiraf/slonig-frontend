@@ -303,15 +303,14 @@ function Skills ({ autoRunAll = false, autoRunStartKey, book, externalAutoRunBus
   const missingAbilityCountsByChapter = useMemo(() => missingAbilityIndexesByChapter.map((indexes) => indexes.length), [missingAbilityIndexesByChapter]);
   const currentMissingAbilityIndexes = missingAbilityIndexesByChapter[chapterIndex] ?? [];
   const focusAbilityExercise = useCallback((exerciseIndex: number): void => {
-    const exerciseSection = abilitiesOutputRef.current?.querySelector<HTMLElement>(`[data-exercise-rank="${exerciseIndex + 1}"]`);
+    const conceptId = current?.exercises[exerciseIndex]?.conceptId;
+    const conceptSection = Array.from(abilitiesOutputRef.current?.querySelectorAll<HTMLElement>('[data-concept-id]') ?? [])
+      .find((section) => section.dataset.conceptId === String(conceptId))
+      ?? abilitiesOutputRef.current?.querySelector<HTMLElement>('.orphanAbilities');
 
-    if (!exerciseSection) {
-      return;
-    }
-
-    exerciseSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    exerciseSection.focus({ preventScroll: true });
-  }, []);
+    conceptSection?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    conceptSection?.focus({ preventScroll: true });
+  }, [current]);
 
   useEffect(() => {
     onEntityCountsChange?.({ abilities: allAbilities.length, bookExercises: allBookExercises.length, exercises: allExercises.length });

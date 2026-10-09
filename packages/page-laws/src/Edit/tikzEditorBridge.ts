@@ -8,7 +8,9 @@ export const TIKZ_EDITOR_RENDERER_ID = 'tikz-editor@0.5.2-texlyre.1';
 const TIKZ_EDITOR_RENDER_TIMEOUT_MS = 30_000;
 const TIKZ_EDITOR_EXPORT_RETRY_MS = 100;
 const TIKZ_EDITOR_RENDER_RETRIES = 1;
-const TIKZ_EDITOR_SVG_CACHE_LIMIT = 100;
+const TIKZ_EDITOR_SVG_CACHE_LIMIT = 400;
+const TIKZ_EDITOR_PERSISTED_CACHE_LIMIT = 600;
+const SVG_STORE_NAME = 'renderedSvg';
 
 export class TikzEditorRenderError extends Error {
   readonly retryable: boolean;
@@ -29,6 +31,113 @@ function transientRendererError (message: string): TikzEditorRenderError {
 }
 
 const renderedSvgCache = new Map<string, string>();
+const renderRequests = new Map<string, Promise<string>>();
+let cacheDatabase: Promise<IDBDatabase | undefined> | undefined;
+
+/** SVG previews are keyed by exact TikZ source and renderer version. Unlike
+ * the small in-memory LRU, this survives switching tabs and page reloads. */
+function openSvgCacheDatabase (): Promise<IDBDatabase | undefined> {
+  if (cacheDatabase) {
+    return cacheDatabase;
+  }
+
+  cacheDatabase = new Promise((resolve) => {
+    if (typeof indexedDB === 'undefined') {
+      resolve(undefined);
+      return;
+    }
+
+    try {
+      const request = indexedDB.open(`slonig-tikz-svg-${TIKZ_EDITOR_RENDERER_ID}`, 1);
+
+      request.onupgradeneeded = () => {
+        const store = request.result.createObjectStore(SVG_STORE_NAME, { keyPath: 'source' });
+
+        store.createIndex('updatedAt', 'updatedAt');
+      };
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => resolve(undefined);
+      request.onblocked = () => resolve(undefined);
+    } catch {
+      resolve(undefined);
+    }
+  });
+
+  return cacheDatabase;
+}
+
+async function readPersistedSvg (source: string): Promise<string | undefined> {
+  const database = await openSvgCacheDatabase();
+
+  if (!database) {
+    return undefined;
+  }
+
+  return new Promise((resolve) => {
+    try {
+      const request = database.transaction(SVG_STORE_NAME, 'readonly').objectStore(SVG_STORE_NAME).get(source);
+
+      request.onsuccess = () => {
+        const svg = (request.result as { svg?: unknown } | undefined)?.svg;
+
+        if (typeof svg !== 'string') {
+          resolve(undefined);
+          return;
+        }
+
+        try {
+          resolve(normalizeTikzEditorSvg(svg));
+        } catch {
+          resolve(undefined);
+        }
+      };
+      request.onerror = () => resolve(undefined);
+    } catch {
+      resolve(undefined);
+    }
+  });
+}
+
+async function persistSvg (source: string, svg: string): Promise<void> {
+  const database = await openSvgCacheDatabase();
+
+  if (!database) {
+    return;
+  }
+
+  try {
+    const transaction = database.transaction(SVG_STORE_NAME, 'readwrite');
+    const store = transaction.objectStore(SVG_STORE_NAME);
+
+    store.put({ source, svg, updatedAt: Date.now() });
+    // Bound browser storage rather than allowing a book's diagrams to grow
+    // without limit. Old previews are safely regenerated if evicted.
+    const count = store.count();
+
+    count.onsuccess = () => {
+      let toRemove = count.result - TIKZ_EDITOR_PERSISTED_CACHE_LIMIT;
+
+      if (toRemove <= 0) {
+        return;
+      }
+
+      const cursor = store.index('updatedAt').openCursor();
+
+      cursor.onsuccess = () => {
+        const entry = cursor.result;
+
+        if (entry && toRemove > 0) {
+          entry.delete();
+          toRemove--;
+          entry.continue();
+        }
+      };
+    };
+  } catch {
+    // Private browsing, exhausted quotas, and disabled IndexedDB should never
+    // stop the diagram from being shown via the in-memory cache.
+  }
+}
 
 export interface TikzEditorMessage {
   data?: string;
@@ -93,6 +202,7 @@ export function cacheTikzEditorSvg (source: string, value: string): string {
   // Refresh insertion order so the small module-level cache behaves like LRU.
   renderedSvgCache.delete(key);
   renderedSvgCache.set(key, svg);
+  void persistSvg(key, svg);
 
   while (renderedSvgCache.size > TIKZ_EDITOR_SVG_CACHE_LIMIT) {
     const oldest = renderedSvgCache.keys().next().value as string | undefined;
@@ -356,40 +466,67 @@ let renderer: TikzEditorRenderer | undefined;
 
 /** Render TikZ through the same parser/semantic/SVG engine used by TikZ Editor. */
 export async function renderTikzWithEditor (source: string): Promise<string> {
-  const cached = getCachedTikzEditorSvg(source);
+  const key = source.trim();
+  const cached = getCachedTikzEditorSvg(key);
 
   if (cached !== undefined) {
     return cached;
   }
 
-  let lastError: unknown;
+  // A large Abilities tab can mount many identical visuals at once. Share a
+  // single cache lookup / render for each source instead of queuing duplicates.
+  const existing = renderRequests.get(key);
 
-  for (let attempt = 0; attempt <= TIKZ_EDITOR_RENDER_RETRIES; attempt++) {
-    const activeRenderer = renderer ??= new TikzEditorRenderer();
-
-    try {
-      const svg = await activeRenderer.render(source);
-
-      return cacheTikzEditorSvg(source, svg);
-    } catch (error) {
-      lastError = error;
-
-      if (isRetryableTikzEditorError(error)) {
-        // A timed-out/failed iframe can remain alive while no longer producing
-        // preview events. Never leave that poisoned singleton in the queue.
-        if (renderer === activeRenderer) {
-          renderer = undefined;
-        }
-        activeRenderer.destroy(error instanceof Error ? error : transientRendererError(String(error)));
-
-        if (attempt < TIKZ_EDITOR_RENDER_RETRIES) {
-          continue;
-        }
-      }
-
-      throw error;
-    }
+  if (existing) {
+    return existing;
   }
 
-  throw lastError instanceof Error ? lastError : new TikzEditorRenderError('Unable to render TikZ.');
+  const request = (async (): Promise<string> => {
+    const persisted = await readPersistedSvg(key);
+
+    if (persisted !== undefined) {
+      return cacheTikzEditorSvg(key, persisted);
+    }
+
+    let lastError: unknown;
+
+    for (let attempt = 0; attempt <= TIKZ_EDITOR_RENDER_RETRIES; attempt++) {
+      const activeRenderer = renderer ??= new TikzEditorRenderer();
+
+      try {
+        const svg = await activeRenderer.render(source);
+
+        return cacheTikzEditorSvg(key, svg);
+      } catch (error) {
+        lastError = error;
+
+        if (isRetryableTikzEditorError(error)) {
+          // A timed-out/failed iframe can remain alive while no longer producing
+          // preview events. Never leave that poisoned singleton in the queue.
+          if (renderer === activeRenderer) {
+            renderer = undefined;
+          }
+          activeRenderer.destroy(error instanceof Error ? error : transientRendererError(String(error)));
+
+          if (attempt < TIKZ_EDITOR_RENDER_RETRIES) {
+            continue;
+          }
+        }
+
+        throw error;
+      }
+    }
+
+    throw lastError instanceof Error ? lastError : new TikzEditorRenderError('Unable to render TikZ.');
+  })();
+
+  renderRequests.set(key, request);
+
+  try {
+    return await request;
+  } finally {
+    if (renderRequests.get(key) === request) {
+      renderRequests.delete(key);
+    }
+  }
 }

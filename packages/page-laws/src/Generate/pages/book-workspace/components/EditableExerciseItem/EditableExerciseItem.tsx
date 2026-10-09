@@ -10,7 +10,8 @@ import { Button, Modal } from '@polkadot/react-components';
 import { stripMarkdownImageReferences } from '../../../../book/infrastructure/pdf/bookImageRefs.js';
 import { useTranslation } from '../../../../../common/translate.js';
 import type { ExerciseEditableFields } from '../../../../shared/types/exercise.js';
-import { ExerciseEditForm, ExerciseHeading, ExerciseItemContainer } from './EditableExerciseItem.styles.js';
+import FixingOverlay from '../../../../shared/ui/FixingOverlay.js';
+import { ExerciseEditForm, ExerciseItemContainer } from './EditableExerciseItem.styles.js';
 
 function EditableExerciseItem ({ exercise, onError, onFix, onSave }: { exercise: Exercise; onError: (message: string) => void; onFix: (exercise: Exercise) => Promise<void>; onSave: (exerciseId: number, value: ExerciseEditableFields) => Promise<void> }): React.ReactElement {
   const { t } = useTranslation();
@@ -63,28 +64,26 @@ function EditableExerciseItem ({ exercise, onError, onFix, onSave }: { exercise:
   }, [exercise, onError, onFix]);
   const description = stripMarkdownImageReferences(exercise.description);
 
-  return <ExerciseItemContainer className='exerciseItem'>
-    <ExerciseHeading>
-      <p><b>{t('Title:')} </b><SpanWithTags content={exercise.title} /></p>
-      <Button.Group>
-        <Button
-          icon='robot'
-          isDisabled={exercise.id === undefined || isFixing || isSaving}
-          label={isFixing ? 'Fixing…' : 'Fix with AI'}
-          onClick={fix}
-        />
-        <Button
-          icon='edit'
-          isDisabled={exercise.id === undefined || isFixing}
-          label='Edit'
-          onClick={openEdit}
-        />
-      </Button.Group>
-    </ExerciseHeading>
+  return <ExerciseItemContainer aria-busy={isFixing} className='exerciseItem'>
+    <div className='exerciseItemActions'>
+      <Button
+        icon='robot'
+        isDisabled={exercise.id === undefined || isFixing || isSaving}
+        label={isFixing ? 'Fixing…' : 'Fix with AI'}
+        onClick={fix}
+      />
+      <Button
+        icon='edit'
+        isDisabled={exercise.id === undefined || isFixing}
+        label='Edit'
+        onClick={openEdit}
+      />
+    </div>
     <p><b>{t('Question:')} </b>{description ? <SpanWithTags content={description} /> : n_a}</p>
     <p><b>{t('Question image:')} </b>{exercise.imageDescription ? <SpanWithTags content={exercise.imageDescription} /> : n_a}</p>
     <p><b>{t('Solution:')} </b>{exercise.solution ? <SpanWithTags content={exercise.solution} /> : n_a}</p>
     <p><b>{t('Answer image:')} </b>{exercise.solutionImageDescription ? <SpanWithTags content={exercise.solutionImageDescription} /> : n_a}</p>
+    {isFixing && <FixingOverlay />}
     {isEditing && <Modal
       header='Edit Exercise'
       onClose={closeEdit}

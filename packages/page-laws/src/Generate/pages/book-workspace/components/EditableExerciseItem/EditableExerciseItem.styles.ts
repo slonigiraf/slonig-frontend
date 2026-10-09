@@ -4,18 +4,32 @@
 import { styled } from '@polkadot/react-components';
 
 const ExerciseItemContainer = styled.li`
+  border-bottom: 1px solid var(--border-table);
+  box-sizing: border-box;
+  min-height: 4rem;
+  padding: 0.75rem 16rem 0.75rem 0.65rem;
   position: relative;
-`;
 
-const ExerciseHeading = styled.div`
-  align-items: flex-start;
-  display: flex;
-  gap: 0.75rem;
-  justify-content: space-between;
+  &:last-child { border-bottom: 0; }
+  > p { margin: 0.35rem 0; }
 
-  > p {
-    flex: 1;
-    min-width: 0;
+  .exerciseItemActions {
+    align-items: center;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    justify-content: flex-end;
+    max-width: 15rem;
+    position: absolute;
+    right: 0.65rem;
+    top: 0.65rem;
+  }
+
+  @media only screen and (max-width: 600px) {
+    padding-right: 0.65rem;
+    padding-top: 4.1rem;
+
+    .exerciseItemActions { left: 0.65rem; max-width: none; }
   }
 `;
 
@@ -97,4 +111,4 @@ const ExerciseEditForm = styled.div`
   }
 `;
 
-export { ExerciseEditForm, ExerciseHeading, ExerciseItemContainer };
+export { ExerciseEditForm, ExerciseItemContainer };

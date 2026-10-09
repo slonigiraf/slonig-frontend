@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { BookChapter } from '@slonigiraf/db';
+import { SpanWithTags } from '@slonigiraf/slonig-components';
 import React from 'react';
 import type { ChapterContent, SkillsView } from '../SkillsTypes.js';
 import type { ExerciseEditableFields } from '../../../shared/types/exercise.js';
@@ -10,6 +11,7 @@ import type { StoredAbility } from '../../../book/application/abilities/abilityP
 import { stripMarkdownImageReferences } from '../../../book/infrastructure/pdf/bookImageRefs.js';
 import { exerciseAbilityModuleId } from '../../../book/application/abilities/abilityProcessing.js';
 import { AbilityCard, BookItem, ChapterNavigation, SkillCard } from './SkillsComponents.js';
+import { groupAbilitiesByConcept } from './abilityConceptGroups.js';
 
 interface SkillsContentViewProps {
   abilitiesOutputRef: React.Ref<HTMLDivElement>;
@@ -36,6 +38,12 @@ interface SkillsContentViewProps {
 }
 
 export default function SkillsContentView ({ abilitiesOutputRef, bookId, chapterContentOutputRef, chapterIndex, chapters, changeChapter, current, currentMissingAbilityIndexes, deleteConceptWithExercises, deleteExerciseWithAbilities, fixSingleAbility, fixSingleExercise, focusAbilityExercise, missingAbilityCountsByChapter, onError, openChapterEditor, pipelineOnly, refresh, refreshContent, saveExercise, view }: SkillsContentViewProps): React.ReactElement {
+  const abilityGroups = current
+    ? groupAbilitiesByConcept(current.concepts, current.exercises, current.abilities, (id) => exerciseAbilityModuleId(bookId, id))
+    : undefined;
+  const conceptIds = new Set(current?.concepts.flatMap(({ id }) => id === undefined ? [] : [id]) ?? []);
+  const hasExercisesWithoutConcept = current?.exercises.some(({ conceptId }) => conceptId === undefined || !conceptIds.has(conceptId)) ?? false;
+
   return <>
   {!pipelineOnly && <>
     <ChapterNavigation
@@ -105,8 +113,8 @@ export default function SkillsContentView ({ abilitiesOutputRef, bookId, chapter
             className='singlePane abilitiesPane'
             ref={abilitiesOutputRef}
           >
-            <h3>Exercises and Abilities</h3>
-            {!current.exercises.length && <p>No Exercises in this chapter.</p>}
+            <h3>Concepts and Abilities</h3>
+            {!current.concepts.length && <p>No Concepts in this chapter.</p>}
             {!!currentMissingAbilityIndexes.length && <div className='missingAbilityNavigation'>
               <span>Missing Abilities for Exercises:</span>
               <span className='missingAbilityLinks'>{currentMissingAbilityIndexes.map((exerciseIndex, missingIndex) => <React.Fragment key={current.exercises[exerciseIndex].id ?? `exercise-${exerciseIndex}`}>
@@ -118,54 +126,30 @@ export default function SkillsContentView ({ abilitiesOutputRef, bookId, chapter
                 >{exerciseIndex + 1}</button>
               </React.Fragment>)}</span>
             </div>}
-            {current.exercises.map((exercise, exerciseIndex) => {
-              const matchedAbilities = exercise.id === undefined
-                ? []
-                : current.abilities.filter(({ moduleId }) => moduleId === exerciseAbilityModuleId(bookId, exercise.id as number));
-
-              return <section
-                className='exerciseWithAbilities abilityExerciseCard'
-                data-exercise-rank={exerciseIndex + 1}
-                key={`exercise-${exercise.id ?? 'new'}`}
-                tabIndex={-1}
-                     >
-                <BookItem
-                  description={stripMarkdownImageReferences(exercise.description)}
-                  id={exercise.id}
-                  imageDescription={exercise.imageDescription}
-                  onDelete={deleteExerciseWithAbilities}
-                  onDeleted={refresh}
-                  onError={onError}
-                  onFix={fixSingleExercise}
-                  onSave={saveExercise}
-                  rank={exerciseIndex + 1}
-                  solution={exercise.solution}
-                  solutionImageDescription={exercise.solutionImageDescription}
-                  title={exercise.title}
-                  type='exercise'
-                />
-                <div className='matchedAbilities'>
-                  {matchedAbilities.length
-                    ? matchedAbilities.map((record) => <AbilityCard
-                      key={record.id}
-                      onDeleted={refreshContent}
-                      onError={onError}
-                      onFix={fixSingleAbility}
-                      record={record}
-                                                      />)
-                    : <p className='noAbility'>No Ability generated for this Exercise.</p>}
-                </div>
-              </section>;
-            })}
-            {current.abilities.some(({ moduleId }) => !current.exercises.some(({ id }) => id !== undefined && moduleId === exerciseAbilityModuleId(bookId, id))) && <section className='unmatchedAbilities'>
+            {abilityGroups?.groups.map(({ abilities, concept }, conceptIndex) => <section
+              className='abilityExerciseCard abilityConceptCard'
+              data-concept-id={concept.id}
+              data-concept-rank={conceptIndex + 1}
+              key={`concept-${concept.id ?? conceptIndex}`}
+              tabIndex={-1}
+            >
+              <h4><span>{conceptIndex + 1}. </span><SpanWithTags content={concept.title} /></h4>
+              {concept.description && <p><SpanWithTags content={concept.description} /></p>}
+              <div className='matchedAbilities'>
+                {abilities.length
+                  ? abilities.map((record) => <AbilityCard key={record.id} onDeleted={refreshContent} onError={onError} onFix={fixSingleAbility} record={record} />)
+                  : <p className='noAbility'>No Ability generated for this Concept.</p>}
+              </div>
+            </section>)}
+            {(hasExercisesWithoutConcept || !!abilityGroups?.withoutConcept.length) && <section className='unmatchedAbilities orphanAbilities' tabIndex={-1}>
+              <h4>Abilities without a linked Concept</h4>
+              {abilityGroups?.withoutConcept.length
+                ? abilityGroups.withoutConcept.map((record) => <AbilityCard key={record.id} onDeleted={refreshContent} onError={onError} onFix={fixSingleAbility} record={record} />)
+                : <p className='noAbility'>No Abilities generated for exercises without a linked Concept.</p>}
+            </section>}
+            {!!abilityGroups?.unmatched.length && <section className='unmatchedAbilities' tabIndex={-1}>
               <h4>Unmatched Abilities</h4>
-              {current.abilities.filter(({ moduleId }) => !current.exercises.some(({ id }) => id !== undefined && moduleId === exerciseAbilityModuleId(bookId, id))).map((record) => <AbilityCard
-                key={record.id}
-                onDeleted={refreshContent}
-                onError={onError}
-                onFix={fixSingleAbility}
-                record={record}
-                                                                                                                                                                           />)}
+              {abilityGroups.unmatched.map((record) => <AbilityCard key={record.id} onDeleted={refreshContent} onError={onError} onFix={fixSingleAbility} record={record} />)}
             </section>}
           </div>
         )}

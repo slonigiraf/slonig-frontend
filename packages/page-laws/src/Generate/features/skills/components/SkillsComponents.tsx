@@ -20,6 +20,7 @@ import { parseStoredAbility, withAbilityVisualSource } from '../../../../abiliti
 import { abilityModuleId, storedAbilityImageId } from '../../../book/application/abilities/abilityProcessing.js';
 import { stripMarkdownImageReferences } from '../../../book/infrastructure/pdf/bookImageRefs.js';
 import { EditForm } from '../SkillsStyles.js';
+import FixingOverlay from '../../../shared/ui/FixingOverlay.js';
 
 const TikzDisplay = React.lazy(() => import('../../../../Edit/TikzDisplay.js'));
 
@@ -207,7 +208,7 @@ export function BookItem ({ description, id, imageDescription, onDelete, onDelet
       .finally(() => setIsFixing(false));
   }, [id, onError, onFix]);
 
-  return <article className='contentCard' tabIndex={-1}>
+  return <article aria-busy={isFixing} className='contentCard' tabIndex={-1}>
     <strong>{rank !== undefined && <span>{rank}. </span>}<SpanWithTags content={title} /></strong>
     {description && <p><SpanWithTags content={description} /></p>}
     {imageDescription && <p><small>Required visual: <SpanWithTags content={imageDescription} /></small></p>}
@@ -232,6 +233,7 @@ export function BookItem ({ description, id, imageDescription, onDelete, onDelet
         onClick={remove}
       />
     </div>
+    {isFixing && <FixingOverlay />}
     {isEditing && <Modal
       header='Edit Exercise'
       onClose={closeEdit}
@@ -433,10 +435,9 @@ export function AbilityCard ({ onDeleted, onError, onFix, record }: { onDeleted:
       .finally(() => setIsFixing(false));
   }, [onError, onFix, record]);
 
-  return <article className='contentCard' tabIndex={-1}>
+  return <article aria-busy={isFixing} className='contentCard' tabIndex={-1}>
     {record.ability
       ? <>
-        <strong><SpanWithTags content={record.ability.h} /></strong>
         <ExerciseList
           areShownInitially
           exercises={record.ability.q}
@@ -464,9 +465,11 @@ export function AbilityCard ({ onDeleted, onError, onFix, record }: { onDeleted:
       />
       <Button
         icon='trash'
+        isDisabled={isFixing || isSaving}
         onClick={remove}
       />
     </div>
+    {isFixing && <FixingOverlay />}
     {isEditing && <Modal
       header='Edit Ability'
       onClose={closeEdit}

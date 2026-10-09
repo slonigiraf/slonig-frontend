@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Modal, Spinner, styled } from '@polkadot/react-components';
-import { getIPFSBytesFromContentID, useIpfsContext } from '@slonigiraf/slonig-components';
-import { fileTypeFromBuffer } from 'file-type';
+import { useIpfsContext } from '@slonigiraf/slonig-components';
+import { getCachedIpfsImageUrl, loadCachedIpfsImageUrl } from './ipfsImageCache.js';
 
 interface Props {
   alt?: string;
@@ -17,49 +17,24 @@ export default function KnowledgeResizableImage ({ alt = 'Image', cid }: Props):
   const { ipfs, isIpfsReady } = useIpfsContext();
   const [isBig, setIsBig] = useState(false);
   const [scale, setScale] = useState(1);
-  const [src, setSrc] = useState<string | null>(null);
+  const [src, setSrc] = useState<string | null>(() => getCachedIpfsImageUrl(cid) ?? null);
   const lastPinchDistance = useRef(0);
 
   useEffect(() => {
     let cancelled = false;
-    let objectUrl: string | undefined;
+    const cached = getCachedIpfsImageUrl(cid);
 
-    const fetchImage = async (): Promise<void> => {
-      try {
-        const bytes = await getIPFSBytesFromContentID(ipfs, cid);
-        const prefix = new TextDecoder('utf-8').decode(bytes.slice(0, 512));
-        const isSvg = /(?:<\?xml[^>]*>\s*)?<svg(?:\s|>)/i.test(prefix.trim());
+    // Reuse the same browser blob URL immediately on a tab switch. Do not
+    // revoke it when the pane unmounts; the bounded shared LRU owns its life.
+    setSrc(cached ?? null);
 
-        let mimeType = 'image/svg+xml';
-
-        if (!isSvg) {
-          const fileType = await fileTypeFromBuffer(bytes);
-          mimeType = fileType?.mime || 'application/octet-stream';
-        }
-
-        objectUrl = URL.createObjectURL(new Blob([bytes], { type: mimeType }));
-
-        if (!cancelled) {
-          setSrc(objectUrl);
-        }
-      } catch (error) {
-        console.error('Error fetching or processing the image from IPFS:', error);
-      }
-    };
-
-    setSrc(null);
-
-    if (isIpfsReady) {
-      void fetchImage();
+    if (isIpfsReady && !cached) {
+      void loadCachedIpfsImageUrl(ipfs, cid)
+        .then((url) => { if (!cancelled) setSrc(url); })
+        .catch((error: unknown) => console.error('Error fetching or processing the image from IPFS:', error));
     }
 
-    return () => {
-      cancelled = true;
-
-      if (objectUrl) {
-        URL.revokeObjectURL(objectUrl);
-      }
-    };
+    return () => { cancelled = true; };
   }, [cid, ipfs, isIpfsReady]);
 
   const close = (): void => {

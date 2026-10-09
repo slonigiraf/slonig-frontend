@@ -9,6 +9,7 @@ import { Button, Dropdown, Input, Modal } from '@polkadot/react-components';
 
 import { type ConceptChapterNavigationItem } from '../../../../book/domain/concepts/conceptRecognition.js';
 import ConceptForm from '../ConceptForm/ConceptForm.js';
+import FixingOverlay from '../../../../shared/ui/FixingOverlay.js';
 import { ConceptItemContainer } from './ConceptItem.styles.js';
 
 function ConceptItem ({ chapterIndex: initialChapterIndex, chapters, concept, conceptNumber, firstPage, onDelete, onFix, onGoToPage, onReorderPointerCancel, onReorderPointerDown, onReorderPointerMove, onReorderPointerUp, onSave }: { chapterIndex: number; chapters: ConceptChapterNavigationItem[]; concept: BookConcept; conceptNumber: number; firstPage?: number; onDelete: (concept: BookConcept) => Promise<void>; onFix: (concept: BookConcept) => Promise<void>; onGoToPage: (pageNumber: number) => void; onReorderPointerCancel?: (event: React.PointerEvent<HTMLLIElement>) => void; onReorderPointerDown?: (event: React.PointerEvent<HTMLLIElement>) => void; onReorderPointerMove?: (event: React.PointerEvent<HTMLLIElement>) => void; onReorderPointerUp?: (event: React.PointerEvent<HTMLLIElement>) => void; onSave: (concept: BookConcept, title: string, description: string, chapterIndex: number) => Promise<void> }): React.ReactElement {
@@ -69,6 +70,7 @@ function ConceptItem ({ chapterIndex: initialChapterIndex, chapters, concept, co
   const canReorder = concept.id !== undefined && !isBusy && !isEditing && !isFixing;
 
   return <ConceptItemContainer
+    aria-busy={isFixing}
     className='conceptItem'
     data-concept-id={concept.id}
     onLostPointerCapture={canReorder ? onReorderPointerCancel : undefined}
@@ -196,6 +198,7 @@ function ConceptItem ({ chapterIndex: initialChapterIndex, chapters, concept, co
       >{concept.manuallyAdded ? `Page ${firstPage}` : `Introduced at page ${firstPage}`}</button>}
     </div>
     {concept.description && <p className='conceptDescription'><SpanWithTags content={concept.description} /></p>}
+    {isFixing && <FixingOverlay />}
   </ConceptItemContainer>;
 }
 
