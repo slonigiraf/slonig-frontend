@@ -129,7 +129,7 @@ export default function SkillsContentView ({ abilitiesOutputRef, allExercises, b
               </React.Fragment>)}</span>
             </div>}
             {abilityGroups?.groups.map(({ abilities, concept }, conceptIndex) => <section
-              className='abilityExerciseCard abilityConceptCard'
+              className={`abilityExerciseCard abilityConceptCard${abilities.length > 0 && abilities.every(({ ability }) => ability?.q.length === 1) ? ' abilityConceptCardSingleExercise' : ''}`}
               data-concept-id={concept.id}
               data-concept-rank={conceptIndex + 1}
               key={`concept-${concept.id ?? conceptIndex}`}

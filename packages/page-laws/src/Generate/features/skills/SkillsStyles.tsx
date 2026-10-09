@@ -503,8 +503,17 @@ export const StyledSkills = styled.div`
   .missingAbilityNavigation { align-items: baseline; display: flex; flex-wrap: wrap; gap: 0.35rem; margin: -0.2rem 0 0.75rem; }
   .missingAbilityLinks button { background: none; border: 0; color: var(--color-primary, #2f6feb); cursor: pointer; font: inherit; padding: 0; text-decoration: underline; }
   .missingAbilityLinks button:hover, .missingAbilityLinks button:focus-visible { text-decoration-thickness: 2px; }
+  /* The Ability exercise grid stops growing at 60rem (two task columns).
+     Size its outer card to that content instead of stretching across the
+     entire Concept panel; narrower screens still use the available width. */
+  .abilityCard { max-width: calc(60rem + 2.125rem); }
+  .abilityCardSingleExercise { max-width: calc(30rem + 2.125rem); }
   .abilityExerciseCard { background: var(--bg-input); border: 1px solid #dde1eb; border-radius: 0.7rem; box-shadow: 0 1px 2px rgba(24, 39, 75, 0.04); box-sizing: border-box; margin-bottom: 1rem; padding: 0.95rem 1rem 1rem; }
   .abilityExerciseCard:focus { outline: none; }
+  /* A Concept wraps its widest Ability plus its own horizontal padding/border.
+     Keep both cards aligned instead of stretching Concepts across the pane. */
+  .abilityConceptCard { max-width: calc(60rem + 4.25rem); }
+  .abilityConceptCardSingleExercise { max-width: calc(30rem + 4.25rem); }
   .abilityConceptCard > h4 { margin: 0 0 0.35rem; }
   .abilityConceptCard > p { margin: 0.35rem 0 0.85rem; }
   .abilityConceptCard .matchedAbilities { margin-top: 0.6rem; }

@@ -427,7 +427,7 @@ export function AbilityCard ({ onDeleted, onError, onFix, record, sourceExercise
       .finally(() => setIsFixing(false));
   }, [onError, onFix, record]);
 
-  return <article aria-busy={isFixing} className='contentCard abilityCard' tabIndex={-1}>
+  return <article aria-busy={isFixing} className={`contentCard abilityCard${record.ability?.q.length === 1 ? ' abilityCardSingleExercise' : ''}`} tabIndex={-1}>
     <div className='contentCardActions'>
       <ItemActionsMenu
         actions={[
