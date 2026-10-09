@@ -35,12 +35,12 @@ const ExerciseVisual: React.FC<{ alt: string; hasCompileError?: boolean; isAbili
 
     if (isTikzCode(value)) {
         return <>
-            {visiblePrompt && <VisualPrompt><strong>{label}:</strong> <SpanWithTags content={visiblePrompt} /></VisualPrompt>}
             <React.Suspense fallback={<small>Loading TikZ renderer…</small>}>
                 {isAbilityInfo
                     ? <TikzVisual alt={alt} hasCompileError={hasCompileError} onCompileStateChange={onCompileStateChange} onSave={onSave} value={value} />
                     : <TikzDisplay alt={alt} hasCompileError={hasCompileError} onCompileStateChange={onCompileStateChange} value={value} />}
             </React.Suspense>
+            {visiblePrompt && <VisualPrompt><strong>{label}:</strong> <SpanWithTags content={visiblePrompt} /></VisualPrompt>}
         </>;
     }
 
@@ -77,6 +77,8 @@ const ExerciseList: React.FC<ExerciseListProps> = ({ exercises, areShownInitiall
     const { logEvent } = useLog();
 
     const exercise = exercises[0];
+    const isAbilityInfo = location === 'ability_info';
+    const ExercisesContainer = isAbilityInfo ? AbilityExercisesGrid : React.Fragment;
 
     const toggleAreAnswersShown = useCallback(() => {
         if (!areAnswersShown) {
@@ -101,7 +103,7 @@ const ExerciseList: React.FC<ExerciseListProps> = ({ exercises, areShownInitiall
                 </div>
             </div>
             :
-            <>
+            <ExercisesContainer>
                 {exercises.map((exercise, index) => (
                     <div className='ui--row' key={index}
                         style={{
@@ -115,15 +117,15 @@ const ExerciseList: React.FC<ExerciseListProps> = ({ exercises, areShownInitiall
                                 {(exercise.p || (location === 'ability_info' && (exercise as AbilityExerciseWithPrompts).pPrompt)) && <ExerciseDetails><ExerciseVisual alt='Question' hasCompileError={(exercise as AbilityExerciseWithPrompts).pError === true} isAbilityInfo={location === 'ability_info'} label='Question visual prompt' onCompileStateChange={onAbilityVisualErrorChange ? (hasError, renderedValue) => onAbilityVisualErrorChange(index, 'p', hasError, renderedValue) : undefined} onSave={onAbilityVisualSave ? (value) => onAbilityVisualSave(index, 'p', value) : undefined} prompt={(exercise as AbilityExerciseWithPrompts).pPrompt} value={exercise.p} /></ExerciseDetails>}
                             </div>
 
-                            {location !== 'example_exercises' && <Answer>
-                                <span>
+                            {location !== 'example_exercises' && <Answer className={isAbilityInfo ? 'abilityAnswer' : undefined}>
+                                {!isAbilityInfo && <span>
                                     <Button
                                         icon={areAnswersShown ? 'eye-slash' : 'eye'}
                                         onClick={toggleAreAnswersShown}
                                         label={areAnswersShown ? t('Solution') : t('See the solution')}
                                     />
-                                </span>
-                                {areAnswersShown && (
+                                </span>}
+                                {(isAbilityInfo || areAnswersShown) && (
                                     <>
                                         <SpanWithTags content={exercise.a} />
                                         {(exercise.i || (location === 'ability_info' && (exercise as AbilityExerciseWithPrompts).iPrompt)) && <ExerciseVisual alt='Solution' hasCompileError={(exercise as AbilityExerciseWithPrompts).iError === true} isAbilityInfo={location === 'ability_info'} label='Answer visual prompt' onCompileStateChange={onAbilityVisualErrorChange ? (hasError, renderedValue) => onAbilityVisualErrorChange(index, 'i', hasError, renderedValue) : undefined} onSave={onAbilityVisualSave ? (value) => onAbilityVisualSave(index, 'i', value) : undefined} prompt={(exercise as AbilityExerciseWithPrompts).iPrompt} value={exercise.i} />}
@@ -133,9 +135,26 @@ const ExerciseList: React.FC<ExerciseListProps> = ({ exercises, areShownInitiall
                         </div>
                     </div>
                 ))}
-            </>
+            </ExercisesContainer>
     );
 }
+
+const AbilityExercisesGrid = styled.div`
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 21rem), 1fr));
+  max-width: 60rem;
+
+  > .ui--row {
+    align-items: flex-start !important;
+    border: 1px solid var(--border-table);
+    border-radius: 0.4rem;
+    box-sizing: border-box;
+    margin-bottom: 0 !important;
+    overflow-wrap: anywhere;
+    padding: 0.75rem;
+  }
+`;
 
 const ExerciseDetails = styled.div`
   display: flex;
@@ -152,5 +171,11 @@ const Answer = styled.div`
   flex-direction: column;
   align-items: left;
   padding-left: 0.75rem;
+
+  &.abilityAnswer {
+    border-left: 3px solid var(--border-table);
+    margin-top: 0.75rem;
+    padding-left: 1rem;
+  }
 `;
 export default ExerciseList;

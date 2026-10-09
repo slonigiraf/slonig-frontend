@@ -435,21 +435,7 @@ export function AbilityCard ({ onDeleted, onError, onFix, record }: { onDeleted:
       .finally(() => setIsFixing(false));
   }, [onError, onFix, record]);
 
-  return <article aria-busy={isFixing} className='contentCard' tabIndex={-1}>
-    {record.ability
-      ? <>
-        <ExerciseList
-          areShownInitially
-          exercises={record.ability.q}
-          location='ability_info'
-          onAbilityVisualErrorChange={saveVisualError}
-          onAbilityVisualSave={saveVisual}
-        />
-      </>
-      : <>
-        <strong>Invalid Ability JSON</strong>
-        <p>This record can be repaired with Fix abilities.</p>
-      </>}
+  return <article aria-busy={isFixing} className='contentCard abilityCard' tabIndex={-1}>
     <div className='contentCardActions'>
       <Button
         icon='robot'
@@ -469,6 +455,20 @@ export function AbilityCard ({ onDeleted, onError, onFix, record }: { onDeleted:
         onClick={remove}
       />
     </div>
+    {record.ability
+      ? <>
+        <ExerciseList
+          areShownInitially
+          exercises={record.ability.q}
+          location='ability_info'
+          onAbilityVisualErrorChange={saveVisualError}
+          onAbilityVisualSave={saveVisual}
+        />
+      </>
+      : <>
+        <strong>Invalid Ability JSON</strong>
+        <p>This record can be repaired with Fix abilities.</p>
+      </>}
     {isFixing && <FixingOverlay />}
     {isEditing && <Modal
       header='Edit Ability'

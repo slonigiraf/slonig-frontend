@@ -472,6 +472,8 @@ export const StyledSkills = styled.div`
   .columns > section, .singlePane { border: 1px solid var(--border-table); border-radius: 0.4rem; min-width: 0; overflow: auto; padding: 1rem; }
   .contentCard { border-bottom: 1px solid var(--border-table); box-sizing: border-box; min-width: 0; padding: 0.75rem 16rem 0.75rem 10px; position: relative; }
   .contentCard > .ui--Button { position: absolute; right: 10px; top: 10px; }
+  .abilityCard { padding: 0.85rem 1rem 1rem; }
+  .abilityCard .contentCardActions { margin-bottom: 0.75rem; max-width: none; position: static; }
   .contentCardActions { align-items: center; display: flex; flex-wrap: wrap; gap: 0.35rem; justify-content: flex-end; max-width: 15rem; position: absolute; right: 10px; top: 10px; }
   .contentCard > strong { display: block; overflow-wrap: anywhere; }
   .fixReviewList { max-height: 60vh; overflow: auto; }

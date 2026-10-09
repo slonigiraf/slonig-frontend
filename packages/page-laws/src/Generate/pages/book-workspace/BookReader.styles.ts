@@ -528,6 +528,12 @@ export const StyledReader = styled.div`
     margin: 0.25rem 0 0;
   }
 
+  .exerciseList {
+    list-style: none;
+    margin: 0.8rem 0 0;
+    padding: 0;
+  }
+
   .conceptList {
     display: grid;
     gap: 0.8rem;

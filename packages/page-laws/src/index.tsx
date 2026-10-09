@@ -4,7 +4,8 @@
 import type { AppProps as Props } from '@polkadot/react-components/types';
 import type { ExerciseListLocation } from './Edit/ExerciseList.js';
 
-import { useDeveloperSetting } from '@slonigiraf/slonig-components';
+import { SettingKey } from '@slonigiraf/db';
+import { useSettingValue } from '@slonigiraf/slonig-components';
 import React, { useMemo, useRef } from 'react';
 import { Route, Routes } from 'react-router';
 
@@ -22,7 +23,10 @@ export { ExerciseList, type ExerciseListLocation, ItemLabel, useCounter };
 
 function LawsApp ({ basePath, onStatusChange }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
-  const isDeveloper = useDeveloperSetting();
+  // The developer setting is loaded asynchronously. Do not mount Tabs while it
+  // is unknown: Tabs redirects hidden subroutes to /knowledge on mount.
+  const developerSetting = useSettingValue(SettingKey.DEVELOPER);
+  const isDeveloper = developerSetting === 'true';
 
   const tabsRef = useRef([
     {
@@ -49,11 +53,11 @@ function LawsApp ({ basePath, onStatusChange }: Props): React.ReactElement<Props
 
   return (
     <main className='laws--App'>
-      <Tabs
+      {developerSetting !== null && <Tabs
         basePath={basePath}
         hidden={hidden}
         items={tabsRef.current}
-      />
+      />}
       <Routes>
         <Route path={basePath}>
           {isDeveloper && (

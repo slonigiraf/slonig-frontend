@@ -774,12 +774,12 @@ export function BookReaderView ({ controller }: Props): React.ReactElement {
               >
                 <h4><span className='conceptExerciseRank'>{conceptIndex + 1}.</span> <SpanWithTags content={concept.title} /></h4>
                 {concept.description && <p><SpanWithTags content={concept.description} /></p>}
-                {generated.length ? <ul>{generated.map(exerciseItem)}</ul> : <p className='emptyOutput'>No generated exercises for this concept.</p>}
+                {generated.length ? <ul className='exerciseList'>{generated.map(exerciseItem)}</ul> : <p className='emptyOutput'>No generated exercises for this concept.</p>}
               </section>;
             })}
             {!!generatedWithoutConcept.length && <section className='conceptExerciseGroup exerciseConceptCard'>
               <h4>Other generated exercises</h4>
-              <ul>{generatedWithoutConcept.map(exerciseItem)}</ul>
+              <ul className='exerciseList'>{generatedWithoutConcept.map(exerciseItem)}</ul>
             </section>}
           </>}
       </div>

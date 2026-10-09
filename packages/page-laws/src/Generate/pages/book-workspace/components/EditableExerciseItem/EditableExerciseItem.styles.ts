@@ -6,6 +6,7 @@ import { styled } from '@polkadot/react-components';
 const ExerciseItemContainer = styled.li`
   border-bottom: 1px solid var(--border-table);
   box-sizing: border-box;
+  list-style: none;
   min-height: 4rem;
   padding: 0.75rem 16rem 0.75rem 0.65rem;
   position: relative;
