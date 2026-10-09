@@ -6,7 +6,7 @@ import type { GeneratedAbility } from '../../../abilities/abilities.js';
 import type { AbilityWorkflowJsonRunner, ExerciseAbilityConversion } from '../../book/domain/abilities/abilityWorkflow.js';
 import type { AiAction, BookPageContent, ChapterContent, DuplicateAbilityReview, DuplicateExerciseReview, ExerciseFixReviewResult, FixedImageReview, FixReviewResult, ImageFixReviewResult, PipelineAction, SkillSource, SkillsProps, SkillsView } from './SkillsTypes.js';
 
-import { addBookStageSpend, completeBookProcessingStage, deleteAbilities, deleteAbility, deleteBookConcept, deleteExercise, getAbilities, getBookChapters, getBookCompletedStages, getBookConceptsForBookPage, getBookPages, getExercisesForBookPage, getSetting, getSkillsForChapter, getImage, hydrateAbilityContent, putImage, replaceAbilities, replaceExercisesForBookPage, replaceSkillsForChapter, resetBookProcessingStagesFrom, SettingKey, storeAbility, uncompleteBookProcessingStage } from '@slonigiraf/db';
+import { addBookStageSpend, completeBookProcessingStage, deleteAbilities, deleteAbility, deleteBookConcept, deleteExercise, getAbilities, getBookChapters, getBookCompletedStages, getBookConceptsForBookPage, getBookPages, getExercisesForBookPage, getSetting, getSkillsForChapter, getImage, hydrateAbilityContent, putImage, replaceAbilities, replaceExercisesForConcept, replaceExercisesForBookPage, replaceSkillsForChapter, resetBookProcessingStagesFrom, SettingKey, storeAbility, uncompleteBookProcessingStage } from '@slonigiraf/db';
 import OpenAI from 'openai';
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 
@@ -16,6 +16,9 @@ import { shouldSkipStoredTikzCompile } from '../../../Edit/tikzValidation.js';
 import { parseStoredAbility } from '../../../abilities/abilities.js';
 import { buildAbilityEmbeddingValidationHints } from '../../book/application/abilities/abilityEmbeddingValidation.js';
 import { parseExerciseRepairResult } from '../../book/domain/exercises/exercises.js';
+import { processExtractedChapterContent } from '../../book/application/processing/bookProcessing.js';
+import { bookLanguageLabel } from '../../book/domain/metadata/bookLanguage.js';
+import { conceptRedoStagesFrom, type ConceptRedoStage } from './conceptRedoStages.js';
 import { addBookExternalCall } from '../../book/infrastructure/storage/bookExternalCalls.js';
 import { estimateAiInput } from '../../book/application/pricing/aiEstimate.js';
 import { DEFAULT_PROCESSING_MODEL, DEFAULT_STANDARDS_EMBEDDER } from '../../book/application/config.js';
@@ -87,6 +90,154 @@ async function preRenderStoredTikz (imageId: number, value: string, forceCompile
   return result;
 }
 
+async function reviewConceptImage (target: ImageFixTarget, client: OpenAI, model: string, language: string, age: number | undefined, onCost: (cost: number) => void, signal: AbortSignal): Promise<{ renderFailure: boolean; item?: FixedImageReview }> {
+  const originalPreRender = await preRenderStoredTikz(target.imageId, target.originalTikz, true);
+  const regenerateFromSpecification = async (errors: string[]): Promise<TikzAiReview> => {
+    const role = target.field === 'p' ? 'question' : 'solution';
+    const visualPrompt = target.prompt || `Create the required ${role} visual for this exercise from the exercise text and correct answer. Preserve only information appropriate for a ${role} visual.`;
+    const content = await requestChatContent(
+      client,
+      model,
+      'You regenerate educational diagrams as compact, browser-renderable TikZ. Return only one TikZ picture block.',
+      tikzRequestPrompt(language, target.ability, target.exerciseIndex, target.field, visualPrompt, age),
+      false,
+      onCost,
+      4_000,
+      signal
+    );
+    const tikz = cleanTikzResponse(content);
+
+    if (tikz.trim() === target.originalTikz.trim()) {
+      throw new Error(`TikZ regeneration for ${target.ability.h}, exercise ${target.exerciseIndex + 1} ${role} visual returned the unchanged rejected source.`);
+    }
+
+    return {
+      errors: Array.from(new Set([...errors, 'Regenerated TikZ from the original visual specification after repair attempts did not produce a usable source.'])),
+      hasErrors: true,
+      tikz
+    };
+  };
+
+  const review = await requestValidatedJson(
+    client,
+    model,
+    'You are a strict educational diagram QA reviewer and TikZ repair expert. Return only the requested JSON object.',
+    tikzFixReviewPrompt(language, target, originalPreRender, age),
+    parseTikzAiReview,
+    true,
+    onCost,
+    TIKZ_REVIEW_MAX_OUTPUT_TOKENS,
+    undefined,
+    2,
+    signal
+  );
+  let effectiveReview: TikzAiReview = review;
+
+  // Compilation is a hard local invariant. The AI is not allowed to mark
+  // a diagram error-free when the real browser renderer rejected it.
+  if (!originalPreRender.compiled && !effectiveReview.hasErrors) {
+    effectiveReview = {
+      errors: ['TikZ Editor pre-render failed; the TikZ must be repaired before this visual can be accepted.'],
+      hasErrors: true,
+      tikz: effectiveReview.tikz
+    };
+  }
+
+  if (effectiveReview.hasErrors && effectiveReview.tikz.trim() === target.originalTikz.trim()) {
+    effectiveReview = await requestValidatedJson(
+      client,
+      model,
+      'You must apply the TikZ corrections you identified. Return only the requested JSON object.',
+      tikzDetectedProblemsRepairPrompt(language, target, effectiveReview, originalPreRender, age),
+      parseTikzAiReview,
+      true,
+      onCost,
+      TIKZ_REVIEW_MAX_OUTPUT_TOKENS,
+      undefined,
+      2,
+      signal
+    );
+
+    if (!effectiveReview.hasErrors || effectiveReview.tikz.trim() === target.originalTikz.trim()) {
+      effectiveReview = await regenerateFromSpecification(review.errors);
+    }
+  }
+
+  let fixedPreRender = effectiveReview.hasErrors
+    ? await preRenderTikzLazy(effectiveReview.tikz)
+    : originalPreRender;
+
+  // Re-feed real renderer diagnostics to the model until the proposed
+  // correction renders. This is the second guard after semantic/layout QA.
+  for (let repairAttempt = 0; effectiveReview.hasErrors && !fixedPreRender.compiled && repairAttempt < 2; repairAttempt++) {
+    const previousErrors = effectiveReview.errors;
+    const rejectedTikz = effectiveReview.tikz;
+    const repaired = await requestValidatedJson(
+      client,
+      model,
+      'You repair rejected TikZ using real TikZ Editor pre-render diagnostics. Return only the requested JSON object.',
+      tikzCompileRepairPrompt(language, target, effectiveReview, fixedPreRender, age),
+      parseTikzAiReview,
+      true,
+      onCost,
+      TIKZ_REVIEW_MAX_OUTPUT_TOKENS,
+      undefined,
+      2,
+      signal
+    );
+
+    effectiveReview = repaired.hasErrors
+      ? repaired
+      : { errors: previousErrors.length ? previousErrors : ['TikZ Editor pre-render failure was repaired.'], hasErrors: true, tikz: repaired.tikz };
+
+    if (effectiveReview.tikz === rejectedTikz) {
+      if (fixedPreRender.retryable) {
+        // The source did not change, but the renderer failure was transient.
+        // A fresh renderer instance is meaningful here and must not be skipped.
+        fixedPreRender = await preRenderTikzLazy(effectiveReview.tikz);
+      } else {
+        effectiveReview = await regenerateFromSpecification([
+          ...previousErrors,
+          ...fixedPreRender.diagnostics.map((diagnostic) => `Renderer: ${diagnostic}`)
+        ]);
+        fixedPreRender = await preRenderTikzLazy(effectiveReview.tikz);
+      }
+    } else {
+      fixedPreRender = await preRenderTikzLazy(effectiveReview.tikz);
+    }
+  }
+
+  if (effectiveReview.hasErrors && !fixedPreRender.compiled) {
+    const details = fixedPreRender.diagnostics.slice(-6).join(' | ');
+    const reason = fixedPreRender.retryable
+      ? 'TikZ Editor remained temporarily unavailable after automatic renderer retries.'
+      : 'The regenerated/repaired TikZ still did not compile.';
+
+    throw new Error(`Unable to produce renderable TikZ for ${target.ability.h}, exercise ${target.exerciseIndex + 1} ${target.field === 'p' ? 'question' : 'solution'} visual. ${reason}${details ? ` ${details}` : ''}`);
+  }
+
+  const changed = effectiveReview.tikz.trim() !== target.originalTikz.trim();
+
+  return {
+    renderFailure: !originalPreRender.compiled,
+    ...(effectiveReview.hasErrors && changed
+      ? {
+        item: {
+          errors: effectiveReview.errors,
+          exerciseIndex: target.exerciseIndex,
+          field: target.field,
+          imageId: target.imageId,
+          fixedPreRender,
+          fixedTikz: effectiveReview.tikz,
+          originalPreRender,
+          originalTikz: target.originalTikz,
+          prompt: target.prompt,
+          record: target.record
+        }
+      }
+      : {})
+  };
+}
 const BATCH_SIZE = 5;
 const FIX_EXERCISES_STAGE: BookProcessingStageKey = 'fixExercises';
 const ABILITIES_STAGE: BookProcessingStageKey = 'abilities';
@@ -531,46 +682,6 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
     setNotice('Exercise fixed with AI. Existing Abilities were kept linked to the edited Exercise.');
   }, [addFixExercisesCost, book.age, chapterContent, conceptsById, createClient, effectiveModel, language, saveExercise]);
 
-  const fixSingleAbility = useCallback(async (record: StoredAbility): Promise<void> => {
-    const chapterRow = chapterContent.find(({ abilities }) => abilities.some(({ id }) => id === record.id));
-
-    if (!chapterRow) {
-      throw new Error('Unable to find this Ability in its chapter.');
-    }
-
-    const client = await createClient();
-    const systemPrompt = REPAIR_SYSTEM_PROMPT(language, book.age);
-    const result = await requestAbilityRepairResult(
-      client, effectiveModel, systemPrompt,
-      abilityRepairInput(language, [record], chapterRow.chapter.title, book.age, undefined, exercisesByModuleId, conceptsById),
-      [record], addFixAbilitiesCost
-    );
-
-    if (result.unresolvedReviews?.length) {
-      setNotice(`AI identified an Ability problem but could not produce a valid change: ${result.unresolvedReviews[0].errors.join('; ')}. The existing Ability was not modified. Use Fix images for a visual-only problem.`);
-      return;
-    }
-    const review = result.reviews.find(({ index }) => index === 0);
-
-    const sourceExercise = exercisesByModuleId.get(record.moduleId);
-    const corrected = record.ability && abilityWithConceptTitle(review?.ability ?? record.ability, sourceExercise, conceptsById);
-
-    if (!corrected || (!review?.hasErrors && corrected.h === record.ability?.h)) {
-      setNotice('AI review found no Ability changes to apply.');
-      return;
-    }
-
-    const validated = parseStoredAbility(JSON.stringify(corrected));
-    const newRecordId = await storeAbility(record.moduleId, JSON.stringify(validated), record.displayOrder);
-
-    if (newRecordId !== record.id) {
-      await deleteAbility(record.id);
-    }
-
-    setNotice('Ability fixed with AI.');
-    refreshContent();
-  }, [addFixAbilitiesCost, book.age, chapterContent, conceptsById, createClient, effectiveModel, exercisesByModuleId, language, refreshContent]);
-
   const deleteConceptWithExercises = useCallback(async (conceptId: number): Promise<void> => {
     const referencedExercises = allExercises.filter(({ conceptId: exerciseConceptId, id }) => id !== undefined && exerciseConceptId === conceptId);
 
@@ -621,6 +732,222 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
 
     return () => onAutoRunAbortReady?.(undefined);
   }, [abortProcessing, autoRunAll, onAutoRunAbortReady]);
+
+  // The Ability card replays a local slice of the book pipeline, never its
+  // chapter-wide actions. Re-read the freshly persisted rows between stages:
+  // replacement can change Exercise/Ability IDs and Image references.
+  const redoConceptFromStage = useCallback(async (record: StoredAbility, start: ConceptRedoStage): Promise<void> => {
+    if (processingAbortControllerRef.current) {
+      throw new Error('Another AI operation is currently running.');
+    }
+
+    const sourceExercise = exercisesByModuleId.get(record.moduleId);
+    const conceptId = sourceExercise?.conceptId;
+    const chapterRow = conceptId === undefined ? undefined : chapterContent.find(({ concepts }) => concepts.some(({ id }) => id === conceptId));
+    const concept = chapterRow?.concepts.find(({ id }) => id === conceptId);
+
+    if (!concept || conceptId === undefined || !chapterRow) {
+      throw new Error('This Ability has no linked Concept. Link it to a Concept before regenerating.');
+    }
+
+    if (!language || !book.subject) {
+      throw new Error('Book language and subject must be configured before regenerating a Concept.');
+    }
+
+    const stages = conceptRedoStagesFrom(start);
+    const signal = beginProgress(`Regenerating Concept: ${concept.title}`, stages.length, start);
+    const conceptMap = new Map([[conceptId, concept]]);
+    let conceptExercises = chapterRow.exercises.filter(({ conceptId: id }) => id === conceptId);
+
+    const readAbilities = async (): Promise<StoredAbility[]> => {
+      const records = (await Promise.all(conceptExercises.map(async ({ id }) => id === undefined ? [] : getAbilities(exerciseAbilityModuleId(book.id, id))))).flat();
+
+      return Promise.all(records.map(async ({ id, content, displayOrder, moduleId }): Promise<StoredAbility> => {
+        const hydrated = await hydrateAbilityContent(content);
+
+        return { ability: parseStoredAbility(hydrated), content, displayOrder, id, moduleId };
+      }));
+    };
+
+    try {
+      const client = await createClient();
+
+      for (const [stageIndex, stage] of stages.entries()) {
+        if (signal.aborted) throw new Error('Concept regeneration was cancelled.');
+        setProcessingStage(stage);
+        setProgress(stageIndex);
+        setProgressLabel(`${stageIndex + 1}/${stages.length}: ${stage} — ${concept.title}`);
+
+        if (stage === 'exercises') {
+          const processed = await processExtractedChapterContent({
+            chapter: chapterRow.chapter.title,
+            pages: [{ concepts: [{ description: concept.description, sourceId: conceptId, title: concept.title }], pageNumber: concept.bookPage[1] }]
+          }, (prompt) => requestChatContent(client, effectiveModel, '', prompt, true, (cost) => addStageCost('exercises', cost), 3_500, signal), bookLanguageLabel(language), book.age);
+          const generated = processed.pages.flatMap(({ exercises }) => exercises).filter(({ conceptIndex }) => conceptIndex === 0);
+
+          if (generated.length !== 1) throw new Error('AI did not generate one valid Exercise for this Concept. Existing Exercises were not replaced.');
+          const exercise = generated[0];
+
+          if (signal.aborted) throw new Error('Concept regeneration was cancelled.');
+          conceptExercises = await replaceExercisesForConcept([book.id, concept.bookPage[1]], conceptId, [{
+            description: stripMarkdownImageReferences(exercise.description),
+            displayOrder: concept.displayOrder,
+            imageDescription: exercise.imageDescription,
+            solution: exercise.solution,
+            solutionImageDescription: exercise.solutionImageDescription,
+            source: 'generated',
+            title: concept.title
+          }]);
+        }
+
+        if (stage === 'fixExercises') {
+          if (!conceptExercises.length || conceptExercises.some(({ id }) => id === undefined)) throw new Error('No stored Exercises exist for this Concept. Start from Create Exercise.');
+          const result = await requestValidatedJson(
+            client, effectiveModel, REPAIR_SYSTEM_PROMPT(language, book.age),
+            FIX_EXERCISES_REQUEST_PROMPT(exerciseRepairInput(language, conceptExercises, chapterRow.chapter.title, book.age, conceptMap)),
+            (content) => parseExerciseRepairResult(content, conceptExercises, conceptExercises.map(({ id }) => id as number)),
+            true, addFixExercisesCost, undefined, undefined, 2, signal
+          );
+          const deletedIds = new Set(result.duplicatePairs.map(({ deletedExerciseId }) => deletedExerciseId));
+          const corrected = conceptExercises.filter(({ id }) => id === undefined || !deletedIds.has(id)).map((exercise) => {
+            const review = result.reviews.find(({ index: reviewIndex }) => reviewIndex === conceptExercises.indexOf(exercise));
+
+            return exerciseWithConceptTitle(review?.exercise ?? exercise, conceptMap);
+          });
+
+          if (!corrected.length) throw new Error('Exercise repair attempted to remove every Exercise for this Concept. Nothing was replaced.');
+          if (deletedIds.size || corrected.some((exercise, index) => JSON.stringify(exercise) !== JSON.stringify(conceptExercises[index]))) {
+            if (signal.aborted) throw new Error('Concept regeneration was cancelled.');
+            conceptExercises = await replaceExercisesForConcept([book.id, concept.bookPage[1]], conceptId, corrected.map(exerciseForPageReplacement));
+          }
+        }
+
+        if (stage === 'abilities') {
+          if (!conceptExercises.length || conceptExercises.some(({ id }) => id === undefined)) throw new Error('No stored Exercises exist for this Concept. Start from Create Exercise.');
+          const generated = await mapConcurrent(conceptExercises, OPENROUTER_CONCURRENCY, async (exercise) => {
+            const systemPrompt = ABILITY_WORKFLOW_SYSTEM_PROMPT(language, chapterRow.chapter.title, book.age);
+            const runJson: AbilityWorkflowJsonRunner = (prompt, parse, options) => requestValidatedJson(
+              client, effectiveModel, systemPrompt, prompt, parse, true, addAbilitiesCost,
+              options?.maxOutputTokens, options?.repairContext, options?.validationCycles ?? 1, signal
+            );
+            const conversions = await generateExerciseAbility(language, chapterRow.chapter.title, exercise, runJson, concept);
+
+            if (conversions.length !== 1) throw new Error(`Unable to create exactly one Ability for Exercise ${exercise.id}.`);
+
+            return { exerciseId: exercise.id as number, contents: conversions.map((conversion) => JSON.stringify(abilityWithImageDescriptions(conversion))) };
+          });
+
+          for (const { contents, exerciseId } of generated) {
+            if (signal.aborted) throw new Error('Concept regeneration was cancelled.');
+            await replaceAbilities(exerciseAbilityModuleId(book.id, exerciseId), contents);
+          }
+        }
+
+        if (stage === 'fixAbilities') {
+          const records = await readAbilities();
+
+          if (!records.length || records.some(({ ability }) => !ability)) throw new Error('No valid Ability exists for this Concept. Start from Create Ability.');
+          const moduleExercises = new Map(conceptExercises.flatMap((exercise) => exercise.id === undefined ? [] : [[exerciseAbilityModuleId(book.id, exercise.id), exercise] as const]));
+          const result = await requestAbilityRepairResult(
+            client, effectiveModel, REPAIR_SYSTEM_PROMPT(language, book.age),
+            abilityRepairInput(language, records, chapterRow.chapter.title, book.age, undefined, moduleExercises, conceptMap),
+            records, addFixAbilitiesCost, signal
+          );
+
+          if (result.unresolvedReviews?.length) throw new Error(`AI could not repair this Concept's Ability: ${result.unresolvedReviews[0].errors.join('; ')}`);
+          const duplicateIds = new Set(result.duplicatePairs.map(({ deletedAbilityId }) => deletedAbilityId));
+          const fixed = records.flatMap((row, index) => {
+            if (duplicateIds.has(row.id)) return [];
+            const replacement = result.reviews.find(({ index: reviewIndex }) => reviewIndex === index)?.ability;
+            const fixedAbility = abilityWithConceptTitle(replacement ?? row.ability as GeneratedAbility, moduleExercises.get(row.moduleId), conceptMap);
+            const validated = parseStoredAbility(JSON.stringify(fixedAbility));
+
+            if (!validated) throw new Error('Ability repair returned an invalid replacement. Nothing was saved.');
+
+            return [{ content: JSON.stringify(validated), moduleId: row.moduleId }];
+          });
+
+          for (const exercise of conceptExercises) {
+            const moduleId = exerciseAbilityModuleId(book.id, exercise.id as number);
+            const contents = fixed.filter((item) => item.moduleId === moduleId).map(({ content }) => content);
+
+            if (!contents.length) throw new Error('Ability repair removed the last Ability for an Exercise. Nothing was replaced.');
+            // Always rewrite visuals from their semantic prompts. This creates
+            // new Image rows, even when AI only corrected Ability text.
+            if (signal.aborted) throw new Error('Concept regeneration was cancelled.');
+            await replaceAbilities(moduleId, contents);
+          }
+        }
+
+        if (stage === 'images') {
+          const records = await readAbilities();
+
+          if (!records.length || records.some(({ ability }) => !ability)) throw new Error('No valid Ability exists for this Concept. Start from Create Ability.');
+          const targets = records.flatMap((row) => (row.ability as GeneratedAbility).q.flatMap((exercise, exerciseIndex) => (['p', 'i'] as const).flatMap((field) => {
+            const imageId = storedAbilityImageId(row, exerciseIndex, field);
+            const promptField = field === 'p' ? 'pPrompt' : 'iPrompt';
+            const visualPrompt = exercise[promptField]?.trim() || (!isTikzCode(exercise[field]) ? exercise[field].trim() : '');
+
+            return imageId !== undefined && visualPrompt ? [{ ability: row.ability as GeneratedAbility, exerciseIndex, field, imageId, visualPrompt }] : [];
+          })));
+          await mapConcurrent(targets, OPENROUTER_CONCURRENCY, async ({ ability, exerciseIndex, field, imageId, visualPrompt }) => {
+            const response = await requestChatContentWithTruncationRetry(
+              client, effectiveModel,
+              'You convert precise educational visual specifications into valid, compact TikZ code. Follow the requested output contract exactly.',
+              tikzRequestPrompt(language, ability, exerciseIndex, field, visualPrompt, book.age),
+              false, addImagesCost, 2_400, signal
+            );
+            if (signal.aborted) throw new Error('Concept regeneration was cancelled.');
+            const image = await getImage(imageId);
+            const tikz = cleanTikzResponse(response);
+
+            if (!image) throw new Error(`Image ${imageId} was not found.`);
+            if (!isTikzCode(tikz)) throw new Error(`Image generation did not produce TikZ for this Concept (${field} visual).`);
+            await putImage({ ...image, data: tikz, prompt: visualPrompt, type: 'tikz', valid: undefined });
+          });
+        }
+
+        if (stage === 'fixImages') {
+          const records = await readAbilities();
+          const targets: ImageFixTarget[] = records.flatMap((row) => row.ability
+            ? row.ability.q.flatMap((exercise, exerciseIndex) => (['p', 'i'] as const).flatMap((field) => {
+              const imageId = storedAbilityImageId(row, exerciseIndex, field);
+              const tikz = exercise[field];
+              const promptField = field === 'p' ? 'pPrompt' : 'iPrompt';
+
+              return imageId !== undefined && isTikzCode(tikz) ? [{ ability: row.ability as GeneratedAbility, exerciseIndex, field, imageId, originalTikz: tikz, prompt: exercise[promptField]?.trim() ?? '', record: row }] : [];
+            }))
+            : []);
+          if (records.some((row) => row.ability?.q.some((exercise, index) => (['p', 'i'] as const).some((field) => {
+            const promptField = field === 'p' ? 'pPrompt' : 'iPrompt';
+
+            return exercise[promptField]?.trim() && (!isTikzCode(exercise[field]) || storedAbilityImageId(row, index, field) === undefined);
+          })))) throw new Error('Some visuals have not been generated yet. Start from Generate Images.');
+          await mapConcurrent(targets, TIKZ_RENDER_CONCURRENCY, async (target) => {
+            const review = await reviewConceptImage(target, client, effectiveModel, language, book.age, addFixImagesCost, signal);
+
+            if (signal.aborted) throw new Error('Concept regeneration was cancelled.');
+            if (review.item) {
+              const image = await getImage(review.item.imageId);
+
+              if (!image) throw new Error(`Image ${review.item.imageId} was not found.`);
+              await putImage({ ...image, data: review.item.fixedTikz, prompt: review.item.prompt || image.prompt, type: 'tikz', valid: true });
+            }
+          });
+        }
+
+        setProgress(stageIndex + 1);
+      }
+
+      setNotice(`Regenerated Concept “${concept.title}” from ${start} through Fix Images. Other Concepts were not changed.`);
+    } finally {
+      try {
+        refreshContent();
+      } finally {
+        endProgress();
+      }
+    }
+  }, [addAbilitiesCost, addFixAbilitiesCost, addFixExercisesCost, addFixImagesCost, addImagesCost, addStageCost, beginProgress, book.age, book.id, book.subject, chapterContent, conceptsById, createClient, effectiveModel, endProgress, exercisesByModuleId, language, refreshContent]);
 
   const generateSkills = useCallback(async (): Promise<void> => {
     const signal = beginProgress('Generating Skills', skillSources.length);
@@ -1301,155 +1628,12 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
       let completed = 0;
 
       const reviewResults = await mapConcurrent(imageFixTargets, TIKZ_RENDER_CONCURRENCY, async (target): Promise<{ renderFailure: boolean; item?: FixedImageReview }> => {
-        const originalPreRender = await preRenderStoredTikz(target.imageId, target.originalTikz, true);
-        const regenerateFromSpecification = async (errors: string[]): Promise<TikzAiReview> => {
-          const role = target.field === 'p' ? 'question' : 'solution';
-          const visualPrompt = target.prompt || `Create the required ${role} visual for this exercise from the exercise text and correct answer. Preserve only information appropriate for a ${role} visual.`;
-          const content = await requestChatContent(
-            client,
-            effectiveModel,
-            'You regenerate educational diagrams as compact, browser-renderable TikZ. Return only one TikZ picture block.',
-            tikzRequestPrompt(language, target.ability, target.exerciseIndex, target.field, visualPrompt, book.age),
-            false,
-            addFixImagesCost,
-            4_000,
-            signal
-          );
-          const tikz = cleanTikzResponse(content);
-
-          if (tikz.trim() === target.originalTikz.trim()) {
-            throw new Error(`TikZ regeneration for ${target.ability.h}, exercise ${target.exerciseIndex + 1} ${role} visual returned the unchanged rejected source.`);
-          }
-
-          return {
-            errors: Array.from(new Set([...errors, 'Regenerated TikZ from the original visual specification after repair attempts did not produce a usable source.'])),
-            hasErrors: true,
-            tikz
-          };
-        };
-
-        const review = await requestValidatedJson(
-          client,
-          effectiveModel,
-          'You are a strict educational diagram QA reviewer and TikZ repair expert. Return only the requested JSON object.',
-          tikzFixReviewPrompt(language, target, originalPreRender, book.age),
-          parseTikzAiReview,
-          true,
-          addFixImagesCost,
-          TIKZ_REVIEW_MAX_OUTPUT_TOKENS,
-          undefined,
-          2,
-          signal
-        );
-        let effectiveReview: TikzAiReview = review;
-
-        // Compilation is a hard local invariant. The AI is not allowed to mark
-        // a diagram error-free when the real browser renderer rejected it.
-        if (!originalPreRender.compiled && !effectiveReview.hasErrors) {
-          effectiveReview = {
-            errors: ['TikZ Editor pre-render failed; the TikZ must be repaired before this visual can be accepted.'],
-            hasErrors: true,
-            tikz: effectiveReview.tikz
-          };
-        }
-
-        if (effectiveReview.hasErrors && effectiveReview.tikz.trim() === target.originalTikz.trim()) {
-          effectiveReview = await requestValidatedJson(
-            client,
-            effectiveModel,
-            'You must apply the TikZ corrections you identified. Return only the requested JSON object.',
-            tikzDetectedProblemsRepairPrompt(language, target, effectiveReview, originalPreRender, book.age),
-            parseTikzAiReview,
-            true,
-            addFixImagesCost,
-            TIKZ_REVIEW_MAX_OUTPUT_TOKENS,
-            undefined,
-            2,
-            signal
-          );
-
-          if (!effectiveReview.hasErrors || effectiveReview.tikz.trim() === target.originalTikz.trim()) {
-            effectiveReview = await regenerateFromSpecification(review.errors);
-          }
-        }
-
-        let fixedPreRender = effectiveReview.hasErrors
-          ? await preRenderTikzLazy(effectiveReview.tikz)
-          : originalPreRender;
-
-        // Re-feed real renderer diagnostics to the model until the proposed
-        // correction renders. This is the second guard after semantic/layout QA.
-        for (let repairAttempt = 0; effectiveReview.hasErrors && !fixedPreRender.compiled && repairAttempt < 2; repairAttempt++) {
-          const previousErrors = effectiveReview.errors;
-          const rejectedTikz = effectiveReview.tikz;
-          const repaired = await requestValidatedJson(
-            client,
-            effectiveModel,
-            'You repair rejected TikZ using real TikZ Editor pre-render diagnostics. Return only the requested JSON object.',
-            tikzCompileRepairPrompt(language, target, effectiveReview, fixedPreRender, book.age),
-            parseTikzAiReview,
-            true,
-            addFixImagesCost,
-            TIKZ_REVIEW_MAX_OUTPUT_TOKENS,
-            undefined,
-            2,
-            signal
-          );
-
-          effectiveReview = repaired.hasErrors
-            ? repaired
-            : { errors: previousErrors.length ? previousErrors : ['TikZ Editor pre-render failure was repaired.'], hasErrors: true, tikz: repaired.tikz };
-
-          if (effectiveReview.tikz === rejectedTikz) {
-            if (fixedPreRender.retryable) {
-              // The source did not change, but the renderer failure was transient.
-              // A fresh renderer instance is meaningful here and must not be skipped.
-              fixedPreRender = await preRenderTikzLazy(effectiveReview.tikz);
-            } else {
-              effectiveReview = await regenerateFromSpecification([
-                ...previousErrors,
-                ...fixedPreRender.diagnostics.map((diagnostic) => `Renderer: ${diagnostic}`)
-              ]);
-              fixedPreRender = await preRenderTikzLazy(effectiveReview.tikz);
-            }
-          } else {
-            fixedPreRender = await preRenderTikzLazy(effectiveReview.tikz);
-          }
-        }
-
-        if (effectiveReview.hasErrors && !fixedPreRender.compiled) {
-          const details = fixedPreRender.diagnostics.slice(-6).join(' | ');
-          const reason = fixedPreRender.retryable
-            ? 'TikZ Editor remained temporarily unavailable after automatic renderer retries.'
-            : 'The regenerated/repaired TikZ still did not compile.';
-
-          throw new Error(`Unable to produce renderable TikZ for ${target.ability.h}, exercise ${target.exerciseIndex + 1} ${target.field === 'p' ? 'question' : 'solution'} visual. ${reason}${details ? ` ${details}` : ''}`);
-        }
-
-        const changed = effectiveReview.tikz.trim() !== target.originalTikz.trim();
+        const review = await reviewConceptImage(target, client, effectiveModel, language, book.age, addFixImagesCost, signal);
 
         completed += 1;
         setProgress(completed);
 
-        return {
-          renderFailure: !originalPreRender.compiled,
-          ...(effectiveReview.hasErrors && changed
-            ? {
-              item: {
-                errors: effectiveReview.errors,
-                exerciseIndex: target.exerciseIndex,
-                field: target.field,
-                imageId: target.imageId,
-                fixedPreRender,
-                fixedTikz: effectiveReview.tikz,
-                originalPreRender,
-                originalTikz: target.originalTikz,
-                prompt: target.prompt,
-                record: target.record
-              }
-            }
-            : {})
-        };
+        return review;
       });
       const renderFailures = reviewResults.filter(({ renderFailure }) => renderFailure).length;
       const items = reviewResults.flatMap(({ item }) => item ? [item] : []);
@@ -1967,7 +2151,8 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
       currentMissingAbilityIndexes={currentMissingAbilityIndexes}
       deleteConceptWithExercises={deleteConceptWithExercises}
       deleteExerciseWithAbilities={deleteExerciseWithAbilities}
-      fixSingleAbility={fixSingleAbility}
+      fixSingleAbility={redoConceptFromStage}
+      isBusy={isBusy}
       fixSingleExercise={fixSingleExercise}
       focusAbilityExercise={focusAbilityExercise}
       missingAbilityCountsByChapter={missingAbilityCountsByChapter}

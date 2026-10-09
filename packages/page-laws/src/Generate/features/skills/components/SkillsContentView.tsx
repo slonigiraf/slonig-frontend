@@ -7,6 +7,7 @@ import React from 'react';
 import type { ChapterContent, SkillsView } from '../SkillsTypes.js';
 import type { ExerciseEditableFields } from '../../../shared/types/exercise.js';
 import type { StoredAbility } from '../../../book/application/abilities/abilityProcessing.js';
+import type { ConceptRedoStage } from '../conceptRedoStages.js';
 
 import { stripMarkdownImageReferences } from '../../../book/infrastructure/pdf/bookImageRefs.js';
 import { exerciseAbilityModuleId } from '../../../book/application/abilities/abilityProcessing.js';
@@ -25,8 +26,9 @@ interface SkillsContentViewProps {
   currentMissingAbilityIndexes: number[];
   deleteConceptWithExercises: (conceptId: number) => Promise<void>;
   deleteExerciseWithAbilities: (exerciseId: number) => Promise<void>;
-  fixSingleAbility: (record: StoredAbility) => Promise<void>;
+  fixSingleAbility: (record: StoredAbility, stage: ConceptRedoStage) => Promise<void>;
   fixSingleExercise: (exerciseId: number) => Promise<void>;
+  isBusy: boolean;
   focusAbilityExercise: (exerciseIndex: number) => void;
   missingAbilityCountsByChapter: number[];
   onError: (message: string) => void;
@@ -38,7 +40,7 @@ interface SkillsContentViewProps {
   view: SkillsView;
 }
 
-export default function SkillsContentView ({ abilitiesOutputRef, allExercises, bookId, chapterContentOutputRef, chapterIndex, chapters, changeChapter, current, currentMissingAbilityIndexes, deleteConceptWithExercises, deleteExerciseWithAbilities, fixSingleAbility, fixSingleExercise, focusAbilityExercise, missingAbilityCountsByChapter, onError, openChapterEditor, pipelineOnly, refresh, refreshContent, saveExercise, view }: SkillsContentViewProps): React.ReactElement {
+export default function SkillsContentView ({ abilitiesOutputRef, allExercises, bookId, chapterContentOutputRef, chapterIndex, chapters, changeChapter, current, currentMissingAbilityIndexes, deleteConceptWithExercises, deleteExerciseWithAbilities, fixSingleAbility, fixSingleExercise, focusAbilityExercise, isBusy, missingAbilityCountsByChapter, onError, openChapterEditor, pipelineOnly, refresh, refreshContent, saveExercise, view }: SkillsContentViewProps): React.ReactElement {
   const abilityGroups = current
     ? groupAbilitiesByConcept(current.concepts, current.exercises, current.abilities, (id) => exerciseAbilityModuleId(bookId, id))
     : undefined;
@@ -139,19 +141,19 @@ export default function SkillsContentView ({ abilitiesOutputRef, allExercises, b
               {concept.description && <p><SpanWithTags content={concept.description} /></p>}
               <div className='matchedAbilities'>
                 {abilities.length
-                  ? abilities.map((record) => <AbilityCard key={record.id} sourceExercise={sourceExercises.get(record.moduleId)} onDeleted={refreshContent} onError={onError} onFix={fixSingleAbility} record={record} />)
+                  ? abilities.map((record) => <AbilityCard isBusy={isBusy} key={record.id} sourceExercise={sourceExercises.get(record.moduleId)} onDeleted={refreshContent} onError={onError} onFix={fixSingleAbility} record={record} />)
                   : <p className='noAbility'>No Ability generated for this Concept.</p>}
               </div>
             </section>)}
             {(hasExercisesWithoutConcept || !!abilityGroups?.withoutConcept.length) && <section className='unmatchedAbilities orphanAbilities' tabIndex={-1}>
               <h4>Abilities without a linked Concept</h4>
               {abilityGroups?.withoutConcept.length
-                ? abilityGroups.withoutConcept.map((record) => <AbilityCard key={record.id} sourceExercise={sourceExercises.get(record.moduleId)} onDeleted={refreshContent} onError={onError} onFix={fixSingleAbility} record={record} />)
+                ? abilityGroups.withoutConcept.map((record) => <AbilityCard isBusy={isBusy} key={record.id} sourceExercise={sourceExercises.get(record.moduleId)} onDeleted={refreshContent} onError={onError} onFix={fixSingleAbility} record={record} />)
                 : <p className='noAbility'>No Abilities generated for exercises without a linked Concept.</p>}
             </section>}
             {!!abilityGroups?.unmatched.length && <section className='unmatchedAbilities' tabIndex={-1}>
               <h4>Unmatched Abilities</h4>
-              {abilityGroups.unmatched.map((record) => <AbilityCard key={record.id} sourceExercise={sourceExercises.get(record.moduleId)} onDeleted={refreshContent} onError={onError} onFix={fixSingleAbility} record={record} />)}
+              {abilityGroups.unmatched.map((record) => <AbilityCard isBusy={isBusy} key={record.id} sourceExercise={sourceExercises.get(record.moduleId)} onDeleted={refreshContent} onError={onError} onFix={fixSingleAbility} record={record} />)}
             </section>}
           </div>
         )}

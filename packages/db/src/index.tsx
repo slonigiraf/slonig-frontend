@@ -1268,6 +1268,40 @@ export async function replaceExercisesForBookPage(bookPage: [number, number], ex
     });
 }
 
+/** Replace only the Exercises belonging to one Concept. Unlike a page-wide
+ * replacement this never rewrites unrelated Exercises, Abilities or Images. */
+export async function replaceExercisesForConcept(bookPage: [number, number], conceptId: number, exercises: Array<Omit<Exercise, 'bookPage' | 'id' | 'conceptId'>>): Promise<Exercise[]> {
+    return db.transaction('rw', db.exercises, db.bookConcepts, db.bookPages, db.abilities, db.images, db.skills, async () => {
+        const concept = await db.bookConcepts.get(conceptId);
+
+        if (!concept || concept.bookPage[0] !== bookPage[0]) {
+            throw new Error('The source Concept was not found in this book.');
+        }
+
+        const previous = await db.exercises.filter(({ bookPage: [bookId], conceptId: id }) => bookId === bookPage[0] && id === conceptId).toArray();
+        await deleteAbilityRowsForExercises(previous);
+        await db.exercises.bulkDelete(previous.flatMap(({ id }) => id === undefined ? [] : [id]));
+        const rows = exercises.map((exercise) => ({ ...exercise, bookPage, conceptId }));
+        const ids = rows.length ? await db.exercises.bulkAdd(rows, { allKeys: true }) : [];
+        const previousIds = new Set(previous.flatMap(({ id }) => id === undefined ? [] : [id]));
+        const linkedSkills = await db.skills.filter(({ exerciseIds }) => (exerciseIds ?? []).some((id) => previousIds.has(id))).toArray();
+
+        for (const skill of linkedSkills) {
+            if (skill.id !== undefined) {
+                await db.skills.update(skill.id, { exerciseIds: (skill.exerciseIds ?? []).filter((id) => !previousIds.has(id)) });
+            }
+        }
+
+        const chapterId = concept.chapterId ?? (await db.bookPages.get(bookPage))?.chapterId;
+
+        if (chapterId !== undefined) {
+            await syncChapterLearningDisplayOrder(chapterId);
+        }
+
+        return rows.map((row, index) => ({ ...row, id: ids[index] }));
+    });
+}
+
 export async function updateExerciseDisplayOrder(id: number, displayOrder: number): Promise<Exercise | undefined> {
     validateDisplayOrderIndex(displayOrder, 'Exercise');
 

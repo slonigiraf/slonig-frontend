@@ -6,6 +6,7 @@ import type { ExerciseEditableFields } from '../../../shared/types/exercise.js';
 import type { BookChapter, Exercise, Skill } from '@slonigiraf/db';
 import type { GeneratedAbility } from '../../../../abilities/abilities.js';
 import type { StoredAbility } from '../../../book/application/abilities/abilityProcessing.js';
+import type { ConceptRedoStage } from '../conceptRedoStages.js';
 
 import { deleteAbilities, deleteAbility, deleteSkill, getImage, putImage, storeAbility, updateBookChapterTitle } from '@slonigiraf/db';
 import { SpanWithTags } from '@slonigiraf/slonig-components';
@@ -20,6 +21,7 @@ import { parseStoredAbility, withAbilityVisualSource } from '../../../../abiliti
 import { abilityModuleId, storedAbilityImageId } from '../../../book/application/abilities/abilityProcessing.js';
 import { stripMarkdownImageReferences } from '../../../book/infrastructure/pdf/bookImageRefs.js';
 import { EditForm, FixResultsReviewContent } from '../SkillsStyles.js';
+import { CONCEPT_REDO_STAGES } from '../conceptRedoStages.js';
 import FixingOverlay from '../../../shared/ui/FixingOverlay.js';
 import ItemActionsMenu from '../../../shared/ui/ItemActionsMenu.js';
 
@@ -320,7 +322,9 @@ function cloneAbility (ability: GeneratedAbility): GeneratedAbility {
   return { ...ability, q: ability.q.map((exercise) => ({ ...exercise })) };
 }
 
-export function AbilityCard ({ onDeleted, onError, onFix, record, sourceExercise }: { onDeleted: () => void; onError: (message: string) => void; onFix: (record: StoredAbility) => Promise<void>; record: StoredAbility; sourceExercise?: Exercise }): React.ReactElement {
+export function AbilityCard ({ isBusy = false, onDeleted, onError, onFix, record, sourceExercise }: { isBusy?: boolean; onDeleted: () => void; onError: (message: string) => void; onFix: (record: StoredAbility, stage: ConceptRedoStage) => Promise<void>; record: StoredAbility; sourceExercise?: Exercise }): React.ReactElement {
+  const [isRedoDialogOpen, setIsRedoDialogOpen] = useState(false);
+  const [redoStart, setRedoStart] = useState<ConceptRedoStage>('exercises');
   const [isSourceExerciseShown, setIsSourceExerciseShown] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [isFixing, setIsFixing] = useState(false);
@@ -421,20 +425,21 @@ export function AbilityCard ({ onDeleted, onError, onFix, record, sourceExercise
   }, [draft, onError, persistAbility, rawDraft]);
 
   const fix = useCallback((): void => {
+    setIsRedoDialogOpen(false);
     setIsFixing(true);
-    onFix(record)
-      .catch((error) => onError(error instanceof Error ? error.message : 'Unable to fix the Ability with AI.'))
+    onFix(record, redoStart)
+      .catch((error) => onError(error instanceof Error ? error.message : 'Unable to regenerate this Concept with AI.'))
       .finally(() => setIsFixing(false));
-  }, [onError, onFix, record]);
+  }, [onError, onFix, record, redoStart]);
 
   return <article aria-busy={isFixing} className={`contentCard abilityCard${record.ability?.q.length === 1 ? ' abilityCardSingleExercise' : ''}`} tabIndex={-1}>
     <div className='contentCardActions'>
       <ItemActionsMenu
         actions={[
           { label: 'Show Exercise', onClick: () => setIsSourceExerciseShown(true) },
-          { label: isFixing ? 'Fixing…' : 'Fix with AI', isDisabled: isFixing || isSaving, onClick: fix },
-          { label: 'Edit', isDisabled: isFixing, onClick: openEdit },
-          { label: 'Delete', isDestructive: true, isDisabled: isFixing || isSaving, onClick: remove }
+          { label: isFixing ? 'Regenerating…' : 'Fix with AI', isDisabled: isBusy || isFixing || isSaving, onClick: () => setIsRedoDialogOpen(true) },
+          { label: 'Edit', isDisabled: isBusy || isFixing, onClick: openEdit },
+          { label: 'Delete', isDestructive: true, isDisabled: isBusy || isFixing || isSaving, onClick: remove }
         ]}
         label='Ability'
       />
@@ -454,6 +459,31 @@ export function AbilityCard ({ onDeleted, onError, onFix, record, sourceExercise
         <p>This record can be repaired with Fix abilities.</p>
       </>}
     {isFixing && <FixingOverlay />}
+    {isRedoDialogOpen && <Modal
+      header='Redo this Concept with AI'
+      onClose={() => setIsRedoDialogOpen(false)}
+      size='small'
+    >
+      <Modal.Content>
+        <div className='chapterEditor'>
+          <p>Choose where to restart. The selected stage and every subsequent stage will run again for this Concept only. Other Concepts will not be changed.</p>
+          <label>Start from
+            <select
+              aria-label='Start Concept regeneration from stage'
+              onChange={({ target }) => setRedoStart(target.value as ConceptRedoStage)}
+              value={redoStart}
+            >
+              {CONCEPT_REDO_STAGES.map(({ key, label }) => <option key={key} value={key}>{label}</option>)}
+            </select>
+          </label>
+          <p><small>Results are replaced as each stage succeeds. Earlier stages are kept, and an interrupted run may leave this Concept partially regenerated.</small></p>
+          <Button.Group>
+            <Button icon='times' label='Cancel' onClick={() => setIsRedoDialogOpen(false)} />
+            <Button icon='refresh' label='Regenerate Concept' onClick={fix} />
+          </Button.Group>
+        </div>
+      </Modal.Content>
+    </Modal>}
     {isSourceExerciseShown && <Modal
       header='Source Exercise'
       onClose={() => setIsSourceExerciseShown(false)}
