@@ -467,19 +467,16 @@ export function AbilityCard ({ isBusy = false, onDeleted, onError, onFix, record
       <Modal.Content>
         <div className='chapterEditor'>
           <p>Choose where to restart. The selected stage and every subsequent stage will run again for this Concept only. Other Concepts will not be changed.</p>
-          <label>Start from
-            <select
-              aria-label='Start Concept regeneration from stage'
-              onChange={({ target }) => setRedoStart(target.value as ConceptRedoStage)}
-              value={redoStart}
-            >
-              {CONCEPT_REDO_STAGES.map(({ key, label }) => <option key={key} value={key}>{label}</option>)}
-            </select>
-          </label>
+          <Dropdown
+            isFull
+            label='Start from'
+            onChange={setRedoStart}
+            options={CONCEPT_REDO_STAGES.map(({ key, label }) => ({ key, text: label, value: key }))}
+            value={redoStart}
+          />
           <p><small>Results are replaced as each stage succeeds. Earlier stages are kept, and an interrupted run may leave this Concept partially regenerated.</small></p>
           <Button.Group>
-            <Button icon='times' label='Cancel' onClick={() => setIsRedoDialogOpen(false)} />
-            <Button icon='refresh' label='Regenerate Concept' onClick={fix} />
+            <Button icon='play' label='Run' onClick={fix} />
           </Button.Group>
         </div>
       </Modal.Content>

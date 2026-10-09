@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { Exercise, Skill } from '@slonigiraf/db';
-import type { GeneratedAbility } from '../../../../abilities/abilities.js';
+import type { AbilityRepairResult, GeneratedAbility } from '../../../../abilities/abilities.js';
 import type { TikzPreRenderResult } from '../../../../Edit/TikzDisplay.js';
 import type { AbilityEmbeddingValidationHint } from './abilityEmbeddingValidation.js';
 import type { ExerciseAbilityConversion } from '../../domain/abilities/abilityWorkflow.js';
@@ -12,7 +12,8 @@ import OpenAI from 'openai';
 
 import { stripMarkdownImageReferences } from '../../infrastructure/pdf/bookImageRefs.js';
 import { transportCompactAbilitySourceExercise } from '../../domain/abilities/abilityWorkflow.js';
-import { JSON_VALIDATION_PROMPT } from '../../infrastructure/ai/prompts/abilities.js';
+import { FIX_ABILITIES_REQUEST_PROMPT, JSON_VALIDATION_PROMPT } from '../../infrastructure/ai/prompts/abilities.js';
+import { parseAbilityRepairResult } from '../../../../abilities/abilities.js';
 import { LEARNER_AGE_PROMPT, MATH_DISPLAY_REQUIREMENTS_PROMPT } from '../../infrastructure/ai/prompts/shared.js';
 import { openRouterRequestGate } from '../../../../openrouter/concurrency.js';
 import { reportOpenRouterCost } from '../../../../openrouter/cost.js';
@@ -173,6 +174,77 @@ export function abilityRepairInput (
   };
 }
 
+/**
+ * Review a whole chapter so duplicates can be found, then retry only the
+ * specific Abilities for which the model diagnosed errors but supplied no
+ * persistable correction. A stubborn no-op does not discard valid chapter
+ * fixes or silently count as repaired: it is reported to the caller.
+ */
+export async function requestAbilityRepairResult (
+  client: OpenAI,
+  model: string,
+  systemPrompt: string,
+  input: unknown,
+  batch: StoredAbility[],
+  onCost?: OpenRouterCostReporter,
+  signal?: AbortSignal
+): Promise<AbilityRepairResult> {
+  const originals = batch.map(({ ability }) => ability);
+  const ids = batch.map(({ id }) => id);
+  const initial = await requestValidatedJson(
+    client, model, systemPrompt, FIX_ABILITIES_REQUEST_PROMPT(input),
+    (content) => parseAbilityRepairResult(content, originals, ids, { collectUnchangedRepairs: true }),
+    true, onCost, undefined, undefined, 2, signal
+  );
+  const unresolved = initial.unresolvedReviews ?? [];
+
+  if (!unresolved.length) {
+    return initial;
+  }
+
+  const inputRecords = (input as { abilities: Array<Record<string, unknown>> }).abilities;
+  const retryBatch = unresolved.map(({ index }) => batch[index]);
+  const retryInput = {
+    ...(input as Record<string, unknown>),
+    abilities: unresolved.map(({ index }, newIndex) => ({ ...inputRecords[index], index: newIndex }))
+  };
+  const retryPrompt = `Your previous Fix abilities review identified the following concrete errors but failed to make an effective, persistable correction:
+${JSON.stringify(unresolved)}
+
+REPAIR TASK, NOT ANOTHER AUDIT: Return hasErrors:true and a COMPLETE corrected Ability for EVERY supplied input index. Fix the specific listed errors in h, q[].h, or q[].a. Root i and existing image fields q[].p, q[].i, q[].pPrompt, and q[].iPrompt are read-only, so editing only those fields is NOT a correction. Keep the target concept, difficulty, mathematical structure, and essential spatial relationships. Return only JSON with reviews and an empty duplicatePairs array; duplicate detection already ran.
+
+${FIX_ABILITIES_REQUEST_PROMPT(retryInput)}`;
+
+  try {
+    const fixed = await requestValidatedJson(
+      client, model, systemPrompt, retryPrompt,
+      (content) => {
+        const parsed = parseAbilityRepairResult(content, retryBatch.map(({ ability }) => ability), retryBatch.map(({ id }) => id));
+
+        if (parsed.duplicatePairs.length || parsed.reviews.length !== retryBatch.length || parsed.reviews.some(({ ability, hasErrors }) => !hasErrors || !ability)) {
+          throw new Error('Targeted Ability retry must correct every supplied record without proposing new duplicate deletions.');
+        }
+
+        return parsed;
+      },
+      true, onCost, Math.min(8_000, Math.max(2_400, retryBatch.length * 900)), undefined, 2, signal
+    );
+    return {
+      duplicatePairs: initial.duplicatePairs,
+      reviews: [
+        ...initial.reviews,
+        ...fixed.reviews.map((review) => ({ ...review, index: unresolved[review.index].index }))
+      ].sort((a, b) => a.index - b.index)
+    };
+  } catch (error) {
+    if (signal?.aborted || (error instanceof Error && error.name === 'AbortError')) {
+      throw error;
+    }
+
+    return initial;
+  }
+}
+
 export function exerciseRepairInput (language: string, batch: Exercise[], chapterTitle?: string, learnerAge?: number, sourceConceptsById?: ReadonlyMap<number, { description: string; title: string }>): unknown {
   return {
     bookLanguage: language,
@@ -268,9 +340,7 @@ Rules:
 ${MATH_DISPLAY_REQUIREMENTS_PROMPT}
 - Return ONLY one \\begin{tikzpicture}...\\end{tikzpicture} block. No markdown fences, prose, documentclass, packages, or external files.
 - Use only standard TikZ constructs and common built-in libraries where possible. Keep the drawing browser-renderable by TikZ Editor using standard supported TikZ constructs.
-- Preserve the exact mathematical/semantic information, named model, and learner action in the visual description. Do not substitute visually similar artwork for a mathematical model. Do not add hints or facts that would reveal an answer in a question visual.
-- Match the instruction verb to the starting geometry: "Trace" requires a dotted/dashed traceable numeral or path (not a solid numeral); "Write" and "Draw" require usable space or scaffold; "Count" requires individually distinguishable objects; "Circle" requires selectable elements; "Complete" requires the specified unfinished diagram. Keep normal mathematical boundaries solid unless tracing or the visual specification requires otherwise.
-- Before returning the TikZ, silently check the exact quantities, connected edges, positions, learner action, and agreement among the question, visual description, and correct answer. Follow the specific source structure even if a generic diagram would be easier to draw.
+- Preserve the exact mathematical/semantic information in the visual description. Do not add hints or facts that would reveal an answer in a question visual.
 - Keep labels concise and in the book language (${language}).
 - Prefer a clean educational diagram with sensible coordinates and readable labels.
 - Do not embed raster images, URLs, SVG, HTML, or base64 data.
@@ -331,15 +401,13 @@ During review or repair, slash-form mathematical fractions are errors and must b
 You MUST inspect all of these classes of failure:
 - TikZ Editor parse or SVG render failure. A successful render is mandatory.
 - Semantic mismatch with the original visual prompt, concrete question, or correct answer.
-- Wrong values, labels, geometry, axes, markings, regions, arrows, ordering, or missing required objects; in particular, disconnected cells in a specified connected five-frame/ten-frame, misaligned arrays, incorrect number-line positions, or erroneous place-value groupings.
-- Mismatch between the learner's requested action and the diagram: trace must use dotted/dashed traceable geometry rather than a solid numeral; write/draw needs space; count needs distinct objects; circle needs selectable objects; complete needs a genuinely unfinished starting state.
-- Loss of source mathematical terminology or essential constraints during paraphrasing, or a generic illustration substituted for a defined mathematical model.
+- Wrong values, labels, geometry, axes, markings, regions, arrows, ordering, or missing required objects.
 - For a question visual, accidental answer leakage or solved-state markings that the learner should infer.
 - For a solution visual, missing or incorrect final answer/result.
 - Visual mess: overlapping text, labels printed on top of unrelated labels/objects, clipped text, illegible density, lines/arrows passing through labels, badly placed annotations, ambiguous association between labels and objects, or excessive unused/competing content.
 - Poor composition that makes the intended educational relationship hard to read.
 
-Use the pre-render evidence below. The SVG is the actual browser rendering when compilation succeeded. Examine the actual relative positions and connected boundaries, not just TikZ syntax or superficial appearance. Silently confirm that the question, starting/finished visual state, correct answer, and source-specific model agree before making a decision. If rendering failed, use the diagnostics/source input to repair the source. Preserve correct content and change only what is needed.
+Use the pre-render evidence below. The SVG is the actual browser rendering when compilation succeeded. If rendering failed, use the diagnostics/source input to repair the source. Preserve correct content and change only what is needed.
 
 ${LEARNER_AGE_PROMPT(learnerAge)}
 
@@ -364,7 +432,7 @@ ${JSON.stringify(compactPreRenderForPrompt(preRender))}`;
 export function tikzCompileRepairPrompt (language: string, target: ImageFixTarget, review: TikzAiReview, failedPreRender: TikzPreRenderResult, learnerAge?: number): string {
   const exercise = target.ability.q[target.exerciseIndex];
 
-  return `The proposed TikZ correction still failed the application's real TikZ Editor pre-render. Repair the TikZ so it renders in TikZ Editor AND still satisfies the original visual specification. Keep all valid semantic/layout corrections already made, including exact mathematical model connectivity/grouping and the visual affordances required by the learner's verb. Compile success alone is insufficient if a connected frame became separate squares or a traceable numeral became solid; silently recheck the original prompt, question, answer, and rendered geometry.
+  return `The proposed TikZ correction still failed the application's real TikZ Editor pre-render. Repair the TikZ so it renders in TikZ Editor AND still satisfies the original visual specification. Keep all valid semantic/layout corrections already made.
 
 ${MATH_DISPLAY_REQUIREMENTS_PROMPT}
 
@@ -390,7 +458,7 @@ Failed pre-render: ${JSON.stringify(compactPreRenderForPrompt(failedPreRender))}
 export function tikzDetectedProblemsRepairPrompt (language: string, target: ImageFixTarget, review: TikzAiReview, preRender: TikzPreRenderResult, learnerAge?: number): string {
   const exercise = target.ability.q[target.exerciseIndex];
 
-  return `You identified real problems in this TikZ visual but returned the original TikZ unchanged. Apply the required corrections now. The corrected TikZ must render in TikZ Editor, match the original visual prompt and concrete exercise, and resolve every listed layout/semantic problem. Preserve precise mathematical structures such as connected five-frames, aligned ten-frames, orderly number-line ticks, arrays, and place-value groups, and ensure tracing, writing, drawing, counting, circling, or completing is actually possible in the rendered visual. Silently recheck learner verb, diagram, and answer.
+  return `You identified real problems in this TikZ visual but returned the original TikZ unchanged. Apply the required corrections now. The corrected TikZ must render in TikZ Editor, match the original visual prompt and concrete exercise, and resolve every listed layout/semantic problem.
 
 ${MATH_DISPLAY_REQUIREMENTS_PROMPT}
 
