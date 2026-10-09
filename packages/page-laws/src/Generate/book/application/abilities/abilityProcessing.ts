@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { Exercise, Skill } from '@slonigiraf/db';
-import type { GeneratedAbility } from '../../../../abilities/abilities.js';
+import type { AbilityRepairResult, GeneratedAbility } from '../../../../abilities/abilities.js';
 import type { TikzPreRenderResult } from '../../../../Edit/TikzDisplay.js';
 import type { AbilityEmbeddingValidationHint } from './abilityEmbeddingValidation.js';
 import type { ExerciseAbilityConversion } from '../../domain/abilities/abilityWorkflow.js';
@@ -12,7 +12,8 @@ import OpenAI from 'openai';
 
 import { stripMarkdownImageReferences } from '../../infrastructure/pdf/bookImageRefs.js';
 import { transportCompactAbilitySourceExercise } from '../../domain/abilities/abilityWorkflow.js';
-import { JSON_VALIDATION_PROMPT } from '../../infrastructure/ai/prompts/abilities.js';
+import { FIX_ABILITIES_REQUEST_PROMPT, JSON_VALIDATION_PROMPT } from '../../infrastructure/ai/prompts/abilities.js';
+import { parseAbilityRepairResult } from '../../../../abilities/abilities.js';
 import { LEARNER_AGE_PROMPT, MATH_DISPLAY_REQUIREMENTS_PROMPT } from '../../infrastructure/ai/prompts/shared.js';
 import { openRouterRequestGate } from '../../../../openrouter/concurrency.js';
 import { reportOpenRouterCost } from '../../../../openrouter/cost.js';
@@ -171,6 +172,77 @@ export function abilityRepairInput (
     ...(learnerAge === undefined ? {} : { learnerAge }),
     ...(chapterTitle ? { chapterTitle } : {})
   };
+}
+
+/**
+ * Review a whole chapter so duplicates can be found, then retry only the
+ * specific Abilities for which the model diagnosed errors but supplied no
+ * persistable correction. A stubborn no-op does not discard valid chapter
+ * fixes or silently count as repaired: it is reported to the caller.
+ */
+export async function requestAbilityRepairResult (
+  client: OpenAI,
+  model: string,
+  systemPrompt: string,
+  input: unknown,
+  batch: StoredAbility[],
+  onCost?: OpenRouterCostReporter,
+  signal?: AbortSignal
+): Promise<AbilityRepairResult> {
+  const originals = batch.map(({ ability }) => ability);
+  const ids = batch.map(({ id }) => id);
+  const initial = await requestValidatedJson(
+    client, model, systemPrompt, FIX_ABILITIES_REQUEST_PROMPT(input),
+    (content) => parseAbilityRepairResult(content, originals, ids, { collectUnchangedRepairs: true }),
+    true, onCost, undefined, undefined, 2, signal
+  );
+  const unresolved = initial.unresolvedReviews ?? [];
+
+  if (!unresolved.length) {
+    return initial;
+  }
+
+  const inputRecords = (input as { abilities: Array<Record<string, unknown>> }).abilities;
+  const retryBatch = unresolved.map(({ index }) => batch[index]);
+  const retryInput = {
+    ...(input as Record<string, unknown>),
+    abilities: unresolved.map(({ index }, newIndex) => ({ ...inputRecords[index], index: newIndex }))
+  };
+  const retryPrompt = `Your previous Fix abilities review identified the following concrete errors but failed to make an effective, persistable correction:
+${JSON.stringify(unresolved)}
+
+REPAIR TASK, NOT ANOTHER AUDIT: Return hasErrors:true and a COMPLETE corrected Ability for EVERY supplied input index. Fix the specific listed errors in h, q[].h, or q[].a. Root i and existing image fields q[].p, q[].i, q[].pPrompt, and q[].iPrompt are read-only, so editing only those fields is NOT a correction. Keep the target concept, difficulty, mathematical structure, and essential spatial relationships. Return only JSON with reviews and an empty duplicatePairs array; duplicate detection already ran.
+
+${FIX_ABILITIES_REQUEST_PROMPT(retryInput)}`;
+
+  try {
+    const fixed = await requestValidatedJson(
+      client, model, systemPrompt, retryPrompt,
+      (content) => {
+        const parsed = parseAbilityRepairResult(content, retryBatch.map(({ ability }) => ability), retryBatch.map(({ id }) => id));
+
+        if (parsed.duplicatePairs.length || parsed.reviews.length !== retryBatch.length || parsed.reviews.some(({ ability, hasErrors }) => !hasErrors || !ability)) {
+          throw new Error('Targeted Ability retry must correct every supplied record without proposing new duplicate deletions.');
+        }
+
+        return parsed;
+      },
+      true, onCost, Math.min(8_000, Math.max(2_400, retryBatch.length * 900)), undefined, 2, signal
+    );
+    return {
+      duplicatePairs: initial.duplicatePairs,
+      reviews: [
+        ...initial.reviews,
+        ...fixed.reviews.map((review) => ({ ...review, index: unresolved[review.index].index }))
+      ].sort((a, b) => a.index - b.index)
+    };
+  } catch (error) {
+    if (signal?.aborted || (error instanceof Error && error.name === 'AbortError')) {
+      throw error;
+    }
+
+    return initial;
+  }
 }
 
 export function exerciseRepairInput (language: string, batch: Exercise[], chapterTitle?: string, learnerAge?: number, sourceConceptsById?: ReadonlyMap<number, { description: string; title: string }>): unknown {

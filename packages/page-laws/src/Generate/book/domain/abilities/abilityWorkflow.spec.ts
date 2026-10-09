@@ -7,7 +7,7 @@ import { strict as assert } from 'node:assert';
 
 import type { Exercise } from '@slonigiraf/db';
 
-import { abilityGenerationRequestPrompt, assembleExerciseAbilityConversions, parseAbilityBlueprints, parseBlueprintAbilities, parseBlueprintVisualPlans, parseGeneratedAtomicAbility, generateExerciseAbility, runExerciseAbilityWorkflow, validateAbilityBlueprintEvidence } from './abilityWorkflow.js';
+import { abilityGenerationRequestPrompt, abilityMaterializationPrompt, abilityTextAuditPrompt, abilityTextGenerationPrompt, abilityVisualAuditPrompt, abilityVisualPlanningPrompt, assembleExerciseAbilityConversions, parseAbilityBlueprints, parseBlueprintAbilities, parseBlueprintVisualPlans, parseGeneratedAtomicAbility, generateExerciseAbility, runExerciseAbilityWorkflow, validateAbilityBlueprintEvidence } from './abilityWorkflow.js';
 
 describe('one-Ability-per-Exercise workflow', (): void => {
   it('requires the two generated tasks to match source Exercise and Concept evidence', (): void => {
@@ -20,11 +20,49 @@ describe('one-Ability-per-Exercise workflow', (): void => {
 
     assert.match(prompt, /For EACH of the two generated tasks/);
     assert.match(prompt, /sourceConcept/);
-    assert.match(prompt, /only specific input parameters/);
+    assert.match(prompt, /safe concrete inputs, contexts, spatial arrangements/);
     assert.match(prompt, /Do NOT generate, copy, or return an Ability title/);
     assert.match(prompt, /NO Ability title field/);
     assert.match(prompt, /"ability":\{"i":"","t":3,"q":\[/);
     assert.doesNotMatch(prompt, /"h":"<exact sourceConcept.title>"/);
+  });
+
+  it('enforces meaningful variations and exact spatial relations throughout Ability generation', (): void => {
+    const source = [{ id: 42, questionVisual: 'A grouped array', solutionVisual: '', task: 'Count objects in equal groups' }];
+    const blueprints = [{ exerciseId: 42, skillIndex: 0, title: 'Count objects in equal groups', input: 'array', output: 'count', operation: 'multiply', method: 'rows by columns', questionVisual: 'required', solutionVisual: 'none' }] as Parameters<typeof abilityMaterializationPrompt>[2];
+    const abilities = [{ exerciseId: 42, skillIndex: 0, ability: { h: 'Count objects in equal groups', i: '', t: 3, q: [{ h: 'Count the objects.', a: '6', p: '', i: '' }, { h: 'Count the objects.', a: '8', p: '', i: '' }] } }] as Parameters<typeof abilityVisualPlanningPrompt>[3];
+    const prompts = [
+      abilityGenerationRequestPrompt('en', 'Arrays', source[0]),
+      abilityMaterializationPrompt('en', 'Arrays', blueprints, source),
+      abilityTextGenerationPrompt('en', 'Arrays', blueprints, source)
+    ];
+
+    for (const prompt of prompts) {
+      assert.match(prompt, /fixed learning targets/i);
+      assert.match(prompt, /actual mathematical arrangement/i);
+      assert.match(prompt, /Natural-language wording may vary when/i);
+      assert.match(prompt, /cosmetic/i);
+      assert.match(prompt, /formal structure of each representation/i);
+    }
+
+    const visualPrompts = [
+      abilityGenerationRequestPrompt('en', 'Arrays', source[0]),
+      abilityVisualPlanningPrompt('en', 'Arrays', blueprints, abilities, source),
+      abilityVisualAuditPrompt('en', 'Arrays', blueprints, abilities, source, [])
+    ];
+
+    for (const prompt of visualPrompts) {
+      assert.match(prompt, /row\/column structure/i);
+      assert.match(prompt, /equal spacing or equal partitioning/i);
+      assert.match(prompt, /visually similar but mathematically incorrect illustrations/i);
+      assert.match(prompt, /without guessing|renderer cannot guess/i);
+    }
+
+    const auditPrompt = abilityTextAuditPrompt('en', 'Arrays', blueprints, source, abilities);
+
+    assert.match(auditPrompt, /cosmetic changes/i);
+    assert.match(auditPrompt, /formal mathematical structures/i);
+    assert.match(auditPrompt, /Equivalent natural-language variation is allowed only/i);
   });
 
   it('passes Concept context and sets the title in code without requesting an AI title', async (): Promise<void> => {

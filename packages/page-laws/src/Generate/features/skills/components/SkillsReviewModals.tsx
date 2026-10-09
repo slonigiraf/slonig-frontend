@@ -118,8 +118,9 @@ export default function SkillsReviewModals ({ applyAbilityFixReview, applyExerci
           <div className='fixResultsReviewIntro'>
             <p><strong>No Ability changes have been saved yet.</strong></p>
             <p>Checked {fixReview.checked} Abilities. Proposed {fixReview.items.length} correction{fixReview.items.length === 1 ? '' : 's'} and {fixReview.duplicatePairs.length} duplicate deletion{fixReview.duplicatePairs.length === 1 ? '' : 's'}. A duplicate deletion also removes its source Exercise and linked Concept.</p>
+            {fixReview.unresolved.length > 0 && <p><strong>{fixReview.unresolved.length} unresolved {fixReview.unresolved.length === 1 ? 'Ability' : 'Abilities'}:</strong> the AI reported errors but did not produce a valid change. These records will remain unchanged and this stage will not be marked complete. Visual-only issues belong in Fix images.</p>}
           </div>
-          {(fixReview.items.length > 0 || fixReview.duplicatePairs.length > 0) && <div className='fixResultsReviewComparison'>
+          {(fixReview.items.length > 0 || fixReview.duplicatePairs.length > 0 || fixReview.unresolved.length > 0) && <div className='fixResultsReviewComparison'>
             {fixReview.items.map(({ ability, errors, exerciseTitle, record, recordId }, index) => <article
               className='fixResultsReviewItem'
               key={recordId}
@@ -148,6 +149,11 @@ export default function SkillsReviewModals ({ applyAbilityFixReview, applyExerci
                   ? <ul>{errors.map((message, errorIndex) => <li key={`${recordId}-${errorIndex}`}><SpanWithTags content={message} /></li>)}</ul>
                   : <p>This Ability will be replaced by the proposed correction shown above.</p>}
               </section>
+            </article>)}
+            {fixReview.unresolved.map(({ errors, record }) => <article className='fixResultsReviewItem' key={`unresolved-${record.id}`}>
+              <strong>{record.ability ? <SpanWithTags content={record.ability.h} /> : 'Invalid Ability JSON'} — unresolved</strong>
+              <p>No corrected text was supplied. The stored Ability will not be changed.</p>
+              <ul>{errors.map((message, index) => <li key={`${record.id}-unresolved-${index}`}><SpanWithTags content={message} /></li>)}</ul>
             </article>)}
             {fixReview.duplicatePairs.map(({ chapterTitle, deleted, deletedConceptTitle, deletedExerciseTitle, keptExerciseTitle }, duplicateIndex) => <article
               className='fixResultsReviewItem'
@@ -183,8 +189,8 @@ export default function SkillsReviewModals ({ applyAbilityFixReview, applyExerci
             />
             <Button
               icon='check'
-              isDisabled={isBusy}
-              label={fixReview.items.length || fixReview.duplicatePairs.length ? 'Apply changes' : 'Confirm review'}
+              isDisabled={isBusy || (fixReview.unresolved.length > 0 && fixReview.items.length === 0 && fixReview.duplicatePairs.length === 0)}
+              label={fixReview.items.length || fixReview.duplicatePairs.length ? 'Apply available changes' : fixReview.unresolved.length ? 'No applicable fixes' : 'Confirm review'}
               onClick={() => applyAbilityFixReview().catch(console.error)}
             />
           </Button.Group>

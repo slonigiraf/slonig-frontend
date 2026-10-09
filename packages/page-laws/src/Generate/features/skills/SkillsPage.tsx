@@ -6,14 +6,14 @@ import type { GeneratedAbility } from '../../../abilities/abilities.js';
 import type { AbilityWorkflowJsonRunner, ExerciseAbilityConversion } from '../../book/domain/abilities/abilityWorkflow.js';
 import type { AiAction, BookPageContent, ChapterContent, DuplicateAbilityReview, DuplicateExerciseReview, ExerciseFixReviewResult, FixedImageReview, FixReviewResult, ImageFixReviewResult, PipelineAction, SkillSource, SkillsProps, SkillsView } from './SkillsTypes.js';
 
-import { addBookStageSpend, completeBookProcessingStage, deleteAbilities, deleteAbility, deleteBookConcept, deleteExercise, getAbilities, getBookChapters, getBookCompletedStages, getBookConceptsForBookPage, getBookPages, getExercisesForBookPage, getSetting, getSkillsForChapter, getImage, hydrateAbilityContent, putImage, replaceAbilities, replaceExercisesForBookPage, replaceSkillsForChapter, resetBookProcessingStagesFrom, SettingKey, storeAbility } from '@slonigiraf/db';
+import { addBookStageSpend, completeBookProcessingStage, deleteAbilities, deleteAbility, deleteBookConcept, deleteExercise, getAbilities, getBookChapters, getBookCompletedStages, getBookConceptsForBookPage, getBookPages, getExercisesForBookPage, getSetting, getSkillsForChapter, getImage, hydrateAbilityContent, putImage, replaceAbilities, replaceExercisesForBookPage, replaceSkillsForChapter, resetBookProcessingStagesFrom, SettingKey, storeAbility, uncompleteBookProcessingStage } from '@slonigiraf/db';
 import OpenAI from 'openai';
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 
 import type { TikzPreRenderResult } from '../../../Edit/TikzDisplay.js';
 import { isTikzCode } from '../../../Edit/tikz.js';
 import { shouldSkipStoredTikzCompile } from '../../../Edit/tikzValidation.js';
-import { parseAbilityRepairResult, parseStoredAbility } from '../../../abilities/abilities.js';
+import { parseStoredAbility } from '../../../abilities/abilities.js';
 import { buildAbilityEmbeddingValidationHints } from '../../book/application/abilities/abilityEmbeddingValidation.js';
 import { parseExerciseRepairResult } from '../../book/domain/exercises/exercises.js';
 import { addBookExternalCall } from '../../book/infrastructure/storage/bookExternalCalls.js';
@@ -30,7 +30,7 @@ import { abilityWithConceptTitle, exerciseWithConceptTitle } from '../../book/do
 import { sortAbilitiesForDisplay, sortExercisesForDisplay } from '../../book/domain/concepts/learningOrder.js';
 import { resolveSharedChapterIndex } from '../../book/domain/chapters/chapterSelection.js';
 import { getSharedChapterSelection, storeSharedChapterSelection, subscribeSharedChapterSelection } from '../../book/infrastructure/storage/chapterSelectionStorage.js';
-import { abilityModuleId, abilityRepairInput, abilityWithImageDescriptions, cleanTikzResponse, exerciseAbilityModuleId, exerciseForPageReplacement, exerciseRepairInput, parseGeneratedSkills, parseTikzAiReview, requestChatContent, requestChatContentWithTruncationRetry, requestValidatedJson, storedAbilityImageId, tikzCompileRepairPrompt, tikzDetectedProblemsRepairPrompt, tikzFixReviewPrompt, tikzRequestPrompt, type ImageFixTarget, type StoredAbility, type TikzAiReview } from '../../book/application/abilities/abilityProcessing.js';
+import { abilityModuleId, abilityRepairInput, abilityWithImageDescriptions, cleanTikzResponse, exerciseAbilityModuleId, exerciseForPageReplacement, exerciseRepairInput, parseGeneratedSkills, parseTikzAiReview, requestAbilityRepairResult, requestChatContent, requestChatContentWithTruncationRetry, requestValidatedJson, storedAbilityImageId, tikzCompileRepairPrompt, tikzDetectedProblemsRepairPrompt, tikzFixReviewPrompt, tikzRequestPrompt, type ImageFixTarget, type StoredAbility, type TikzAiReview } from '../../book/application/abilities/abilityProcessing.js';
 import type { ExerciseEditableFields } from '../../shared/types/exercise.js';
 import { ChapterTitleEditor } from './components/SkillsComponents.js';
 import SkillsContentView from './components/SkillsContentView.js';
@@ -540,19 +540,16 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
 
     const client = await createClient();
     const systemPrompt = REPAIR_SYSTEM_PROMPT(language, book.age);
-    const userPrompt = FIX_ABILITIES_REQUEST_PROMPT(abilityRepairInput(language, [record], chapterRow.chapter.title, book.age, undefined, exercisesByModuleId, conceptsById));
-    const result = await requestValidatedJson(
-      client,
-      effectiveModel,
-      systemPrompt,
-      userPrompt,
-      (content) => parseAbilityRepairResult(content, [record.ability], [record.id]),
-      true,
-      addFixAbilitiesCost,
-      undefined,
-      undefined,
-      2
+    const result = await requestAbilityRepairResult(
+      client, effectiveModel, systemPrompt,
+      abilityRepairInput(language, [record], chapterRow.chapter.title, book.age, undefined, exercisesByModuleId, conceptsById),
+      [record], addFixAbilitiesCost
     );
+
+    if (result.unresolvedReviews?.length) {
+      setNotice(`AI identified an Ability problem but could not produce a valid change: ${result.unresolvedReviews[0].errors.join('; ')}. The existing Ability was not modified. Use Fix images for a visual-only problem.`);
+      return;
+    }
     const review = result.reviews.find(({ index }) => index === 0);
 
     const sourceExercise = exercisesByModuleId.get(record.moduleId);
@@ -905,6 +902,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
 
       setProgressLabel('Fixing Ability errors');
       const replacements = new Map<string, { ability: GeneratedAbility; errors: string[]; record: StoredAbility }>();
+      const unresolved = new Map<string, { errors: string[]; record: StoredAbility }>();
       const duplicatePairs = new Map<string, DuplicateAbilityReview>();
       // Duplicate detection needs complete chapter context, so every chapter is
       // one AI request. Different chapters may still be reviewed concurrently.
@@ -915,21 +913,18 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
 
       await mapConcurrent(batches, OPENROUTER_CONCURRENCY, async ({ batch, chapterTitle }) => {
         const systemPrompt = REPAIR_SYSTEM_PROMPT(language, book.age);
-        const userPrompt = FIX_ABILITIES_REQUEST_PROMPT(abilityRepairInput(language, batch, chapterTitle, book.age, embeddingHints, exercisesByModuleId, conceptsById));
-        const result = await requestValidatedJson(
-          client,
-          effectiveModel,
-          systemPrompt,
-          userPrompt,
-          (content) => parseAbilityRepairResult(content, batch.map(({ ability }) => ability), batch.map(({ id }) => id)),
-          true,
-          addFixAbilitiesCost,
-          undefined,
-          undefined,
-          2,
-          signal
+        const result = await requestAbilityRepairResult(
+          client, effectiveModel, systemPrompt,
+          abilityRepairInput(language, batch, chapterTitle, book.age, embeddingHints, exercisesByModuleId, conceptsById),
+          batch, addFixAbilitiesCost, signal
         );
         const batchDuplicateIds = new Set(result.duplicatePairs.map(({ deletedAbilityId }) => deletedAbilityId));
+
+        result.unresolvedReviews?.forEach(({ errors, index }) => {
+          const record = batch[index];
+
+          if (record && !batchDuplicateIds.has(record.id)) unresolved.set(record.id, { errors, record });
+        });
 
         result.duplicatePairs.forEach(({ deletedAbilityId, keptAbilityId }) => {
           const kept = batch.find(({ id }) => id === keptAbilityId);
@@ -980,7 +975,10 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
           }
         }
       });
-      duplicateIds.forEach((id) => replacements.delete(id));
+      duplicateIds.forEach((id) => {
+        replacements.delete(id);
+        unresolved.delete(id);
+      });
 
       setFixReview({
         checked: allAbilities.length,
@@ -997,13 +995,14 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
           exerciseTitle: exerciseTitlesByModuleId.get(record.moduleId),
           record,
           recordId: record.id
-        }))
+        })),
+        unresolved: Array.from(unresolved.values())
       });
-      const unchanged = Math.max(0, allAbilities.length - replacements.size - duplicateIds.size);
+      const unchanged = Math.max(0, allAbilities.length - replacements.size - duplicateIds.size - unresolved.size);
 
       // Keep the review side-effect free. Applying the proposal is a separate,
       // explicit action in the results popup.
-      setNotice(`Review ready: ${replacements.size} Ability fix${replacements.size === 1 ? '' : 'es'}, ${duplicateIds.size} duplicate deletion${duplicateIds.size === 1 ? '' : 's'}, ${unchanged} unchanged. No database changes have been made.`);
+      setNotice(`Review ready: ${replacements.size} Ability fix${replacements.size === 1 ? '' : 'es'}, ${duplicateIds.size} duplicate deletion${duplicateIds.size === 1 ? '' : 's'}, ${unchanged} unchanged, ${unresolved.size} unresolved. No database changes have been made.`);
     } catch (caught) {
       if (!signal.aborted) {
         setError(caught instanceof Error ? caught.message : 'Unable to fix Ability errors.');
@@ -1080,14 +1079,18 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
 
       const hasChanges = fixReview.items.length > 0 || fixReview.duplicatePairs.length > 0;
 
-      if (hasChanges || !stageDone(FIX_ABILITIES_STAGE)) {
+      // A no-op diagnosis must never mark the full repair stage complete,
+      // even if the stage was marked complete by an earlier run.
+      if (fixReview.unresolved.length) {
+        if (stageDone(FIX_ABILITIES_STAGE)) await uncompleteBookProcessingStage(book.id, FIX_ABILITIES_STAGE);
+      } else if (hasChanges || !stageDone(FIX_ABILITIES_STAGE)) {
         await completeStage(FIX_ABILITIES_STAGE);
       }
 
       const deleted = fixReview.duplicatePairs.length;
 
       setFixReview(null);
-      setNotice(`Applied Fix abilities review: ${fixed} corrected, ${deleted} duplicate${deleted === 1 ? '' : 's'} deleted with their source Exercise${deleted === 1 ? '' : 's'} and linked Concept${deleted === 1 ? '' : 's'}.`);
+      setNotice(`Applied Fix abilities review: ${fixed} corrected, ${deleted} duplicate${deleted === 1 ? '' : 's'} deleted with their source Exercise${deleted === 1 ? '' : 's'} and linked Concept${deleted === 1 ? '' : 's'}.${fixReview.unresolved.length ? ` ${fixReview.unresolved.length} problem${fixReview.unresolved.length === 1 ? '' : 's'} remain unresolved; the Fix abilities stage was not marked complete.` : ''}`);
       refresh();
       onContentChange?.();
       onAction?.('preExercisesExercises');
@@ -1096,7 +1099,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
     } finally {
       setIsBusy(false);
     }
-  }, [allExercises, deleteConceptWithExercises, deleteExerciseWithAbilities, exercisesByModuleId, fixReview, onAction, onContentChange, refresh, completeStage, stageDone]);
+  }, [allExercises, book.id, deleteConceptWithExercises, deleteExerciseWithAbilities, exercisesByModuleId, fixReview, onAction, onContentChange, refresh, completeStage, stageDone]);
   const applyExerciseFixReview = useCallback(async (): Promise<void> => {
     if (!exerciseFixReview) {
       return;

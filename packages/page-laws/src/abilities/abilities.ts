@@ -63,9 +63,17 @@ export interface AbilityDuplicatePair {
   keptAbilityId: string;
 }
 
+export interface AbilityUnresolvedReview {
+  errors: string[];
+  index: number;
+}
+
 export interface AbilityRepairResult {
   duplicatePairs: AbilityDuplicatePair[];
   reviews: AbilityRepairReview[];
+  // The model identified a problem but did not produce any persistable correction.
+  // Never claim these entries have been fixed.
+  unresolvedReviews?: AbilityUnresolvedReview[];
 }
 
 export interface PreparedAbilityForPublishing {
@@ -259,7 +267,7 @@ function abilitySignature (ability: GeneratedAbility): string {
   });
 }
 
-export function parseAbilityRepairResult (content: string, originals: Array<GeneratedAbility | null>, originalIds: string[]): AbilityRepairResult {
+export function parseAbilityRepairResult (content: string, originals: Array<GeneratedAbility | null>, originalIds: string[], options: { collectUnchangedRepairs?: boolean } = {}): AbilityRepairResult {
   if (originalIds.length !== originals.length || new Set(originalIds).size !== originalIds.length) {
     throw new Error('Ability repair input IDs do not match the supplied Abilities.');
   }
@@ -310,6 +318,7 @@ export function parseAbilityRepairResult (content: string, originals: Array<Gene
 
   const used = new Set<number>();
   const reviews: AbilityRepairReview[] = [];
+  const unresolvedReviews: AbilityUnresolvedReview[] = [];
 
   values.forEach((value: unknown): void => {
     // Models occasionally append an extra review outside the requested batch.
@@ -355,33 +364,45 @@ export function parseAbilityRepairResult (content: string, originals: Array<Gene
       throw new Error('Every erroneous Ability review must identify at least one error.');
     }
 
-    const parsedAbility = parseGeneratedAbilityValue(value.ability);
+    // Fix abilities must copy the source Concept title exactly. Unlike legacy
+    // generation, repairs must not sentence-case it back to the old title,
+    // which can turn a real title-only correction into an apparent no-op.
+    const parsedAbility = parseAbilityValue(value.ability);
+
+    validateGeneratedAbilityText(parsedAbility, false);
     const mergedAbility = original === null
       ? parsedAbility
       : {
         ...parsedAbility,
         i: original.i,
-        q: parsedAbility.q.map((exercise, exerciseIndex) => ({
-          ...exercise,
-          i: original.q[exerciseIndex].i,
-          ...(original.q[exerciseIndex].iError !== undefined ? { iError: original.q[exerciseIndex].iError } : {}),
-          ...(original.q[exerciseIndex].iPrompt !== undefined ? { iPrompt: original.q[exerciseIndex].iPrompt } : {}),
-          p: original.q[exerciseIndex].p,
-          ...(original.q[exerciseIndex].pError !== undefined ? { pError: original.q[exerciseIndex].pError } : {}),
-          ...(original.q[exerciseIndex].pPrompt !== undefined ? { pPrompt: original.q[exerciseIndex].pPrompt } : {})
+        // Only learner-facing text is writable in Fix abilities. Copy the
+        // existing visual links, prompts, and validation flags as a complete
+        // unit so the model cannot add/alter metadata when the original lacked
+        // that optional property. Otherwise image-only responses look like
+        // valid text fixes despite having no persistable correction.
+        q: parsedAbility.q.map(({ a, h }, exerciseIndex) => ({
+          ...original.q[exerciseIndex],
+          a,
+          h
         }))
       };
     // Preserve the model's learner-facing text exactly as returned. Number/KaTeX
     // semantics are handled by the AI review instructions rather than by regex
     // rewriting, which cannot reliably distinguish identifiers from algebra.
     if (original !== null && abilitySignature(mergedAbility) === abilitySignature(original)) {
-      throw new Error('OpenRouter identified an Ability error but did not change the Ability.');
+      if (options.collectUnchangedRepairs) {
+        unresolvedReviews.push({ errors, index });
+
+        return;
+      }
+
+      throw new Error(`OpenRouter identified an Ability error at index ${index} but did not change any persistable field (title, question, or answer). Image and visual-prompt edits cannot be applied by Fix abilities. Reported problems: ${errors.join('; ')}`);
     }
 
     reviews.push({ ability: mergedAbility, errors, hasErrors: true, index });
   });
 
-  const reviewedIndexes = new Set(reviews.filter(({ ability, hasErrors }) => hasErrors && ability).map(({ index }) => index));
+  const reviewedIndexes = new Set([...reviews.filter(({ ability, hasErrors }) => hasErrors && ability).map(({ index }) => index), ...unresolvedReviews.map(({ index }) => index)]);
   const missingRequiredPlaceholderRepairs = originals.flatMap((original, index) => {
     if (!original || !hasForbiddenAbilityTaskTitle(original) || deletedDuplicateIds.has(originalIds[index]) || reviewedIndexes.has(index)) {
       return [];
@@ -396,7 +417,7 @@ export function parseAbilityRepairResult (content: string, originals: Array<Gene
 
   // Missing indexes are intentional: the repair API may return only Abilities
   // where it found an error. Omitted Abilities are therefore left unchanged.
-  return { duplicatePairs, reviews: reviews.sort((a, b) => a.index - b.index) };
+  return { duplicatePairs, reviews: reviews.sort((a, b) => a.index - b.index), ...(unresolvedReviews.length ? { unresolvedReviews } : {}) };
 }
 
 export function parseAbilityRepairReviews (content: string, originals: Array<GeneratedAbility | null>): AbilityRepairReview[] {

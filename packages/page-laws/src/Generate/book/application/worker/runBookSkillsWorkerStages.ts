@@ -20,13 +20,14 @@ import {
   replaceExercisesForBookPage,
   resetBookProcessingStagesFrom,
   SettingKey,
-  storeAbility
+  storeAbility,
+  uncompleteBookProcessingStage
 } from '@slonigiraf/db';
 import OpenAI from 'openai';
 
 import type { GeneratedAbility } from '../../../../abilities/abilities.js';
 import type { TikzPreRenderResult } from '../../../../Edit/TikzDisplay.js';
-import { parseAbilityRepairResult, parseStoredAbility } from '../../../../abilities/abilities.js';
+import { parseStoredAbility } from '../../../../abilities/abilities.js';
 import { isTikzCode } from '../../../../Edit/tikz.js';
 import { mapConcurrent } from '../../../../common/concurrency.js';
 import { OPENROUTER_CONCURRENCY } from '../../../../openrouter/concurrency.js';
@@ -42,6 +43,7 @@ import {
   requestChatContent,
   requestChatContentWithTruncationRetry,
   requestValidatedJson,
+  requestAbilityRepairResult,
   parseTikzAiReview,
   storedAbilityImageId,
   tikzCompileRepairPrompt,
@@ -57,7 +59,7 @@ import { generateExerciseAbility, type AbilityWorkflowJsonRunner, type ExerciseA
 import { abilityWithConceptTitle, exerciseWithConceptTitle } from '../../domain/concepts/conceptTitles.js';
 import { sortAbilitiesForDisplay, sortExercisesForDisplay } from '../../domain/concepts/learningOrder.js';
 import { parseExerciseRepairResult } from '../../domain/exercises/exercises.js';
-import { ABILITY_WORKFLOW_SYSTEM_PROMPT, FIX_ABILITIES_REQUEST_PROMPT, FIX_EXERCISES_REQUEST_PROMPT, REPAIR_SYSTEM_PROMPT } from '../../infrastructure/ai/prompts/abilities.js';
+import { ABILITY_WORKFLOW_SYSTEM_PROMPT, FIX_EXERCISES_REQUEST_PROMPT, REPAIR_SYSTEM_PROMPT } from '../../infrastructure/ai/prompts/abilities.js';
 import { deleteConceptAndDependencies } from '../workspace/bookReaderWorkspace.js';
 import { conceptGenerationErrorMessage, createOpenRouterClient } from '../workspace/bookReaderProcessing.js';
 import type { BookProcessingWorkerCommand, BookProcessingWorkerServices } from './bookProcessingWorkerProtocol.js';
@@ -387,26 +389,26 @@ export async function runFixAbilitiesStage ({ book, command, cost, progress, sig
   );
   const replacements = new Map<string, { ability: GeneratedAbility; record: StoredAbility }>();
   const duplicatePairs = new Map<string, { deleted: StoredAbility; kept: StoredAbility }>();
+  const unresolved: string[] = [];
   const batches = chapters.filter(({ abilities }) => abilities.length).map(({ abilities, chapter }) => ({ batch: abilities, chapterTitle: chapter.title }));
   let completed = 0;
 
   await progress(0, allAbilities.length, 'Fixing Ability errors');
   await mapConcurrent(batches, OPENROUTER_CONCURRENCY, async ({ batch, chapterTitle }) => {
     throwIfAborted();
-    const result = await requestValidatedJson(
-      client,
-      command.options.model || DEFAULT_PROCESSING_MODEL,
+    const result = await requestAbilityRepairResult(
+      client, command.options.model || DEFAULT_PROCESSING_MODEL,
       REPAIR_SYSTEM_PROMPT(book.language as string, book.age),
-      FIX_ABILITIES_REQUEST_PROMPT(abilityRepairInput(book.language as string, batch, chapterTitle, book.age, embeddingHints, exercisesByModuleId, conceptsById)),
-      (value) => parseAbilityRepairResult(value, batch.map(({ ability }) => ability), batch.map(({ id }) => id)),
-      true,
-      cost,
-      undefined,
-      undefined,
-      2,
-      signal
+      abilityRepairInput(book.language as string, batch, chapterTitle, book.age, embeddingHints, exercisesByModuleId, conceptsById),
+      batch, cost, signal
     );
     const duplicateIds = new Set(result.duplicatePairs.map(({ deletedAbilityId }) => deletedAbilityId));
+
+    result.unresolvedReviews?.forEach(({ errors, index }) => {
+      const record = batch[index];
+
+      if (record && !duplicateIds.has(record.id)) unresolved.push(`${record.id}: ${errors.join('; ')}`);
+    });
 
     result.duplicatePairs.forEach(({ deletedAbilityId, keptAbilityId }) => {
       const deleted = batch.find(({ id }) => id === deletedAbilityId);
@@ -462,6 +464,11 @@ export async function runFixAbilitiesStage ({ book, command, cost, progress, sig
   }
   for (const { deleted } of duplicatePairs.values()) {
     if (!exercisesByModuleId.get(deleted.moduleId)) await deleteAbility(deleted.id);
+  }
+
+  if (unresolved.length) {
+    await uncompleteBookProcessingStage(book.id, 'fixAbilities');
+    throw new Error(`Fix abilities applied available corrections but ${unresolved.length} Ability error${unresolved.length === 1 ? '' : 's'} remain unresolved. The AI did not change any editable text in these records. Fix images separately for image-only errors. Details: ${unresolved.slice(0, 5).join(' | ')}`);
   }
 
   await completeBookProcessingStage(book.id, 'fixAbilities');

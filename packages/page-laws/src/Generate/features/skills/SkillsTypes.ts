@@ -59,6 +59,8 @@ export interface FixReviewResult {
   checked: number;
   duplicatePairs: DuplicateAbilityReview[];
   items: FixedAbilityReview[];
+  // AI diagnosed these problems but supplied no persistable correction.
+  unresolved: Array<{ errors: string[]; record: StoredAbility }>;
 }
 
 export interface FixedExerciseReview {

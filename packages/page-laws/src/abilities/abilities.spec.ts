@@ -8,7 +8,7 @@ import type { GeneratedAbility } from './abilities.js';
 import { strict as assert } from 'node:assert';
 
 import { parseAbilityRepairResult, parseAbilityRepairReviews, parseGeneratedAbilities, parseGeneratedExerciseAbilities, parseStoredAbility, prepareAbilityForPublishing, withAbilityVisualError, withAbilityVisualSource } from './abilities.js';
-import { FIX_ABILITIES_PROMPT, SKILL_LIST_PROMPT, SOURCES_TO_SKILLS_PROMPT } from '../Generate/book/infrastructure/ai/prompts/abilities.js';
+import { EXERCISE_ABILITIES_PROMPT, FIX_ABILITIES_PROMPT, SINGLE_EXERCISE_ABILITY_RECOVERY_PROMPT, SKILL_LIST_PROMPT, SOURCES_TO_SKILLS_PROMPT } from '../Generate/book/infrastructure/ai/prompts/abilities.js';
 
 function createSkill (): GeneratedAbility {
   return {
@@ -284,6 +284,13 @@ describe('generated abilities', (): void => {
     assert.deepEqual(pinned.sort(), [ability.q[0].i, ability.q[0].p].sort());
   });
 
+  it('tells the repair model which fields are writable and routes visual-only faults to Fix images', (): void => {
+    assert.match(FIX_ABILITIES_PROMPT, /IMPORTANT FIX-ABILITIES WRITE CONTRACT/);
+    assert.match(FIX_ABILITIES_PROMPT, /q\[\]\.pPrompt and q\[\]\.iPrompt are image metadata/);
+    assert.match(FIX_ABILITIES_PROMPT, /Fix images stage handles it/);
+    assert.match(FIX_ABILITIES_PROMPT, /MUST actually correct at least one writable learner-facing field/);
+  });
+
   it('preserves existing Ability linkage fields while applying a repair', (): void => {
     const original = {
       ...createSkill(),
@@ -317,6 +324,45 @@ describe('generated abilities', (): void => {
     assert.deepEqual(parseAbilityRepairReviews(JSON.stringify({ reviews: [
       { ability: fixed, errors: ['Stored Ability JSON is malformed.'], hasErrors: true, index: 0 }
     ] }), [null])[0].ability, fixed);
+  });
+
+  it('does not sentence-case away a valid Concept title correction during repair', (): void => {
+    const original = createSkill();
+    const corrected = { ...original, h: 'Convert Whole Kilometers To Meters' };
+    const parsed = parseAbilityRepairResult(JSON.stringify({
+      duplicatePairs: [],
+      reviews: [{ ability: corrected, errors: ['Title differs from source Concept.'], hasErrors: true, index: 0 }]
+    }), [original], ['ability-1']);
+
+    assert.equal(parsed.reviews[0].ability?.h, corrected.h);
+  });
+
+  it('collects an unchanged AI diagnosis without treating it as a successful fix', (): void => {
+    const original = createSkill();
+    const changedImageOnly = {
+      ...original,
+      q: original.q.map((exercise) => ({ ...exercise, i: 'replacement that must not overwrite linked image', p: 'another replacement' }))
+    };
+    const corrected = { ...original, q: original.q.map((exercise) => ({ ...exercise })) };
+
+    corrected.q[1].a = 'Corrected answer.';
+    const parsed = parseAbilityRepairResult(JSON.stringify({
+      duplicatePairs: [],
+      reviews: [
+        { ability: changedImageOnly, errors: ['The figure has an incorrect orientation.'], hasErrors: true, index: 0 },
+        { ability: corrected, errors: ['Incorrect answer.'], hasErrors: true, index: 1 }
+      ]
+    }), [original, original], ['first', 'second'], { collectUnchangedRepairs: true });
+
+    assert.deepEqual(parsed.unresolvedReviews, [{ errors: ['The figure has an incorrect orientation.'], index: 0 }]);
+    assert.equal(parsed.reviews.length, 1);
+    assert.equal(parsed.reviews[0].index, 1);
+    assert.equal(parsed.reviews[0].ability?.q[1].a, 'Corrected answer.');
+    assert.equal(parsed.reviews[0].ability?.q[0].p, original.q[0].p);
+    assert.throws(() => parseAbilityRepairResult(JSON.stringify({
+      duplicatePairs: [],
+      reviews: [{ ability: changedImageOnly, errors: ['Image-only issue'], hasErrors: true, index: 0 }]
+    }), [original], ['first']), /did not change any persistable field/);
   });
 
   it('rejects contradictory or ineffective Ability repairs', (): void => {
@@ -638,6 +684,27 @@ describe('generated abilities', (): void => {
     assert.match(SKILL_LIST_PROMPT, /Templatability, self-containment/i);
   });
 
+  it('protects mathematical meaning while allowing substantive Ability variations in both legacy paths', (): void => {
+    const prompts = [
+      SKILL_LIST_PROMPT,
+      EXERCISE_ABILITIES_PROMPT('en', 'Geometry', []),
+      SINGLE_EXERCISE_ABILITY_RECOVERY_PROMPT('en', 'Geometry', 1, { description: 'Read a grid' })
+    ];
+
+    for (const prompt of prompts) {
+      assert.match(prompt, /mathematical learning objective/i);
+      assert.match(prompt, /difficulty/i);
+      assert.match(prompt, /formal structure of each representation/i);
+      assert.match(prompt, /row\/column structure/i);
+      assert.match(prompt, /geometric and spatial relationships/i);
+      assert.match(prompt, /visually similar but mathematically incorrect illustrations/i);
+      assert.match(prompt, /Natural-language wording may vary when/i);
+      assert.match(prompt, /cosmetic/i);
+      assert.match(prompt, /actual mathematical arrangement/i);
+      assert.match(prompt, /fixed learning targets/i);
+    }
+  });
+
   it('generates one language-constrained skill per source item', (): void => {
     assert.match(SOURCES_TO_SKILLS_PROMPT, /exactly one/i);
     assert.match(SOURCES_TO_SKILLS_PROMPT, /abstractly/i);
@@ -687,6 +754,9 @@ describe('generated abilities', (): void => {
     assert.match(FIX_ABILITIES_PROMPT, /q\[\]\.h and its question visual prompt in q\[\]\.pPrompt/i);
     assert.match(FIX_ABILITIES_PROMPT, /Do not use q\[\]\.p as a fallback or substitute for q\[\]\.pPrompt/i);
     assert.doesNotMatch(FIX_ABILITIES_PROMPT, /falling back to the semantic q\[\]\.p/i);
+    assert.match(FIX_ABILITIES_PROMPT, /formal structure of mathematical representations/i);
+    assert.match(FIX_ABILITIES_PROMPT, /cosmetic styling for meaningful variation/i);
+    assert.match(FIX_ABILITIES_PROMPT, /spatial arrangements may differ/i);
     assert.match(FIX_ABILITIES_PROMPT, /combined text-plus-visual task/i);
     assert.match(FIX_ABILITIES_PROMPT, /<kx>/i);
   });
