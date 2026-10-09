@@ -19,7 +19,7 @@ import { nextStoredTikzValidity } from '../../../../Edit/tikzValidation.js';
 import { parseStoredAbility, withAbilityVisualSource } from '../../../../abilities/abilities.js';
 import { abilityModuleId, storedAbilityImageId } from '../../../book/application/abilities/abilityProcessing.js';
 import { stripMarkdownImageReferences } from '../../../book/infrastructure/pdf/bookImageRefs.js';
-import { EditForm } from '../SkillsStyles.js';
+import { EditForm, FixResultsReviewContent } from '../SkillsStyles.js';
 import FixingOverlay from '../../../shared/ui/FixingOverlay.js';
 
 const TikzDisplay = React.lazy(() => import('../../../../Edit/TikzDisplay.js'));
@@ -328,7 +328,8 @@ function cloneAbility (ability: GeneratedAbility): GeneratedAbility {
   return { ...ability, q: ability.q.map((exercise) => ({ ...exercise })) };
 }
 
-export function AbilityCard ({ onDeleted, onError, onFix, record }: { onDeleted: () => void; onError: (message: string) => void; onFix: (record: StoredAbility) => Promise<void>; record: StoredAbility }): React.ReactElement {
+export function AbilityCard ({ onDeleted, onError, onFix, record, sourceExercise }: { onDeleted: () => void; onError: (message: string) => void; onFix: (record: StoredAbility) => Promise<void>; record: StoredAbility; sourceExercise?: Exercise }): React.ReactElement {
+  const [isSourceExerciseShown, setIsSourceExerciseShown] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [isFixing, setIsFixing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -437,6 +438,11 @@ export function AbilityCard ({ onDeleted, onError, onFix, record }: { onDeleted:
   return <article aria-busy={isFixing} className='contentCard abilityCard' tabIndex={-1}>
     <div className='contentCardActions'>
       <Button
+        icon='eye'
+        label='Show Exercise'
+        onClick={() => setIsSourceExerciseShown(true)}
+      />
+      <Button
         icon='robot'
         isDisabled={isFixing || isSaving}
         label={isFixing ? 'Fixing…' : 'Fix with AI'}
@@ -469,6 +475,22 @@ export function AbilityCard ({ onDeleted, onError, onFix, record }: { onDeleted:
         <p>This record can be repaired with Fix abilities.</p>
       </>}
     {isFixing && <FixingOverlay />}
+    {isSourceExerciseShown && <Modal
+      header='Source Exercise'
+      onClose={() => setIsSourceExerciseShown(false)}
+      size='large'
+    >
+      <Modal.Content>
+        <FixResultsReviewContent>
+          {sourceExercise
+            ? <>
+              <p>This Exercise was used to generate the Ability.</p>
+              <ExerciseReviewCard exercise={sourceExercise} />
+            </>
+            : <p>The source Exercise for this Ability could not be found. It may have been deleted or moved.</p>}
+        </FixResultsReviewContent>
+      </Modal.Content>
+    </Modal>}
     {isEditing && <Modal
       header='Edit Ability'
       onClose={closeEdit}

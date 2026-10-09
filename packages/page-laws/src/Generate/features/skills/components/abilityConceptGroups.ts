@@ -45,3 +45,14 @@ export function groupAbilitiesByConcept<
     unmatched: abilities.filter(({ moduleId }) => !knownModules.has(moduleId))
   };
 }
+
+/** Resolve the original source Exercise for each generated Ability via its
+ * persisted exercise module ID (not by display order or Concept). */
+export function indexSourceExercisesByModuleId<TExercise extends { id?: number }> (
+  exercises: TExercise[],
+  exerciseModuleId: (id: number) => string
+): Map<string, TExercise> {
+  return new Map(exercises.flatMap((exercise) => exercise.id === undefined
+    ? []
+    : [[exerciseModuleId(exercise.id), exercise] as const]));
+}

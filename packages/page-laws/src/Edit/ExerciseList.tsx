@@ -32,13 +32,13 @@ const ExerciseVisual: React.FC<{ alt: string; hasCompileError?: boolean; isAbili
     const visiblePrompt = isAbilityInfo
         ? (prompt?.trim() || (!isTikzCode(value) && !isGeneratedAbilityVisual(value) ? value.trim() : ''))
         : '';
-    // The question's image prompt is part of the expanded image view, never
-    // the thumbnail. The branches below handle prompt-only (no image) cases.
-    const isQuestionVisual = isAbilityInfo && label === 'Question visual prompt';
+    // Both question and answer image prompts belong in the zoomed view, not
+    // below the thumbnail. A prompt without an image stays visible inline.
+    const hasZoomableImage = isAbilityInfo && (isTikzCode(value) || isGeneratedAbilityVisual(value));
     const promptElement = visiblePrompt
         ? <VisualPrompt><strong>{label}:</strong> <SpanWithTags content={visiblePrompt} /></VisualPrompt>
         : null;
-    const expandedPrompt = isQuestionVisual ? promptElement : null;
+    const expandedPrompt = hasZoomableImage ? promptElement : null;
 
     if (isTikzCode(value)) {
         return <>
@@ -47,7 +47,7 @@ const ExerciseVisual: React.FC<{ alt: string; hasCompileError?: boolean; isAbili
                     ? <TikzVisual alt={alt} expandedPrompt={expandedPrompt} hasCompileError={hasCompileError} onCompileStateChange={onCompileStateChange} onSave={onSave} value={value} />
                     : <TikzDisplay alt={alt} hasCompileError={hasCompileError} onCompileStateChange={onCompileStateChange} value={value} />}
             </React.Suspense>
-            {!isQuestionVisual && promptElement}
+            {!hasZoomableImage && promptElement}
         </>;
     }
 
@@ -62,7 +62,7 @@ const ExerciseVisual: React.FC<{ alt: string; hasCompileError?: boolean; isAbili
             {isLocalOrRemoteImageUrl(imageValue)
                 ? <KnowledgeResizableImage alt={alt} expandedPrompt={expandedPrompt} src={imageValue} />
                 : <KnowledgeResizableImage alt={alt} cid={imageValue} expandedPrompt={expandedPrompt} />}
-            {!isQuestionVisual && promptElement}
+            {!hasZoomableImage && promptElement}
         </>;
     }
 

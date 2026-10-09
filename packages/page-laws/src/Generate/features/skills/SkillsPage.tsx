@@ -1954,6 +1954,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
     />
     <SkillsContentView
       abilitiesOutputRef={abilitiesOutputRef}
+      allExercises={allExercises}
       bookId={book.id}
       chapterContentOutputRef={chapterContentOutputRef}
       chapterIndex={chapterIndex}

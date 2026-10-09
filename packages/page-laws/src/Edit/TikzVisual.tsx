@@ -324,34 +324,36 @@ export default function TikzVisual ({ alt, editorTitle, expandedPrompt, hasCompi
 
   return <TikzEditor>
     {showPreview && <PreviewBlock>
-      <ZoomablePreview
-        aria-label={`Open ${alt} TikZ preview`}
-        onClick={() => setIsPreviewBig(true)}
-        onKeyDown={(event) => {
-          if (event.key === 'Enter' || event.key === ' ') {
-            event.preventDefault();
-            setIsPreviewBig(true);
-          }
-        }}
-        role='button'
-        tabIndex={0}
-      >
-        <TikzDisplay
-          alt={`${alt} TikZ preview`}
-          displayMode='thumbnail'
-          hasCompileError={hasCompileError && rendered === value && retrySource !== rendered}
-          onCompileStateChange={handleCompileStateChange}
-          recompileToken={recompileToken}
-          value={rendered}
-        />
-      </ZoomablePreview>
-      {onSave && <Button
-        className='tikzEditOverlay'
-        icon='edit'
-        isDisabled={isSaving || !draft.trim()}
-        label={<span className='tikzEditAccessibleLabel'>Edit {alt} image</span>}
-        onClick={openVisualEditor}
-      />}
+      <PreviewRow>
+        <ZoomablePreview
+          aria-label={`Open ${alt} TikZ preview`}
+          onClick={() => setIsPreviewBig(true)}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter' || event.key === ' ') {
+              event.preventDefault();
+              setIsPreviewBig(true);
+            }
+          }}
+          role='button'
+          tabIndex={0}
+        >
+          <TikzDisplay
+            alt={`${alt} TikZ preview`}
+            displayMode='thumbnail'
+            hasCompileError={hasCompileError && rendered === value && retrySource !== rendered}
+            onCompileStateChange={handleCompileStateChange}
+            recompileToken={recompileToken}
+            value={rendered}
+          />
+        </ZoomablePreview>
+        {onSave && <Button
+          aria-label={`Edit ${alt} image`}
+          className='tikzEditInline'
+          icon='edit'
+          isDisabled={isSaving || !draft.trim()}
+          onClick={openVisualEditor}
+        />}
+      </PreviewRow>
       {prompt?.trim() && <PreviewActions>
         <Button
           icon={isDetailsShown ? 'eye-slash' : 'eye'}
@@ -433,43 +435,35 @@ const PreviewBlock = styled.div`
   flex-direction: column;
   gap: 0.35rem;
   max-width: 100%;
-  position: relative;
-  width: 150px;
+  width: fit-content;
+`;
 
-  .tikzEditOverlay.ui--Button {
+const PreviewRow = styled.div`
+  align-items: flex-start;
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 0.35rem;
+  max-width: 100%;
+  min-width: 0;
+
+  .tikzEditInline.ui--Button {
     align-items: center;
     background: var(--bg-input, #fff);
     border: 1px solid var(--border-table, #cfd5e1);
     border-radius: 0.4rem;
-    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.14);
     display: flex;
+    flex: 0 0 2rem;
     height: 2rem;
     justify-content: center;
     margin: 0;
     min-height: 2rem;
     min-width: 2rem;
     padding: 0.2rem;
-    position: absolute;
-    right: 0.2rem;
-    top: 0.2rem;
     width: 2rem;
-    z-index: 1;
 
     .ui--Icon {
       margin: 0 !important;
     }
-  }
-
-  .tikzEditAccessibleLabel {
-    border: 0;
-    clip-path: inset(50%);
-    height: 1px;
-    margin: -1px;
-    overflow: hidden;
-    padding: 0;
-    position: absolute;
-    white-space: nowrap;
-    width: 1px;
   }
 `;
 
@@ -490,8 +484,10 @@ const PreviewActions = styled.div`
 const ZoomablePreview = styled.div`
   cursor: zoom-in;
   display: inline-block;
-  max-width: 100%;
-  width: fit-content;
+  flex: 0 1 150px;
+  min-width: 0;
+  max-width: 150px;
+  width: 150px;
 
   &:focus-visible {
     outline: 2px solid currentColor;
