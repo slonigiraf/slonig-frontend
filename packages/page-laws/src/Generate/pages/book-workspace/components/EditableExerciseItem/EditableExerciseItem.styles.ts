@@ -4,14 +4,16 @@
 import { styled } from '@polkadot/react-components';
 
 const ExerciseItemContainer = styled.li`
-  border-bottom: 1px solid var(--border-table);
+  border: 1px solid var(--border-table);
+  border-radius: 0.4rem;
   box-sizing: border-box;
   list-style: none;
+  margin-bottom: 0.75rem;
   min-height: 4rem;
-  padding: 0.75rem 16rem 0.75rem 0.65rem;
+  padding: 0.75rem 16rem 0.75rem 0.75rem;
   position: relative;
 
-  &:last-child { border-bottom: 0; }
+  &:last-child { margin-bottom: 0; }
   > p { margin: 0.35rem 0; }
 
   .exerciseItemActions {

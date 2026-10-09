@@ -472,7 +472,7 @@ export const StyledSkills = styled.div`
   .columns > section, .singlePane { border: 1px solid var(--border-table); border-radius: 0.4rem; min-width: 0; overflow: auto; padding: 1rem; }
   .contentCard { border-bottom: 1px solid var(--border-table); box-sizing: border-box; min-width: 0; padding: 0.75rem 16rem 0.75rem 10px; position: relative; }
   .contentCard > .ui--Button { position: absolute; right: 10px; top: 10px; }
-  .abilityCard { padding: 0.85rem 1rem 1rem; }
+  .abilityCard { border: 1px solid var(--border-table); border-radius: 0.4rem; margin-bottom: 0.75rem; padding: 0.85rem 1rem 1rem; }
   .abilityCard .contentCardActions { margin-bottom: 0.75rem; max-width: none; position: static; }
   .contentCardActions { align-items: center; display: flex; flex-wrap: wrap; gap: 0.35rem; justify-content: flex-end; max-width: 15rem; position: absolute; right: 10px; top: 10px; }
   .contentCard > strong { display: block; overflow-wrap: anywhere; }
@@ -501,9 +501,9 @@ export const StyledSkills = styled.div`
   .abilityConceptCard > h4 { margin: 0 0 0.35rem; }
   .abilityConceptCard > p { margin: 0.35rem 0 0.85rem; }
   .abilityConceptCard .matchedAbilities { margin-top: 0.6rem; }
-  .matchedAbilities { border-left: 3px solid var(--border-table); margin: 0 0 0.75rem 1.5rem; padding-left: 0.75rem; }
+  .matchedAbilities { margin: 0.6rem 0 0.75rem; }
   .matchedAbilities .contentCard { background: var(--bg-input); }
-  .matchedAbilities .contentCard:last-child { border-bottom: 0; }
+  .matchedAbilities .contentCard:last-child { margin-bottom: 0; }
   .noAbility { color: var(--color-label); margin: 0; padding: 0.75rem 0; }
   .unmatchedAbilities { border-top: 1px solid var(--border-table); margin-top: 1rem; padding-top: 1rem; }
   .contentCard p { margin: 0.35rem 0; }
@@ -520,6 +520,7 @@ export const StyledSkills = styled.div`
   @media only screen and (max-width: 900px) { .columns, .duplicatePairComparison, .tikzDiffGrid { grid-template-columns: 1fr; } }
   @media only screen and (max-width: 600px) {
     .contentCard { padding-right: 10px; padding-top: 4.1rem; }
+    .abilityCard { padding: 0.85rem 1rem 1rem; }
     .contentCardActions { left: 10px; max-width: none; right: 10px; }
   }
 `;

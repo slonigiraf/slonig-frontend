@@ -180,9 +180,11 @@ const Answer = styled.div`
   padding-left: 0.75rem;
 
   &.abilityAnswer {
-    border-left: 3px solid var(--border-table);
+    border: 1px solid var(--border-table);
+    border-radius: 0.4rem;
+    box-sizing: border-box;
     margin-top: 0.75rem;
-    padding-left: 1rem;
+    padding: 0.75rem;
   }
 `;
 export default ExerciseList;
