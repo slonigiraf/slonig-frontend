@@ -6,7 +6,7 @@ import type { GeneratedAbility } from '../../../abilities/abilities.js';
 import type { AbilityWorkflowJsonRunner, ExerciseAbilityConversion } from '../../book/domain/abilities/abilityWorkflow.js';
 import type { AiAction, BookPageContent, ChapterContent, DuplicateAbilityReview, DuplicateExerciseReview, ExerciseFixReviewResult, FixedImageReview, FixReviewResult, ImageFixReviewResult, UnresolvedImageReview, PipelineAction, SkillSource, SkillsProps, SkillsView } from './SkillsTypes.js';
 
-import { addBookStageSpend, completeBookProcessingStage, deleteAbilities, deleteAbility, deleteBookConcept, deleteExercise, getAbilities, getBookChapters, getBookCompletedStages, getBookConceptsForBookPage, getBookPages, getExercisesForBookPage, getSetting, getSkillsForChapter, getImage, getBookVisualQaSummary, hydrateAbilityContent, putImage, setTikzImageQaState, tikzSourceVersion, replaceAbilities, replaceExercisesForConcept, replaceExercisesForBookPage, replaceSkillsForChapter, resetBookProcessingStagesFrom, SettingKey, storeAbility, uncompleteBookProcessingStage } from '@slonigiraf/db';
+import { addBookStageSpend, completeBookProcessingStage, deleteAbilities, deleteAbility, deleteBookConcept, deleteExercise, getAbilities, getBookChapters, getBookCompletedStages, getBookConceptsForBookPage, getBookPages, getExercisesForBookPage, getSetting, getSkillsForChapter, getImage, getBookVisualQaSummary, hydrateAbilityContent, putImage, setTikzImageQaState, tikzSourceVersion, replaceAbilities, replaceExercisesForConcept, replaceExercisesForBookPage, replaceSkillsForChapter, resetBookProcessingStagesFrom, SettingKey, storeAbility } from '@slonigiraf/db';
 import OpenAI from 'openai';
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 
@@ -15,7 +15,6 @@ import { isTikzCode } from '../../../Edit/tikz.js';
 import { shouldSkipStoredTikzCompile } from '../../../Edit/tikzValidation.js';
 import { rasterizeTikzSvg } from '../../book/application/abilities/tikzRaster.js';
 import { parseStoredAbility } from '../../../abilities/abilities.js';
-import { buildAbilityEmbeddingValidationHints } from '../../book/application/abilities/abilityEmbeddingValidation.js';
 import { parseExerciseRepairResult } from '../../book/domain/exercises/exercises.js';
 import { processExtractedChapterContent } from '../../book/application/processing/bookProcessing.js';
 import { bookProcessingManager } from '../../book/application/pipeline/bookProcessingManager.js';
@@ -24,7 +23,7 @@ import { bookLanguageLabel } from '../../book/domain/metadata/bookLanguage.js';
 import { conceptRedoStagesFrom, type ConceptRedoStage } from './conceptRedoStages.js';
 import { addBookExternalCall } from '../../book/infrastructure/storage/bookExternalCalls.js';
 import { estimateAiInput } from '../../book/application/pricing/aiEstimate.js';
-import { DEFAULT_PROCESSING_MODEL, DEFAULT_STANDARDS_EMBEDDER } from '../../book/application/config.js';
+import { DEFAULT_PROCESSING_MODEL } from '../../book/application/config.js';
 import { ABILITY_WORKFLOW_SYSTEM_PROMPT, CONCEPT_ABILITY_WORKFLOW_SYSTEM_PROMPT, FIX_ABILITIES_REQUEST_PROMPT, FIX_EXERCISES_REQUEST_PROMPT, REPAIR_SYSTEM_PROMPT, SKILLS_GENERATION_SYSTEM_PROMPT, SOURCES_TO_SKILLS_REQUEST_PROMPT } from '../../book/infrastructure/ai/prompts/abilities.js';
 import { abilityGenerationRequestPrompt, generateExerciseAbility, transportCompactAbilitySourceExercise } from '../../book/domain/abilities/abilityWorkflow.js';
 import { conceptAbilityGenerationPrompt, generateConceptAbility } from '../../book/domain/abilities/conceptAbilityWorkflow.js';
@@ -32,7 +31,7 @@ import { mapConcurrent } from '../../../common/concurrency.js';
 import { OPENROUTER_CONCURRENCY } from '../../../openrouter/concurrency.js';
 import { useBookStageTimer } from '../../book/infrastructure/storage/bookStageTime.js';
 import { stripMarkdownImageReferences } from '../../book/infrastructure/pdf/bookImageRefs.js';
-import { abilityWithConceptTitle, exerciseWithConceptTitle } from '../../book/domain/concepts/conceptTitles.js';
+import { abilityWithDirectConceptTitle, exerciseWithConceptTitle } from '../../book/domain/concepts/conceptTitles.js';
 import { sortAbilitiesForDisplay, sortExercisesForDisplay } from '../../book/domain/concepts/learningOrder.js';
 import { resolveSharedChapterIndex } from '../../book/domain/chapters/chapterSelection.js';
 import { getSharedChapterSelection, storeSharedChapterSelection, subscribeSharedChapterSelection } from '../../book/infrastructure/storage/chapterSelectionStorage.js';
@@ -494,17 +493,6 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
       setGenerateOnlyMissingAbilities(false);
     }
   }, [exercisesMissingAbilities.length, generateOnlyMissingAbilities]);
-  const exercisesByModuleId = useMemo(() => {
-    const lookup = new Map(allExercises.flatMap((exercise) => exercise.id === undefined ? [] : [[exerciseAbilityModuleId(book.id, exercise.id), exercise] as const]));
-    for (const concept of allConcepts) {
-      if (concept.id !== undefined) lookup.set(conceptAbilityModuleId(book.id, concept.id), {
-        bookPage: concept.bookPage, conceptId: concept.id, description: concept.description,
-        id: concept.id, solution: '', source: 'generated', title: concept.title
-      });
-    }
-    return lookup;
-  }, [allConcepts, allExercises, book.id]);
-  const exerciseTitlesByModuleId = useMemo(() => new Map(Array.from(exercisesByModuleId, ([moduleId, exercise]) => [moduleId, exercise.title] as const)), [exercisesByModuleId]);
   const conceptsById = useMemo(() => new Map(chapterContent.flatMap(({ concepts }) => concepts.flatMap((concept) => concept.id === undefined ? [] : [[concept.id, concept] as const]))), [chapterContent]);
   const imageGenerationTargets = useMemo(() => allAbilities.flatMap((record) => record.ability
     ? record.ability.q.flatMap((exercise, exerciseIndex) => (['p', 'i'] as const).flatMap((field) => {
@@ -637,7 +625,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
     }
 
     if (aiAction === 'fix') {
-      return chapterContent.filter(({ abilities }) => abilities.length > 0).map(({ abilities, chapter }) => FIX_ABILITIES_REQUEST_PROMPT(abilityRepairInput(language, abilities, chapter.title, book.age, undefined, exercisesByModuleId, conceptsById)));
+      return chapterContent.filter(({ abilities }) => abilities.length > 0).map(({ abilities, chapter }) => FIX_ABILITIES_REQUEST_PROMPT(abilityRepairInput(language, abilities, chapter.title, book.age, conceptsById)));
     }
 
     if (aiAction === 'images') {
@@ -653,7 +641,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
     }
 
     return [];
-  }, [abilityModuleIds, aiAction, book.age, book.id, chapterContent, conceptsById, exercisesByModuleId, generateOnlyMissingAbilities, imageFixTargetsForRun, imageGenerationTargetsForRun, language, skillSources]);
+  }, [abilityModuleIds, aiAction, book.age, book.id, chapterContent, conceptsById, generateOnlyMissingAbilities, imageFixTargetsForRun, imageGenerationTargetsForRun, language, skillSources]);
   const maxChapterAbilityCount = Math.max(1, ...chapterContent.map(({ abilities }) => abilities.length));
   const maxChapterExerciseCount = Math.max(1, ...chapterContent.map(({ exercises }) => exercises.length));
   const generationOutputTokens = aiAction === 'exercises' ? 3_200 : aiAction === 'fixExercises' ? maxChapterExerciseCount * 550 : aiAction === 'fix' ? maxChapterAbilityCount * 700 : aiAction === 'images' ? 2_400 : aiAction === 'fixImages' ? TIKZ_REVIEW_MAX_OUTPUT_TOKENS : aiAction === 'skills' ? BATCH_SIZE * 180 : 300;
@@ -806,8 +794,8 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
       throw new Error('Another AI operation is currently running.');
     }
 
-    const sourceExercise = exercisesByModuleId.get(record.moduleId);
-    const conceptId = sourceExercise?.conceptId ?? Number(/-concept-(\d+)$/.exec(record.moduleId)?.[1]);
+    const conceptLink = /-concept-(\d+)$/.exec(record.moduleId);
+    const conceptId = conceptLink ? Number(conceptLink[1]) : undefined;
     const chapterRow = conceptId === undefined ? undefined : chapterContent.find(({ concepts }) => concepts.some(({ id }) => id === conceptId));
     const concept = chapterRow?.concepts.find(({ id }) => id === conceptId);
 
@@ -857,10 +845,9 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
           const records = await readAbilities();
 
           if (!records.length || records.some(({ ability }) => !ability)) throw new Error('No valid Ability exists for this Concept. Start from Create Ability.');
-          const moduleExercises = new Map([[conceptAbilityModuleId(book.id, conceptId), exercisesByModuleId.get(conceptAbilityModuleId(book.id, conceptId)) as Exercise]]);
           const result = await requestAbilityRepairResult(
             client, effectiveModel, REPAIR_SYSTEM_PROMPT(language, book.age),
-            abilityRepairInput(language, records, chapterRow.chapter.title, book.age, undefined, moduleExercises, conceptMap),
+            abilityRepairInput(language, records, chapterRow.chapter.title, book.age, conceptMap),
             records, addFixAbilitiesCost, signal
           );
 
@@ -869,7 +856,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
           const fixed = records.flatMap((row, index) => {
             if (duplicateIds.has(row.id)) return [];
             const replacement = result.reviews.find(({ index: reviewIndex }) => reviewIndex === index)?.ability;
-            const fixedAbility = abilityWithConceptTitle(replacement ?? row.ability as GeneratedAbility, moduleExercises.get(row.moduleId), conceptMap);
+            const fixedAbility = abilityWithDirectConceptTitle(replacement ?? row.ability as GeneratedAbility, row.moduleId, conceptMap);
             const validated = parseStoredAbility(JSON.stringify(fixedAbility));
 
             if (!validated) throw new Error('Ability repair returned an invalid replacement. Nothing was saved.');
@@ -958,7 +945,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
         endProgress();
       }
     }
-  }, [addAbilitiesCost, addFixAbilitiesCost, addFixExercisesCost, addFixImagesCost, addImagesCost, addStageCost, beginProgress, book.age, book.id, book.subject, chapterContent, conceptsById, createClient, effectiveModel, endProgress, exercisesByModuleId, language, refreshContent]);
+  }, [addAbilitiesCost, addFixAbilitiesCost, addFixExercisesCost, addFixImagesCost, addImagesCost, addStageCost, beginProgress, book.age, book.id, book.subject, chapterContent, conceptsById, createClient, effectiveModel, endProgress, language, refreshContent]);
 
   const generateSkills = useCallback(async (): Promise<void> => {
     const signal = beginProgress('Generating Skills', skillSources.length);
@@ -1171,22 +1158,6 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
 
     try {
       const client = await createClient();
-      const embeddingModel = await getSetting(SettingKey.CONCEPTS_EMBEDDER) || DEFAULT_STANDARDS_EMBEDDER;
-
-      setProgressLabel('Checking Ability/Exercise alignment');
-      const embeddingHints = await buildAbilityEmbeddingValidationHints(
-        client,
-        embeddingModel,
-        allAbilities.map((record) => ({
-          ability: record.ability,
-          abilityId: record.id,
-          exercise: exercisesByModuleId.get(record.moduleId)
-        })),
-        addFixAbilitiesCost,
-        signal
-      );
-
-      setProgressLabel('Fixing Ability errors');
       const replacements = new Map<string, { ability: GeneratedAbility; errors: string[]; record: StoredAbility }>();
       const unresolved = new Map<string, { errors: string[]; record: StoredAbility }>();
       const duplicatePairs = new Map<string, DuplicateAbilityReview>();
@@ -1201,7 +1172,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
         const systemPrompt = REPAIR_SYSTEM_PROMPT(language, book.age);
         const result = await requestAbilityRepairResult(
           client, effectiveModel, systemPrompt,
-          abilityRepairInput(language, batch, chapterTitle, book.age, embeddingHints, exercisesByModuleId, conceptsById),
+          abilityRepairInput(language, batch, chapterTitle, book.age, conceptsById),
           batch, addFixAbilitiesCost, signal
         );
         const batchDuplicateIds = new Set(result.duplicatePairs.map(({ deletedAbilityId }) => deletedAbilityId));
@@ -1220,18 +1191,19 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
             throw new Error('OpenRouter returned a duplicate Ability pair that does not exist in this chapter.');
           }
 
-          const deletedExercise = exercisesByModuleId.get(deleted.moduleId);
-          const deletedConcept = deletedExercise?.conceptId === undefined ? undefined : conceptsById.get(deletedExercise.conceptId);
+          const deletedConceptMatch = /-concept-(\d+)$/.exec(deleted.moduleId);
+          const keptConceptMatch = /-concept-(\d+)$/.exec(kept.moduleId);
+          const deletedConceptId = deletedConceptMatch ? Number(deletedConceptMatch[1]) : undefined;
+          const deletedConcept = deletedConceptId === undefined ? undefined : conceptsById.get(deletedConceptId);
+          const keptConcept = keptConceptMatch ? conceptsById.get(Number(keptConceptMatch[1])) : undefined;
 
           duplicatePairs.set(deletedAbilityId, {
             chapterTitle,
             deleted,
-            deletedConceptId: deletedExercise?.conceptId,
+            deletedConceptId,
             deletedConceptTitle: deletedConcept?.title,
-            deletedExerciseId: deletedExercise?.id,
-            deletedExerciseTitle: deletedExercise?.title,
             kept,
-            keptExerciseTitle: exerciseTitlesByModuleId.get(kept.moduleId)
+            keptConceptTitle: keptConcept?.title
           });
         });
         result.reviews.forEach((review) => {
@@ -1241,7 +1213,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
             // Duplicate copies are deleted after the review phase, so do not
             // spend a write replacing a record that is about to disappear.
             if (!batchDuplicateIds.has(record.id)) {
-              replacements.set(record.id, { ability: abilityWithConceptTitle(review.ability, exercisesByModuleId.get(record.moduleId), conceptsById), errors: review.errors, record });
+              replacements.set(record.id, { ability: abilityWithDirectConceptTitle(review.ability, record.moduleId, conceptsById), errors: review.errors, record });
             }
           }
         });
@@ -1254,7 +1226,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
       allAbilities.forEach((record) => {
         if (record.ability && !duplicateIds.has(record.id)) {
           const existing = replacements.get(record.id);
-          const corrected = abilityWithConceptTitle(existing?.ability ?? record.ability, exercisesByModuleId.get(record.moduleId), conceptsById);
+          const corrected = abilityWithDirectConceptTitle(existing?.ability ?? record.ability, record.moduleId, conceptsById);
 
           if (corrected.h !== record.ability.h) {
             replacements.set(record.id, { ability: corrected, errors: [...(existing?.errors ?? []), 'Title must match its source Concept.'], record });
@@ -1278,7 +1250,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
         items: Array.from(replacements.values(), ({ ability, errors, record }) => ({
           ability,
           errors,
-          exerciseTitle: exerciseTitlesByModuleId.get(record.moduleId),
+          conceptTitle: (() => { const match = /-concept-(\d+)$/.exec(record.moduleId); return match ? conceptsById.get(Number(match[1]))?.title : undefined; })(),
           record,
           recordId: record.id
         })),
@@ -1296,7 +1268,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
     } finally {
       endProgress();
     }
-  }, [addFixAbilitiesCost, allAbilities.length, beginProgress, book.age, endProgress, chapterContent, conceptsById, createClient, exerciseTitlesByModuleId, exercisesByModuleId, language, effectiveModel]);
+  }, [addFixAbilitiesCost, allAbilities.length, beginProgress, book.age, endProgress, chapterContent, conceptsById, createClient, language, effectiveModel]);
 
   const closeFixReview = useCallback((): void => {
     setFixReview(null);
@@ -1313,18 +1285,21 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
 
     setIsBusy(true);
     setError('');
+    // AI auditing is complete at this point, but writes and stage completion
+    // are still running. Do not leave the modal showing a misleading 100%.
+    setProgressLabel('Applying Ability corrections');
+    setProgress(0);
+    setProgressTotal(Math.max(1, fixReview.items.length + fixReview.duplicatePairs.length + 1));
 
     try {
       const duplicateConceptIds = new Set(fixReview.duplicatePairs.flatMap(({ deletedConceptId }) => deletedConceptId === undefined ? [] : [deletedConceptId]));
-      const duplicateExerciseIds = new Set(fixReview.duplicatePairs.flatMap(({ deletedExerciseId }) => deletedExerciseId === undefined ? [] : [deletedExerciseId]));
       let fixed = 0;
 
       for (const { ability, record } of fixReview.items) {
-        const sourceExercise = exercisesByModuleId.get(record.moduleId);
+        // Do not rewrite an Ability whose source Concept is being removed.
+        const conceptMatch = /-concept-(\d+)$/.exec(record.moduleId);
 
-        // Do not rewrite an Ability whose upstream Exercise/Concept is about to
-        // be removed by a duplicate cascade.
-        if (sourceExercise?.id !== undefined && (duplicateExerciseIds.has(sourceExercise.id) || (sourceExercise.conceptId !== undefined && duplicateConceptIds.has(sourceExercise.conceptId)))) {
+        if (conceptMatch && duplicateConceptIds.has(Number(conceptMatch[1]))) {
           continue;
         }
 
@@ -1335,48 +1310,35 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
         }
 
         fixed += 1;
+        setProgress((current) => current + 1);
       }
 
-      // A duplicate Ability represents duplicate upstream learning content. Remove
-      // its source Exercise and Concept as one cascade so no orphaned source rows
-      // remain. Deleting a Concept also removes every Exercise/Ability linked to it.
+      // A duplicate Concept-linked Ability removes its source Concept too.
       for (const conceptId of duplicateConceptIds) {
         await deleteConceptWithExercises(conceptId);
       }
 
-      // Exercises without a linked Concept still need to disappear with their
-      // duplicate Ability. This is a fallback for legacy/unmatched source data.
-      for (const exerciseId of duplicateExerciseIds) {
-        const exercise = allExercises.find(({ id }) => id === exerciseId);
-
-        if (exercise?.conceptId === undefined) {
-          await deleteExerciseWithAbilities(exerciseId);
-        }
-      }
-
-      // Preserve the old cleanup behavior for an Ability record whose source
-      // Exercise can no longer be resolved. Matched records were already removed
-      // by the Exercise/Concept cascades above.
-      for (const { deleted, deletedExerciseId } of fixReview.duplicatePairs) {
-        if (deletedExerciseId === undefined) {
+      // Remove any duplicate Ability whose Concept link is absent.
+      for (const { deleted, deletedConceptId } of fixReview.duplicatePairs) {
+        if (deletedConceptId === undefined) {
           await deleteAbility(deleted.id);
         }
       }
 
       const hasChanges = fixReview.items.length > 0 || fixReview.duplicatePairs.length > 0;
 
-      // A no-op diagnosis must never mark the full repair stage complete,
-      // even if the stage was marked complete by an earlier run.
-      if (fixReview.unresolved.length) {
-        if (stageDone(FIX_ABILITIES_STAGE)) await uncompleteBookProcessingStage(book.id, FIX_ABILITIES_STAGE);
-      } else if (hasChanges || !stageDone(FIX_ABILITIES_STAGE)) {
+      // Persist every valid correction, but keep unresolved Abilities unchanged.
+      // An unsuccessful targeted AI retry must not block Fast Forward or force
+      // manual review: Images can use the original stored Ability as-is.
+      if (hasChanges || !stageDone(FIX_ABILITIES_STAGE)) {
         await completeStage(FIX_ABILITIES_STAGE);
       }
 
       const deleted = fixReview.duplicatePairs.length;
 
+      setProgress(Math.max(1, fixReview.items.length + fixReview.duplicatePairs.length + 1));
       setFixReview(null);
-      setNotice(`Applied Fix abilities review: ${fixed} corrected, ${deleted} duplicate${deleted === 1 ? '' : 's'} deleted with their source Exercise${deleted === 1 ? '' : 's'} and linked Concept${deleted === 1 ? '' : 's'}.${fixReview.unresolved.length ? ` ${fixReview.unresolved.length} problem${fixReview.unresolved.length === 1 ? '' : 's'} remain unresolved; the Fix abilities stage was not marked complete.` : ''}`);
+      setNotice(`Applied Fix abilities review: ${fixed} corrected, ${deleted} duplicate${deleted === 1 ? '' : 's'} deleted with their linked Concept${deleted === 1 ? '' : 's'}.${fixReview.unresolved.length ? ` ${fixReview.unresolved.length} unresolved Ability ${fixReview.unresolved.length === 1 ? 'record was' : 'records were'} kept unchanged; processing continues.` : ''}`);
       refresh();
       onContentChange?.();
       onAction?.('preExercisesExercises');
@@ -1385,7 +1347,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
     } finally {
       setIsBusy(false);
     }
-  }, [allExercises, book.id, deleteConceptWithExercises, deleteExerciseWithAbilities, exercisesByModuleId, fixReview, onAction, onContentChange, refresh, completeStage, stageDone]);
+  }, [deleteConceptWithExercises, fixReview, onAction, onContentChange, refresh, completeStage, stageDone]);
   const applyExerciseFixReview = useCallback(async (): Promise<void> => {
     if (!exerciseFixReview) {
       return;
@@ -1932,6 +1894,8 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
       // being stopped by the stage-error effect above.
       onAutoRunProcessingChange?.(undefined);
     }
+    // On a successful handoff, retain the last real stage status in the parent
+    // until the next stage reports work. Never show a fictional transition step.
   }, [autoRunAll, error, isBusy, onAutoRunProcessingChange, openRouterSpent, progress, progressLabel, progressTotal]);
 
   const runSelectedPipelineAction = useCallback((): void => {

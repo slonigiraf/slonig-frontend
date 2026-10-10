@@ -10,27 +10,26 @@ import type OpenAI from 'openai';
 import { abilityRepairInput, exerciseRepairInput, requestAbilityRepairResult, type StoredAbility } from './abilityProcessing.js';
 
 describe('Ability repair source evidence', (): void => {
-  it('always includes both source Exercise and source Concept without needing an embedding alert', (): void => {
-    const record: StoredAbility = { ability: null, content: '{}', id: 'ability-1', moduleId: 'book-1-exercise-7' };
-    const sourceExercise = { conceptId: 3, description: 'Convert kilometers to meters.', id: 7, title: 'Convert lengths', solution: 'Multiply by 1000.' } as Exercise;
-    const sourceConcept = { description: 'One kilometer contains 1000 meters.', title: 'Kilometers in meters' };
-    const input = abilityRepairInput('en', [record], 'Measurements', 11, undefined,
-      new Map([[record.moduleId, sourceExercise]]), new Map([[3, sourceConcept]])) as { abilities: Array<{ sourceConcept?: typeof sourceConcept; sourceExercise?: unknown }> };
-
-    assert.deepEqual(input.abilities[0].sourceConcept, sourceConcept);
-    assert.ok(input.abilities[0].sourceExercise);
-  });
-  it('uses a direct source Concept without fabricating a source Exercise for Concept-linked Abilities', (): void => {
+  it('sends the linked Concept directly with no Exercise or embedding pre-check', (): void => {
     const record: StoredAbility = { ability: null, content: '{}', id: 'ability-concept', moduleId: 'book-1-concept-3' };
     const concept = { title: 'Multiply equal groups', description: 'Use multiplication to count a rectangular array.' };
-    // Even if a previous caller supplied a synthetic Exercise object for this
-    // Concept module, it must not become authoritative sourceExercise evidence.
-    const syntheticExercise = { conceptId: 3, description: concept.description, id: 3, solution: '', title: concept.title } as Exercise;
-    const input = abilityRepairInput('en', [record], 'Arrays', 10, undefined,
-      new Map([[record.moduleId, syntheticExercise]]), new Map([[3, concept]])) as { abilities: Array<{ sourceConcept?: typeof concept; sourceExercise?: unknown }> };
+    const input = abilityRepairInput('en', [record], 'Arrays', 10, new Map([[3, concept]])) as {
+      abilities: Array<{ sourceConcept?: typeof concept; sourceExercise?: unknown; embeddingValidation?: unknown }>;
+    };
 
     assert.deepEqual(input.abilities[0].sourceConcept, concept);
     assert.equal(input.abilities[0].sourceExercise, undefined);
+    assert.equal(input.abilities[0].embeddingValidation, undefined);
+  });
+  it('does not retain an Exercise-backed Ability source path', (): void => {
+    const record: StoredAbility = { ability: null, content: '{}', id: 'ability-old', moduleId: 'book-1-exercise-7' };
+    const input = abilityRepairInput('en', [record], 'Arrays', 10, new Map([[3, { title: 'Concept', description: 'Direct only' }]])) as {
+      abilities: Array<{ sourceConcept?: unknown; sourceExercise?: unknown; embeddingValidation?: unknown }>;
+    };
+
+    assert.equal(input.abilities[0].sourceConcept, undefined);
+    assert.equal(input.abilities[0].sourceExercise, undefined);
+    assert.equal(input.abilities[0].embeddingValidation, undefined);
   });
   it('includes the source Concept in Fix exercises input', (): void => {
     const exercise = { conceptId: 3, description: 'Convert distance.', id: 7, title: 'Old title', solution: 'Multiply.' } as Exercise;

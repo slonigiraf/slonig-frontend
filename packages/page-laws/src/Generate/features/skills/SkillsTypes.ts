@@ -38,7 +38,7 @@ export interface SkillsProps {
 export interface FixedAbilityReview {
   ability: GeneratedAbility;
   errors: string[];
-  exerciseTitle?: string;
+  conceptTitle?: string;
   record: StoredAbility;
   recordId: string;
 }
@@ -48,10 +48,8 @@ export interface DuplicateAbilityReview {
   deleted: StoredAbility;
   deletedConceptId?: number;
   deletedConceptTitle?: string;
-  deletedExerciseId?: number;
-  deletedExerciseTitle?: string;
   kept: StoredAbility;
-  keptExerciseTitle?: string;
+  keptConceptTitle?: string;
 }
 
 export interface FixReviewResult {

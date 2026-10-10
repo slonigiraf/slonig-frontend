@@ -318,9 +318,16 @@ export class BookProcessingManager {
       }
 
       if (!run.startedStage) {
-        // Skip is an IDB operation rather than an AI job with busy=true.
-        if (run.skipRefineChapters && key === 'refineChapters' && action.isDone) {
-          save({ completed: [...run.completed, key], triggeredStage: undefined, currentStage: undefined });
+        // Some very short stages (and the IDB-only chapter skip) can persist
+        // completion before React ever renders busy=true. The database stage
+        // checkpoint is enough to advance without resubmitting the paid job.
+        if (action.isDone) {
+          if (action.onRetryMissing) {
+            if (action.isResultComplete === undefined) return;
+            if (!action.isResultComplete && retry()) return;
+          }
+          save({ completed: [...run.completed, key], triggeredStage: undefined, startedStage: false, currentStage: undefined });
+          continue;
         }
         return;
       }
@@ -328,6 +335,15 @@ export class BookProcessingManager {
         if (action.isResultComplete === undefined) return;
         if (!action.isResultComplete && retry()) return;
       } else if (!action.isDone) {
+        // The worker has stopped and no review is pending, but this stage did
+        // not earn its completion checkpoint (for example, an Ability review
+        // contained corrections the model could not resolve). Waiting here
+        // forever leaves Fast Forward showing 100% for this stage and 0/N
+        // overall. Never silently mark an incomplete stage done.
+        const message = `Fast Forward stopped at ${action.label}: processing finished but the stage is still incomplete. Check unresolved results and run this stage again after addressing them.`;
+
+        this.fail(bookId, message);
+        frame.onError(message);
         return;
       }
       save({ completed: [...run.completed, key], triggeredStage: undefined, startedStage: false, currentStage: undefined });

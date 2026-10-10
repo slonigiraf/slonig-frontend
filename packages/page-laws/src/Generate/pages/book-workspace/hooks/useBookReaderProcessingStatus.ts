@@ -206,13 +206,16 @@ export function useBookReaderProcessingStatus ({
     }
   }, [autoRunAll, hasReaderProcessing, openRouterSpent, processingLabel, processingTotal, processingValue]);
 
-  const processingPopupStatus = autoRunAll
-    ? readerProcessing ?? autoRunProcessing ?? lastReaderProcessing ?? {
-      label: t('Preparing next stage…'),
-      progressTotal: 1,
-      progressValue: 0,
-      spent: 0
+  // Remember the most recent *real* skills-stage update too. During handoffs
+  // display that stage (or the last reader stage), not "Preparing next stage".
+  useEffect((): void => {
+    if (autoRunAll && autoRunProcessing) {
+      setLastReaderProcessing(autoRunProcessing);
     }
+  }, [autoRunAll, autoRunProcessing]);
+
+  const processingPopupStatus = autoRunAll
+    ? readerProcessing ?? lastReaderProcessing ?? autoRunProcessing
     : readerProcessing;
 
   return {

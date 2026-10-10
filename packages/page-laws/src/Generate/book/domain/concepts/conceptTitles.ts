@@ -23,3 +23,11 @@ export function abilityWithConceptTitle (ability: GeneratedAbility, exercise: Ex
 
   return title !== undefined && ability.h !== title ? { ...ability, h: title } : ability;
 }
+
+// Newly generated Abilities link directly to a Concept (not an Exercise).
+export function abilityWithDirectConceptTitle (ability: GeneratedAbility, moduleId: string, conceptsById: ConceptTitlesById): GeneratedAbility {
+  const conceptLink = /-concept-(\d+)$/.exec(moduleId);
+  const title = conceptLink ? conceptsById.get(Number(conceptLink[1]))?.title : undefined;
+
+  return title !== undefined && ability.h !== title ? { ...ability, h: title } : ability;
+}

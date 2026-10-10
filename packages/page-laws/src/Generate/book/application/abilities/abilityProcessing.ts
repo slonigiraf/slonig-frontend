@@ -4,14 +4,12 @@
 import type { Exercise, Skill } from '@slonigiraf/db';
 import type { AbilityRepairResult, GeneratedAbility } from '../../../../abilities/abilities.js';
 import type { TikzPreRenderResult } from '../../../../Edit/TikzDisplay.js';
-import type { AbilityEmbeddingValidationHint } from './abilityEmbeddingValidation.js';
 import type { ExerciseAbilityConversion } from '../../domain/abilities/abilityWorkflow.js';
 import type { OpenRouterCostReporter } from '../../../../openrouter/cost.js';
 
 import OpenAI from 'openai';
 
 import { stripMarkdownImageReferences } from '../../infrastructure/pdf/bookImageRefs.js';
-import { transportCompactAbilitySourceExercise } from '../../domain/abilities/abilityWorkflow.js';
 import { FIX_ABILITIES_REQUEST_PROMPT, JSON_VALIDATION_PROMPT } from '../../infrastructure/ai/prompts/abilities.js';
 import { parseAbilityRepairResult } from '../../../../abilities/abilities.js';
 import { LEARNER_AGE_PROMPT, MATH_DISPLAY_REQUIREMENTS_PROMPT } from '../../infrastructure/ai/prompts/shared.js';
@@ -144,21 +142,14 @@ export function abilityRepairInput (
   batch: StoredAbility[],
   chapterTitle?: string,
   learnerAge?: number,
-  embeddingHints?: ReadonlyMap<string, AbilityEmbeddingValidationHint>,
-  sourceExercisesByModuleId?: ReadonlyMap<string, Exercise>,
   sourceConceptsById?: ReadonlyMap<number, { description: string; title: string }>
 ): unknown {
   return {
     abilities: batch.map(({ ability, content, id, moduleId }, index) => {
-      const embeddingValidation = embeddingHints?.get(id);
-      const sourceExercise = sourceExercisesByModuleId?.get(moduleId);
-      // Direct Concept -> Ability records have no source Exercise. Resolve the
-      // authoritative Concept from the module key; keep Exercise evidence only
-      // for genuine older Exercise-linked records.
+      // Fix abilities uses the Concept link written by the Abilities stage.
+      // No source Exercise or embedding-alignment precheck is involved.
       const conceptLink = /-concept-(\d+)$/.exec(moduleId);
-      const conceptId = conceptLink ? Number(conceptLink[1]) : sourceExercise?.conceptId;
-      const sourceConcept = conceptId === undefined ? undefined : sourceConceptsById?.get(conceptId);
-      const legacySourceExercise = conceptLink ? undefined : sourceExercise;
+      const sourceConcept = conceptLink ? sourceConceptsById?.get(Number(conceptLink[1])) : undefined;
 
       return {
         ability: ability
@@ -174,10 +165,8 @@ export function abilityRepairInput (
             }))
           }
           : content,
-        ...(embeddingValidation ? { embeddingValidation } : {}),
         id,
         index,
-        ...(legacySourceExercise ? { sourceExercise: transportCompactAbilitySourceExercise(legacySourceExercise) } : {}),
         ...(sourceConcept ? { sourceConcept: { title: sourceConcept.title, description: sourceConcept.description } } : {})
       };
     }),

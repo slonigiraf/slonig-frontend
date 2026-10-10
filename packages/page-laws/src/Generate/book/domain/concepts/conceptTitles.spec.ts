@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import type { Exercise } from '@slonigiraf/db';
 import type { GeneratedAbility } from '../../../../abilities/abilities.js';
-import { abilityWithConceptTitle, exerciseWithConceptTitle } from './conceptTitles.js';
+import { abilityWithConceptTitle, abilityWithDirectConceptTitle, exerciseWithConceptTitle } from './conceptTitles.js';
 
 describe('Concept title inheritance', (): void => {
   const concepts = new Map([[3, { title: 'DNA & RNA: TP53', description: 'Compare their roles.' }]]);
@@ -24,6 +24,14 @@ describe('Concept title inheritance', (): void => {
 
     assert.equal(corrected.h, 'DNA & RNA: TP53');
     assert.deepEqual(corrected.q, ability.q);
+  });
+
+  it('copies a direct source Concept title without any Exercise', (): void => {
+    const corrected = abilityWithDirectConceptTitle(ability, 'book-1-concept-3', concepts);
+
+    assert.equal(corrected.h, 'DNA & RNA: TP53');
+    assert.deepEqual(corrected.q, ability.q);
+    assert.equal(abilityWithDirectConceptTitle(ability, 'book-1-exercise-3', concepts).h, ability.h);
   });
 
   it('leaves unlinked legacy records unchanged', (): void => {

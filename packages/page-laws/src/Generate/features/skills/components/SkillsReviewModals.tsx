@@ -117,16 +117,16 @@ export default function SkillsReviewModals ({ applyAbilityFixReview, applyExerci
         <FixResultsReviewContent>
           <div className='fixResultsReviewIntro'>
             <p><strong>No Ability changes have been saved yet.</strong></p>
-            <p>Checked {fixReview.checked} Abilities. Proposed {fixReview.items.length} correction{fixReview.items.length === 1 ? '' : 's'} and {fixReview.duplicatePairs.length} duplicate deletion{fixReview.duplicatePairs.length === 1 ? '' : 's'}. A duplicate deletion also removes its source Exercise and linked Concept.</p>
-            {fixReview.unresolved.length > 0 && <p><strong>{fixReview.unresolved.length} unresolved {fixReview.unresolved.length === 1 ? 'Ability' : 'Abilities'}:</strong> the AI reported errors but did not produce a valid change. These records will remain unchanged and this stage will not be marked complete. Visual-only issues belong in Fix images.</p>}
+            <p>Checked {fixReview.checked} Abilities. Proposed {fixReview.items.length} correction{fixReview.items.length === 1 ? '' : 's'} and {fixReview.duplicatePairs.length} duplicate deletion{fixReview.duplicatePairs.length === 1 ? '' : 's'}. A duplicate deletion also removes its linked Concept.</p>
+            {fixReview.unresolved.length > 0 && <p><strong>{fixReview.unresolved.length} unresolved {fixReview.unresolved.length === 1 ? 'Ability' : 'Abilities'}:</strong> the AI reported errors but did not produce a valid change. These records will remain unchanged. The valid corrections can still be applied and the stage completed. Visual-only issues belong in Fix images.</p>}
           </div>
           {(fixReview.items.length > 0 || fixReview.duplicatePairs.length > 0 || fixReview.unresolved.length > 0) && <div className='fixResultsReviewComparison'>
-            {fixReview.items.map(({ ability, errors, exerciseTitle, record, recordId }, index) => <article
+            {fixReview.items.map(({ ability, errors, conceptTitle, record, recordId }, index) => <article
               className='fixResultsReviewItem'
               key={recordId}
             >
               <strong>{index + 1}. {record.ability ? <SpanWithTags content={record.ability.h} /> : <SpanWithTags content={ability.h} />}</strong>
-              {exerciseTitle && <p className='fixResultsReviewContext'><small>Exercise: <SpanWithTags content={exerciseTitle} /></small></p>}
+              {conceptTitle && <p className='fixResultsReviewContext'><small>Concept: <SpanWithTags content={conceptTitle} /></small></p>}
               <div className='fixResultsReviewRow'>
                 <div className='fixResultsReviewCell'>
                   <span className='fixResultsReviewChangeLabel'>Before</span>
@@ -155,12 +155,12 @@ export default function SkillsReviewModals ({ applyAbilityFixReview, applyExerci
               <p>No corrected text was supplied. The stored Ability will not be changed.</p>
               <ul>{errors.map((message, index) => <li key={`${record.id}-unresolved-${index}`}><SpanWithTags content={message} /></li>)}</ul>
             </article>)}
-            {fixReview.duplicatePairs.map(({ chapterTitle, deleted, deletedConceptTitle, deletedExerciseTitle, keptExerciseTitle }, duplicateIndex) => <article
+            {fixReview.duplicatePairs.map(({ chapterTitle, deleted, deletedConceptTitle, keptConceptTitle }, duplicateIndex) => <article
               className='fixResultsReviewItem'
               key={deleted.id}
             >
               <strong>{fixReview.items.length + duplicateIndex + 1}. {deleted.ability ? <SpanWithTags content={deleted.ability.h} /> : 'Invalid Ability JSON'} — duplicate deletion</strong>
-              <p className='fixResultsReviewContext'><small>Chapter: <SpanWithTags content={chapterTitle} />{deletedExerciseTitle && <> · Exercise: <SpanWithTags content={deletedExerciseTitle} /></>}{deletedConceptTitle && <> · Concept: <SpanWithTags content={deletedConceptTitle} /></>}{keptExerciseTitle && <> · Keeping Ability for: <SpanWithTags content={keptExerciseTitle} /></>}</small></p>
+              <p className='fixResultsReviewContext'><small>Chapter: <SpanWithTags content={chapterTitle} />{deletedConceptTitle && <> · Concept: <SpanWithTags content={deletedConceptTitle} /></>}{keptConceptTitle && <> · Keeping Ability for: <SpanWithTags content={keptConceptTitle} /></>}</small></p>
               <div className='fixResultsReviewRow'>
                 <div className='fixResultsReviewCell'>
                   <span className='fixResultsReviewChangeLabel'>Before</span>
@@ -171,12 +171,12 @@ export default function SkillsReviewModals ({ applyAbilityFixReview, applyExerci
                 </div>
                 <div className='fixResultsReviewCell'>
                   <span className='fixResultsReviewChangeLabel'>After</span>
-                  <RemovedReviewCard label='Removed as duplicate with its source Exercise and linked Concept' />
+                  <RemovedReviewCard label='Removed as duplicate with its linked Concept' />
                 </div>
               </div>
               <section className='fixResultsDifference'>
                 <h3>Difference</h3>
-                <p>{deleted.ability ? <strong><SpanWithTags content={deleted.ability.h} /></strong> : <strong>Invalid Ability JSON</strong>} will be deleted as a duplicate{deletedExerciseTitle ? <> together with source Exercise <SpanWithTags content={deletedExerciseTitle} /></> : null}{deletedConceptTitle ? <> and linked Concept <SpanWithTags content={deletedConceptTitle} /></> : null}{keptExerciseTitle ? <>; the Ability for <SpanWithTags content={keptExerciseTitle} /> will be kept</> : null}.</p>
+                <p>{deleted.ability ? <strong><SpanWithTags content={deleted.ability.h} /></strong> : <strong>Invalid Ability JSON</strong>} will be deleted as a duplicate{deletedConceptTitle ? <> together with linked Concept <SpanWithTags content={deletedConceptTitle} /></> : null}{keptConceptTitle ? <>; the Ability for <SpanWithTags content={keptConceptTitle} /> will be kept</> : null}.</p>
               </section>
             </article>)}
           </div>}

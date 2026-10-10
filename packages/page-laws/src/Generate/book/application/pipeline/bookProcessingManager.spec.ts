@@ -62,6 +62,57 @@ describe('BookProcessingManager', (): void => {
     assert.equal((await getBookProcessingRun(bookId))?.status, 'completed');
   });
 
+  it('reports an unresolved Ability repair instead of leaving Fast Forward at 100% forever', async (): Promise<void> => {
+    const bookId = 902705;
+    const manager = new BookProcessingManager();
+    const errors: string[] = [];
+    const actions: PipelineAction[] = [
+      { key: 'fixAbilities', label: 'Fix abilities', isDone: false, isDisabled: false, onClick: () => undefined },
+      { key: 'images', label: 'Images', isDone: false, isDisabled: false, onClick: () => { throw new Error('Should not run images'); } }
+    ];
+
+    await manager.startFastForward(bookId, ['fixAbilities', 'images'], false, { generation: 'model-1', embedding: 'model-2', standards: 'model-3' });
+    const frame = (busy: boolean) => ({
+      actions, busy, contentReady: true, error: '', hasReview: false,
+      onComplete: () => undefined,
+      onError: (message: string) => errors.push(message)
+    });
+
+    manager.stepFastForward(bookId, frame(false));
+    manager.stepFastForward(bookId, frame(true));
+    // AI returned a review which was applied, but unresolved entries left the
+    // fixAbilities database stage incomplete. The UI has stopped being busy.
+    manager.stepFastForward(bookId, frame(false));
+    assert.equal(manager.getSnapshot(bookId)?.status, 'failed');
+    assert.deepEqual(manager.getSnapshot(bookId)?.completed, []);
+    assert.match(errors[0], /Fix abilities.*still incomplete/);
+    await manager.flush(bookId);
+  });
+
+  it('advances a completed fast stage even if busy=true was never rendered', async (): Promise<void> => {
+    const bookId = 902706;
+    const manager = new BookProcessingManager();
+    let completed = 0;
+    const actions: PipelineAction[] = [
+      { key: 'fixAbilities', label: 'Fix abilities', isDone: false, isDisabled: false, onClick: () => undefined }
+    ];
+
+    await manager.startFastForward(bookId, ['fixAbilities'], false, { generation: 'model-1', embedding: 'model-2', standards: 'model-3' });
+    const frame = () => ({
+      actions, busy: false, contentReady: true, error: '', hasReview: false,
+      onComplete: () => { completed++; },
+      onError: (message: string) => { throw new Error(message); }
+    });
+
+    manager.stepFastForward(bookId, frame());
+    actions[0].isDone = true;
+    manager.stepFastForward(bookId, frame());
+    assert.equal(manager.getSnapshot(bookId)?.status, 'completed');
+    assert.deepEqual(manager.getSnapshot(bookId)?.completed, ['fixAbilities']);
+    assert.equal(completed, 1);
+    await manager.flush(bookId);
+  });
+
   it('retains queued work and the cancellation signal when reader adapters detach', async (): Promise<void> => {
     const manager = new BookProcessingManager();
     let executed = 0;
