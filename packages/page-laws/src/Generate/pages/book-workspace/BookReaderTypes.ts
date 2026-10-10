@@ -5,7 +5,7 @@ import type { Book, BookConcept } from '@slonigiraf/db';
 
 import type { MissingChapterConcept } from '../../book/domain/concepts/fixConcepts.js';
 import type { ConceptChapterNavigationItem } from '../../book/domain/concepts/conceptRecognition.js';
-import type { BookProcessingCommand, PendingBookProcessingAction } from '../../book/application/pipeline/bookPipeline.js';
+import type { PendingBookProcessingAction } from '../../book/application/pipeline/bookPipeline.js';
 import type { FixConceptsChapterStatuses } from '../../book/infrastructure/storage/fixConceptsProgress.js';
 import type { PipelineAction } from '../../shared/types/processing.js';
 
@@ -28,7 +28,6 @@ export interface Props {
   onPrice: () => void;
   onProcessingComplete: () => void;
   pendingProcessingAction?: PendingBookProcessingAction;
-  processingCommand?: BookProcessingCommand;
   processingToolbar: PipelineAction[];
   processingToolbarAfterFixImages?: PipelineAction[];
   standardsModel: string;

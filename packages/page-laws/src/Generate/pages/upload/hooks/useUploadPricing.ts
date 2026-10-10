@@ -5,7 +5,7 @@ import type { Book, BookProcessingStageKey } from '@slonigiraf/db';
 import type { PDFDocumentProxy } from 'pdfjs-dist';
 import { getBook, resetBookProcessingStagesFrom } from '@slonigiraf/db';
 import type { Dispatch, SetStateAction } from 'react';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import type { PendingBookProcessingAction } from '../../../book/application/pipeline/bookPipeline.js';
 import type { BookExternalCalls } from '../../../book/infrastructure/storage/bookExternalCalls.js';
@@ -16,6 +16,8 @@ import { estimateAiInput } from '../../../book/application/pricing/aiEstimate.js
 import { DEFAULT_PROCESSING_MODEL, DEFAULT_STANDARDS_MODEL, MATHPIX_PDF_PAGE_PRICE_USD } from '../../../book/application/config.js';
 import { STANDARDS_MATCH_RUNS } from '../../../book/domain/standards/standards.js';
 import { BOOK_PRICE_STAGES } from '../../../book/application/pipeline/bookPipeline.js';
+import { bookProcessingManager } from '../../../book/application/pipeline/bookProcessingManager.js';
+import { useBookProcessingRun } from '../../../book/application/pipeline/useBookProcessingRun.js';
 import { loadBookExternalCalls } from '../../../book/infrastructure/storage/bookExternalCalls.js';
 import { loadBookStageTimes } from '../../../book/infrastructure/storage/bookStageTime.js';
 import { loadPdfJs } from '../../../book/infrastructure/pdf/pdf.js';
@@ -29,21 +31,40 @@ interface UploadPricingParams {
   setBooks: Dispatch<SetStateAction<Book[]>>;
   setError: Dispatch<SetStateAction<string>>;
   setGenerateAllConceptsModel: Dispatch<SetStateAction<string>>;
+  setEmbeddingModel: Dispatch<SetStateAction<string>>;
   setPendingProcessingAction: Dispatch<SetStateAction<PendingBookProcessingAction | undefined>>;
   setStandardsModel: Dispatch<SetStateAction<string>>;
 }
 
-export function useUploadPricing ({ embeddingModel, readerFile, refreshBooks, selectedBook, setBooks, setError, setGenerateAllConceptsModel, setPendingProcessingAction, setStandardsModel }: UploadPricingParams) {
+export function useUploadPricing ({ embeddingModel, readerFile, refreshBooks, selectedBook, setBooks, setError, setEmbeddingModel, setGenerateAllConceptsModel, setPendingProcessingAction, setStandardsModel }: UploadPricingParams) {
   const { t } = useTranslation();
   const [isPriceOpen, setIsPriceOpen] = useState(false);
   const [priceBook, setPriceBook] = useState<Book>();
   const [priceStageTimes, setPriceStageTimes] = useState<BookStageTimes>({});
   const [priceExternalCalls, setPriceExternalCalls] = useState<BookExternalCalls>({});
   const [isFastForwardConfirmationOpen, setIsFastForwardConfirmationOpen] = useState(false);
-  const [isFastForwardRunning, setIsFastForwardRunning] = useState(false);
+  const processingRun = useBookProcessingRun(selectedBook?.id);
+  const isFastForwardRunning = processingRun?.mode === 'fastForward' && processingRun.status === 'running';
+  const isFastForwardPaused = processingRun?.mode === 'fastForward' && processingRun.status === 'paused';
   const [fastForwardStartKey, setFastForwardStartKey] = useState<string>();
   const [fastForwardEstimate, setFastForwardEstimate] = useState<FastForwardEstimate>();
   const [skipRefineChaptersInFastForward, setSkipRefineChaptersInFastForward] = useState(false);
+
+  useEffect(() => {
+    if (selectedBook) {
+      void bookProcessingManager.restore(selectedBook.id).catch(console.error);
+    }
+  }, [selectedBook?.id]);
+
+  // A recovered run must use the same model configuration rather than whatever
+  // defaults the new Upload component happened to initialize with.
+  useEffect(() => {
+    if (processingRun?.mode !== 'fastForward' || !processingRun.models) return;
+    if (processingRun.status !== 'running' && processingRun.status !== 'paused') return;
+    setEmbeddingModel(processingRun.models.embedding);
+    setGenerateAllConceptsModel(processingRun.models.generation);
+    setStandardsModel(processingRun.models.standards);
+  }, [processingRun?.id, processingRun?.status, setEmbeddingModel, setGenerateAllConceptsModel, setStandardsModel]);
 
   const onPrice = useCallback((): void => {
     if (!selectedBook) {
@@ -169,22 +190,36 @@ export function useUploadPricing ({ embeddingModel, readerFile, refreshBooks, se
       setGenerateAllConceptsModel(DEFAULT_PROCESSING_MODEL);
       setStandardsModel(DEFAULT_STANDARDS_MODEL);
       setIsFastForwardConfirmationOpen(false);
-      setIsFastForwardRunning(true);
+      await bookProcessingManager.startFastForward(
+        selectedBook.id,
+        BOOK_PRICE_STAGES.slice(BOOK_PRICE_STAGES.findIndex(({ key }) => key === fastForwardStartKey)).map(({ key }) => key),
+        skipRefineChaptersInFastForward,
+        { generation: DEFAULT_PROCESSING_MODEL, embedding: embeddingModel, standards: DEFAULT_STANDARDS_MODEL }
+      );
     } catch {
       setError(t('Unable to prepare the selected stage for fast-forward processing.'));
     }
-  }, [fastForwardEstimate, fastForwardStartKey, selectedBook, setBooks, setError, setGenerateAllConceptsModel, setStandardsModel, t]);
+  }, [embeddingModel, fastForwardEstimate, fastForwardStartKey, selectedBook, setBooks, setError, setGenerateAllConceptsModel, setStandardsModel, skipRefineChaptersInFastForward, t]);
 
   const abortFastForward = useCallback((): void => {
-    setIsFastForwardRunning(false);
-  }, []);
+    if (selectedBook) bookProcessingManager.cancel(selectedBook.id);
+  }, [selectedBook?.id]);
+
+  const resumeFastForward = useCallback((): void => {
+    if (!selectedBook || !isFastForwardPaused) return;
+    // The previous request could have been accepted by its paid provider before
+    // this browser closed; never retry an interrupted stage silently.
+    if (window.confirm(t('Resume Fast Forward? An interrupted stage may be charged again.'))) {
+      bookProcessingManager.resume(selectedBook.id);
+    }
+  }, [isFastForwardPaused, selectedBook?.id, t]);
 
   const onFastForwardComplete = useCallback((): void => {
-    setIsFastForwardRunning(false);
+    if (selectedBook) bookProcessingManager.complete(selectedBook.id);
     setFastForwardStartKey(undefined);
     setPendingProcessingAction(undefined);
     refreshBooks().catch(() => setError(t('Unable to refresh book processing stages.')));
-  }, [refreshBooks, setError, setPendingProcessingAction, t]);
+  }, [refreshBooks, selectedBook?.id, setError, setPendingProcessingAction, t]);
 
   return {
     abortFastForward,
@@ -192,8 +227,10 @@ export function useUploadPricing ({ embeddingModel, readerFile, refreshBooks, se
     closePrice,
     confirmFastForward,
     fastForwardEstimate,
-    fastForwardStartKey,
-    skipRefineChaptersInFastForward,
+    fastForwardStartKey: isFastForwardRunning ? processingRun.startStage : fastForwardStartKey,
+    isFastForwardPaused,
+    resumeFastForward,
+    skipRefineChaptersInFastForward: isFastForwardRunning ? processingRun.skipRefineChapters : skipRefineChaptersInFastForward,
     setSkipRefineChaptersInFastForward,
     isFastForwardConfirmationOpen,
     isFastForwardRunning,

@@ -35,17 +35,34 @@ import type { BookChapter } from './db/BookChapter.js';
 import type { Skill } from './db/Skill.js';
 import type { ExerciseTemplate } from './db/ExerciseTemplate.js';
 import type { Ability, AbilityExercise, AbilityValue } from './db/Ability.js';
-import type { Image } from './db/Image.js';
+import type { Image, TikzReviewResult, TikzQaStatus } from './db/Image.js';
+import { isTikzImageQaPassed, tikzSourceVersion } from './db/Image.js';
 import type { AiTutorStudentMessage } from './db/AiTutorStudentMessage.js';
 import type { StandardEmbedding } from './db/StandardEmbedding.js';
 import type { ConceptEmbedding } from './db/ConceptEmbedding.js';
 import type { MathpixPdfJob } from './db/MathpixPdfJob.js';
+import type { BookProcessingRun } from './db/BookProcessingRun.js';
 import { readTikzSvgCache, writeTikzSvgCache } from './db/TikzSvgCache.js';
 import { shouldExportDatabaseRow } from './backup.js';
 
 export { BOOK_PROCESSING_STAGES, getBookCompletedStages, isBookProcessingStageComplete, withBookProcessingStagesResetFrom, withCompletedBookProcessingStage } from './db/Book.js';
 export type { LearnRequest, TutorAction, CanceledInsurance, Reexamination, LetterTemplate, CanceledLetter, Reimbursement, Letter, Insurance, Lesson, Pseudonym, Setting, Signer, UsageRight, Agreement, Ability, AbilityExercise, AbilityValue, Image, Book, BookProcessingStageKey, BookStageSpend, BookStageSpendKey, BookSubject, BookPage, MathpixHeading, BookChapter, BookConcept, Exercise, Skill, ExerciseTemplate, AiTutorStudentMessage, StandardEmbedding, ConceptEmbedding, MathpixPdfJob };
-export type { ImageType } from './db/Image.js';
+export type { BookProcessingRun } from './db/BookProcessingRun.js';
+
+export function getBookProcessingRun(bookId: number): Promise<BookProcessingRun | undefined> {
+  return db.bookProcessingRuns.get(bookId);
+}
+
+export async function putBookProcessingRun(run: BookProcessingRun): Promise<void> {
+  await db.bookProcessingRuns.put(run);
+}
+
+export async function deleteBookProcessingRun(bookId: number): Promise<void> {
+  await db.bookProcessingRuns.delete(bookId);
+}
+
+export { tikzSourceVersion, isTikzImageQaPassed } from './db/Image.js';
+export type { ImageType, TikzReviewResult, TikzQaStatus } from './db/Image.js';
 export type { TikzSvgCacheEntry } from './db/TikzSvgCache.js';
 
 /** Drop the primary app database, including the regenerable SVG cache.
@@ -613,6 +630,14 @@ export async function updateBookFieldsAndStages(
         }
 
         for (const stage of options.complete ?? []) {
+            if (BOOK_PROCESSING_STAGES.indexOf(stage as typeof BOOK_PROCESSING_STAGES[number]) >= BOOK_PROCESSING_STAGES.indexOf('fixImages')) {
+                const qa = await getBookVisualQaSummary(id);
+
+                if (qa.status !== 'passed') {
+                    throw new Error('Cannot mark Fix Images complete without a clean PNG-based visual QA result for every image.');
+                }
+            }
+
             updated = withCompletedBookProcessingStage(updated, stage);
         }
 
@@ -661,7 +686,17 @@ export async function updateBookProcessingStage(id: number, processingStage: num
 }
 
 export async function completeBookProcessingStage(id: number, stage: BookProcessingStageKey): Promise<Book | undefined> {
-    return db.transaction('rw', db.books, async () => {
+    return db.transaction('rw', db.books, db.abilities, db.images, async () => {
+        // Check and write in the same transaction. Otherwise an image edit
+        // could race between the clean-verdict check and book stage completion.
+        if (BOOK_PROCESSING_STAGES.indexOf(stage as typeof BOOK_PROCESSING_STAGES[number]) >= BOOK_PROCESSING_STAGES.indexOf('fixImages')) {
+            const qa = await getBookVisualQaSummary(id);
+
+            if (qa.status !== 'passed') {
+                throw new Error(`Cannot complete Fix Images: ${qa.failed} rejected and ${qa.pending} unreviewed image(s). Rendering SVG alone is not visual QA approval.`);
+            }
+        }
+
         const book = await db.books.get(id);
 
         if (!book) {
@@ -755,7 +790,7 @@ export async function getBookByContentHash(contentHash: string): Promise<Book | 
 }
 
 export async function deleteBook(id: number): Promise<void> {
-    await db.transaction('rw', db.books, db.bookPages, db.bookChapters, db.bookConcepts, db.conceptEmbeddings, db.exercises, db.skills, db.exerciseTemplates, db.abilities, db.images, db.mathpixPdfJobs, async () => {
+    await db.transaction('rw', db.books, db.bookPages, db.bookChapters, db.bookConcepts, db.conceptEmbeddings, db.exercises, db.skills, db.exerciseTemplates, db.abilities, db.images, db.mathpixPdfJobs, db.bookProcessingRuns, async () => {
         const pageKeys = await db.bookPages.where('bookId').equals(id).primaryKeys();
         const chapterIds = (await db.bookChapters.where('bookId').equals(id).primaryKeys()) as number[];
         const skillIds = (await Promise.all(chapterIds.map((chapterId) => db.skills.where('chapterId').equals(chapterId).primaryKeys()))).flat() as number[];
@@ -788,6 +823,7 @@ export async function deleteBook(id: number): Promise<void> {
         await db.bookChapters.where('bookId').equals(id).delete();
         await db.conceptEmbeddings.where('bookId').equals(id).delete();
         await db.mathpixPdfJobs.where('bookId').equals(id).delete();
+        await db.bookProcessingRuns.delete(id);
     });
 }
 
@@ -2125,12 +2161,152 @@ export async function getImages(ids: number[]): Promise<Image[]> {
     return values.filter((value): value is Image => value !== undefined);
 }
 
-export async function createImage(image: Omit<Image, 'id'>): Promise<number> {
-    return db.images.add(image as Image);
+/** Per-image QA data is tied to exact TikZ source; changing any source text
+ * invalidates its old raster/vision verdict, even when `valid` was true.
+ */
+function normalizedImageForStorage (image: Image, previous?: Image): Image {
+    if (image.type !== 'tikz' || !image.data) {
+        return { ...image, sourceVersion: undefined, renderStatus: undefined, visualQaStatus: undefined, detectedIssues: undefined, reviewResult: undefined };
+    }
+
+    const version = tikzSourceVersion(image.data);
+    const changed = previous?.data !== image.data || previous?.type !== image.type;
+    const candidate = { ...image, sourceVersion: version };
+
+    // A new deterministic preview/render failure overrides any old clean QA
+    // verdict, even if the TikZ source itself did not change.
+    if (!changed && previous?.valid !== false && image.valid === false) {
+        return {
+            ...candidate,
+            renderStatus: 'failed',
+            visualQaStatus: 'failed',
+            detectedIssues: [...(candidate.detectedIssues ?? []), 'TikZ display/render failed after the last visual review.'],
+        };
+    }
+
+    // A status is tied to this version. Source edits (including those from
+    // other UI paths) must clear old QA metadata. An unchanged source may
+    // retain a failed render/review even without a successful model verdict.
+    if (changed && candidate.reviewResult?.sourceVersion !== version) {
+        return { ...candidate, renderStatus: 'pending', visualQaStatus: 'pending', detectedIssues: [], reviewResult: undefined, valid: previous && image.valid === previous.valid ? undefined : image.valid };
+    }
+
+    if (candidate.reviewResult?.sourceVersion !== version) {
+        return { ...candidate, renderStatus: candidate.renderStatus ?? 'pending',
+            visualQaStatus: candidate.visualQaStatus === 'failed' ? 'failed' : 'pending',
+            detectedIssues: candidate.visualQaStatus === 'failed' ? candidate.detectedIssues ?? [] : [],
+            reviewResult: undefined };
+    }
+
+    if (candidate.visualQaStatus === 'passed' && !isTikzImageQaPassed(candidate)) {
+        return { ...candidate, visualQaStatus: 'pending' };
+    }
+
+    return candidate;
 }
 
-export async function putImage(image: Image): Promise<number> {
-    return db.images.put(image);
+export async function createImage(image: Omit<Image, 'id'>): Promise<number> {
+    return db.images.add(normalizedImageForStorage(image as Image));
+}
+
+export async function putImage(image: Image, expectedSource?: string | null): Promise<number> {
+    return db.transaction('rw', db.images, db.abilities, db.books, async () => {
+        const previous = await db.images.get(image.id);
+
+        if (expectedSource !== undefined && previous?.data !== expectedSource) {
+            throw new Error(`Image ${image.id} was edited after visual QA; refusing to store a stale review.`);
+        }
+
+        const next = normalizedImageForStorage(image, previous);
+        const result = await db.images.put(next);
+
+        // An edited TikZ, or a newly failed review, invalidates any prior book
+        // Fix Images completion and every downstream stage. This also protects
+        // previously processed books when visuals are edited manually later.
+        if (previous?.data !== next.data || (previous !== undefined && isTikzImageQaPassed(previous) && !isTikzImageQaPassed(next))) {
+            const linked = await db.abilities.toArray();
+            const bookIds = new Set(linked
+                .filter(({ content }) => abilityImageIds(content).includes(image.id))
+                .map(({ moduleId }) => /^book-(\d+)-(?:concept|exercise|skill)-/.exec(moduleId))
+                .filter((match): match is RegExpExecArray => Boolean(match))
+                .map((match) => Number(match[1])));
+
+            for (const bookId of bookIds) {
+                const book = await db.books.get(bookId);
+
+                if (book) {
+                    const updated = withBookProcessingStagesResetFrom(book, 'fixImages');
+                    await db.books.update(bookId, { completedStages: updated.completedStages });
+                }
+            }
+        }
+
+        return result;
+    });
+}
+
+export async function setTikzImageQaState (id: number, source: string, state: {
+    renderStatus: TikzQaStatus;
+    visualQaStatus: TikzQaStatus;
+    detectedIssues: string[];
+    reviewResult?: TikzReviewResult;
+}): Promise<boolean> {
+    const current = await db.images.get(id);
+
+    if (!current || current.type !== 'tikz' || current.data !== source) {
+        return false;
+    }
+
+    // The source comparison is repeated atomically within the write transaction.
+    await putImage({ ...current, sourceVersion: tikzSourceVersion(source),
+        renderStatus: state.renderStatus, visualQaStatus: state.visualQaStatus,
+        detectedIssues: state.detectedIssues, reviewResult: state.reviewResult,
+        valid: state.renderStatus === 'passed' }, source);
+
+    return true;
+}
+
+export interface BookVisualQaSummary {
+    status: 'passed' | 'pending' | 'failed';
+    total: number;
+    passed: number;
+    pending: number;
+    failed: number;
+    issues: string[];
+}
+
+/** A successful SVG alone cannot make a book visually QA-clean. */
+export async function getBookVisualQaSummary (bookId: number): Promise<BookVisualQaSummary> {
+    const abilities = await db.abilities.toArray();
+    const imageIds = [...new Set(abilities
+        .filter(({ moduleId }) => moduleId.startsWith(`book-${bookId}-`))
+        .flatMap(({ content }) => abilityImageIds(content)))];
+    const images = await db.images.bulkGet(imageIds);
+    const result: BookVisualQaSummary = { status: 'passed', total: 0, passed: 0, pending: 0, failed: 0, issues: [] };
+
+    for (let index = 0; index < images.length; index++) {
+        const image = images[index];
+
+        result.total++;
+
+        if (!image) {
+            result.failed++;
+            result.issues.push(`Referenced image ${imageIds[index]} is missing.`);
+        } else if (image.type !== 'tikz' || !image.data) {
+            result.pending++;
+        } else if (isTikzImageQaPassed(image)) {
+            result.passed++;
+        } else if (image.visualQaStatus === 'failed' || image.renderStatus === 'failed') {
+            result.failed++;
+            result.issues.push(...(image.detectedIssues?.length ? image.detectedIssues : [`Image ${imageIds[index]} failed visual QA.`]));
+        } else {
+            result.pending++;
+        }
+    }
+
+    result.status = result.failed ? 'failed' : result.pending ? 'pending' : 'passed';
+
+    return result;
 }
 
 export async function deleteImage(id: number): Promise<void> {

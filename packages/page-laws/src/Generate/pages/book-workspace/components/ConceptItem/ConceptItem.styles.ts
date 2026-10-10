@@ -128,9 +128,31 @@ const ConceptItemContainer = styled.li`
     width: 2.25rem !important;
   }
 
-  > .conceptHeading .conceptActions button.conceptAiFixButton {
-    padding: 0.45rem 0.65rem !important;
-    width: auto !important;
+  > .conceptHeading .conceptActions .conceptMenuTrigger {
+    align-items: center;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 0.4rem;
+    color: var(--color-text);
+    cursor: pointer;
+    display: inline-flex;
+    justify-content: center;
+  }
+
+  > .conceptHeading .conceptActions .conceptMenuTrigger:hover,
+  > .conceptHeading .conceptActions .conceptMenuTrigger[aria-expanded='true'] {
+    background: var(--bg-menu);
+    border-color: #dde1eb;
+  }
+
+  > .conceptHeading .conceptActions .conceptMenuTrigger:focus-visible {
+    outline: 2px solid var(--color-primary, #1682d4);
+    outline-offset: 2px;
+  }
+
+  > .conceptHeading .conceptActions .conceptMenuTrigger:disabled {
+    cursor: not-allowed;
+    opacity: 0.45;
   }
 
   .conceptMeta {
@@ -178,4 +200,46 @@ const ConceptItemContainer = styled.li`
   }
 `;
 
-export { ConceptItemContainer };
+const ConceptActionsMenu = styled.div`
+  background: var(--bg-menu);
+  border: 1px solid #dde1eb;
+  border-radius: 0.5rem;
+  box-shadow: 0 6px 20px rgba(24, 39, 75, 0.16);
+  box-sizing: border-box;
+  min-width: 190px;
+  padding: 0.3rem;
+  position: fixed;
+  z-index: 1000;
+
+  button {
+    align-items: center;
+    background: transparent;
+    border: 0;
+    border-radius: 0.3rem;
+    color: var(--color-text);
+    cursor: pointer;
+    display: flex;
+    font: inherit;
+    gap: 0.7rem;
+    min-height: 2.6rem;
+    padding: 0.5rem 0.7rem;
+    text-align: left;
+    width: 100%;
+  }
+
+  button:hover,
+  button:focus-visible {
+    background: var(--bg-input);
+  }
+
+  button:focus-visible {
+    outline: 2px solid var(--color-primary, #1682d4);
+    outline-offset: -2px;
+  }
+
+  button .ui--Icon {
+    width: 1.1rem;
+  }
+`;
+
+export { ConceptActionsMenu, ConceptItemContainer };

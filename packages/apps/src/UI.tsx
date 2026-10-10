@@ -30,6 +30,14 @@ function UI({ className = '' }: Props): React.ReactElement<Props> {
   const { isApiReady, isWaitingInjected } = useApi();
   const { isIpfsReady } = useIpfsContext();
   const connected = isLoginReady && isIpfsReady && isApiReady && !isWaitingInjected
+  // Transient readiness changes must not unmount the Book processing adapters.
+  // The standalone BookProcessingManager owns the run, but these mounted views
+  // still provide the current per-stage handlers and progress snapshots.
+  const [hasConnectedOnce, setHasConnectedOnce] = useState(connected);
+
+  useEffect(() => {
+    if (connected) setHasConnectedOnce(true);
+  }, [connected]);
   const { showInfo } = useInfo();
   const { t, i18n } = useTranslation();
   const { logEvent, logEconomy } = useLog();
@@ -186,7 +194,8 @@ function UI({ className = '' }: Props): React.ReactElement<Props> {
 
 
   return (
-    connected ? <StyledDiv isloginRequired={isLoginRequired} className={`${className} apps--Wrapper ${themeClassName}`}>
+    <>
+    {hasConnectedOnce && <StyledDiv isloginRequired={isLoginRequired} className={`${className} apps--Wrapper ${themeClassName}`}>
       <AppContainer>
         {/* <HelpChatWidget caption={t('Have questions?')}/> */}
 
@@ -216,17 +225,25 @@ function UI({ className = '' }: Props): React.ReactElement<Props> {
         <ConnectingOverlay />
         <div id={PORTAL_ID} />
       </AppContainer>
-    </StyledDiv> :
-      <CenterItems>
-        <div className='connecting'>
-          <Spinner label={t('Loading')} />
-        </div>
-      </CenterItems>
+    </StyledDiv>}
+    {!connected && <CenterItems $overlay={hasConnectedOnce} role='status'>
+      <div className='connecting'>
+        <Spinner label={t('Loading')} />
+      </div>
+    </CenterItems>}
+    </>
   );
 }
-const CenterItems = styled.div`
+const CenterItems = styled.div<{ $overlay?: boolean }>`
   width: 100%;
   height: 100vh;
+  ${({ $overlay }) => $overlay && `
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    background: rgba(15, 15, 15, 0.35);
+    pointer-events: all;
+  `}
   display: flex;
   justify-content: center;
   align-items: center;

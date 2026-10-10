@@ -10,6 +10,7 @@ import { type StandardsCatalog, type StoredBookStandards } from '../../book/doma
 import { loadStoredBookStandards } from '../../book/infrastructure/storage/standardsStorage.js';
 import { loadFixConceptsChapterStatuses, type FixConceptsChapterStatuses } from '../../book/infrastructure/storage/fixConceptsProgress.js';
 import { useBookProcessingRunner } from '../../book/application/pipeline/useBookProcessingRunner.js';
+import { bookProcessingManager } from '../../book/application/pipeline/bookProcessingManager.js';
 import { useTranslation } from '../../../common/translate.js';
 import type { ProcessingStatus } from '../../shared/types/processing.js';
 import type { AutoRunProgress } from '../../shared/types/processing.js';
@@ -49,7 +50,6 @@ export function useBookReaderController (props: Props) {
     onPrice,
     onProcessingComplete,
     pendingProcessingAction,
-    processingCommand,
     processingToolbar,
     processingToolbarAfterFixImages,
     standardsModel,
@@ -142,8 +142,6 @@ export function useBookReaderController (props: Props) {
   const [selectedModel, setSelectedModel] = useState(DEFAULT_PROCESSING_MODEL);
   const [autoRunProgress, setAutoRunProgress] = useState<AutoRunProgress>();
   const [autoRunProcessing, setAutoRunProcessing] = useState<ProcessingStatus>();
-  const readerProcessingAbortControllerRef = useRef<AbortController | null>(null);
-  const skillsAutoRunAbortRef = useRef<(() => void) | null>(null);
   const [selectedPipelineKey, setSelectedPipelineKey] = useState('');
   const [skillsRefreshToken, setSkillsRefreshToken] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
@@ -156,15 +154,7 @@ export function useBookReaderController (props: Props) {
   const pendingExerciseChapterFocusRef = useRef(false);
   const pendingStandardsChapterFocusRef = useRef(false);
 
-  const currentReaderProcessingSignal = useCallback((): AbortSignal => {
-    if (!readerProcessingAbortControllerRef.current || readerProcessingAbortControllerRef.current.signal.aborted) {
-      readerProcessingAbortControllerRef.current = new AbortController();
-    }
-
-    return readerProcessingAbortControllerRef.current.signal;
-  }, []);
-
-  useEffect(() => () => readerProcessingAbortControllerRef.current?.abort(), []);
+  const currentReaderProcessingSignal = useCallback((): AbortSignal => bookProcessingManager.signal(book.id), [book.id]);
 
   useEffect((): void => {
     setHasRecognitionBeenAttempted(getSessionRecognitionAttempted(book.id));
@@ -523,6 +513,7 @@ export function useBookReaderController (props: Props) {
   const { assignStandards } = learningContentProcessing;
 
   useBookProcessingRunner({
+    bookId: book.id,
     ageSamplePageCount: ageSamplePageNumbers.length,
     ageSampleTextCount: ageSamplePageTexts.length,
     assignStandards,
@@ -549,7 +540,6 @@ export function useBookReaderController (props: Props) {
     openAgeDetectionConfirmation,
     openLanguageDetectionConfirmation,
     openSubjectDetectionConfirmation,
-    processingCommand,
     processingPage,
     recognizeAllPages,
     refineAllChapters,
@@ -682,13 +672,8 @@ export function useBookReaderController (props: Props) {
   });
   const { setLastReaderProcessing } = processingStatus;
 
-  const onAutoRunAbortReady = useCallback((abort?: () => void): void => {
-    skillsAutoRunAbortRef.current = abort ?? null;
-  }, []);
-
   const abortProcessing = (): void => {
-    readerProcessingAbortControllerRef.current?.abort();
-    readerProcessingAbortControllerRef.current = null;
+    bookProcessingManager.cancel(book.id);
     setProcessingPage(undefined);
     setIsDetectingBookLanguage(false);
     setIsDetectingBookSubject(false);
@@ -705,12 +690,6 @@ export function useBookReaderController (props: Props) {
     setConfirmedProcessingStage(undefined);
     setAutoRunProcessing(undefined);
     setLastReaderProcessing(undefined);
-
-    if (autoRunAll && skillsAutoRunAbortRef.current) {
-      skillsAutoRunAbortRef.current();
-    } else {
-      onAbortFastForward();
-    }
 
     onProcessingComplete();
   };
@@ -871,8 +850,6 @@ export function useBookReaderController (props: Props) {
     setAutoRunProgress,
     autoRunProcessing,
     setAutoRunProcessing,
-    readerProcessingAbortControllerRef,
-    skillsAutoRunAbortRef,
     selectedPipelineKey,
     setSelectedPipelineKey,
     skillsRefreshToken,
@@ -902,7 +879,6 @@ export function useBookReaderController (props: Props) {
     isCurrentPageUnrecognized,
     showUnrecognizedPages,
     rerecognizePage,
-    onAutoRunAbortReady,
     abortProcessing,
   } as const;
 }

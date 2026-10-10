@@ -6,10 +6,10 @@ import { getSetting, SettingKey } from '@slonigiraf/db';
 import type { Dispatch, SetStateAction } from 'react';
 import { useCallback, useEffect, useState } from 'react';
 
-import type { BookProcessingCommand, BookReaderCommandAction, PendingBookProcessingAction } from '../../../book/application/pipeline/bookPipeline.js';
+import type { BookReaderCommandAction, PendingBookProcessingAction } from '../../../book/application/pipeline/bookPipeline.js';
 
 import { DEFAULT_PROCESSING_MODEL, DEFAULT_STANDARDS_EMBEDDER, DEFAULT_STANDARDS_MODEL } from '../../../book/application/config.js';
-import { nextBookProcessingCommand } from '../../../book/application/pipeline/bookPipeline.js';
+import { bookProcessingManager } from '../../../book/application/pipeline/bookProcessingManager.js';
 import { useTranslation } from '../../../../common/translate.js';
 import { createProcessingToolbars } from '../processing/UploadProcessingToolbar.js';
 import { useUploadConceptGeneration } from './useUploadConceptGeneration.js';
@@ -29,15 +29,14 @@ interface UploadProcessingParams {
 
 export function useUploadProcessing ({ isBusy, readerFile, refreshBooks, selectedBook, setBooks, setError }: UploadProcessingParams) {
   const { t } = useTranslation();
-  const [processingCommand, setProcessingCommand] = useState<BookProcessingCommand>();
   const [pendingProcessingAction, setPendingProcessingAction] = useState<PendingBookProcessingAction>();
   const [generateAllConceptsModel, setGenerateAllConceptsModel] = useState(DEFAULT_PROCESSING_MODEL);
   const [standardsModel, setStandardsModel] = useState(DEFAULT_STANDARDS_MODEL);
   const [embeddingModel, setEmbeddingModel] = useState(DEFAULT_STANDARDS_EMBEDDER);
 
   const requestProcessing = useCallback((action: BookReaderCommandAction): void => {
-    setProcessingCommand((current) => nextBookProcessingCommand(current, action));
-  }, []);
+    if (selectedBook) bookProcessingManager.enqueue(selectedBook.id, action);
+  }, [selectedBook?.id]);
 
   useEffect(() => {
     getSetting(SettingKey.CONCEPTS_EMBEDDER)
@@ -93,6 +92,7 @@ export function useUploadProcessing ({ isBusy, readerFile, refreshBooks, selecte
     selectedBook,
     setBooks,
     setError,
+    setEmbeddingModel,
     setGenerateAllConceptsModel,
     setPendingProcessingAction,
     setStandardsModel
@@ -182,7 +182,6 @@ export function useUploadProcessing ({ isBusy, readerFile, refreshBooks, selecte
     onProcessingComplete,
     pendingProcessingAction,
     pricing,
-    processingCommand,
     processingToolbars,
     setEmbeddingModel,
     setGenerateAllConceptsModel,

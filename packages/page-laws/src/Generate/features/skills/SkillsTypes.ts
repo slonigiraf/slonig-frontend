@@ -1,7 +1,7 @@
 // Copyright 2021-2026 @polkadot/app-laws authors & contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import type { Book, BookChapter, BookConcept, BookPage, Exercise, Skill } from '@slonigiraf/db';
+import type { Book, BookChapter, BookConcept, BookPage, Exercise, Skill, TikzReviewResult } from '@slonigiraf/db';
 import type { GeneratedAbility } from '../../../abilities/abilities.js';
 import type { TikzPreRenderResult } from '../../../Edit/TikzDisplay.js';
 import type { AutoRunProgress, PipelineAction, ProcessingStatus } from '../../shared/types/processing.js';
@@ -29,7 +29,6 @@ export interface SkillsProps {
   onAutoRunComplete?: () => void;
   onAutoRunProgressChange?: (progress?: AutoRunProgress) => void;
   onAutoRunProcessingChange?: (status?: ProcessingStatus) => void;
-  onAutoRunAbortReady?: (abort?: () => void) => void;
   onAbortAutoRun?: () => void;
   onPipelineSelectionChange?: (key: string) => void;
   showPipeline?: boolean;
@@ -89,6 +88,7 @@ export interface FixedImageReview {
   field: 'p' | 'i';
   fixedPreRender: TikzPreRenderResult;
   fixedTikz: string;
+  finalReviewResult: TikzReviewResult;
   originalPreRender: TikzPreRenderResult;
   originalTikz: string;
   prompt: string;
@@ -99,6 +99,7 @@ export interface ImageFixReviewResult {
   checked: number;
   renderFailures: number;
   items: FixedImageReview[];
+  unresolved: Array<{ imageId: number; errors: string[] }>;
 }
 
 export interface BookPageContent {

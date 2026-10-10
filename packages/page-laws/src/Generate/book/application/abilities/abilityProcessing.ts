@@ -67,13 +67,19 @@ function parseJson (content: string): unknown {
   }
 }
 
-export async function requestChatContent (client: OpenAI, model: string, systemPrompt: string, userPrompt: string, jsonObject: boolean, onCost?: OpenRouterCostReporter, maxOutputTokens?: number, signal?: AbortSignal): Promise<string> {
+export async function requestChatContent (client: OpenAI, model: string, systemPrompt: string, userPrompt: string, jsonObject: boolean, onCost?: OpenRouterCostReporter, maxOutputTokens?: number, signal?: AbortSignal, visualPng?: string): Promise<string> {
+  if (visualPng && !visualPng.startsWith('data:image/png;base64,')) {
+    throw new Error('TikZ visual review requires a rasterized PNG, not an SVG or text fallback.');
+  }
+
   if (signal?.aborted) {
     throw new DOMException('Processing aborted.', 'AbortError');
   }
 
   const makeRequest = () => client.chat.completions.create({
-    messages: [{ content: systemPrompt, role: 'system' as const }, { content: userPrompt, role: 'user' as const }],
+    messages: [{ content: systemPrompt, role: 'system' as const }, { content: visualPng
+      ? [{ type: 'text' as const, text: userPrompt }, { type: 'image_url' as const, image_url: { url: visualPng, detail: 'high' as const } }]
+      : userPrompt, role: 'user' as const }],
     model,
     ...(maxOutputTokens ? { max_completion_tokens: maxOutputTokens } : {}),
     ...(jsonObject ? { response_format: { type: 'json_object' as const } } : {})
@@ -389,7 +395,7 @@ function compactPreRenderForPrompt (result: TikzPreRenderResult): unknown {
   return {
     compiled: result.compiled,
     diagnostics: result.diagnostics.slice(-30),
-    renderedSvg: result.renderedSvg.slice(0, 28_000),
+    renderedImage: result.compiled ? 'Actual SVG rasterized to PNG and attached as an image to this review request.' : 'No image: TikZ Editor rendering failed.',
     retryable: result.retryable === true,
     texInput: result.texInput.slice(0, 12_000)
   };
@@ -414,7 +420,7 @@ You MUST inspect all of these classes of failure:
 - Visual mess: overlapping text, labels printed on top of unrelated labels/objects, clipped text, illegible density, lines/arrows passing through labels, badly placed annotations, ambiguous association between labels and objects, or excessive unused/competing content.
 - Poor composition that makes the intended educational relationship hard to read.
 
-Use the pre-render evidence below. The SVG is the actual browser rendering when compilation succeeded. If rendering failed, use the diagnostics/source input to repair the source. Preserve correct content and change only what is needed.
+Use the pre-render evidence below AND inspect the ATTACHED PNG image, rasterized directly from the actual TikZ Editor SVG. Never pass this diagram simply because an SVG was produced. If rendering failed, use diagnostics/source input to repair the source. Preserve correct content and change only what is needed.
 
 ${LEARNER_AGE_PROMPT(learnerAge)}
 
@@ -501,18 +507,18 @@ REJECTED CANDIDATE:
 ${candidate}`;
 }
 
-export async function requestValidatedJson<T> (client: OpenAI, model: string, systemPrompt: string, userPrompt: string, parse: (content: string) => T, jsonObject = true, onCost?: OpenRouterCostReporter, maxOutputTokens?: number, repairContext?: string, validationCycles = 2, signal?: AbortSignal): Promise<T> {
+export async function requestValidatedJson<T> (client: OpenAI, model: string, systemPrompt: string, userPrompt: string, parse: (content: string) => T, jsonObject = true, onCost?: OpenRouterCostReporter, maxOutputTokens?: number, repairContext?: string, validationCycles = 2, signal?: AbortSignal, visualPng?: string): Promise<T> {
   let lastError: unknown;
   let outputTokenBudget = maxOutputTokens;
 
   const request = async (prompt: string): Promise<string> => {
     try {
-      return await requestChatContent(client, model, systemPrompt, prompt, jsonObject, onCost, outputTokenBudget, signal);
+      return await requestChatContent(client, model, systemPrompt, prompt, jsonObject, onCost, outputTokenBudget, signal, visualPng);
     } catch (error) {
       if (error instanceof AiResponseTruncatedError && outputTokenBudget !== undefined && outputTokenBudget < MAX_VALIDATED_JSON_OUTPUT_TOKENS) {
         outputTokenBudget = Math.min(MAX_VALIDATED_JSON_OUTPUT_TOKENS, Math.max(outputTokenBudget + 2_000, Math.ceil(outputTokenBudget * 1.5)));
 
-        return requestChatContent(client, model, systemPrompt, prompt, jsonObject, onCost, outputTokenBudget, signal);
+        return requestChatContent(client, model, systemPrompt, prompt, jsonObject, onCost, outputTokenBudget, signal, visualPng);
       }
 
       throw error;

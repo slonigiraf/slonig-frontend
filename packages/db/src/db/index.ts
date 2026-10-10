@@ -18,8 +18,8 @@ import type { Image } from './Image.js';
 import { Repetition } from './Repetition.js';
 import { LearnRequest } from './LearnRequest.js';
 import { ScheduledEvent } from './ScheduledEvent.js';
-import { getBookCompletedStages } from './Book.js';
-import type { Book } from './Book.js';
+import { BOOK_PROCESSING_STAGES, getBookCompletedStages, withBookProcessingStagesResetFrom } from './Book.js';
+import type { Book, BookProcessingStageKey } from './Book.js';
 import type { BookPage } from './BookPage.js';
 import type { BookConcept } from './BookConcept.js';
 import type { BookChapter } from './BookChapter.js';
@@ -31,6 +31,7 @@ import type { StandardEmbedding } from './StandardEmbedding.js';
 import type { ConceptEmbedding } from './ConceptEmbedding.js';
 import type { MathpixPdfJob } from './MathpixPdfJob.js';
 import type { TikzSvgCacheEntry } from './TikzSvgCache.js';
+import type { BookProcessingRun } from './BookProcessingRun.js';
 
 type LegacyBookSkill = Omit<Skill, 'exerciseIds'> & { bookExerciseIds?: number[] };
 type LegacyExerciseTemplate = Omit<ExerciseTemplate, 'skillId'> & { bookSkillId: number };
@@ -93,6 +94,7 @@ export class SlonigDB extends Dexie {
   conceptEmbeddings!: Table<ConceptEmbedding, number>;
   mathpixPdfJobs!: Table<MathpixPdfJob, [number, number, number]>;
   tikzSvgCache!: Table<TikzSvgCacheEntry, [string, string]>;
+  bookProcessingRuns!: Table<BookProcessingRun, number>;
 
   constructor(name = 'slonig') {
     super(name);
@@ -602,6 +604,47 @@ export class SlonigDB extends Dexie {
     // previews from the old standalone renderer-version IndexedDB databases.
     this.version(98).stores({
       tikzSvgCache: '&[rendererId+source],updatedAt'
+    });
+    this.version(99).stores({
+      bookProcessingRuns: '&bookId,status,updatedAt'
+    });
+    // Version 99 was previously used to add processing-run checkpoints.
+    // Give visual QA its own version so both migrations run for new and
+    // existing databases. A successful SVG render was never a PNG review.
+    this.version(100).stores({}).upgrade(async (transaction: Transaction) => {
+      const books = transaction.table<Book, number>('books');
+      const runs = transaction.table<BookProcessingRun, number>('bookProcessingRuns');
+      const fixImagesIndex = BOOK_PROCESSING_STAGES.indexOf('fixImages');
+      const requiresVisualQa = (stage: BookProcessingStageKey): boolean =>
+        BOOK_PROCESSING_STAGES.indexOf(stage as typeof BOOK_PROCESSING_STAGES[number]) >= fixImagesIndex;
+
+      await forEachMigrationBatch(books, async (rows) => {
+        for (const book of rows) {
+          if (getBookCompletedStages(book).some(requiresVisualQa)) {
+            const reset = withBookProcessingStagesResetFrom(book, 'fixImages');
+
+            await books.update(book.id, { completedStages: reset.completedStages });
+          }
+        }
+      });
+
+      // A persisted Fast Forward run must not claim downstream completion
+      // based on old render-only verdicts, even after the Book is reset.
+      await forEachMigrationBatch(runs, async (rows) => {
+        for (const run of rows) {
+          if (run.completed.some(requiresVisualQa)) {
+            await runs.update(run.bookId, {
+              completed: run.completed.filter((stage) => !requiresVisualQa(stage)),
+              status: 'failed',
+              currentStage: undefined,
+              triggeredStage: undefined,
+              startedStage: false,
+              error: 'Fix Images now requires PNG-based visual QA. Review the images before restarting Fast Forward.',
+              updatedAt: Date.now()
+            });
+          }
+        }
+      });
     });
 
   }

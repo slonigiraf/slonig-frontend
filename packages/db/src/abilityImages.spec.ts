@@ -5,7 +5,55 @@
 
 import { strict as assert } from 'node:assert';
 
-import { createBook, createImage, deleteAbilities, deleteBook, deleteExercise, getAbilities, getImage, getImages, hydrateAbilityContent, putImage, replaceAbilities, replaceExercisesForBookPage, storeAbility } from './index.js';
+import { createBook, createImage, deleteAbilities, deleteBook, deleteExercise, deleteImage, getAbilities, getImage, getImages, hydrateAbilityContent, isTikzImageQaPassed, putImage, replaceAbilities, replaceExercisesForBookPage, setTikzImageQaState, storeAbility, tikzSourceVersion } from './index.js';
+
+describe('TikZ visual QA persistence', (): void => {
+  it('requires PNG-based review metadata after a render, and invalidates approval on source edit', async (): Promise<void> => {
+    const original = '\\begin{tikzpicture}\\draw(0,0)--(1,1);\\end{tikzpicture}';
+    const edited = '\\begin{tikzpicture}\\draw(0,0)--(2,2);\\end{tikzpicture}';
+    const id = await createImage({ data: original, type: 'tikz', prompt: 'Draw a line', valid: true });
+
+    try {
+      const rendered = await getImage(id);
+
+      assert.equal(rendered?.valid, true);
+      assert.equal(rendered?.visualQaStatus, 'pending');
+      assert.equal(isTikzImageQaPassed(rendered!), false, 'rendered SVG is not a reviewed PNG');
+
+      const sourceVersion = tikzSourceVersion(original);
+      const reviewResult = { sourceVersion, hasErrors: false, errors: [], reviewedAt: Date.now(), attempt: 2 };
+      await setTikzImageQaState(id, original, { renderStatus: 'passed', visualQaStatus: 'passed', detectedIssues: [], reviewResult });
+      const reviewed = (await getImage(id))!;
+
+      assert.equal(isTikzImageQaPassed(reviewed), true);
+      await putImage({ ...reviewed, data: edited });
+      const changed = (await getImage(id))!;
+
+      assert.equal(changed.visualQaStatus, 'pending');
+      assert.equal(changed.reviewResult, undefined);
+      assert.equal(isTikzImageQaPassed(changed), false);
+    } finally {
+      await deleteImage(id);
+    }
+  });
+
+  it('preserves detected render/review failures rather than converting them into an approved render', async (): Promise<void> => {
+    const source = '\\begin{tikzpicture}\\draw(0,0)--(1,1);\\end{tikzpicture}';
+    const id = await createImage({ data: source, type: 'tikz', prompt: 'A diagram', valid: undefined });
+
+    try {
+      await setTikzImageQaState(id, source, { renderStatus: 'passed', visualQaStatus: 'failed', detectedIssues: ['Overlapping labels'] });
+      const failed = (await getImage(id))!;
+
+      assert.equal(failed.renderStatus, 'passed');
+      assert.equal(failed.visualQaStatus, 'failed');
+      assert.deepEqual(failed.detectedIssues, ['Overlapping labels']);
+      assert.equal(isTikzImageQaPassed(failed), false);
+    } finally {
+      await deleteImage(id);
+    }
+  });
+});
 
 describe('Ability images', (): void => {
   const moduleId = 'ability-images-spec';

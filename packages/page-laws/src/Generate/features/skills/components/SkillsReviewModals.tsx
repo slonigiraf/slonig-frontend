@@ -208,7 +208,8 @@ export default function SkillsReviewModals ({ applyAbilityFixReview, applyExerci
         <FixResultsReviewContent>
           <div className='fixResultsReviewIntro'>
             <p><strong>No TikZ source changes have been saved yet.</strong></p>
-            <p>Checked {imageFixReview.checked} TikZ visual{imageFixReview.checked === 1 ? '' : 's'}. The pre-render found {imageFixReview.renderFailures} original render failure{imageFixReview.renderFailures === 1 ? '' : 's'}, and AI proposed {imageFixReview.items.length} correction{imageFixReview.items.length === 1 ? '' : 's'}. Render failures are saved as validation metadata.</p>
+            <p>Checked {imageFixReview.checked} TikZ visual{imageFixReview.checked === 1 ? '' : 's'}. Render failures: {imageFixReview.renderFailures}; PNG-reviewed corrections: {imageFixReview.items.length}; unresolved: {imageFixReview.unresolved.length}. Each changed candidate was separately rendered and visually reviewed (maximum three attempts). Rendering success alone does not count as QA approval.</p>
+            {imageFixReview.unresolved.length > 0 && <section><strong>Unresolved visual QA failures — this stage cannot pass:</strong><ul>{imageFixReview.unresolved.map(({ imageId, errors }) => <li key={imageId}>Image {imageId}: {errors.join(' | ')}</li>)}</ul></section>}
           </div>
           {imageFixReview.items.length > 0 && <div className='fixResultsReviewComparison'>
             {imageFixReview.items.map(({ errors, exerciseIndex, field, fixedPreRender, fixedTikz, originalPreRender, originalTikz, prompt, record }, index) => {
@@ -244,7 +245,7 @@ export default function SkillsReviewModals ({ applyAbilityFixReview, applyExerci
                           <span className='fixResultsReviewProposed'>Proposed</span>
                         </span>
                       </div>
-                      <p><small>Pre-render: {fixedPreRender.compiled ? 'rendered successfully' : 'FAILED'}</small></p>
+                      <p><small>Pre-render: {fixedPreRender.compiled ? 'rendered successfully' : 'FAILED'} · Vision QA: approved from actual PNG</small></p>
                       {!fixedPreRender.compiled && fixedPreRender.diagnostics.length > 0 && <pre className='tikzDiagnostics'>{fixedPreRender.diagnostics.slice(-8).join('\n')}</pre>}
                       <pre className='tikzCodeDiff'>{fixedTikz}</pre>
                       <React.Suspense fallback={<small>Loading TikZ renderer…</small>}><TikzDisplay alt={`Corrected ${role} visual`} value={fixedTikz} /></React.Suspense>
@@ -270,7 +271,7 @@ export default function SkillsReviewModals ({ applyAbilityFixReview, applyExerci
             <Button
               icon='check'
               isDisabled={isBusy}
-              label={imageFixReview.items.length ? 'Apply changes' : 'Confirm review'}
+              label={imageFixReview.unresolved.length ? 'Apply approved changes (QA incomplete)' : imageFixReview.items.length ? 'Apply PNG-reviewed changes' : 'Confirm visual QA'}
               onClick={() => applyImageFixReview().catch(console.error)}
             />
           </Button.Group>

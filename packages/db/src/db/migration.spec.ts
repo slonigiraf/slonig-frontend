@@ -85,13 +85,14 @@ describe('IndexedDB production migration', (): void => {
       upgraded = new SlonigDB(databaseName);
       await upgraded.open();
 
-      assert.equal(upgraded.verno, 98);
+      assert.equal(upgraded.verno, 100);
       assert.equal(upgraded.tables.some(({ name }) => name === 'standardEmbeddings'), true);
       await upgraded.standardEmbeddings.put({ id: 'CCSS.6.RP.A.2', embedding: [0.25, 0.75] });
       assert.deepEqual(await upgraded.standardEmbeddings.get('CCSS.6.RP.A.2'), { id: 'CCSS.6.RP.A.2', embedding: [0.25, 0.75] });
       assert.equal(upgraded.tables.some(({ name }) => name === 'conceptEmbeddings'), true);
       assert.equal(upgraded.tables.some(({ name }) => name === 'mathpixPdfJobs'), true);
       assert.equal(upgraded.tables.some(({ name }) => name === 'tikzSvgCache'), true);
+      assert.equal(upgraded.tables.some(({ name }) => name === 'bookProcessingRuns'), true);
       assert.equal(await upgraded.tikzSvgCache.count(), 0, 'cache begins empty; no old SVG cache migration');
       await upgraded.mathpixPdfJobs.put({ bookId: 7, created: 1234, endPage: 40, pdfId: 'pdf-resume-7-1', startPage: 1 });
       assert.deepEqual(await upgraded.mathpixPdfJobs.get([7, 1, 40]), { bookId: 7, created: 1234, endPage: 40, pdfId: 'pdf-resume-7-1', startPage: 1 });
@@ -132,4 +133,58 @@ describe('IndexedDB production migration', (): void => {
       await Dexie.delete(databaseName);
     }
   });
+  it('upgrades version 99 without dropping runs and revokes legacy Fix Images approvals', async (): Promise<void> => {
+    const name = `slonig-visual-qa-migration-${Date.now()}-${Math.random()}`;
+    const previous = new Dexie(name);
+    let upgraded: SlonigDB | undefined;
+
+    // Version 99 already contained the manager's table before visual QA
+    // added a separate migration at version 100.
+    previous.version(99).stores({
+      books: '&id,name,created',
+      bookProcessingRuns: '&bookId,status,updatedAt'
+    });
+
+    try {
+      await previous.open();
+      await previous.table('books').bulkPut([
+        { id: 17, name: 'Previously processed', contentHash: 'hash', opfsName: 'old.pdf', size: 1, created: 1,
+          completedStages: ['recognize', 'abilities', 'images', 'fixImages', 'standards', 'fixStandards'] },
+        { id: 18, name: 'Still generating', contentHash: 'hash', opfsName: 'new.pdf', size: 1, created: 2,
+          completedStages: ['recognize', 'abilities', 'images'] }
+      ]);
+      await previous.table('bookProcessingRuns').put({
+        bookId: 17, id: 'old-run', mode: 'fastForward', status: 'completed',
+        stages: ['images', 'fixImages', 'standards'], startStage: 'images', completed: ['images', 'fixImages', 'standards'],
+        startedStage: false, retryCounts: {}, skipRefineChapters: false,
+        models: { generation: 'model-a', embedding: 'model-b', standards: 'model-c' }, updatedAt: 12
+      });
+      await previous.table('bookProcessingRuns').put({
+        bookId: 18, id: 'in-progress', mode: 'fastForward', status: 'running',
+        stages: ['images', 'fixImages', 'standards'], startStage: 'images', currentStage: 'images', completed: [],
+        startedStage: true, retryCounts: {}, skipRefineChapters: false,
+        models: { generation: 'model-a', embedding: 'model-b', standards: 'model-c' }, updatedAt: 15
+      });
+      previous.close();
+
+      upgraded = new SlonigDB(name);
+      await upgraded.open();
+      assert.equal(upgraded.verno, 100);
+      assert.deepEqual((await upgraded.books.get(17))?.completedStages, ['recognize', 'abilities', 'images']);
+      assert.deepEqual((await upgraded.books.get(18))?.completedStages, ['recognize', 'abilities', 'images']);
+      const run = await upgraded.bookProcessingRuns.get(17);
+      assert.ok(run, 'the version 99 processing-run record survives');
+      assert.equal(run.status, 'failed', 'an old completion is no longer considered valid');
+      assert.deepEqual(run.completed, ['images']);
+      assert.match(run.error ?? '', /PNG-based visual QA/);
+      const notYetReviewed = await upgraded.bookProcessingRuns.get(18);
+      assert.equal(notYetReviewed?.status, 'running', 'do not invalidate an unfinished stage merely because visual QA is planned');
+      assert.deepEqual(notYetReviewed?.completed, []);
+    } finally {
+      previous.close();
+      upgraded?.close();
+      await Dexie.delete(name);
+    }
+  });
+
 });

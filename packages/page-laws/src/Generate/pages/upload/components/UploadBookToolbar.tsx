@@ -14,6 +14,8 @@ interface UploadBookToolbarProps {
   deleteSelectedBook: () => Promise<void>;
   isBusy: boolean;
   isFastForwardRunning: boolean;
+  isFastForwardPaused: boolean;
+  resumeFastForward: () => void;
   selectedBook?: Book;
   selectedId?: number;
   setError: Dispatch<SetStateAction<string>>;
@@ -21,7 +23,7 @@ interface UploadBookToolbarProps {
   uploadBook: (contents: Uint8Array, name: string) => Promise<void>;
 }
 
-export function UploadBookToolbar ({ books, deleteSelectedBook, isBusy, isFastForwardRunning, selectedBook, selectedId, setError, setSelectedId, uploadBook }: UploadBookToolbarProps): React.ReactElement {
+export function UploadBookToolbar ({ books, deleteSelectedBook, isBusy, isFastForwardRunning, isFastForwardPaused, resumeFastForward, selectedBook, selectedId, setError, setSelectedId, uploadBook }: UploadBookToolbarProps): React.ReactElement {
   const { t } = useTranslation();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const options = useMemo(
@@ -54,6 +56,11 @@ export function UploadBookToolbar ({ books, deleteSelectedBook, isBusy, isFastFo
         label={t('Upload')}
         onClick={onChooseFile}
       />
+      {isFastForwardPaused && <Button
+        icon='play'
+        label={t('Resume Fast Forward')}
+        onClick={resumeFastForward}
+      />}
       <Dropdown
         className='bookSelect'
         isDisabled={!books.length || isBusy || isFastForwardRunning}

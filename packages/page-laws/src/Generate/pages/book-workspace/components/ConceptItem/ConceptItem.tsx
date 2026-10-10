@@ -3,14 +3,15 @@
 
 import type { BookConcept } from '@slonigiraf/db';
 import { SpanWithTags } from '@slonigiraf/slonig-components';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useId, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 
-import { Button, Dropdown, Input, Modal } from '@polkadot/react-components';
+import { Button, Dropdown, Icon, Input, Modal } from '@polkadot/react-components';
 
 import { type ConceptChapterNavigationItem } from '../../../../book/domain/concepts/conceptRecognition.js';
 import ConceptForm from '../ConceptForm/ConceptForm.js';
 import FixingOverlay from '../../../../shared/ui/FixingOverlay.js';
-import { ConceptItemContainer } from './ConceptItem.styles.js';
+import { ConceptActionsMenu, ConceptItemContainer } from './ConceptItem.styles.js';
 
 function ConceptItem ({ chapterIndex: initialChapterIndex, chapters, concept, conceptNumber, firstPage, onDelete, onFix, onGoToPage, onReorderPointerCancel, onReorderPointerDown, onReorderPointerMove, onReorderPointerUp, onSave }: { chapterIndex: number; chapters: ConceptChapterNavigationItem[]; concept: BookConcept; conceptNumber: number; firstPage?: number; onDelete: (concept: BookConcept) => Promise<void>; onFix: (concept: BookConcept) => Promise<void>; onGoToPage: (pageNumber: number) => void; onReorderPointerCancel?: (event: React.PointerEvent<HTMLLIElement>) => void; onReorderPointerDown?: (event: React.PointerEvent<HTMLLIElement>) => void; onReorderPointerMove?: (event: React.PointerEvent<HTMLLIElement>) => void; onReorderPointerUp?: (event: React.PointerEvent<HTMLLIElement>) => void; onSave: (concept: BookConcept, title: string, description: string, chapterIndex: number) => Promise<void> }): React.ReactElement {
   const [chapterIndex, setChapterIndex] = useState(initialChapterIndex);
@@ -19,6 +20,11 @@ function ConceptItem ({ chapterIndex: initialChapterIndex, chapters, concept, co
   const [isFixing, setIsFixing] = useState(false);
   const [isDeleteConfirmationOpen, setIsDeleteConfirmationOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+  const [isActionsMenuOpen, setIsActionsMenuOpen] = useState(false);
+  const [menuPosition, setMenuPosition] = useState({ left: 0, top: 0 });
+  const menuId = useId();
+  const menuRef = useRef<HTMLDivElement>(null);
+  const menuTriggerRef = useRef<HTMLButtonElement>(null);
   const [title, setTitle] = useState(concept.title);
 
   useEffect(() => {
@@ -66,6 +72,89 @@ function ConceptItem ({ chapterIndex: initialChapterIndex, chapters, concept, co
       .catch(console.error)
       .finally(() => setIsBusy(false));
   }, [chapterIndex, concept, description, onSave, title]);
+
+  const toggleActionsMenu = useCallback((): void => {
+    if (isActionsMenuOpen) {
+      setIsActionsMenuOpen(false);
+
+      return;
+    }
+
+    if (concept.id === undefined || isBusy || isFixing) {
+      return;
+    }
+
+    const bounds = menuTriggerRef.current?.getBoundingClientRect();
+
+    if (!bounds) {
+      return;
+    }
+
+    // Render outside the scrollable concepts list so the menu is never clipped.
+    const menuWidth = 190;
+    const menuHeight = 144;
+
+    setMenuPosition({
+      left: Math.max(8, Math.min(bounds.right - menuWidth, window.innerWidth - menuWidth - 8)),
+      top: bounds.bottom + menuHeight + 8 <= window.innerHeight
+        ? bounds.bottom + 8
+        : Math.max(8, bounds.top - menuHeight - 8)
+    });
+    setIsActionsMenuOpen(true);
+  }, [concept.id, isActionsMenuOpen, isBusy, isFixing]);
+
+  useEffect(() => {
+    if (!isActionsMenuOpen) {
+      return;
+    }
+
+    menuRef.current?.querySelector<HTMLButtonElement>('button')?.focus();
+
+    const onPointerDown = (event: PointerEvent): void => {
+      const target = event.target as Node;
+
+      if (!menuTriggerRef.current?.contains(target) && !menuRef.current?.contains(target)) {
+        setIsActionsMenuOpen(false);
+      }
+    };
+    const onKeyDown = (event: KeyboardEvent): void => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        setIsActionsMenuOpen(false);
+        menuTriggerRef.current?.focus();
+      }
+    };
+    const closeMenu = (): void => setIsActionsMenuOpen(false);
+
+    document.addEventListener('pointerdown', onPointerDown);
+    document.addEventListener('keydown', onKeyDown);
+    document.addEventListener('scroll', closeMenu, true);
+    window.addEventListener('resize', closeMenu);
+
+    return () => {
+      document.removeEventListener('pointerdown', onPointerDown);
+      document.removeEventListener('keydown', onKeyDown);
+      document.removeEventListener('scroll', closeMenu, true);
+      window.removeEventListener('resize', closeMenu);
+    };
+  }, [isActionsMenuOpen]);
+
+  const onMenuKeyDown = useCallback((event: React.KeyboardEvent<HTMLDivElement>): void => {
+    if (!['ArrowUp', 'ArrowDown', 'Home', 'End'].includes(event.key)) {
+      return;
+    }
+
+    const items = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>('button:not(:disabled)'));
+    const currentIndex = items.indexOf(document.activeElement as HTMLButtonElement);
+    const nextIndex = event.key === 'Home'
+      ? 0
+      : event.key === 'End'
+        ? items.length - 1
+        : (currentIndex + (event.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length;
+
+    event.preventDefault();
+    items[nextIndex]?.focus();
+  }, []);
 
   const canReorder = concept.id !== undefined && !isBusy && !isEditing && !isFixing;
 
@@ -166,23 +255,45 @@ function ConceptItem ({ chapterIndex: initialChapterIndex, chapters, concept, co
       >⋮⋮</span>
       <strong><span className='conceptNumber'>{conceptNumber}.</span> <SpanWithTags content={concept.title} /></strong>
       <div className='conceptActions'>
-        <Button
-          className='conceptAiFixButton'
-          icon='robot'
-          isDisabled={concept.id === undefined || isBusy || isFixing}
-          label={isFixing ? 'Fixing…' : 'Fix with AI'}
-          onClick={fix}
-        />
-        <Button
-          icon='edit'
-          isDisabled={concept.id === undefined || isBusy || isFixing}
-          onClick={() => setIsEditing(true)}
-        />
-        <Button
-          icon='trash'
-          isDisabled={concept.id === undefined || isBusy || isFixing}
-          onClick={remove}
-        />
+        <button
+          aria-controls={isActionsMenuOpen ? menuId : undefined}
+          aria-expanded={isActionsMenuOpen}
+          aria-haspopup='menu'
+          aria-label={`Actions for concept ${conceptNumber}`}
+          className='conceptMenuTrigger'
+          disabled={concept.id === undefined || isBusy || isFixing}
+          onClick={toggleActionsMenu}
+          ref={menuTriggerRef}
+          title='Concept actions'
+          type='button'
+        ><Icon icon='ellipsis-v' /></button>
+        {isActionsMenuOpen && createPortal(
+          <ConceptActionsMenu
+            aria-label={`Actions for concept ${conceptNumber}`}
+            id={menuId}
+            onKeyDown={onMenuKeyDown}
+            ref={menuRef}
+            role='menu'
+            style={{ left: menuPosition.left, top: menuPosition.top }}
+          >
+            <button
+              onClick={() => { setIsActionsMenuOpen(false); fix(); }}
+              role='menuitem'
+              type='button'
+            ><Icon icon='robot' />Fix with AI</button>
+            <button
+              onClick={() => { setIsActionsMenuOpen(false); setIsEditing(true); }}
+              role='menuitem'
+              type='button'
+            ><Icon icon='edit' />Edit</button>
+            <button
+              onClick={() => { setIsActionsMenuOpen(false); remove(); }}
+              role='menuitem'
+              type='button'
+            ><Icon icon='trash' />Delete</button>
+          </ConceptActionsMenu>,
+          document.body
+        )}
       </div>
     </div>
     <div className='conceptMeta'>

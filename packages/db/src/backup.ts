@@ -17,7 +17,8 @@ const CACHE_TABLES = new Set([
   'standardEmbeddings',
   'conceptEmbeddings',
   'mathpixPdfJobs',
-  'tikzSvgCache'
+  'tikzSvgCache',
+  'bookProcessingRuns'
 ]);
 
 export function shouldExportDatabaseRow (tableName: string, value?: unknown, includeEverything = false): boolean {

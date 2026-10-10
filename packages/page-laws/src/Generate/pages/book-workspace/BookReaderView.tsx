@@ -151,7 +151,6 @@ export function BookReaderView ({ controller }: Props): React.ReactElement {
     newConceptPage,
     newConceptTitle,
     onAbortFastForward,
-    onAutoRunAbortReady,
     onAutoRunComplete,
     onBookChange,
     onFastForward,
@@ -1122,7 +1121,6 @@ export function BookReaderView ({ controller }: Props): React.ReactElement {
         externalAutoRunBusy={hasReaderProcessing}
         externalRefreshToken={skillsRefreshToken}
         onAction={revealPane}
-        onAutoRunAbortReady={onAutoRunAbortReady}
         onAbortAutoRun={onAbortFastForward}
         onAutoRunComplete={onAutoRunComplete}
         onAutoRunProcessingChange={setAutoRunProcessing}

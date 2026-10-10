@@ -6,6 +6,7 @@ import { createBook, deleteBook, getBookByContentHash, getBooks, updateBookField
 import type { Dispatch, SetStateAction } from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
+import { bookProcessingManager } from '../../../book/application/pipeline/bookProcessingManager.js';
 import { clearBookExternalCalls } from '../../../book/infrastructure/storage/bookExternalCalls.js';
 import { clearFixConceptsChapterStatuses } from '../../../book/infrastructure/storage/fixConceptsProgress.js';
 import { clearBookStageTimes } from '../../../book/infrastructure/storage/bookStageTime.js';
@@ -208,8 +209,11 @@ export function useUploadedBookLibrary (setError: Dispatch<SetStateAction<string
     setIsBusy(true);
 
     try {
+      bookProcessingManager.cancel(selectedBook.id);
+      await bookProcessingManager.flush(selectedBook.id);
       await removePdf(selectedBook.opfsName);
       await deleteBook(selectedBook.id);
+      bookProcessingManager.forget(selectedBook.id);
       clearFixConceptsChapterStatuses(selectedBook.id);
       clearBookStageTimes(selectedBook.id);
       clearBookExternalCalls(selectedBook.id);

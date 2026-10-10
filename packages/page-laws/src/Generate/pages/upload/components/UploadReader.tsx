@@ -46,7 +46,6 @@ export function UploadReader ({ book, file, isBusy, processing }: UploadReaderPr
       onPrice={processing.pricing.onPrice}
       onProcessingComplete={processing.onProcessingComplete}
       pendingProcessingAction={processing.pendingProcessingAction}
-      processingCommand={processing.processingCommand}
       processingToolbar={processing.processingToolbars.prefix}
       processingToolbarAfterFixImages={processing.processingToolbars.suffix}
     />

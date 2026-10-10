@@ -3,10 +3,13 @@
 
 import { useEffect, useRef } from 'react';
 
-import { isBookProcessingCommandReady, type BookProcessingRunnerState } from './bookProcessingCommand.js';
-import type { BookProcessingCommand } from './bookPipeline.js';
+import type { BookProcessingRunnerState } from './bookProcessingCommand.js';
+import type { BookReaderCommandAction } from './bookPipeline.js';
+
+import { bookProcessingManager } from './bookProcessingManager.js';
 
 interface UseBookProcessingRunnerOptions extends BookProcessingRunnerState {
+  bookId: number;
   assignStandards: (force?: boolean) => Promise<void>;
   deduplicateAllConcepts: (model: string) => Promise<void>;
   embedAllConcepts: () => Promise<void>;
@@ -20,7 +23,6 @@ interface UseBookProcessingRunnerOptions extends BookProcessingRunnerState {
   openAgeDetectionConfirmation: () => void;
   openLanguageDetectionConfirmation: () => void;
   openSubjectDetectionConfirmation: () => void;
-  processingCommand?: BookProcessingCommand;
   recognizeAllPages: () => Promise<void>;
   refineAllChapters: (model: string) => Promise<void>;
   setActivePane: (pane: 'text') => void;
@@ -28,98 +30,73 @@ interface UseBookProcessingRunnerOptions extends BookProcessingRunnerState {
   sortAllConcepts: (model: string) => Promise<void>;
 }
 
-export function useBookProcessingRunner ({ ageSamplePageCount, ageSampleTextCount, assignStandards, conceptChapterCount, deduplicateAllConcepts, embedAllConcepts, fixAllConcepts, fixOnlyFailedConcepts, generateAllConcepts, generateAllConceptsModel, generateOnlyMissingStandards, identifyChapters, isAssigningStandards, isDeduplicatingConcepts, isEmbeddingConcepts, isFixingConcepts, isGeneratingAllConcepts, isIdentifyingChapters, isMmdConversionComplete, isRecognizingAll, isRefiningChapters, isSortingConcepts, onProcessingComplete, openAgeDetectionConfirmation, openLanguageDetectionConfirmation, openSubjectDetectionConfirmation, processingCommand, processingPage, recognizeAllPages, refineAllChapters, setActivePane, setError, sortAllConcepts, totalPages }: UseBookProcessingRunnerOptions): void {
-  // Treat a command already present when the reader mounts as stale. This
-  // preserves the old counter behavior when switching books/remounting readers.
-  const handledCommandIdRef = useRef(processingCommand?.id);
+export function useBookProcessingRunner (options: UseBookProcessingRunnerOptions): void {
+  // Fresh UI callbacks are adapters only; the queue, run and abort signal have
+  // module lifetime. An executing promise captures its adapter across unmount.
+  const latest = useRef(options);
 
-  useEffect((): void => {
-    if (!processingCommand || processingCommand.id === handledCommandIdRef.current) {
-      return;
-    }
+  latest.current = options;
+  const { bookId } = options;
 
-    const runnerState: BookProcessingRunnerState = {
-      ageSamplePageCount,
-      ageSampleTextCount,
-      conceptChapterCount,
-      isAssigningStandards,
-      isDeduplicatingConcepts,
-      isEmbeddingConcepts,
-      isFixingConcepts,
-      isGeneratingAllConcepts,
-      isIdentifyingChapters,
-      isMmdConversionComplete,
-      isRecognizingAll,
-      isRefiningChapters,
-      isSortingConcepts,
-      processingPage,
-      totalPages
+  useEffect(() => bookProcessingManager.registerReader(bookId, () => {
+    const current = latest.current;
+    const state: BookProcessingRunnerState = {
+      ageSamplePageCount: current.ageSamplePageCount,
+      ageSampleTextCount: current.ageSampleTextCount,
+      conceptChapterCount: current.conceptChapterCount,
+      isAssigningStandards: current.isAssigningStandards,
+      isDeduplicatingConcepts: current.isDeduplicatingConcepts,
+      isEmbeddingConcepts: current.isEmbeddingConcepts,
+      isFixingConcepts: current.isFixingConcepts,
+      isGeneratingAllConcepts: current.isGeneratingAllConcepts,
+      isIdentifyingChapters: current.isIdentifyingChapters,
+      isMmdConversionComplete: current.isMmdConversionComplete,
+      isRecognizingAll: current.isRecognizingAll,
+      isRefiningChapters: current.isRefiningChapters,
+      isSortingConcepts: current.isSortingConcepts,
+      processingPage: current.processingPage,
+      totalPages: current.totalPages
     };
 
-    if (!isBookProcessingCommandReady(processingCommand.action, runnerState)) {
-      return;
-    }
+    const execute = async (action: BookReaderCommandAction): Promise<void> => {
+      const o = latest.current;
 
-    handledCommandIdRef.current = processingCommand.id;
+      try {
+        switch (action) {
+          case 'language': o.openLanguageDetectionConfirmation(); return;
+          case 'subject': o.openSubjectDetectionConfirmation(); return;
+          case 'age': o.openAgeDetectionConfirmation(); return;
+          case 'concepts': await o.generateAllConcepts(); return;
+          case 'fixConcepts': await o.fixAllConcepts(o.generateAllConceptsModel, o.fixOnlyFailedConcepts); break;
+          case 'embeddings': await o.embedAllConcepts(); break;
+          case 'deduplicateConcepts': await o.deduplicateAllConcepts(o.generateAllConceptsModel); break;
+          case 'sortConcepts': await o.sortAllConcepts(o.generateAllConceptsModel); break;
+          case 'refineChapters': await o.refineAllChapters(o.generateAllConceptsModel); break;
+          case 'chapters': await o.identifyChapters(); return;
+          case 'recognize': o.setActivePane('text'); await o.recognizeAllPages(); return;
+          case 'standards': await o.assignStandards(!o.generateOnlyMissingStandards); break;
+        }
+      } catch (error) {
+        o.setError(error instanceof Error ? error.message : `Unable to process ${action}.`);
+        if (['concepts', 'chapters', 'recognize'].includes(action)) {
+          o.onProcessingComplete();
+        }
+        if (bookProcessingManager.getSnapshot(bookId)?.status === 'running') {
+          bookProcessingManager.fail(bookId, error instanceof Error ? error.message : `Unable to process ${action}.`);
+        }
+      } finally {
+        // Recognition, chapter identification and concept generation already
+        // notify their callers from their respective controllers.
+        if (!['language', 'subject', 'age', 'concepts', 'chapters', 'recognize'].includes(action)) {
+          o.onProcessingComplete();
+        }
+      }
+    };
 
-    switch (processingCommand.action) {
-      case 'language':
-        openLanguageDetectionConfirmation();
-        return;
-      case 'subject':
-        openSubjectDetectionConfirmation();
-        return;
-      case 'age':
-        openAgeDetectionConfirmation();
-        return;
-      case 'concepts':
-        generateAllConcepts().catch((generationError) => {
-          setError(generationError instanceof Error ? generationError.message : 'Unable to generate concepts for all chapters.');
-          onProcessingComplete();
-        });
-        return;
-      case 'fixConcepts':
-        fixAllConcepts(generateAllConceptsModel, fixOnlyFailedConcepts)
-          .catch((fixError) => setError(fixError instanceof Error ? fixError.message : 'Unable to fix chapter concepts.'))
-          .finally(onProcessingComplete);
-        return;
-      case 'embeddings':
-        embedAllConcepts()
-          .catch((embeddingError) => setError(embeddingError instanceof Error ? embeddingError.message : 'Unable to calculate concept Embedings.'))
-          .finally(onProcessingComplete);
-        return;
-      case 'deduplicateConcepts':
-        deduplicateAllConcepts(generateAllConceptsModel)
-          .catch((deduplicateError) => setError(deduplicateError instanceof Error ? deduplicateError.message : 'Unable to deduplicate concepts.'))
-          .finally(onProcessingComplete);
-        return;
-      case 'sortConcepts':
-        sortAllConcepts(generateAllConceptsModel)
-          .catch((sortError) => setError(sortError instanceof Error ? sortError.message : 'Unable to sort chapter concepts.'))
-          .finally(onProcessingComplete);
-        return;
-      case 'refineChapters':
-        refineAllChapters(generateAllConceptsModel)
-          .catch((refineError) => setError(refineError instanceof Error ? refineError.message : 'Unable to refine chapters.'))
-          .finally(onProcessingComplete);
-        return;
-      case 'chapters':
-        identifyChapters().catch((chapterError) => {
-          setError(chapterError instanceof Error ? chapterError.message : 'Unable to identify chapters.');
-          onProcessingComplete();
-        });
-        return;
-      case 'recognize':
-        setActivePane('text');
-        recognizeAllPages().catch((recognitionError) => {
-          setError(recognitionError instanceof Error ? recognitionError.message : 'Unable to recognize all pages.');
-          onProcessingComplete();
-        });
-        return;
-      case 'standards':
-        assignStandards(!generateOnlyMissingStandards)
-          .catch((assignmentError) => setError(assignmentError instanceof Error ? assignmentError.message : 'Unable to assign chapter standards.'))
-          .finally(onProcessingComplete);
-    }
-  }, [ageSamplePageCount, ageSampleTextCount, assignStandards, conceptChapterCount, deduplicateAllConcepts, embedAllConcepts, fixAllConcepts, fixOnlyFailedConcepts, generateAllConcepts, generateAllConceptsModel, generateOnlyMissingStandards, identifyChapters, isAssigningStandards, isDeduplicatingConcepts, isEmbeddingConcepts, isFixingConcepts, isGeneratingAllConcepts, isIdentifyingChapters, isMmdConversionComplete, isRecognizingAll, isRefiningChapters, isSortingConcepts, onProcessingComplete, openAgeDetectionConfirmation, openLanguageDetectionConfirmation, openSubjectDetectionConfirmation, processingCommand, processingPage, recognizeAllPages, refineAllChapters, setActivePane, setError, sortAllConcepts, totalPages]);
+    return { execute, state };
+  }), [bookId]);
+
+  // Commands can arrive before PDF/page/metadata hydration is ready. The
+  // manager retains them until a subsequent render makes the stage executable.
+  useEffect(() => bookProcessingManager.pulse(bookId));
 }

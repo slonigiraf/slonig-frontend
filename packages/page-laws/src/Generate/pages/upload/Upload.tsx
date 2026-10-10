@@ -32,6 +32,8 @@ function Upload (): React.ReactElement {
       deleteSelectedBook={library.deleteSelectedBook}
       isBusy={library.isBusy}
       isFastForwardRunning={processing.pricing.isFastForwardRunning}
+      isFastForwardPaused={processing.pricing.isFastForwardPaused}
+      resumeFastForward={processing.pricing.resumeFastForward}
       selectedBook={library.selectedBook}
       selectedId={library.selectedId}
       setError={setError}

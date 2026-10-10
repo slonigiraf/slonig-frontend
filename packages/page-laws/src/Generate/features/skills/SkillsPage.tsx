@@ -1,22 +1,25 @@
 // Copyright 2021-2026 @polkadot/app-laws authors & contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import type { Book, BookChapter, BookPage, BookProcessingStageKey, BookStageSpendKey, Exercise, Skill } from '@slonigiraf/db';
+import type { Book, BookChapter, BookPage, BookProcessingStageKey, BookStageSpendKey, Exercise, Skill, TikzReviewResult } from '@slonigiraf/db';
 import type { GeneratedAbility } from '../../../abilities/abilities.js';
 import type { AbilityWorkflowJsonRunner, ExerciseAbilityConversion } from '../../book/domain/abilities/abilityWorkflow.js';
 import type { AiAction, BookPageContent, ChapterContent, DuplicateAbilityReview, DuplicateExerciseReview, ExerciseFixReviewResult, FixedImageReview, FixReviewResult, ImageFixReviewResult, PipelineAction, SkillSource, SkillsProps, SkillsView } from './SkillsTypes.js';
 
-import { addBookStageSpend, completeBookProcessingStage, deleteAbilities, deleteAbility, deleteBookConcept, deleteExercise, getAbilities, getBookChapters, getBookCompletedStages, getBookConceptsForBookPage, getBookPages, getExercisesForBookPage, getSetting, getSkillsForChapter, getImage, hydrateAbilityContent, putImage, replaceAbilities, replaceExercisesForConcept, replaceExercisesForBookPage, replaceSkillsForChapter, resetBookProcessingStagesFrom, SettingKey, storeAbility, uncompleteBookProcessingStage } from '@slonigiraf/db';
+import { addBookStageSpend, completeBookProcessingStage, deleteAbilities, deleteAbility, deleteBookConcept, deleteExercise, getAbilities, getBookChapters, getBookCompletedStages, getBookConceptsForBookPage, getBookPages, getExercisesForBookPage, getSetting, getSkillsForChapter, getImage, getBookVisualQaSummary, hydrateAbilityContent, putImage, setTikzImageQaState, tikzSourceVersion, replaceAbilities, replaceExercisesForConcept, replaceExercisesForBookPage, replaceSkillsForChapter, resetBookProcessingStagesFrom, SettingKey, storeAbility, uncompleteBookProcessingStage } from '@slonigiraf/db';
 import OpenAI from 'openai';
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 
 import type { TikzPreRenderResult } from '../../../Edit/TikzDisplay.js';
 import { isTikzCode } from '../../../Edit/tikz.js';
 import { shouldSkipStoredTikzCompile } from '../../../Edit/tikzValidation.js';
+import { rasterizeTikzSvg } from '../../book/application/abilities/tikzRaster.js';
 import { parseStoredAbility } from '../../../abilities/abilities.js';
 import { buildAbilityEmbeddingValidationHints } from '../../book/application/abilities/abilityEmbeddingValidation.js';
 import { parseExerciseRepairResult } from '../../book/domain/exercises/exercises.js';
 import { processExtractedChapterContent } from '../../book/application/processing/bookProcessing.js';
+import { bookProcessingManager } from '../../book/application/pipeline/bookProcessingManager.js';
+import { useBookProcessingRun } from '../../book/application/pipeline/useBookProcessingRun.js';
 import { bookLanguageLabel } from '../../book/domain/metadata/bookLanguage.js';
 import { conceptRedoStagesFrom, type ConceptRedoStage } from './conceptRedoStages.js';
 import { addBookExternalCall } from '../../book/infrastructure/storage/bookExternalCalls.js';
@@ -81,162 +84,177 @@ async function preRenderStoredTikz (imageId: number, value: string, forceCompile
 
   if (currentImage && currentImage.data === value) {
     const nextValid = result.compiled ? true : result.retryable ? undefined : false;
+    const nextRenderStatus = result.compiled ? 'passed' : result.retryable ? currentImage.renderStatus ?? 'pending' : 'failed';
+    const nextVisualQaStatus = !result.compiled && !result.retryable ? 'failed' : currentImage.visualQaStatus ?? 'pending';
+    const nextIssues = !result.compiled && !result.retryable ? result.diagnostics : currentImage.detectedIssues ?? [];
 
-    if (nextValid !== undefined && currentImage.valid !== nextValid) {
-      await putImage({ ...currentImage, valid: nextValid });
+    if (currentImage.renderStatus !== nextRenderStatus || currentImage.visualQaStatus !== nextVisualQaStatus || (nextValid !== undefined && currentImage.valid !== nextValid)) {
+      await putImage({ ...currentImage, valid: nextValid ?? currentImage.valid,
+        renderStatus: nextRenderStatus, visualQaStatus: nextVisualQaStatus, detectedIssues: nextIssues }, value);
     }
   }
 
   return result;
 }
 
-async function reviewConceptImage (target: ImageFixTarget, client: OpenAI, model: string, language: string, age: number | undefined, onCost: (cost: number) => void, signal: AbortSignal): Promise<{ renderFailure: boolean; item?: FixedImageReview }> {
+async function reviewConceptImage (target: ImageFixTarget, client: OpenAI, model: string, language: string, age: number | undefined, onCost: (cost: number) => void, signal: AbortSignal): Promise<{ renderFailure: boolean; item?: FixedImageReview; unresolved?: { imageId: number; errors: string[] } }> {
   const originalPreRender = await preRenderStoredTikz(target.imageId, target.originalTikz, true);
-  const regenerateFromSpecification = async (errors: string[]): Promise<TikzAiReview> => {
-    const role = target.field === 'p' ? 'question' : 'solution';
-    const visualPrompt = target.prompt || `Create the required ${role} visual for this exercise from the exercise text and correct answer. Preserve only information appropriate for a ${role} visual.`;
+  const originalVersion = tikzSourceVersion(target.originalTikz);
+  const role = target.field === 'p' ? 'question' : 'solution';
+  const regenerateFromSpecification = async (source: string): Promise<string> => {
+    const visualPrompt = target.prompt || `Create the required ${role} visual for this exercise from the exercise text and correct answer.`;
     const content = await requestChatContent(
-      client,
-      model,
+      client, model,
       'You regenerate educational diagrams as compact, browser-renderable TikZ. Return only one TikZ picture block.',
       tikzRequestPrompt(language, target.ability, target.exerciseIndex, target.field, visualPrompt, age),
-      false,
-      onCost,
-      4_000,
-      signal
+      false, onCost, 4_000, signal
     );
-    const tikz = cleanTikzResponse(content);
+    const proposal = cleanTikzResponse(content);
 
-    if (tikz.trim() === target.originalTikz.trim()) {
-      throw new Error(`TikZ regeneration for ${target.ability.h}, exercise ${target.exerciseIndex + 1} ${role} visual returned the unchanged rejected source.`);
+    if (proposal.trim() === source.trim()) {
+      throw new Error('TikZ regeneration repeated the rejected candidate without fixing it.');
     }
 
-    return {
-      errors: Array.from(new Set([...errors, 'Regenerated TikZ from the original visual specification after repair attempts did not produce a usable source.'])),
-      hasErrors: true,
-      tikz
-    };
+    return proposal;
   };
 
-  const review = await requestValidatedJson(
-    client,
-    model,
-    'You are a strict educational diagram QA reviewer and TikZ repair expert. Return only the requested JSON object.',
-    tikzFixReviewPrompt(language, target, originalPreRender, age),
-    parseTikzAiReview,
-    true,
-    onCost,
-    TIKZ_REVIEW_MAX_OUTPUT_TOKENS,
-    undefined,
-    2,
-    signal
-  );
-  let effectiveReview: TikzAiReview = review;
+  let source = target.originalTikz;
+  let preRender = originalPreRender;
+  let detectedIssues: string[] = [];
+  let renderFailure = !originalPreRender.compiled;
+  let originalReviewed = false;
 
-  // Compilation is a hard local invariant. The AI is not allowed to mark
-  // a diagram error-free when the real browser renderer rejected it.
-  if (!originalPreRender.compiled && !effectiveReview.hasErrors) {
-    effectiveReview = {
-      errors: ['TikZ Editor pre-render failed; the TikZ must be repaired before this visual can be accepted.'],
-      hasErrors: true,
-      tikz: effectiveReview.tikz
-    };
-  }
+  const recordOriginalState = async (renderStatus: 'passed' | 'failed', visualQaStatus: 'passed' | 'failed', issues: string[], reviewResult?: TikzReviewResult): Promise<void> => {
+    const updated = await setTikzImageQaState(target.imageId, target.originalTikz, { renderStatus, visualQaStatus, detectedIssues: issues, reviewResult });
 
-  if (effectiveReview.hasErrors && effectiveReview.tikz.trim() === target.originalTikz.trim()) {
-    effectiveReview = await requestValidatedJson(
-      client,
-      model,
-      'You must apply the TikZ corrections you identified. Return only the requested JSON object.',
-      tikzDetectedProblemsRepairPrompt(language, target, effectiveReview, originalPreRender, age),
-      parseTikzAiReview,
-      true,
-      onCost,
-      TIKZ_REVIEW_MAX_OUTPUT_TOKENS,
-      undefined,
-      2,
-      signal
-    );
-
-    if (!effectiveReview.hasErrors || effectiveReview.tikz.trim() === target.originalTikz.trim()) {
-      effectiveReview = await regenerateFromSpecification(review.errors);
+    if (!updated) {
+      throw new Error('TikZ source changed during review. Discarding the stale review result.');
     }
-  }
+  };
 
-  let fixedPreRender = effectiveReview.hasErrors
-    ? await preRenderTikzLazy(effectiveReview.tikz)
-    : originalPreRender;
+  const unresolved = async (errors: string[]): Promise<{ renderFailure: boolean; unresolved: { imageId: number; errors: string[] } }> => {
+    const issues = Array.from(new Set(errors.filter(Boolean)));
 
-  // Re-feed real renderer diagnostics to the model until the proposed
-  // correction renders. This is the second guard after semantic/layout QA.
-  for (let repairAttempt = 0; effectiveReview.hasErrors && !fixedPreRender.compiled && repairAttempt < 2; repairAttempt++) {
-    const previousErrors = effectiveReview.errors;
-    const rejectedTikz = effectiveReview.tikz;
-    const repaired = await requestValidatedJson(
-      client,
-      model,
-      'You repair rejected TikZ using real TikZ Editor pre-render diagnostics. Return only the requested JSON object.',
-      tikzCompileRepairPrompt(language, target, effectiveReview, fixedPreRender, age),
-      parseTikzAiReview,
-      true,
-      onCost,
-      TIKZ_REVIEW_MAX_OUTPUT_TOKENS,
-      undefined,
-      2,
-      signal
-    );
+    if (!originalReviewed) {
+      await recordOriginalState(originalPreRender.compiled ? 'passed' : 'failed', 'failed', issues);
+    }
 
-    effectiveReview = repaired.hasErrors
-      ? repaired
-      : { errors: previousErrors.length ? previousErrors : ['TikZ Editor pre-render failure was repaired.'], hasErrors: true, tikz: repaired.tikz };
+    return { renderFailure, unresolved: { imageId: target.imageId, errors: issues } };
+  };
 
-    if (effectiveReview.tikz === rejectedTikz) {
-      if (fixedPreRender.retryable) {
-        // The source did not change, but the renderer failure was transient.
-        // A fresh renderer instance is meaningful here and must not be skipped.
-        fixedPreRender = await preRenderTikzLazy(effectiveReview.tikz);
-      } else {
-        effectiveReview = await regenerateFromSpecification([
-          ...previousErrors,
-          ...fixedPreRender.diagnostics.map((diagnostic) => `Renderer: ${diagnostic}`)
-        ]);
-        fixedPreRender = await preRenderTikzLazy(effectiveReview.tikz);
+  try {
+    // Maximum three candidate versions. Every source that passes rendering is
+    // rasterized and sent through a NEW vision-model request. Never accept a
+    // correction just because it produced SVG (or because a previous PNG passed).
+    for (let attempt = 1; attempt <= MAX_TIKZ_VISUAL_REVIEW_ATTEMPTS; attempt++) {
+      if (signal.aborted) {
+        throw new DOMException('TikZ review cancelled.', 'AbortError');
       }
-    } else {
-      fixedPreRender = await preRenderTikzLazy(effectiveReview.tikz);
-    }
-  }
 
-  if (effectiveReview.hasErrors && !fixedPreRender.compiled) {
-    const details = fixedPreRender.diagnostics.slice(-6).join(' | ');
-    const reason = fixedPreRender.retryable
-      ? 'TikZ Editor remained temporarily unavailable after automatic renderer retries.'
-      : 'The regenerated/repaired TikZ still did not compile.';
+      if (!preRender.compiled) {
+        renderFailure = true;
+        detectedIssues = [...detectedIssues, ...preRender.diagnostics.map((detail) => `TikZ renderer: ${detail}`)];
 
-    throw new Error(`Unable to produce renderable TikZ for ${target.ability.h}, exercise ${target.exerciseIndex + 1} ${target.field === 'p' ? 'question' : 'solution'} visual. ${reason}${details ? ` ${details}` : ''}`);
-  }
-
-  const changed = effectiveReview.tikz.trim() !== target.originalTikz.trim();
-
-  return {
-    renderFailure: !originalPreRender.compiled,
-    ...(effectiveReview.hasErrors && changed
-      ? {
-        item: {
-          errors: effectiveReview.errors,
-          exerciseIndex: target.exerciseIndex,
-          field: target.field,
-          imageId: target.imageId,
-          fixedPreRender,
-          fixedTikz: effectiveReview.tikz,
-          originalPreRender,
-          originalTikz: target.originalTikz,
-          prompt: target.prompt,
-          record: target.record
+        if (source === target.originalTikz) {
+          await recordOriginalState('failed', 'failed', detectedIssues);
+          originalReviewed = true;
         }
+
+        if (attempt === MAX_TIKZ_VISUAL_REVIEW_ATTEMPTS) {
+          return unresolved([...detectedIssues, 'The last candidate did not render.']);
+        }
+
+        const repair = await requestValidatedJson(
+          client, model,
+          'Repair TikZ that failed the real TikZ Editor rendering. Return only JSON.',
+          tikzCompileRepairPrompt(language, target, { hasErrors: true, errors: detectedIssues, tikz: source }, preRender, age),
+          parseTikzAiReview, true, onCost, TIKZ_REVIEW_MAX_OUTPUT_TOKENS, undefined, 2, signal
+        );
+        source = repair.tikz.trim() !== source.trim() ? repair.tikz : await regenerateFromSpecification(source);
+        preRender = await preRenderTikzLazy(source);
+        continue;
       }
-      : {})
-  };
+
+      // This throws when a browser cannot decode/draw the actual SVG; there is
+      // deliberately NO SVG-text or SVG-data-URL fallback for the AI reviewer.
+      const png = await rasterizeTikzSvg(preRender.renderedSvg);
+      const reviewTarget = { ...target, originalTikz: source };
+      const review = await requestValidatedJson(
+        client, model,
+        'You are a strict educational diagram QA reviewer and TikZ repair expert. Inspect the ATTACHED PNG, not just the TikZ text. Return only JSON.',
+        tikzFixReviewPrompt(language, reviewTarget, preRender, age),
+        parseTikzAiReview, true, onCost, TIKZ_REVIEW_MAX_OUTPUT_TOKENS, undefined, 2, signal, png
+      );
+      // A reviewer that silently edits a source while claiming it is clean has
+      // not approved the changed output. Force another visible review instead.
+      const clean = !review.hasErrors && review.tikz.trim() === source.trim();
+      const issues = clean ? [] : review.errors.length
+        ? review.errors
+        : ['Reviewer changed TikZ despite reporting no errors; the new candidate requires separate visual QA.'];
+      const reviewResult: TikzReviewResult = {
+        sourceVersion: tikzSourceVersion(source),
+        hasErrors: !clean,
+        errors: issues,
+        reviewedAt: Date.now(),
+        attempt
+      };
+
+      if (source === target.originalTikz) {
+        await recordOriginalState('passed', clean ? 'passed' : 'failed', issues, reviewResult);
+        originalReviewed = true;
+      }
+
+      if (clean) {
+        const changed = source.trim() !== target.originalTikz.trim();
+
+        return {
+          renderFailure,
+          ...(changed ? { item: {
+            errors: Array.from(new Set(detectedIssues)),
+            exerciseIndex: target.exerciseIndex,
+            field: target.field,
+            imageId: target.imageId,
+            fixedPreRender: preRender,
+            fixedTikz: source,
+            finalReviewResult: reviewResult,
+            originalPreRender,
+            originalTikz: target.originalTikz,
+            prompt: target.prompt,
+            record: target.record
+          } } : {})
+        };
+      }
+
+      detectedIssues.push(...issues);
+
+      if (attempt === MAX_TIKZ_VISUAL_REVIEW_ATTEMPTS) {
+        return unresolved([...detectedIssues, 'Visual QA rejected the final reviewed candidate. No unreviewed correction will be applied.']);
+      }
+
+      let nextSource = review.tikz;
+
+      if (nextSource.trim() === source.trim()) {
+        const repair = await requestValidatedJson(
+          client, model,
+          'Apply the specific TikZ issues found by visual QA. Return JSON with an actually changed TikZ source.',
+          tikzDetectedProblemsRepairPrompt(language, reviewTarget, { ...review, errors: issues, hasErrors: true }, preRender, age),
+          parseTikzAiReview, true, onCost, TIKZ_REVIEW_MAX_OUTPUT_TOKENS, undefined, 2, signal
+        );
+        nextSource = repair.tikz;
+      }
+
+      source = nextSource.trim() !== source.trim() ? nextSource : await regenerateFromSpecification(source);
+      preRender = await preRenderTikzLazy(source);
+    }
+
+    return unresolved([...detectedIssues, 'Visual review attempts exhausted.']);
+  } catch (error) {
+    if (signal.aborted) {
+      throw error;
+    }
+
+    return unresolved([...detectedIssues, error instanceof Error ? error.message : String(error)]);
+  }
 }
 const BATCH_SIZE = 5;
 const FIX_EXERCISES_STAGE: BookProcessingStageKey = 'fixExercises';
@@ -246,6 +264,7 @@ const IMAGES_STAGE: BookProcessingStageKey = 'images';
 const FIX_IMAGES_STAGE: BookProcessingStageKey = 'fixImages';
 const TIKZ_RENDER_CONCURRENCY = 4;
 const TIKZ_REVIEW_MAX_OUTPUT_TOKENS = 6_000;
+const MAX_TIKZ_VISUAL_REVIEW_ATTEMPTS = 3;
 
 const chapterSessionKey = (bookId: number, view: SkillsView): string => `knowledge-upload-book-${bookId}-${view}-chapter`;
 
@@ -259,7 +278,7 @@ function getSessionChapter (bookId: number, view: SkillsView): number {
   }
 }
 
-function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapters = false, book, externalAutoRunBusy = false, externalRefreshToken = 0, onAction, onAutoRunAbortReady, onAutoRunComplete, onAutoRunProcessingChange, onAutoRunProgressChange, onAbortAutoRun, onBookChange, onContentChange, onEntityCountsChange, onPipelineSelectionChange, pipelineOnly = false, pipelineControls, pipelinePrefix, pipelineSuffix, showPipeline = true, view }: SkillsProps): React.ReactElement {
+function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapters = false, book, externalAutoRunBusy = false, externalRefreshToken = 0, onAction, onAutoRunComplete, onAutoRunProcessingChange, onAutoRunProgressChange, onAbortAutoRun, onBookChange, onContentChange, onEntityCountsChange, onPipelineSelectionChange, pipelineOnly = false, pipelineControls, pipelinePrefix, pipelineSuffix, showPipeline = true, view }: SkillsProps): React.ReactElement {
   const language = book.language ?? '';
   const hasBookLanguage = Boolean(language);
   const hasBookSubject = Boolean(book.subject);
@@ -286,14 +305,8 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
   const effectiveModel = autoRunAll ? DEFAULT_PROCESSING_MODEL : selectedModel;
   const [effectiveCompletedStages, setEffectiveCompletedStages] = useState<BookProcessingStageKey[]>(() => getBookCompletedStages(book));
   const [loadedContentSnapshotKey, setLoadedContentSnapshotKey] = useState('');
-  const [autoRunStageKeys, setAutoRunStageKeys] = useState<string[]>([]);
-  const autoRunInitializedRef = useRef(false);
-  const autoRunTriggeredKeyRef = useRef('');
-  const autoRunCompleteNotifiedRef = useRef(false);
-  const autoRunRunStartedRef = useRef(false);
-  const autoRunSkippingRef = useRef(false);
-  const autoRunRetryCountsRef = useRef<Map<string, number>>(new Map());
-  const autoRunFinishedStageKeysRef = useRef<Set<string>>(new Set());
+  const processingRun = useBookProcessingRun(book.id);
+  const autoRunStageKeys = processingRun?.mode === 'fastForward' ? processingRun.stages : [];
   const processingAbortControllerRef = useRef<AbortController | null>(null);
   const abilitiesOutputRef = useRef<HTMLDivElement>(null);
   const chapterContentOutputRef = useRef<HTMLDivElement>(null);
@@ -532,7 +545,24 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
     setEffectiveCompletedStages(getBookCompletedStages(book));
   }, [book]);
 
-  const stageDone = useCallback((stage: BookProcessingStageKey): boolean => effectiveCompletedStages.includes(stage), [effectiveCompletedStages]);
+  const [bookVisualQaStatus, setBookVisualQaStatus] = useState<'passed' | 'pending' | 'failed'>('pending');
+
+  useEffect(() => {
+    let active = true;
+
+    setBookVisualQaStatus('pending');
+    getBookVisualQaSummary(book.id).then(({ status }) => {
+      if (active) setBookVisualQaStatus(status);
+    }).catch(() => {
+      if (active) setBookVisualQaStatus('failed');
+    });
+
+    return () => { active = false; };
+  }, [book.id, contentSnapshotKey]);
+
+  // A prior render-only checkpoint (including a stale UI book snapshot) is not
+  // proof that the current book images passed PNG-based visual inspection.
+  const stageDone = useCallback((stage: BookProcessingStageKey): boolean => effectiveCompletedStages.includes(stage) && (stage !== 'fixImages' || bookVisualQaStatus === 'passed'), [bookVisualQaStatus, effectiveCompletedStages]);
   const hasAbilities = allAbilities.length > 0;
 
   const completeStage = useCallback(async (stage: BookProcessingStageKey, invalidateDownstream = false): Promise<void> => {
@@ -731,16 +761,9 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
     }
   }, [autoRunAll, onAbortAutoRun]);
 
-  useEffect(() => {
-    if (!autoRunAll) {
-      onAutoRunAbortReady?.(undefined);
-      return;
-    }
-
-    onAutoRunAbortReady?.(abortProcessing);
-
-    return () => onAutoRunAbortReady?.(undefined);
-  }, [abortProcessing, autoRunAll, onAutoRunAbortReady]);
+  useEffect(() => autoRunAll
+    ? bookProcessingManager.registerSkillsAbort(book.id, abortProcessing)
+    : undefined, [abortProcessing, autoRunAll, book.id]);
 
   // The Ability card replays a local slice of the book pipeline, never its
   // chapter-wide actions. Re-read the freshly persisted rows between stages:
@@ -876,11 +899,17 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
             const review = await reviewConceptImage(target, client, effectiveModel, language, book.age, addFixImagesCost, signal);
 
             if (signal.aborted) throw new Error('Concept regeneration was cancelled.');
+            if (review.unresolved) {
+              throw new Error(`Image ${review.unresolved.imageId} did not pass visual QA: ${review.unresolved.errors.join(' | ')}`);
+            }
             if (review.item) {
               const image = await getImage(review.item.imageId);
 
               if (!image) throw new Error(`Image ${review.item.imageId} was not found.`);
-              await putImage({ ...image, data: review.item.fixedTikz, prompt: review.item.prompt || image.prompt, type: 'tikz', valid: true });
+              if (image.data !== review.item.originalTikz) throw new Error('TikZ source changed during review; refusing stale candidate.');
+              await putImage({ ...image, data: review.item.fixedTikz, prompt: review.item.prompt || image.prompt, type: 'tikz', valid: true,
+                sourceVersion: review.item.finalReviewResult.sourceVersion, renderStatus: 'passed', visualQaStatus: 'passed',
+                detectedIssues: [], reviewResult: review.item.finalReviewResult }, review.item.originalTikz);
             }
           });
         }
@@ -1516,7 +1545,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
 
     try {
       if (!imageFixTargets.length) {
-        setImageFixReview({ checked: 0, renderFailures: 0, items: [] });
+        setImageFixReview({ checked: 0, renderFailures: 0, items: [], unresolved: [] });
         setNotice('Fix images review ready. There are no TikZ visuals to check. No TikZ source changes have been made.');
         return;
       }
@@ -1524,7 +1553,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
       const client = await createClient();
       let completed = 0;
 
-      const reviewResults = await mapConcurrent(imageFixTargets, TIKZ_RENDER_CONCURRENCY, async (target): Promise<{ renderFailure: boolean; item?: FixedImageReview }> => {
+      const reviewResults = await mapConcurrent(imageFixTargets, TIKZ_RENDER_CONCURRENCY, async (target): Promise<{ renderFailure: boolean; item?: FixedImageReview; unresolved?: { imageId: number; errors: string[] } }> => {
         const review = await reviewConceptImage(target, client, effectiveModel, language, book.age, addFixImagesCost, signal);
 
         completed += 1;
@@ -1534,11 +1563,12 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
       });
       const renderFailures = reviewResults.filter(({ renderFailure }) => renderFailure).length;
       const items = reviewResults.flatMap(({ item }) => item ? [item] : []);
+      const unresolved = reviewResults.flatMap(({ unresolved }) => unresolved ? [unresolved] : []);
 
-      setImageFixReview({ checked: imageFixTargets.length, renderFailures, items });
-      const unchanged = Math.max(0, imageFixTargets.length - items.length);
+      setImageFixReview({ checked: imageFixTargets.length, renderFailures, items, unresolved });
+      const cleanUnchanged = Math.max(0, imageFixTargets.length - items.length - unresolved.length);
 
-      setNotice(`Fix images review ready: ${items.length} TikZ correction${items.length === 1 ? '' : 's'}, ${renderFailures} original render failure${renderFailures === 1 ? '' : 's'}, ${unchanged} unchanged. No TikZ source changes have been applied.`);
+      setNotice(`Fix images QA: ${items.length} PNG-reviewed correction${items.length === 1 ? '' : 's'}, ${cleanUnchanged} approved unchanged, ${unresolved.length} unresolved, ${renderFailures} original render failure${renderFailures === 1 ? '' : 's'}. No source changes have been applied.`);
     } catch (caught) {
       if (!signal.aborted) {
         setError(caught instanceof Error ? caught.message : 'Unable to review and fix TikZ visuals.');
@@ -1566,19 +1596,29 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
     let applied = 0;
 
     try {
-      await Promise.all(imageFixReview.items.map(async ({ fixedTikz, imageId, prompt, record }) => {
+      await Promise.all(imageFixReview.items.map(async ({ fixedTikz, finalReviewResult, imageId, originalTikz, prompt, record }) => {
         const image = await getImage(imageId);
 
         if (!image) {
           throw new Error(`Image ${imageId} referenced by Ability ${record.id} was not found.`);
         }
 
-        await putImage({ ...image, data: fixedTikz, prompt: prompt || image.prompt, type: 'tikz', valid: true });
+        if (image.data !== originalTikz || finalReviewResult.sourceVersion !== tikzSourceVersion(fixedTikz) || finalReviewResult.hasErrors) {
+          throw new Error(`Image ${imageId} changed since visual QA, or the candidate has no clean PNG review.`);
+        }
+
+        await putImage({ ...image, data: fixedTikz, prompt: prompt || image.prompt, type: 'tikz', valid: true,
+          sourceVersion: finalReviewResult.sourceVersion, renderStatus: 'passed', visualQaStatus: 'passed',
+          detectedIssues: [], reviewResult: finalReviewResult }, originalTikz);
         applied += 1;
         setProgress(applied);
       }));
 
       const hasChanges = imageFixReview.items.length > 0;
+
+      if (imageFixReview.unresolved.length) {
+        throw new Error(`Fix images cannot pass: ${imageFixReview.unresolved.length} TikZ visual(s) still failed QA. ${imageFixReview.unresolved.flatMap(({ errors }) => errors).slice(0, 3).join(' | ')}`);
+      }
 
       if (hasChanges || !stageDone(FIX_IMAGES_STAGE)) {
         await completeStage(FIX_IMAGES_STAGE, hasChanges);
@@ -1587,10 +1627,12 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
       const fixed = imageFixReview.items.length;
 
       setImageFixReview(null);
-      setNotice(`Applied Fix images review: ${fixed} TikZ visual${fixed === 1 ? '' : 's'} corrected and pre-render verified.`);
+      setNotice(`Applied Fix images review: ${fixed} TikZ visual${fixed === 1 ? '' : 's'} corrected, re-rendered, and PNG-reviewed. All current book TikZ visuals passed render and visual QA.`);
       refreshContent();
       onAction?.('preExercisesExercises');
     } catch (caught) {
+      setImageFixReview(null);
+      refreshContent();
       setError(caught instanceof Error ? caught.message : 'Unable to apply Fix images changes.');
     } finally {
       setIsBusy(false);
@@ -1682,13 +1724,13 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
     },
     {
       key: 'fixImages',
-      label: 'Fix images',
+      label: bookVisualQaStatus === 'failed' ? 'Fix images (visual QA failed)' : 'Fix images',
       isDone: stageDone(FIX_IMAGES_STAGE),
       isDisabled: isBusy || !hasBookLanguage || !hasBookSubject || !stageDone(IMAGES_STAGE) || !hasAbilities,
       onClick: openImageFix
     },
     ...(pipelineSuffix ?? [])
-  ], [allExercises.length, chapterContent, conceptsMissingExercises.length, exercisesMissingAbilities.length, hasAbilities, hasBookLanguage, hasBookSubject, isBusy, missingImageGenerationTargets.length, openAbilityFix, openExerciseFix, openExerciseGeneration, openImageFix, openImages, pipelinePrefix, pipelineSuffix, retryMissingAbilities, retryMissingImages, stageDone]);
+  ], [allExercises.length, chapterContent, conceptsMissingExercises.length, exercisesMissingAbilities.length, hasAbilities, hasBookLanguage, hasBookSubject, isBusy, missingImageGenerationTargets.length, openAbilityFix, openExerciseFix, openExerciseGeneration, openImageFix, openImages, pipelinePrefix, pipelineSuffix, retryMissingAbilities, retryMissingImages, stageDone, bookVisualQaStatus]);
   const visiblePipelineActions = useMemo(() => {
     const firstIncompleteIndex = pipelineActions.findIndex(({ isDone }) => !isDone);
 
@@ -1742,189 +1784,28 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
     onPipelineSelectionChange?.(selectedPipelineKey);
   }, [onPipelineSelectionChange, selectedPipelineKey]);
 
+  // Fast Forward is a manager-owned state machine. This effect supplies only
+  // the most recent stage adapters and a view of readiness; no cursor or retry
+  // counter is stored in this component, so a remount does not restart stages.
   useEffect((): void => {
-    if (!autoRunAll) {
-      autoRunInitializedRef.current = false;
-      autoRunTriggeredKeyRef.current = '';
-      autoRunCompleteNotifiedRef.current = false;
-      autoRunRunStartedRef.current = false;
-      autoRunSkippingRef.current = false;
-      autoRunRetryCountsRef.current = new Map();
-      autoRunFinishedStageKeysRef.current = new Set();
-      setAutoRunStageKeys([]);
-      return;
-    }
+    if (!autoRunAll) return;
 
-    if (!autoRunInitializedRef.current) {
-      autoRunInitializedRef.current = true;
-      autoRunTriggeredKeyRef.current = '';
-      autoRunCompleteNotifiedRef.current = false;
-      autoRunRunStartedRef.current = false;
-      autoRunRetryCountsRef.current = new Map();
-      autoRunFinishedStageKeysRef.current = new Set();
-      const requestedStartIndex = autoRunStartKey
-        ? pipelineActions.findIndex(({ key }) => key === autoRunStartKey)
-        : -1;
-      const fallbackStartIndex = pipelineActions.findIndex(({ isDone }) => !isDone);
-      const startIndex = requestedStartIndex >= 0 ? requestedStartIndex : fallbackStartIndex;
-
-      setAutoRunStageKeys(startIndex >= 0
-        ? pipelineActions.slice(startIndex).map(({ key }) => key)
-        : []);
-    }
-  }, [autoRunAll, autoRunStartKey, pipelineActions]);
-
-  useEffect((): void => {
-    if (!autoRunAll || !autoRunInitializedRef.current) {
-      return;
-    }
-
-    const runIsBusy = isBusy || externalAutoRunBusy;
-
-    if (error && autoRunTriggeredKeyRef.current && !runIsBusy) {
-      // A failed stage cannot ever satisfy its `isDone` gate. Previously Fast
-      // Forward waited forever here while the parent kept showing the last
-      // processing label (commonly "Reviewing TikZ visuals"). End the run
-      // explicitly so the error is visible and the stale modal is cleared.
-      autoRunTriggeredKeyRef.current = '';
-      autoRunRunStartedRef.current = false;
-      onAbortAutoRun?.();
-      return;
-    }
-
-    if (!isContentSnapshotCurrent || aiAction || fixReview || exerciseFixReview || imageFixReview) {
-      return;
-    }
-
-    if (!autoRunStageKeys.length && pipelineActions.some(({ isDone }) => !isDone)) {
-      return;
-    }
-
-    if (autoRunTriggeredKeyRef.current && runIsBusy) {
-      autoRunRunStartedRef.current = true;
-      return;
-    }
-
-    // Fast Forward is sequential even when a stage persists a coarse "done"
-    // flag after partial success. Once a run settles, inspect its finer-grained
-    // completeness signal. Retry only the missing subset at most twice; if the
-    // detailed result is still incomplete, stop here rather than advancing to
-    // a downstream stage with missing inputs.
-    for (let scan = 0; scan <= autoRunStageKeys.length; scan++) {
-      const nextKey = autoRunStageKeys.find((key) => !autoRunFinishedStageKeysRef.current.has(key));
-
-      if (!nextKey) {
-        if (!autoRunCompleteNotifiedRef.current) {
-          autoRunCompleteNotifiedRef.current = true;
-          onAutoRunComplete?.();
-        }
-        return;
+    bookProcessingManager.stepFastForward(book.id, {
+      actions: pipelineActions,
+      busy: isBusy || externalAutoRunBusy,
+      contentReady: isContentSnapshotCurrent,
+      hasReview: Boolean(aiAction || fixReview || exerciseFixReview || imageFixReview),
+      error,
+      onComplete: () => onAutoRunComplete?.(),
+      onError: (message) => {
+        setError(message);
+        onAbortAutoRun?.();
       }
-
-      const nextAction = pipelineActions.find(({ key }) => key === nextKey);
-
-      if (!nextAction) {
-        autoRunFinishedStageKeysRef.current.add(nextKey);
-        continue;
-      }
-
-      const isTriggeredStage = autoRunTriggeredKeyRef.current === nextKey;
-
-      if (!isTriggeredStage) {
-        // Commit the optional refinement exactly when its turn comes. Earlier
-        // stages may invalidate downstream completion, so do not pre-mark it
-        // when the Fast Forward confirmation is accepted.
-        if (autoRunSkipRefineChapters && nextKey === 'refineChapters' && !nextAction.isDone) {
-          if (nextAction.isDisabled || !nextAction.onSkip || autoRunSkippingRef.current) return;
-          autoRunSkippingRef.current = true;
-          void nextAction.onSkip().catch(() => {
-            setError('Fast Forward could not skip Refine chapters.');
-            onAbortAutoRun?.();
-          });
-          return;
-        }
-
-        if (nextAction.isDone) {
-          if (nextAction.onRetryMissing) {
-            if (nextAction.isResultComplete === undefined) {
-              return;
-            }
-
-            if (!nextAction.isResultComplete) {
-              const retryCount = autoRunRetryCountsRef.current.get(nextKey) ?? 0;
-
-              if (retryCount < 2) {
-                autoRunRetryCountsRef.current.set(nextKey, retryCount + 1);
-                autoRunTriggeredKeyRef.current = nextKey;
-                autoRunRunStartedRef.current = false;
-                nextAction.onRetryMissing();
-                return;
-              }
-
-              setError(`Fast Forward stopped at ${nextAction.label}: the stage is still incomplete after two targeted retries.`);
-              autoRunTriggeredKeyRef.current = '';
-              autoRunRunStartedRef.current = false;
-              onAbortAutoRun?.();
-              return;
-            }
-          }
-
-          autoRunFinishedStageKeysRef.current.add(nextKey);
-          continue;
-        }
-
-        if (nextAction.isDisabled) {
-          return;
-        }
-
-        autoRunTriggeredKeyRef.current = nextKey;
-        autoRunRunStartedRef.current = false;
-        nextAction.onClick();
-        return;
-      }
-
-      // Do not interpret the confirmation/request hand-off as a completed run.
-      // We must observe the processing state become active at least once first.
-      if (!autoRunRunStartedRef.current) {
-        return;
-      }
-
-      if (nextAction.onRetryMissing) {
-        if (nextAction.isResultComplete === undefined) {
-          return;
-        }
-
-        if (!nextAction.isResultComplete) {
-          const retryCount = autoRunRetryCountsRef.current.get(nextKey) ?? 0;
-
-          if (retryCount < 2) {
-            autoRunRetryCountsRef.current.set(nextKey, retryCount + 1);
-            autoRunRunStartedRef.current = false;
-            nextAction.onRetryMissing();
-            return;
-          }
-
-          setError(`Fast Forward stopped at ${nextAction.label}: the stage is still incomplete after two targeted retries.`);
-          autoRunTriggeredKeyRef.current = '';
-          autoRunRunStartedRef.current = false;
-          onAbortAutoRun?.();
-          return;
-        }
-      } else if (!nextAction.isDone) {
-        return;
-      }
-
-      autoRunFinishedStageKeysRef.current.add(nextKey);
-      autoRunTriggeredKeyRef.current = '';
-      autoRunRunStartedRef.current = false;
-    }
-  }, [aiAction, autoRunAll, autoRunSkipRefineChapters, autoRunStageKeys, error, exerciseFixReview, externalAutoRunBusy, fixReview, imageFixReview, isBusy, isContentSnapshotCurrent, onAbortAutoRun, onAutoRunComplete, pipelineActions]);
+    });
+  }, [aiAction, autoRunAll, book.id, error, exerciseFixReview, externalAutoRunBusy, fixReview, imageFixReview, isBusy, isContentSnapshotCurrent, onAbortAutoRun, onAutoRunComplete, pipelineActions, processingRun]);
 
   const autoRunCompletedCount = autoRunStageKeys.reduce((count, key) => {
-    if (autoRunFinishedStageKeysRef.current.has(key)) {
-      return count + 1;
-    }
-
+    if (processingRun?.completed.includes(key)) return count + 1;
     const action = pipelineActions.find(({ key: actionKey }) => actionKey === key);
 
     return count + (action?.isDone && (!action.onRetryMissing || action.isResultComplete !== false) ? 1 : 0);
