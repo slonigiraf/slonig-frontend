@@ -12,6 +12,31 @@ export const FixResultsReviewContent = styled.div`
     margin: 0.25rem 0;
   }
 
+  .fixResultsFailedVisuals {
+    display: grid;
+    gap: 0.75rem;
+    margin: 0.75rem 0;
+    max-height: min(52vh, 38rem);
+    overflow-y: auto;
+  }
+
+  .fixResultsFailedVisual {
+    border: 2px solid #c93333;
+    border-radius: 0.55rem;
+    padding: 0.8rem;
+  }
+
+  .fixResultsFailedVisualPreview {
+    margin: 0.7rem 0;
+    max-width: 100%;
+    overflow: auto;
+  }
+
+  .fixResultsFailedVisual ul {
+    color: #ad2424;
+    margin: 0.5rem 0 0;
+  }
+
   .fixResultsReviewComparison {
     border: 1px solid #dde1eb;
     border-radius: 0.5rem;
@@ -205,7 +230,32 @@ export const FixResultsReviewContent = styled.div`
       grid-template-columns: 1fr;
     }
 
-    .fixResultsReviewComparison {
+    .fixResultsFailedVisuals {
+    display: grid;
+    gap: 0.75rem;
+    margin: 0.75rem 0;
+    max-height: min(52vh, 38rem);
+    overflow-y: auto;
+  }
+
+  .fixResultsFailedVisual {
+    border: 2px solid #c93333;
+    border-radius: 0.55rem;
+    padding: 0.8rem;
+  }
+
+  .fixResultsFailedVisualPreview {
+    margin: 0.7rem 0;
+    max-width: 100%;
+    overflow: auto;
+  }
+
+  .fixResultsFailedVisual ul {
+    color: #ad2424;
+    margin: 0.5rem 0 0;
+  }
+
+  .fixResultsReviewComparison {
       max-height: 48vh;
     }
   }

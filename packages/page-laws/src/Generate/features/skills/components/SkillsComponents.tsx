@@ -27,7 +27,7 @@ import ItemActionsMenu from '../../../shared/ui/ItemActionsMenu.js';
 
 const TikzDisplay = React.lazy(() => import('../../../../Edit/TikzDisplay.js'));
 
-export function ChapterNavigation ({ chapters, index, matchExercises = false, missingAbilityCounts, onChange, onEdit }: { chapters: BookChapter[]; index: number; matchExercises?: boolean; missingAbilityCounts?: number[]; onChange: (index: number) => void; onEdit: () => void }): React.ReactElement | null {
+export function ChapterNavigation ({ chapters, failedVisualCounts, index, matchExercises = false, missingAbilityCounts, onChange, onEdit }: { chapters: BookChapter[]; failedVisualCounts?: number[]; index: number; matchExercises?: boolean; missingAbilityCounts?: number[]; onChange: (index: number) => void; onEdit: () => void }): React.ReactElement | null {
   const previous = useCallback((): void => onChange(index - 1), [index, onChange]);
   const next = useCallback((): void => onChange(index + 1), [index, onChange]);
 
@@ -54,7 +54,7 @@ export function ChapterNavigation ({ chapters, index, matchExercises = false, mi
             return <option
               key={id ?? `${title}:${chapterIndex}`}
               value={chapterIndex}
-            >{title || 'Chapter not identified'}{missingCount ? ` (${missingCount} exercise${missingCount === 1 ? '' : 's'} missing abilities)` : ''}</option>;
+            >{title || 'Chapter not identified'}{missingCount ? ` (${missingCount} exercise${missingCount === 1 ? '' : 's'} missing abilities)` : ''}{failedVisualCounts?.[chapterIndex] ? ` (${failedVisualCounts[chapterIndex]} TikZ issue${failedVisualCounts[chapterIndex] === 1 ? '' : 's'})` : ''}</option>;
           })}
         </select></label>
         <Button
@@ -322,7 +322,7 @@ function cloneAbility (ability: GeneratedAbility): GeneratedAbility {
   return { ...ability, q: ability.q.map((exercise) => ({ ...exercise })) };
 }
 
-export function AbilityCard ({ isBusy = false, onDeleted, onError, onFix, record }: { isBusy?: boolean; onDeleted: () => void; onError: (message: string) => void; onFix: (record: StoredAbility, stage: ConceptRedoStage) => Promise<void>; record: StoredAbility }): React.ReactElement {
+export function AbilityCard ({ isBusy = false, onDeleted, onError, onFix, record, visualIssues }: { isBusy?: boolean; onDeleted: () => void; onError: (message: string) => void; onFix: (record: StoredAbility, stage: ConceptRedoStage) => Promise<void>; record: StoredAbility; visualIssues?: Record<string, string[]> }): React.ReactElement {
   const [isRedoDialogOpen, setIsRedoDialogOpen] = useState(false);
   const [redoStart, setRedoStart] = useState<ConceptRedoStage>('exercises');
   const [isEditing, setIsEditing] = useState(false);
@@ -450,6 +450,7 @@ export function AbilityCard ({ isBusy = false, onDeleted, onError, onFix, record
           location='ability_info'
           onAbilityVisualErrorChange={saveVisualError}
           onAbilityVisualSave={saveVisual}
+          visualIssues={visualIssues}
         />
       </>
       : <>

@@ -10,7 +10,7 @@ import type { StoredAbility } from '../../../book/application/abilities/abilityP
 import type { ConceptRedoStage } from '../conceptRedoStages.js';
 
 import { stripMarkdownImageReferences } from '../../../book/infrastructure/pdf/bookImageRefs.js';
-import { conceptAbilityModuleId, exerciseAbilityModuleId } from '../../../book/application/abilities/abilityProcessing.js';
+import { conceptAbilityModuleId, exerciseAbilityModuleId, storedAbilityImageId } from '../../../book/application/abilities/abilityProcessing.js';
 import { AbilityCard, BookItem, ChapterNavigation, SkillCard } from './SkillsComponents.js';
 import { groupAbilitiesByConcept } from './abilityConceptGroups.js';
 
@@ -29,6 +29,7 @@ interface SkillsContentViewProps {
   fixSingleExercise: (exerciseId: number) => Promise<void>;
   isBusy: boolean;
   focusAbilityExercise: (exerciseIndex: number) => void;
+  failedVisualCountsByChapter: number[];
   missingAbilityCountsByChapter: number[];
   onError: (message: string) => void;
   openChapterEditor: () => void;
@@ -37,12 +38,30 @@ interface SkillsContentViewProps {
   refreshContent: () => void;
   saveExercise: (exerciseId: number, value: ExerciseEditableFields) => Promise<void>;
   view: SkillsView;
+  tikzIssuesByImageId: Record<number, string[]>;
 }
 
-export default function SkillsContentView ({ abilitiesOutputRef, bookId, chapterContentOutputRef, chapterIndex, chapters, changeChapter, current, currentMissingAbilityIndexes, deleteConceptWithExercises, deleteExerciseWithAbilities, fixSingleAbility, fixSingleExercise, focusAbilityExercise, isBusy, missingAbilityCountsByChapter, onError, openChapterEditor, pipelineOnly, refresh, refreshContent, saveExercise, view }: SkillsContentViewProps): React.ReactElement {
+export default function SkillsContentView ({ abilitiesOutputRef, bookId, chapterContentOutputRef, chapterIndex, chapters, changeChapter, current, currentMissingAbilityIndexes, deleteConceptWithExercises, deleteExerciseWithAbilities, fixSingleAbility, fixSingleExercise, focusAbilityExercise, failedVisualCountsByChapter, isBusy, missingAbilityCountsByChapter, onError, openChapterEditor, pipelineOnly, refresh, refreshContent, saveExercise, tikzIssuesByImageId, view }: SkillsContentViewProps): React.ReactElement {
   const abilityGroups = current
     ? groupAbilitiesByConcept(current.concepts, current.exercises, current.abilities, (id) => exerciseAbilityModuleId(bookId, id), (id) => conceptAbilityModuleId(bookId, id))
     : undefined;
+  const visualIssuesFor = (record: StoredAbility): Record<string, string[]> => {
+    const result: Record<string, string[]> = {};
+
+    record.ability?.q.forEach((_, exerciseIndex) => {
+      (['p', 'i'] as const).forEach((field) => {
+        const imageId = storedAbilityImageId(record, exerciseIndex, field);
+
+        if (imageId !== undefined && tikzIssuesByImageId[imageId]?.length) {
+          result[`${exerciseIndex}-${field}`] = tikzIssuesByImageId[imageId];
+        }
+      });
+    });
+
+    return result;
+  };
+  const hasVisualIssue = (record: StoredAbility): boolean => Object.keys(visualIssuesFor(record)).length > 0;
+  const failedConceptIndexes = abilityGroups?.groups.flatMap(({ abilities }, index) => abilities.some(hasVisualIssue) ? [index] : []) ?? [];
   const conceptIds = new Set(current?.concepts.flatMap(({ id }) => id === undefined ? [] : [id]) ?? []);
   const hasExercisesWithoutConcept = current?.exercises.some(({ conceptId }) => conceptId === undefined || !conceptIds.has(conceptId)) ?? false;
 
@@ -50,6 +69,7 @@ export default function SkillsContentView ({ abilitiesOutputRef, bookId, chapter
   {!pipelineOnly && <>
     <ChapterNavigation
       chapters={chapters}
+      failedVisualCounts={failedVisualCountsByChapter}
       index={chapterIndex}
       matchExercises={view === 'preExercisesExercises'}
       missingAbilityCounts={view === 'preExercisesExercises' ? missingAbilityCountsByChapter : undefined}
@@ -128,6 +148,17 @@ export default function SkillsContentView ({ abilitiesOutputRef, bookId, chapter
                 >{exerciseIndex + 1}</button>
               </React.Fragment>)}</span>
             </div>}
+            {!!failedConceptIndexes.length && <div className='missingAbilityNavigation tikzIssueNavigation'>
+              <span>Abilities with failed TikZ visuals:</span>
+              <span className='missingAbilityLinks'>{failedConceptIndexes.map((conceptIndex, index) => <React.Fragment key={conceptIndex}>
+                {index > 0 && <span aria-hidden='true'>, </span>}
+                <button
+                  aria-label={`Go to Ability ${conceptIndex + 1} with a failed TikZ visual`}
+                  onClick={() => focusAbilityExercise(conceptIndex)}
+                  type='button'
+                >{conceptIndex + 1}</button>
+              </React.Fragment>)}</span>
+            </div>}
             {abilityGroups?.groups.map(({ abilities, concept }, conceptIndex) => <section
               className={`abilityExerciseCard abilityConceptCard${abilities.length > 0 && abilities.every(({ ability }) => ability?.q.length === 1) ? ' abilityConceptCardSingleExercise' : ''}`}
               data-concept-id={concept.id}
@@ -139,19 +170,19 @@ export default function SkillsContentView ({ abilitiesOutputRef, bookId, chapter
               {concept.description && <p><SpanWithTags content={concept.description} /></p>}
               <div className='matchedAbilities'>
                 {abilities.length
-                  ? abilities.map((record) => <AbilityCard isBusy={isBusy} key={record.id} onDeleted={refreshContent} onError={onError} onFix={fixSingleAbility} record={record} />)
+                  ? abilities.map((record) => <AbilityCard isBusy={isBusy} key={record.id} onDeleted={refreshContent} onError={onError} onFix={fixSingleAbility} record={record} visualIssues={visualIssuesFor(record)} />)
                   : <p className='noAbility'>No Ability generated for this Concept.</p>}
               </div>
             </section>)}
             {(hasExercisesWithoutConcept || !!abilityGroups?.withoutConcept.length) && <section className='unmatchedAbilities orphanAbilities' tabIndex={-1}>
               <h4>Abilities without a linked Concept</h4>
               {abilityGroups?.withoutConcept.length
-                ? abilityGroups.withoutConcept.map((record) => <AbilityCard isBusy={isBusy} key={record.id} onDeleted={refreshContent} onError={onError} onFix={fixSingleAbility} record={record} />)
+                ? abilityGroups.withoutConcept.map((record) => <AbilityCard isBusy={isBusy} key={record.id} onDeleted={refreshContent} onError={onError} onFix={fixSingleAbility} record={record} visualIssues={visualIssuesFor(record)} />)
                 : <p className='noAbility'>No Abilities generated for exercises without a linked Concept.</p>}
             </section>}
             {!!abilityGroups?.unmatched.length && <section className='unmatchedAbilities' tabIndex={-1}>
               <h4>Unmatched Abilities</h4>
-              {abilityGroups.unmatched.map((record) => <AbilityCard isBusy={isBusy} key={record.id} onDeleted={refreshContent} onError={onError} onFix={fixSingleAbility} record={record} />)}
+              {abilityGroups.unmatched.map((record) => <AbilityCard isBusy={isBusy} key={record.id} onDeleted={refreshContent} onError={onError} onFix={fixSingleAbility} record={record} visualIssues={visualIssuesFor(record)} />)}
             </section>}
           </div>
         )}

@@ -209,7 +209,19 @@ export default function SkillsReviewModals ({ applyAbilityFixReview, applyExerci
           <div className='fixResultsReviewIntro'>
             <p><strong>No TikZ source changes have been saved yet.</strong></p>
             <p>Checked {imageFixReview.checked} TikZ visual{imageFixReview.checked === 1 ? '' : 's'}. Render failures: {imageFixReview.renderFailures}; PNG-reviewed corrections: {imageFixReview.items.length}; unresolved: {imageFixReview.unresolved.length}. Each changed candidate was separately rendered and visually reviewed (maximum three attempts). Rendering success alone does not count as QA approval.</p>
-            {imageFixReview.unresolved.length > 0 && <section><strong>Unresolved visual QA failures — this stage cannot pass:</strong><ul>{imageFixReview.unresolved.map(({ imageId, errors }) => <li key={imageId}>Image {imageId}: {errors.join(' | ')}</li>)}</ul></section>}
+            {imageFixReview.unresolved.length > 0 && <section>
+              <strong>Flagged TikZ visuals — processing can continue; these images remain highlighted in Abilities:</strong>
+              <div className='fixResultsFailedVisuals'>{imageFixReview.unresolved.map(({ abilityTitle, errors, exerciseIndex, exerciseTitle, field, imageId, originalCompiled, originalTikz }) => <article className='fixResultsFailedVisual' key={imageId}>
+                <strong><SpanWithTags content={abilityTitle} /> — task {exerciseIndex + 1} {field === 'p' ? 'question' : 'solution'} (image {imageId})</strong>
+                {exerciseTitle && <p><small><SpanWithTags content={exerciseTitle} /></small></p>}
+                <div className='fixResultsFailedVisualPreview'>
+                  {originalCompiled
+                    ? <React.Suspense fallback={<small>Loading TikZ renderer…</small>}><TikzDisplay alt='Failed visual QA preview' value={originalTikz} /></React.Suspense>
+                    : <pre>{originalTikz}</pre>}
+                </div>
+                <ul>{errors.map((error, errorIndex) => <li key={errorIndex}>{error}</li>)}</ul>
+              </article>)}</div>
+            </section>}
           </div>
           {imageFixReview.items.length > 0 && <div className='fixResultsReviewComparison'>
             {imageFixReview.items.map(({ errors, exerciseIndex, field, fixedPreRender, fixedTikz, originalPreRender, originalTikz, prompt, record }, index) => {
@@ -271,7 +283,7 @@ export default function SkillsReviewModals ({ applyAbilityFixReview, applyExerci
             <Button
               icon='check'
               isDisabled={isBusy}
-              label={imageFixReview.unresolved.length ? 'Apply approved changes (QA incomplete)' : imageFixReview.items.length ? 'Apply PNG-reviewed changes' : 'Confirm visual QA'}
+              label={imageFixReview.unresolved.length ? 'Apply approved changes & flag failures' : imageFixReview.items.length ? 'Apply PNG-reviewed changes' : 'Confirm visual QA'}
               onClick={() => applyImageFixReview().catch(console.error)}
             />
           </Button.Group>

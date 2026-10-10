@@ -630,13 +630,8 @@ export async function updateBookFieldsAndStages(
         }
 
         for (const stage of options.complete ?? []) {
-            if (BOOK_PROCESSING_STAGES.indexOf(stage as typeof BOOK_PROCESSING_STAGES[number]) >= BOOK_PROCESSING_STAGES.indexOf('fixImages')) {
-                const qa = await getBookVisualQaSummary(id);
-
-                if (qa.status !== 'passed') {
-                    throw new Error('Cannot mark Fix Images complete without a clean PNG-based visual QA result for every image.');
-                }
-            }
+            // A stage records that image review was attempted, not that every
+            // diagram passed. Failed visual QA remains on each Image for review.
 
             updated = withCompletedBookProcessingStage(updated, stage);
         }
@@ -687,15 +682,8 @@ export async function updateBookProcessingStage(id: number, processingStage: num
 
 export async function completeBookProcessingStage(id: number, stage: BookProcessingStageKey): Promise<Book | undefined> {
     return db.transaction('rw', db.books, db.abilities, db.images, async () => {
-        // Check and write in the same transaction. Otherwise an image edit
-        // could race between the clean-verdict check and book stage completion.
-        if (BOOK_PROCESSING_STAGES.indexOf(stage as typeof BOOK_PROCESSING_STAGES[number]) >= BOOK_PROCESSING_STAGES.indexOf('fixImages')) {
-            const qa = await getBookVisualQaSummary(id);
-
-            if (qa.status !== 'passed') {
-                throw new Error(`Cannot complete Fix Images: ${qa.failed} rejected and ${qa.pending} unreviewed image(s). Rendering SVG alone is not visual QA approval.`);
-            }
-        }
+        // Fix Images completion means the review run finished. Individual
+        // failed/pending visuals are tracked separately and never block later stages.
 
         const book = await db.books.get(id);
 
@@ -2220,9 +2208,8 @@ export async function putImage(image: Image, expectedSource?: string | null): Pr
         const next = normalizedImageForStorage(image, previous);
         const result = await db.images.put(next);
 
-        // An edited TikZ, or a newly failed review, invalidates any prior book
-        // Fix Images completion and every downstream stage. This also protects
-        // previously processed books when visuals are edited manually later.
+        // A source edit or a newly failed review invalidates earlier QA work;
+        // a subsequent Fix Images run may still complete with flagged issues.
         if (previous?.data !== next.data || (previous !== undefined && isTikzImageQaPassed(previous) && !isTikzImageQaPassed(next))) {
             const linked = await db.abilities.toArray();
             const bookIds = new Set(linked

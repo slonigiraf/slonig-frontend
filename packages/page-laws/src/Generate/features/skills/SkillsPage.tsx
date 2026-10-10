@@ -4,7 +4,7 @@
 import type { Book, BookChapter, BookPage, BookProcessingStageKey, BookStageSpendKey, Exercise, Skill, TikzReviewResult } from '@slonigiraf/db';
 import type { GeneratedAbility } from '../../../abilities/abilities.js';
 import type { AbilityWorkflowJsonRunner, ExerciseAbilityConversion } from '../../book/domain/abilities/abilityWorkflow.js';
-import type { AiAction, BookPageContent, ChapterContent, DuplicateAbilityReview, DuplicateExerciseReview, ExerciseFixReviewResult, FixedImageReview, FixReviewResult, ImageFixReviewResult, PipelineAction, SkillSource, SkillsProps, SkillsView } from './SkillsTypes.js';
+import type { AiAction, BookPageContent, ChapterContent, DuplicateAbilityReview, DuplicateExerciseReview, ExerciseFixReviewResult, FixedImageReview, FixReviewResult, ImageFixReviewResult, UnresolvedImageReview, PipelineAction, SkillSource, SkillsProps, SkillsView } from './SkillsTypes.js';
 
 import { addBookStageSpend, completeBookProcessingStage, deleteAbilities, deleteAbility, deleteBookConcept, deleteExercise, getAbilities, getBookChapters, getBookCompletedStages, getBookConceptsForBookPage, getBookPages, getExercisesForBookPage, getSetting, getSkillsForChapter, getImage, getBookVisualQaSummary, hydrateAbilityContent, putImage, setTikzImageQaState, tikzSourceVersion, replaceAbilities, replaceExercisesForConcept, replaceExercisesForBookPage, replaceSkillsForChapter, resetBookProcessingStagesFrom, SettingKey, storeAbility, uncompleteBookProcessingStage } from '@slonigiraf/db';
 import OpenAI from 'openai';
@@ -97,7 +97,7 @@ async function preRenderStoredTikz (imageId: number, value: string, forceCompile
   return result;
 }
 
-async function reviewConceptImage (target: ImageFixTarget, client: OpenAI, model: string, language: string, age: number | undefined, onCost: (cost: number) => void, signal: AbortSignal): Promise<{ renderFailure: boolean; item?: FixedImageReview; unresolved?: { imageId: number; errors: string[] } }> {
+async function reviewConceptImage (target: ImageFixTarget, client: OpenAI, model: string, language: string, age: number | undefined, onCost: (cost: number) => void, signal: AbortSignal): Promise<{ renderFailure: boolean; item?: FixedImageReview; unresolved?: UnresolvedImageReview }> {
   const originalPreRender = await preRenderStoredTikz(target.imageId, target.originalTikz, true);
   const originalVersion = tikzSourceVersion(target.originalTikz);
   const role = target.field === 'p' ? 'question' : 'solution';
@@ -132,14 +132,18 @@ async function reviewConceptImage (target: ImageFixTarget, client: OpenAI, model
     }
   };
 
-  const unresolved = async (errors: string[]): Promise<{ renderFailure: boolean; unresolved: { imageId: number; errors: string[] } }> => {
+  const unresolved = async (errors: string[]): Promise<{ renderFailure: boolean; unresolved: UnresolvedImageReview }> => {
     const issues = Array.from(new Set(errors.filter(Boolean)));
 
     if (!originalReviewed) {
       await recordOriginalState(originalPreRender.compiled ? 'passed' : 'failed', 'failed', issues);
     }
 
-    return { renderFailure, unresolved: { imageId: target.imageId, errors: issues } };
+    return { renderFailure, unresolved: {
+      imageId: target.imageId, errors: issues, exerciseIndex: target.exerciseIndex,
+      field: target.field, originalTikz: target.originalTikz, originalCompiled: originalPreRender.compiled,
+      abilityTitle: target.ability.h, exerciseTitle: target.ability.q[target.exerciseIndex]?.h ?? ''
+    } };
   };
 
   try {
@@ -293,6 +297,8 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
   const [imageFixReview, setImageFixReview] = useState<ImageFixReviewResult | null>(null);
   const [generateOnlyMissingAbilities, setGenerateOnlyMissingAbilities] = useState(false);
   const [generateOnlyMissingImages, setGenerateOnlyMissingImages] = useState(false);
+  const [fixOnlyFailedTikz, setFixOnlyFailedTikz] = useState(false);
+  const [tikzIssuesByImageId, setTikzIssuesByImageId] = useState<Record<number, string[]>>({});
   const [notice, setNotice] = useState('');
   const [isBusy, setIsBusy] = useState(false);
   const [openRouterSpent, setOpenRouterSpent] = useState(0);
@@ -540,6 +546,33 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
       return imageId === undefined ? [] : [{ ability: record.ability as GeneratedAbility, exerciseIndex, field, imageId, originalTikz: value, prompt: exercise[promptField]?.trim() ?? '', record }];
     }))
     : []), [allAbilities]);
+  // These flags are persisted on Image rows and reloaded with the book. They
+  // survive a failed stage, refresh, and browser restart; no ephemeral error
+  // banner is needed to identify the affected Ability.
+  useEffect(() => {
+    let active = true;
+
+    Promise.all(imageFixTargets.map(async ({ imageId }) => {
+      const image = await getImage(imageId);
+      const failed = image?.renderStatus === 'failed' || image?.visualQaStatus === 'failed' || image?.valid === false;
+
+      return { imageId, issues: failed ? image?.detectedIssues?.length ? image.detectedIssues : [`Image ${imageId} failed TikZ QA.`] : [] };
+    })).then((entries) => {
+      if (active) {
+        setTikzIssuesByImageId(Object.fromEntries(entries.filter(({ issues }) => issues.length).map(({ imageId, issues }) => [imageId, issues])));
+      }
+    }).catch(console.error);
+
+    return () => { active = false; };
+  }, [imageFixTargets, contentSnapshotKey]);
+  const failedTikzTargets = useMemo(() => imageFixTargets.filter(({ imageId }) => Boolean(tikzIssuesByImageId[imageId]?.length)), [imageFixTargets, tikzIssuesByImageId]);
+  const failedTikzAbilityCount = useMemo(() => new Set(failedTikzTargets.map(({ record }) => record.id)).size, [failedTikzTargets]);
+  const failedVisualCountsByChapter = useMemo(() => {
+    const failedAbilityIds = new Set(failedTikzTargets.map(({ record }) => record.id));
+
+    return chapterContent.map(({ abilities }) => abilities.filter(({ id }) => failedAbilityIds.has(id)).length);
+  }, [chapterContent, failedTikzTargets]);
+  const imageFixTargetsForRun = fixOnlyFailedTikz && !autoRunAll ? failedTikzTargets : imageFixTargets;
   const skillSources = useMemo<SkillSource[]>(() => chapterContent.flatMap(({ chapter, concepts, exercises }) => chapter.id === undefined ? [] : [...concepts.flatMap(({ description, id, title }) => id === undefined ? [] : [{ chapterId: chapter.id as number, chapterTitle: chapter.title, description, sourceId: id, sourceType: 'concept' as const, title }]), ...exercises.flatMap(({ description, id, title }) => id === undefined ? [] : [{ chapterId: chapter.id as number, chapterTitle: chapter.title, description: stripMarkdownImageReferences(description), sourceId: id, sourceType: 'exercise' as const, title }])]), [chapterContent]);
   useEffect(() => {
     setEffectiveCompletedStages(getBookCompletedStages(book));
@@ -562,7 +595,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
 
   // A prior render-only checkpoint (including a stale UI book snapshot) is not
   // proof that the current book images passed PNG-based visual inspection.
-  const stageDone = useCallback((stage: BookProcessingStageKey): boolean => effectiveCompletedStages.includes(stage) && (stage !== 'fixImages' || bookVisualQaStatus === 'passed'), [bookVisualQaStatus, effectiveCompletedStages]);
+  const stageDone = useCallback((stage: BookProcessingStageKey): boolean => effectiveCompletedStages.includes(stage), [effectiveCompletedStages]);
   const hasAbilities = allAbilities.length > 0;
 
   const completeStage = useCallback(async (stage: BookProcessingStageKey, invalidateDownstream = false): Promise<void> => {
@@ -616,11 +649,11 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
     if (aiAction === 'fixImages') {
       const pendingPreRender: TikzPreRenderResult = { compiled: true, diagnostics: [], renderedSvg: '', texInput: '' };
 
-      return imageFixTargets.map((target) => tikzFixReviewPrompt(language, target, pendingPreRender, book.age));
+      return imageFixTargetsForRun.map((target) => tikzFixReviewPrompt(language, target, pendingPreRender, book.age));
     }
 
     return [];
-  }, [abilityModuleIds, aiAction, book.age, book.id, chapterContent, conceptsById, exercisesByModuleId, generateOnlyMissingAbilities, imageFixTargets, imageGenerationTargetsForRun, language, skillSources]);
+  }, [abilityModuleIds, aiAction, book.age, book.id, chapterContent, conceptsById, exercisesByModuleId, generateOnlyMissingAbilities, imageFixTargetsForRun, imageGenerationTargetsForRun, language, skillSources]);
   const maxChapterAbilityCount = Math.max(1, ...chapterContent.map(({ abilities }) => abilities.length));
   const maxChapterExerciseCount = Math.max(1, ...chapterContent.map(({ exercises }) => exercises.length));
   const generationOutputTokens = aiAction === 'exercises' ? 3_200 : aiAction === 'fixExercises' ? maxChapterExerciseCount * 550 : aiAction === 'fix' ? maxChapterAbilityCount * 700 : aiAction === 'images' ? 2_400 : aiAction === 'fixImages' ? TIKZ_REVIEW_MAX_OUTPUT_TOKENS : aiAction === 'skills' ? BATCH_SIZE * 180 : 300;
@@ -1541,19 +1574,25 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
     }
   }, [abilitiesMissingImages.size, addImagesCost, beginProgress, book.age, endProgress, completeStage, createClient, effectiveModel, generateOnlyMissingImages, imageGenerationTargetsForRun, language, onAction, refreshContent]);
   const fixImages = useCallback(async (): Promise<void> => {
-    const signal = beginProgress('Reviewing TikZ visuals', imageFixTargets.length, 'fixImages');
+    const targets = imageFixTargetsForRun;
+    const signal = beginProgress('Reviewing TikZ visuals', targets.length, 'fixImages');
 
     try {
-      if (!imageFixTargets.length) {
-        setImageFixReview({ checked: 0, renderFailures: 0, items: [], unresolved: [] });
-        setNotice('Fix images review ready. There are no TikZ visuals to check. No TikZ source changes have been made.');
+      if (!targets.length) {
+        if (autoRunAll) {
+          await completeStage(FIX_IMAGES_STAGE);
+          setNotice('Fix images finished: no TikZ visuals needed review.');
+          refreshContent();
+        } else {
+          setImageFixReview({ checked: 0, renderFailures: 0, items: [], unresolved: [] });
+          setNotice('There are no TikZ visuals matching this Fix images run.');
+        }
         return;
       }
 
       const client = await createClient();
       let completed = 0;
-
-      const reviewResults = await mapConcurrent(imageFixTargets, TIKZ_RENDER_CONCURRENCY, async (target): Promise<{ renderFailure: boolean; item?: FixedImageReview; unresolved?: { imageId: number; errors: string[] } }> => {
+      const reviewTargets = async (batch: ImageFixTarget[]) => mapConcurrent(batch, TIKZ_RENDER_CONCURRENCY, async (target) => {
         const review = await reviewConceptImage(target, client, effectiveModel, language, book.age, addFixImagesCost, signal);
 
         completed += 1;
@@ -1561,26 +1600,74 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
 
         return review;
       });
+      const reviewResults = await reviewTargets(targets);
       const renderFailures = reviewResults.filter(({ renderFailure }) => renderFailure).length;
       const items = reviewResults.flatMap(({ item }) => item ? [item] : []);
-      const unresolved = reviewResults.flatMap(({ unresolved }) => unresolved ? [unresolved] : []);
+      let unresolved = reviewResults.flatMap(({ unresolved }) => unresolved ? [unresolved] : []);
 
-      setImageFixReview({ checked: imageFixTargets.length, renderFailures, items, unresolved });
-      const cleanUnchanged = Math.max(0, imageFixTargets.length - items.length - unresolved.length);
+      if (!autoRunAll) {
+        setImageFixReview({ checked: targets.length, renderFailures, items, unresolved });
+        const cleanUnchanged = Math.max(0, targets.length - items.length - unresolved.length);
 
-      setNotice(`Fix images QA: ${items.length} PNG-reviewed correction${items.length === 1 ? '' : 's'}, ${cleanUnchanged} approved unchanged, ${unresolved.length} unresolved, ${renderFailures} original render failure${renderFailures === 1 ? '' : 's'}. No source changes have been applied.`);
+        setNotice(`Fix images QA: ${items.length} PNG-reviewed correction${items.length === 1 ? '' : 's'}, ${cleanUnchanged} approved unchanged, ${unresolved.length} flagged for later retry. No proposed source changes have been applied.`);
+        // Display the freshly persisted failures even before the review popup is closed.
+        refreshContent();
+        return;
+      }
+
+      // Fast Forward applies only candidates that passed an actual PNG review.
+      // A failed review never applies an unapproved proposed source.
+      let changed = 0;
+      const applyApproved = async (approved: FixedImageReview[]): Promise<void> => {
+        for (const { fixedTikz, finalReviewResult, imageId, originalTikz, prompt } of approved) {
+          if (signal.aborted) throw new DOMException('TikZ review cancelled.', 'AbortError');
+          const image = await getImage(imageId);
+
+          if (!image || image.data !== originalTikz || finalReviewResult.sourceVersion !== tikzSourceVersion(fixedTikz) || finalReviewResult.hasErrors) {
+            throw new Error(`Image ${imageId} changed during its reviewed correction.`);
+          }
+          await putImage({ ...image, data: fixedTikz, prompt: prompt || image.prompt, type: 'tikz', valid: true,
+            sourceVersion: finalReviewResult.sourceVersion, renderStatus: 'passed', visualQaStatus: 'passed',
+            detectedIssues: [], reviewResult: finalReviewResult }, originalTikz);
+          changed++;
+        }
+      };
+
+      await applyApproved(items);
+
+      // Immediately after normal Fix images, run one focused pass using ONLY
+      // images that failed. Do not waste AI calls on visuals already approved.
+      if (unresolved.length) {
+        const failedIds = new Set(unresolved.map(({ imageId }) => imageId));
+        const retryTargets = targets.filter(({ imageId }) => failedIds.has(imageId));
+
+        setProgressLabel(`Retrying ${retryTargets.length} failed TikZ visual${retryTargets.length === 1 ? '' : 's'}`);
+        setProgressTotal(targets.length + retryTargets.length);
+        const retryResults = await reviewTargets(retryTargets);
+
+        await applyApproved(retryResults.flatMap(({ item }) => item ? [item] : []));
+        unresolved = retryResults.flatMap(({ unresolved }) => unresolved ? [unresolved] : []);
+      }
+
+      // QA failures are warnings, not a stage failure. Flagged Image rows
+      // remain visible and Fast Forward can proceed with later stages.
+      await completeStage(FIX_IMAGES_STAGE, changed > 0);
+      setNotice(`Fix images finished: ${changed} approved correction${changed === 1 ? '' : 's'} applied; ${unresolved.length} visual${unresolved.length === 1 ? '' : 's'} still flagged for manual review. Fast Forward will continue.`);
+      refreshContent();
+      onAction?.('preExercisesExercises');
     } catch (caught) {
       if (!signal.aborted) {
         setError(caught instanceof Error ? caught.message : 'Unable to review and fix TikZ visuals.');
       }
+      refreshContent();
     } finally {
       endProgress();
     }
-  }, [addFixImagesCost, beginProgress, book.age, endProgress, createClient, imageFixTargets, language, effectiveModel]);
+  }, [addFixImagesCost, autoRunAll, beginProgress, book.age, completeStage, createClient, effectiveModel, endProgress, imageFixTargetsForRun, language, onAction, refreshContent]);
 
   const closeImageFixReview = useCallback((): void => {
     setImageFixReview(null);
-    setNotice('Proposed TikZ source changes were discarded. Render-failure validation flags are kept so unchanged invalid TikZ is not rendered again.');
+    setNotice('Proposed TikZ corrections were discarded. Failed visual QA flags remain on the original images for later retry.');
   }, []);
 
   const applyImageFixReview = useCallback(async (): Promise<void> => {
@@ -1616,18 +1703,15 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
 
       const hasChanges = imageFixReview.items.length > 0;
 
-      if (imageFixReview.unresolved.length) {
-        throw new Error(`Fix images cannot pass: ${imageFixReview.unresolved.length} TikZ visual(s) still failed QA. ${imageFixReview.unresolved.flatMap(({ errors }) => errors).slice(0, 3).join(' | ')}`);
-      }
-
       if (hasChanges || !stageDone(FIX_IMAGES_STAGE)) {
         await completeStage(FIX_IMAGES_STAGE, hasChanges);
       }
 
       const fixed = imageFixReview.items.length;
+      const failed = imageFixReview.unresolved.length;
 
       setImageFixReview(null);
-      setNotice(`Applied Fix images review: ${fixed} TikZ visual${fixed === 1 ? '' : 's'} corrected, re-rendered, and PNG-reviewed. All current book TikZ visuals passed render and visual QA.`);
+      setNotice(`Fix images completed: ${fixed} approved TikZ correction${fixed === 1 ? '' : 's'} applied; ${failed} visual${failed === 1 ? '' : 's'} still flagged for retry in Abilities. Processing can continue.`);
       refreshContent();
       onAction?.('preExercisesExercises');
     } catch (caught) {
@@ -1640,8 +1724,9 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
   }, [imageFixReview, onAction, refreshContent, completeStage, stageDone]);
 
   const openImageFix = useCallback((): void => {
+    setFixOnlyFailedTikz(failedTikzTargets.length > 0);
     setAiAction('fixImages');
-  }, []);
+  }, [failedTikzTargets.length]);
   const confirm = useCallback((): void => {
     if (aiAction === 'skills') {
       generateSkills().catch(console.error);
@@ -1691,6 +1776,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
     setAiAction(undefined);
     setGenerateOnlyMissingAbilities(false);
     setGenerateOnlyMissingImages(false);
+    setFixOnlyFailedTikz(false);
   }, []);
 
   const pipelineActions = useMemo<PipelineAction[]>(() => [
@@ -1724,7 +1810,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
     },
     {
       key: 'fixImages',
-      label: bookVisualQaStatus === 'failed' ? 'Fix images (visual QA failed)' : 'Fix images',
+      label: bookVisualQaStatus === 'failed' ? 'Fix images (issues flagged)' : 'Fix images',
       isDone: stageDone(FIX_IMAGES_STAGE),
       isDisabled: isBusy || !hasBookLanguage || !hasBookSubject || !stageDone(IMAGES_STAGE) || !hasAbilities,
       onClick: openImageFix
@@ -1879,6 +1965,8 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
     />
     <SkillsControls
       abilitiesMissingImagesCount={abilitiesMissingImages.size}
+      failedTikzCount={failedTikzAbilityCount}
+      fixOnlyFailedTikz={fixOnlyFailedTikz}
       abortProcessing={abortProcessing}
       aiAction={aiAction}
       autoRunAll={autoRunAll}
@@ -1904,6 +1992,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
       selectedPipelineKey={selectedPipelineKey}
       setGenerateOnlyMissingAbilities={setGenerateOnlyMissingAbilities}
       setGenerateOnlyMissingImages={setGenerateOnlyMissingImages}
+      setFixOnlyFailedTikz={setFixOnlyFailedTikz}
       setSelectedModel={setSelectedModel}
       setSelectedPipelineKey={setSelectedPipelineKey}
       showPipeline={showPipeline}
@@ -1924,6 +2013,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
       isBusy={isBusy}
       fixSingleExercise={fixSingleExercise}
       focusAbilityExercise={focusAbilityExercise}
+      failedVisualCountsByChapter={failedVisualCountsByChapter}
       missingAbilityCountsByChapter={missingAbilityCountsByChapter}
       onError={setError}
       openChapterEditor={openChapterEditor}
@@ -1931,6 +2021,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
       refresh={refresh}
       refreshContent={refreshContent}
       saveExercise={saveExercise}
+      tikzIssuesByImageId={tikzIssuesByImageId}
       view={view}
     />
   </StyledSkills>;

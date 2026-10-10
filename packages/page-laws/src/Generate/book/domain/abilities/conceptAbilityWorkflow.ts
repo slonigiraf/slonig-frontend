@@ -19,7 +19,7 @@ export function conceptAbilityGenerationPrompt (
 
 ${CONCEPT_ABILITY_EXERCISE_QUALITY_PROMPT}
 
-Generate exactly ONE Ability directly from this Concept, not from an Exercise. The Concept description defines the learning objective; choose a narrowly scoped operation the learner can actually perform, without inventing unrelated material. The two q items must be independently answerable concrete practice tasks using the SAME method and different safe inputs. Each q[].h must clearly name or refer to the Concept and require the learner to identify how it applies, understand its meaning, and use it in the task; a problem that merely happens to involve the Concept is insufficient. Set the Ability h to the Concept title exactly, without changing language, wording or capitalization.
+Generate exactly ONE Ability directly from this Concept, not from an Exercise. The Concept description defines the learning objective; choose a narrowly scoped operation the learner can actually perform, without inventing unrelated material. The two q items must be independently answerable concrete practice tasks using the SAME method and different safe inputs. Set the Ability h to the Concept title exactly, without changing language, wording or capitalization.
 
 Output language (ISO 639-1): ${language}
 Chapter: ${chapterTitle}

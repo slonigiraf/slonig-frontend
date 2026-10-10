@@ -6,7 +6,7 @@ import type { AbilityExerciseImagePrompts, GeneratedAbility } from '../../../../
 
 import { parseGeneratedAbilities } from '../../../../abilities/abilities.js';
 import { stripMarkdownImageReferences } from '../content/markdownImages.js';
-import { ABILITY_EXPLICIT_CONCEPT_PRACTICE_PROMPT, ABILITY_MEANINGFUL_VARIATION_PROMPT, ABILITY_SPATIAL_AND_REPRESENTATION_FIDELITY_PROMPT } from '../../infrastructure/ai/prompts/abilities.js';
+import { ABILITY_MEANINGFUL_VARIATION_PROMPT, ABILITY_SPATIAL_AND_REPRESENTATION_FIDELITY_PROMPT } from '../../infrastructure/ai/prompts/abilities.js';
 
 export interface AtomicAbilityConversion {
   ability: GeneratedAbility;
@@ -182,8 +182,6 @@ Chapter: ${chapterTitle}
 Language: ${language}
 
 SOURCE ALIGNMENT: The source contains its Exercise task, solution, questionVisual, solutionVisual, and (when linked) sourceConcept title and description. For EACH of the two generated tasks separately, verify that the question and answer exercise the exact same concept and complete Exercise-level skill as the source, including every inseparable operation, direction, representation, output format, solution method, reasoning depth, age-appropriate difficulty, and required visuals. Both tasks must follow the same reusable task template and instructional meaning; their safe concrete inputs, contexts, spatial arrangements, and corresponding answers/visuals may vary. Never introduce an operation or topic not taught by the source Concept. If the Exercise and Concept appear inconsistent, keep the Exercise's actual required operation while remaining within the Concept's scope; do not generate unrelated tasks. Do NOT generate, copy, or return an Ability title. The application assigns Ability.h from sourceConcept.title directly, or uses the Exercise title when a legacy caller has no sourceConcept. Treat sourceConcept.title and description only as context for generating questions and answers.
-
-${ABILITY_EXPLICIT_CONCEPT_PRACTICE_PROMPT}
 
 ${ABILITY_MEANINGFUL_VARIATION_PROMPT}
 

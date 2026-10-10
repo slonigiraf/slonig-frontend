@@ -5,7 +5,7 @@
 
 import { strict as assert } from 'node:assert';
 
-import { createBook, createImage, deleteAbilities, deleteBook, deleteExercise, deleteImage, getAbilities, getImage, getImages, hydrateAbilityContent, isTikzImageQaPassed, putImage, replaceAbilities, replaceExercisesForBookPage, setTikzImageQaState, storeAbility, tikzSourceVersion } from './index.js';
+import { completeBookProcessingStage, createBook, createImage, deleteAbilities, deleteBook, deleteExercise, deleteImage, getAbilities, getBook, getBookVisualQaSummary, getImage, getImages, hydrateAbilityContent, isTikzImageQaPassed, putImage, replaceAbilities, replaceExercisesForBookPage, setTikzImageQaState, storeAbility, tikzSourceVersion } from './index.js';
 
 describe('TikZ visual QA persistence', (): void => {
   it('requires PNG-based review metadata after a render, and invalidates approval on source edit', async (): Promise<void> => {
@@ -34,6 +34,31 @@ describe('TikZ visual QA persistence', (): void => {
       assert.equal(isTikzImageQaPassed(changed), false);
     } finally {
       await deleteImage(id);
+    }
+  });
+
+  it('completes Fix Images and downstream stages while keeping bad TikZ flagged for retry', async (): Promise<void> => {
+    const bookId = await createBook({ contentHash: `qa-warning-${Date.now()}`, created: Date.now(), name: 'QA warning book', opfsName: 'qa-warning.pdf', size: 1 });
+    const source = '\\begin{tikzpicture}\\draw (0,0) circle (1);\\end{tikzpicture}';
+
+    try {
+      const moduleId = `book-${bookId}-concept-777`;
+      await storeAbility(moduleId, JSON.stringify({ h: 'Trace the oval', i: '', t: 3, q: [
+        { h: 'Trace', a: 'Oval', p: source, i: '' },
+        { h: 'Trace again', a: 'Oval', p: '', i: '' }
+      ] }));
+      const [ability] = await getAbilities(moduleId);
+      const imageId = (JSON.parse(ability.content) as { q: Array<{ p: number | null }> }).q[0].p!;
+
+      await setTikzImageQaState(imageId, source, { renderStatus: 'passed', visualQaStatus: 'failed', detectedIssues: ['Dots do not align with the solid oval'] });
+      assert.equal((await getBookVisualQaSummary(bookId)).status, 'failed');
+      await completeBookProcessingStage(bookId, 'fixImages');
+      await completeBookProcessingStage(bookId, 'standards');
+      assert.deepEqual((await getBook(bookId))?.completedStages, ['fixImages', 'standards']);
+      assert.equal((await getImage(imageId))?.visualQaStatus, 'failed');
+      assert.deepEqual((await getImage(imageId))?.detectedIssues, ['Dots do not align with the solid oval']);
+    } finally {
+      await deleteBook(bookId);
     }
   });
 

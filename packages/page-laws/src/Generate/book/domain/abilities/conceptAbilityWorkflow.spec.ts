@@ -37,10 +37,6 @@ describe('Exercise quality rules carried into direct Concept -> Ability workflow
     assert.match(sentPrompt, /q\[\]\.i is a standalone generation description/);
     assert.match(sentPrompt, /Preserve the \*represented form\*/);
     assert.match(sentPrompt, /source Concept title EXACTLY/);
-    assert.match(sentPrompt, /CONCEPT-CENTERED PRACTICE/);
-    assert.match(sentPrompt, /EACH learner-facing question q\[\]\.h/);
-    assert.match(sentPrompt, /identify how it applies, understand its meaning, and use it/);
-    assert.match(sentPrompt, /only incidentally uses the Concept/);
     assert.match(sentPrompt, /Learner age: 11/);
     assert.doesNotMatch(sentPrompt, /SOURCE EXERCISE:/);
   });
@@ -55,10 +51,6 @@ describe('Exercise quality rules carried into direct Concept -> Ability workflow
     assert.match(prompt, /Direct Concept-linked Abilities have NO sourceExercise/);
     assert.match(prompt, /sourceConcept as the PRIMARY authority/);
     assert.match(prompt, /non-obvious or multi-step answers/);
-    assert.match(prompt, /CONCEPT-CENTERED PRACTICE/);
-    assert.match(prompt, /content error requiring repair to q\[\]\.h/);
-    assert.match(prompt, /calculation and answer are already correct/);
-    assert.match(prompt, /Concept named only in Ability.h or sourceConcept metadata/);
     assert.match(prompt, /duplicatePairs/);
   });
 });

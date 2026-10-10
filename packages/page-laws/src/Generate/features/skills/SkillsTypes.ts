@@ -95,11 +95,22 @@ export interface FixedImageReview {
   record: StoredAbility;
 }
 
+export interface UnresolvedImageReview {
+  imageId: number;
+  errors: string[];
+  exerciseIndex: number;
+  field: 'p' | 'i';
+  originalTikz: string;
+  originalCompiled: boolean;
+  abilityTitle: string;
+  exerciseTitle: string;
+}
+
 export interface ImageFixReviewResult {
   checked: number;
   renderFailures: number;
   items: FixedImageReview[];
-  unresolved: Array<{ imageId: number; errors: string[] }>;
+  unresolved: UnresolvedImageReview[];
 }
 
 export interface BookPageContent {

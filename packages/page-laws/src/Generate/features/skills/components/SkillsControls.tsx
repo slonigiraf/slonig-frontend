@@ -13,6 +13,8 @@ import StageRunPricePopup from '../../../shared/ui/StageRunPricePopup.js';
 
 interface SkillsControlsProps {
   abilitiesMissingImagesCount: number;
+  failedTikzCount: number;
+  fixOnlyFailedTikz: boolean;
   abortProcessing: () => void;
   aiAction?: AiAction;
   autoRunAll: boolean;
@@ -38,13 +40,14 @@ interface SkillsControlsProps {
   selectedPipelineKey: string;
   setGenerateOnlyMissingAbilities: (value: boolean) => void;
   setGenerateOnlyMissingImages: (value: boolean) => void;
+  setFixOnlyFailedTikz: (value: boolean) => void;
   setSelectedModel: (value: string) => void;
   setSelectedPipelineKey: (value: string) => void;
   showPipeline: boolean;
   visiblePipelineActions: PipelineAction[];
 }
 
-export default function SkillsControls ({ abilitiesMissingImagesCount, abortProcessing, aiAction, autoRunAll, autoRunCompletedCount, autoRunStageCount, closeConfirmation, confirm, error, estimate, exercisesMissingAbilitiesCount, generateOnlyMissingAbilities, generateOnlyMissingImages, isBusy, notice, openRouterSpent, pipelineControls, progress, progressLabel, progressTotal, runSelectedPipelineAction, selectedModel, selectedPipelineAction, selectedPipelineKey, setGenerateOnlyMissingAbilities, setGenerateOnlyMissingImages, setSelectedModel, setSelectedPipelineKey, showPipeline, visiblePipelineActions }: SkillsControlsProps): React.ReactElement {
+export default function SkillsControls ({ abilitiesMissingImagesCount, failedTikzCount, fixOnlyFailedTikz, abortProcessing, aiAction, autoRunAll, autoRunCompletedCount, autoRunStageCount, closeConfirmation, confirm, error, estimate, exercisesMissingAbilitiesCount, generateOnlyMissingAbilities, generateOnlyMissingImages, isBusy, notice, openRouterSpent, pipelineControls, progress, progressLabel, progressTotal, runSelectedPipelineAction, selectedModel, selectedPipelineAction, selectedPipelineKey, setGenerateOnlyMissingAbilities, setGenerateOnlyMissingImages, setFixOnlyFailedTikz, setSelectedModel, setSelectedPipelineKey, showPipeline, visiblePipelineActions }: SkillsControlsProps): React.ReactElement {
   return <>
   {aiAction && !autoRunAll && (
     <StageRunPricePopup
@@ -64,6 +67,12 @@ export default function SkillsControls ({ abilitiesMissingImagesCount, abortProc
         label='Only for Abilities missing Images'
         onChange={setGenerateOnlyMissingImages}
         value={generateOnlyMissingImages}
+      />}
+      {aiAction === 'fixImages' && <Toggle
+        isDisabled={!failedTikzCount}
+        label={`Only retry Abilities with failed TikZ visuals (${failedTikzCount})`}
+        onChange={setFixOnlyFailedTikz}
+        value={fixOnlyFailedTikz}
       />}
       <OpenRouterModelSelector
         className='modelSelect'
