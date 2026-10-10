@@ -12,13 +12,13 @@ const abilityGenerationExample = String.raw`[
     "h": "Convert whole kilometers to meters",
     "q": [
       {
-        "h": "Convert <kx>2</kx> km to m.",
+        "h": "Use the kilometer-to-meter conversion to convert <kx>2</kx> km to m.",
         "a": "<kx>2 \\times 1000 = 2000</kx> m.",
         "p": "",
         "i": ""
       },
       {
-        "h": "Convert <kx>5</kx> km to m.",
+        "h": "Use the kilometer-to-meter conversion to convert <kx>5</kx> km to m.",
         "a": "<kx>5 \\times 1000 = 5000</kx> m.",
         "p": "",
         "i": ""
@@ -42,7 +42,15 @@ Some numbers, labels, structures, or relationships are fixed learning targets ra
 
 ${ABILITY_SPATIAL_AND_REPRESENTATION_FIDELITY_PROMPT}`;
 
+/** Keeps the target Concept visible in each learner-facing task, not only in metadata. */
+export const ABILITY_EXPLICIT_CONCEPT_PRACTICE_PROMPT = `CONCEPT-CENTERED PRACTICE (apply independently to BOTH q tasks):
+- In EACH learner-facing question q[].h, explicitly refer to the target Concept by its natural name or a precise, age-appropriate term for its defining rule, property, relationship, representation, or method. The Ability title, sourceConcept metadata, solution text, or a real-world scenario that merely happens to involve the Concept is NOT a substitute. The student should know which Concept they are practicing from the question itself. Do not mechanically paste a long Concept title when a clear natural reference is better.
+- Make the learner actively identify the relevant feature or how the Concept applies, show understanding by interpreting or reasoning about that feature, and use the Concept to produce the requested result. This may be one coherent, concise task rather than three separate subquestions. A generic computation or word problem that only incidentally uses the Concept fails this requirement, even when its final answer is correct. Meaningful identification/classification is appropriate when that IS the target skill; avoid trivial naming, definition recall, binary confirmation, or answer choices.
+- Keep the Concept reference informative but do NOT reveal the classification, value, visual fact, or other answer the learner must discover. For example, ask the learner to use an angle relationship to determine an unknown angle without naming the unknown relationship if identifying it is part of the task. In q[].a, show the relevant Concept-based reasoning or transformation when needed to make the connection evident; keep it brief and do not add tutorial filler. Preserve the same narrow skill, input/output modality, visual dependence, method, reasoning depth, and learner level in both tasks. Do not introduce extra unrelated operations just to mention the Concept.`;
+
 export const ABILITY_GENERATION_INSTRUCTIONS_PROMPT = `A mental function is an abstraction describing a real human skill: one precisely stated ability a person can demonstrate by performing a task. Define it narrowly enough that the kind of input, expected output, and method are unambiguous. Use sentence case for every Ability name h (example: "This is an example of a title"), preserving proper nouns and acronyms. Name the learner's actual ability in h so the title explains what the learner can learn and do from these exercises. Do not use generic headings such as "Expected results", "Results", "Practice", or "Exercise". A broad topic such as "metric conversion" or "grammar" is not a sufficiently specific skill.
+
+${ABILITY_EXPLICIT_CONCEPT_PRACTICE_PROMPT}
 
 For each skill, plan one exercise template internally, then choose exactly two distinct concrete instances and fill them in to produce the two exercises in q. Both exercises must train the same skill with equivalent learner instructions, task structure, input and output types, operation or classification rule, conversion direction, solution method, number of reasoning steps, and difficulty. Wording need not be letter-for-letter identical when the instructional meaning is identical. Vary concrete task inputs and their corresponding answers, not the learning target; avoid changes that introduce an extra step, special case, or different strategy.
 
@@ -52,7 +60,7 @@ ${EXERCISE_TEMPLATE_STYLE_PROMPT}
 
 Require the learner to perform the skill and produce an answer independently. Every question h must contain the real question or task, with all concrete input data and instructions. Every answer a must contain the real answer or worked solution to that exact question, never a vague sentence such as "use the method" or "the expected result is...". Do not generate yes/no, true/false, multiple-choice, or choose-from-a-list questions. Avoid trivial recognition, merely naming the concept described in the question, repeating a supplied fact, or questions whose wording already reveals the answer. Changing a chemical symbol, name, or number in such a question does not make it useful practice. Adding "explain why" to an obvious yes/no question is not an adequate fix; redesign the task so the learner must calculate, construct, transform, or apply the concept to concrete data. A short numeric, symbolic, or textual answer is fine when obtaining it requires performing the target skill. Keep the work appropriate to the learner and the narrow skill; do not add unrelated steps or advanced concepts just to make it harder.
 
-Positive example: "Convert 2 km to m." and "Convert 5 km to m." both train conversion from kilometers to meters by multiplying by 1000. Negative example: converting km to m in one exercise and m to km in the other trains two different skills and must not be one pair. Operators, conversion units and direction, and the required reasoning stay fixed; they are not parameters to vary.
+Positive example: "Use the kilometer-to-meter conversion to convert 2 km to m." and "Use the kilometer-to-meter conversion to convert 5 km to m." both explicitly reference and train conversion from kilometers to meters by multiplying by 1000. Negative example: converting km to m in one exercise and m to km in the other trains two different skills and must not be one pair. Operators, conversion units and direction, and the required reasoning stay fixed; they are not parameters to vary.
 
 Chemistry example: reject "Is there ionization when Na loses one electron? (Yes/No)". For the skill "Determine an ion's charge from electron loss", a suitable pair is "A neutral Na atom has 11 protons and loses one electron. Determine how many electrons remain and calculate the ion's charge using the proton and electron counts." and "A neutral K atom has 19 protons and loses one electron. Determine how many electrons remain and calculate the ion's charge using the proton and electron counts." The respective solutions are "Initially 11 electrons; 11 - 1 = 10 remain. Charge in elementary-charge units: 11 - 10 = +1, so the ion is Na+." and "Initially 19 electrons; 19 - 1 = 18 remain. Charge in elementary-charge units: 19 - 18 = +1, so the ion is K+." The learner applies charge accounting instead of confirming a definition.
 
@@ -65,7 +73,7 @@ Preserve this existing JSON array format exactly: each skill has i, t, h, and q;
 Example output:
 ${abilityGenerationExample}
 
-Before responding, verify that each pair demonstrates the same narrow human skill, differs through instructionally valid concrete inputs or arrangements rather than mere styling, preserves any fixed learning targets and formal representations, and has correct answers obtained through the same method. Confirm that both exercises require the learner to produce an answer by performing the skill, with no yes/no, true/false, answer choices, or trivial recognition shortcuts. Revise any pair that fails these checks.`;
+Before responding, verify that BOTH learner-facing questions explicitly name or clearly reference the target Concept, and require learners to identify/understand and use it, not merely perform a task in which it appears incidentally. Then verify that each pair demonstrates the same narrow human skill, differs through instructionally valid concrete inputs or arrangements rather than mere styling, preserves any fixed learning targets and formal representations, and has correct answers obtained through the same method. Confirm that both exercises require the learner to produce an answer by performing the skill, with no yes/no, true/false, answer choices, or trivial recognition shortcuts. Revise any pair that fails these checks.`;
 
 /**
  * Quality rules adapted from the original Concept -> Exercise generation prompt.
@@ -73,6 +81,7 @@ Before responding, verify that each pair demonstrates the same narrow human skil
  * an intermediate Exercise. These constraints apply independently to both tasks.
  */
 export const CONCEPT_ABILITY_EXERCISE_QUALITY_PROMPT = `DIRECT CONCEPT-TO-ABILITY QUALITY CONTRACT (apply to BOTH q tasks):
+- Each q[].h must explicitly refer to the target Concept or its defining rule, representation, or relationship; do not rely on the Ability title alone. Make the learner identify/interpret a relevant feature and USE the Concept to complete the actual task, not just solve an incidental problem. Preserve the target operation and avoid leaking the answer. Follow the CONCEPT-CENTERED PRACTICE rule above.
 - Preserve exactly the source Concept's intended learning operation, input modality, output modality, required method, representation, and age-appropriate challenge. If the learner must interpret, locate, construct, complete, compare, or change a visual/spatial representation, do not replace that operation with a textual description or a simpler surrogate. Keep any multi-step operation that is inseparable from the intended skill.
 - Design each question, correct answer, and its necessary question/solution visuals together in this ONE generation pass. There is no later Exercise design or visual-retrofit pass. Internally check that wording, answers, and visual specifications agree before returning the Ability.
 - Make each q[].h a succinct, self-contained learner-facing question or command, preferably a single short sentence with about 6-16 words; go longer only for necessary task data. Do not include scene-setting, definitions, hints, procedural coaching, solution details, answer choices, or redundant facts already carried by a required visual. A visual-dependent task may briefly refer to "the figure" without leaking what that figure encodes. Each q[].a must be correct, concise, and show essential method steps and intermediate transformations when the answer is not immediately obvious; never omit a meaningful reasoning step solely for brevity.
@@ -90,6 +99,8 @@ export const CONCEPT_ABILITY_EXERCISE_QUALITY_PROMPT = `DIRECT CONCEPT-TO-ABILIT
  * immutable here; image-only errors belong to Fix images.
  */
 export const FIX_ABILITY_EXERCISE_QUALITY_PROMPT = `ADDITIONAL QUALITY AUDIT ADAPTED FROM FIX EXERCISES (check EACH q task independently):
+${ABILITY_EXPLICIT_CONCEPT_PRACTICE_PROMPT}
+- Treat a task that never explicitly references the target Concept in q[].h, or that only solves an incidental problem without practicing the Concept itself, as a content error requiring repair to q[].h and (when needed) q[].a. Check the identification, understanding, and use of the Concept for EACH task, even when the task's calculation and answer are already correct. Do not accept a Concept named only in Ability.h or sourceConcept metadata. Fix it using the same operation and existing visuals, without giving away the answer.
 - Check the actual learner operation, source Concept alignment, factual/math/logical accuracy, grammatical clarity, spelling, self-containment, question/answer consistency, answer-format completeness, and correct solving method. For non-obvious or multi-step answers, a correct final result without the essential intervening calculations, transformations, or reasoning is an error. Correct q[].a with the shortest sufficient worked solution; do not insert teaching filler.
 - ${EXERCISE_NON_BINARY_RESPONSE_PROMPT} Treat a yes/no, true/false, other binary confirmation, or any multiple-choice/choose-from-list task as erroneous even if the current answer is factually correct. Rewrite it as a substantive open-answer application of the same Concept, operation, representation, learner modality, method, and appropriate difficulty. Prefer actual transformation, inference, comparison, calculation, construction, or solution over mere restatement or recognition. Do not just append "explain why" to a trivial binary question.
 - If learnerAge is present, AUDIT age-level suitability for EACH question and answer: vocabulary, sentence complexity, prerequisite knowledge, abstraction, task difficulty, cognitive load, context, answer expectations, and required visual interpretation. Repair all mismatches while retaining the Concept's learning target and method; age suitability can override incompatible original numeric/context difficulty but must NOT simplify away the skill. If learnerAge is absent, do not invent one.

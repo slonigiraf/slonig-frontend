@@ -38,6 +38,9 @@ describe('one-Ability-per-Exercise workflow', (): void => {
     ];
 
     for (const prompt of prompts) {
+      assert.match(prompt, /CONCEPT-CENTERED PRACTICE/);
+      assert.match(prompt, /EACH learner-facing question q\[\]\.h/);
+      assert.match(prompt, /generic computation or word problem that only incidentally uses the Concept/i);
       assert.match(prompt, /fixed learning targets/i);
       assert.match(prompt, /actual mathematical arrangement/i);
       assert.match(prompt, /Natural-language wording may vary when/i);
@@ -60,6 +63,8 @@ describe('one-Ability-per-Exercise workflow', (): void => {
 
     const auditPrompt = abilityTextAuditPrompt('en', 'Arrays', blueprints, source, abilities);
 
+    assert.match(auditPrompt, /CONCEPT-CENTERED PRACTICE/);
+    assert.match(auditPrompt, /identify the relevant feature or how the Concept applies/);
     assert.match(auditPrompt, /cosmetic changes/i);
     assert.match(auditPrompt, /formal mathematical structures/i);
     assert.match(auditPrompt, /Equivalent natural-language variation is allowed only/i);

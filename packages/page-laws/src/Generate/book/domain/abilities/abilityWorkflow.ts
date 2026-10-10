@@ -6,7 +6,7 @@ import type { AbilityExerciseImagePrompts, GeneratedAbility } from '../../../../
 
 import { parseGeneratedAbilities } from '../../../../abilities/abilities.js';
 import { stripMarkdownImageReferences } from '../content/markdownImages.js';
-import { ABILITY_MEANINGFUL_VARIATION_PROMPT, ABILITY_SPATIAL_AND_REPRESENTATION_FIDELITY_PROMPT } from '../../infrastructure/ai/prompts/abilities.js';
+import { ABILITY_EXPLICIT_CONCEPT_PRACTICE_PROMPT, ABILITY_MEANINGFUL_VARIATION_PROMPT, ABILITY_SPATIAL_AND_REPRESENTATION_FIDELITY_PROMPT } from '../../infrastructure/ai/prompts/abilities.js';
 import { formatSentenceCaseTitle } from '../naming/sentenceCase.js';
 
 export type AbilityQuestionVisualMode = 'none' | 'required';
@@ -647,6 +647,8 @@ Language: ${language}
 
 SOURCE ALIGNMENT: The source contains its Exercise task, solution, questionVisual, solutionVisual, and (when linked) sourceConcept title and description. For EACH of the two generated tasks separately, verify that the question and answer exercise the exact same concept and complete Exercise-level skill as the source, including every inseparable operation, direction, representation, output format, solution method, reasoning depth, age-appropriate difficulty, and required visuals. Both tasks must follow the same reusable task template and instructional meaning; their safe concrete inputs, contexts, spatial arrangements, and corresponding answers/visuals may vary. Never introduce an operation or topic not taught by the source Concept. If the Exercise and Concept appear inconsistent, keep the Exercise's actual required operation while remaining within the Concept's scope; do not generate unrelated tasks. Do NOT generate, copy, or return an Ability title. The application assigns Ability.h from sourceConcept.title directly, or uses the Exercise title when a legacy caller has no sourceConcept. Treat sourceConcept.title and description only as context for generating questions and answers.
 
+${ABILITY_EXPLICIT_CONCEPT_PRACTICE_PROMPT}
+
 ${ABILITY_MEANINGFUL_VARIATION_PROMPT}
 
 FINAL ABILITY
@@ -690,6 +692,8 @@ Chapter: ${chapterTitle}
 Language: ${language}
 
 Create exactly one Ability with exactly two concrete practice instances. Use the language's native capitalization for the Ability name; in English use sentence case ("This is an example of a title") while retaining proper nouns and acronyms. Copy blueprint.title to ability.h unchanged. Both instances must train the same complete Exercise-level input, operation or operation sequence, output, method, direction, reasoning depth, and difficulty; vary only instructionally safe concrete task data, arrangements, or contexts and independently recalculate each answer.
+
+${ABILITY_EXPLICIT_CONCEPT_PRACTICE_PROMPT}
 
 ${ABILITY_MEANINGFUL_VARIATION_PROMPT} Keep tasks direct (normally <=32 words), answers compact (normally <=38 words), and titles <=12 words. No hints, tutorial prose, answer choices, book references, or redundant explanation. Use <kx>...</kx> for mathematical notation. ability.i="", t=3, and q[].p/q[].i remain empty because images are materialized later.
 
@@ -735,6 +739,8 @@ Language: ${language}
 
 For each Exercise blueprint, create exactly one Ability with exactly two concrete practice instances. Copy the blueprint title into Ability h unchanged. Both instances must implement the blueprint's same input type, operation, output type, method, direction, reasoning depth, and difficulty; vary only instructionally safe concrete task data, arrangements, or contexts. Recalculate each answer independently.
 
+${ABILITY_EXPLICIT_CONCEPT_PRACTICE_PROMPT}
+
 ${ABILITY_MEANINGFUL_VARIATION_PROMPT} For text-input tasks, the two q[].h strings must contain different concrete parameters and must not be identical. When questionVisual=\"required\", the instruction wording may be identical only if the later two question visuals will carry different concrete task data.
 
 Every q[].h must be the real learner-facing task. Never output the placeholder text "Task 1" or "Task 2" as a q[].h value, including case/whitespace variants.
@@ -762,6 +768,8 @@ Chapter: ${chapterTitle}
 Language: ${language}
 
 For every candidate verify against its exact blueprint and source evidence: preservation of the complete Exercise-level operation or operation sequence; same method/direction in both questions; meaningful, instructionally safe differences in concrete inputs or arrangements rather than cosmetic changes; preserved fixed learning targets and formal mathematical structures; factual and mathematical correctness; self-containment; no answer leakage; correct language; and strict visual dependence. Equivalent natural-language variation is allowed only when the original instructional meaning is unchanged. For text-input tasks, never leave the two q[].h strings identical; change the concrete parameters. When questionVisual=\"required\", identical instruction wording is allowed only when the two later question visuals will contain different concrete inputs. Most importantly, enforce the learner-facing size budget: titles should fit in about 12 words, tasks in about 32 words, and answers in about 38 words. Keep each task direct and concrete and each answer as short as correctness permits. Delete explanations, restatements, teaching prose, and redundant intermediate steps that are not needed to demonstrate the Exercise-level skill. Do not remove data, conditions, units, or reasoning that is genuinely required.
+
+${ABILITY_EXPLICIT_CONCEPT_PRACTICE_PROMPT}
 
 Reject placeholder q[].h values. In particular, "Task 1" and "Task 2" (including case/whitespace variants) are invalid and must be replaced with the actual learner-facing task text.
 
