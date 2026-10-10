@@ -40,11 +40,29 @@ import type { AiTutorStudentMessage } from './db/AiTutorStudentMessage.js';
 import type { StandardEmbedding } from './db/StandardEmbedding.js';
 import type { ConceptEmbedding } from './db/ConceptEmbedding.js';
 import type { MathpixPdfJob } from './db/MathpixPdfJob.js';
+import { readTikzSvgCache, writeTikzSvgCache } from './db/TikzSvgCache.js';
 import { shouldExportDatabaseRow } from './backup.js';
 
 export { BOOK_PROCESSING_STAGES, getBookCompletedStages, isBookProcessingStageComplete, withBookProcessingStagesResetFrom, withCompletedBookProcessingStage } from './db/Book.js';
 export type { LearnRequest, TutorAction, CanceledInsurance, Reexamination, LetterTemplate, CanceledLetter, Reimbursement, Letter, Insurance, Lesson, Pseudonym, Setting, Signer, UsageRight, Agreement, Ability, AbilityExercise, AbilityValue, Image, Book, BookProcessingStageKey, BookStageSpend, BookStageSpendKey, BookSubject, BookPage, MathpixHeading, BookChapter, BookConcept, Exercise, Skill, ExerciseTemplate, AiTutorStudentMessage, StandardEmbedding, ConceptEmbedding, MathpixPdfJob };
 export type { ImageType } from './db/Image.js';
+export type { TikzSvgCacheEntry } from './db/TikzSvgCache.js';
+
+/** Drop the primary app database, including the regenerable SVG cache.
+ * Dexie closes its own connection before deleting, avoiding self-blocking. */
+export function deleteSlonigDatabase(): Promise<void> {
+    return db.delete();
+}
+
+// SVG previews are regenerable. Keep the database access in the DB package
+// and isolate different TikZ renderer versions in a compound key.
+export function getPersistedTikzSvg(rendererId: string, source: string): Promise<string | undefined> {
+    return readTikzSvgCache(db, rendererId, source);
+}
+
+export function putPersistedTikzSvg(rendererId: string, source: string, svg: string): Promise<void> {
+    return writeTikzSvgCache(db, rendererId, source, svg);
+}
 
 const EXERCISE_ABILITY_MODULE = /^book-(\d+)-exercise-(\d+)$/;
 const CONCEPT_ABILITY_MODULE = /^book-(\d+)-concept-(\d+)$/;

@@ -5,6 +5,8 @@
 
 import { strict as assert } from 'node:assert';
 
+import 'fake-indexeddb/auto';
+
 import { cacheTikzEditorSvg, getCachedTikzEditorSvg, isRetryableTikzEditorError, normalizeTikzEditorSvg, parseTikzEditorMessage, TikzEditorRenderError } from './tikzEditorBridge.js';
 
 describe('TikZ Editor renderer bridge', (): void => {
@@ -42,12 +44,21 @@ describe('TikZ Editor renderer bridge', (): void => {
     assert.match(svg, /человек без признака/);
   });
 
-  it('reuses SVG produced by the visible editor for the exact Cyrillic source', (): void => {
+  it('persists SVG produced by the visible editor without an in-memory cache', async (): Promise<void> => {
     const source = '\\begin{tikzpicture}\\node {человек без признака};\\end{tikzpicture}';
     const svg = cacheTikzEditorSvg(source, '<svg><text>человек без признака</text></svg>');
 
-    assert.equal(getCachedTikzEditorSvg(source), svg);
+    assert.equal(await getCachedTikzEditorSvg(source), svg);
     assert.match(svg, /человек без признака/);
+  });
+
+  it('keeps the latest persisted SVG when the editor saves the same source repeatedly', async (): Promise<void> => {
+    const source = '\\begin{tikzpicture}\\node {updated};\\end{tikzpicture}';
+
+    cacheTikzEditorSvg(source, '<svg><text>first</text></svg>');
+    const latest = cacheTikzEditorSvg(source, '<svg><text>latest</text></svg>');
+
+    assert.equal(await getCachedTikzEditorSvg(source), latest);
   });
 
   it('rejects non-SVG output', (): void => {

@@ -1,6 +1,8 @@
 // Copyright 2021-2026 @polkadot/app-laws authors & contributors
 // SPDX-License-Identifier: Apache-2.0
 
+import { getPersistedTikzSvg, putPersistedTikzSvg } from '@slonigiraf/db';
+
 export const TIKZ_EDITOR_URL = 'https://texlyre.github.io/tikz-editor-embed-mirror/tikz-editor/index.html';
 export const TIKZ_EDITOR_ORIGIN = 'https://texlyre.github.io';
 export const TIKZ_EDITOR_RENDERER_ID = 'tikz-editor@0.5.2-texlyre.1';
@@ -8,9 +10,6 @@ export const TIKZ_EDITOR_RENDERER_ID = 'tikz-editor@0.5.2-texlyre.1';
 const TIKZ_EDITOR_RENDER_TIMEOUT_MS = 30_000;
 const TIKZ_EDITOR_EXPORT_RETRY_MS = 100;
 const TIKZ_EDITOR_RENDER_RETRIES = 1;
-const TIKZ_EDITOR_SVG_CACHE_LIMIT = 400;
-const TIKZ_EDITOR_PERSISTED_CACHE_LIMIT = 600;
-const SVG_STORE_NAME = 'renderedSvg';
 
 export class TikzEditorRenderError extends Error {
   readonly retryable: boolean;
@@ -30,113 +29,43 @@ function transientRendererError (message: string): TikzEditorRenderError {
   return new TikzEditorRenderError(message, true);
 }
 
-const renderedSvgCache = new Map<string, string>();
+// Only outstanding work is tracked in memory, never completed SVGs. Serialize
+// writes for one source so an older autosave cannot overwrite a newer Save.
+const pendingSvgWrites = new Map<string, Promise<void>>();
 const renderRequests = new Map<string, Promise<string>>();
-let cacheDatabase: Promise<IDBDatabase | undefined> | undefined;
 
-/** SVG previews are keyed by exact TikZ source and renderer version. Unlike
- * the small in-memory LRU, this survives switching tabs and page reloads. */
-function openSvgCacheDatabase (): Promise<IDBDatabase | undefined> {
-  if (cacheDatabase) {
-    return cacheDatabase;
-  }
+/** Cache misses and storage failures must not prevent a diagram from rendering.
+ * Do not access the old standalone `slonig-tikz-svg-*` databases: their data
+ * is deliberately not migrated to the main Dexie database. */
+async function readPersistedSvg(source: string): Promise<string | undefined> {
+  try {
+    const svg = await getPersistedTikzSvg(TIKZ_EDITOR_RENDERER_ID, source);
 
-  cacheDatabase = new Promise((resolve) => {
-    if (typeof indexedDB === 'undefined') {
-      resolve(undefined);
-      return;
-    }
-
-    try {
-      const request = indexedDB.open(`slonig-tikz-svg-${TIKZ_EDITOR_RENDERER_ID}`, 1);
-
-      request.onupgradeneeded = () => {
-        const store = request.result.createObjectStore(SVG_STORE_NAME, { keyPath: 'source' });
-
-        store.createIndex('updatedAt', 'updatedAt');
-      };
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () => resolve(undefined);
-      request.onblocked = () => resolve(undefined);
-    } catch {
-      resolve(undefined);
-    }
-  });
-
-  return cacheDatabase;
-}
-
-async function readPersistedSvg (source: string): Promise<string | undefined> {
-  const database = await openSvgCacheDatabase();
-
-  if (!database) {
+    return svg === undefined ? undefined : normalizeTikzEditorSvg(svg);
+  } catch {
     return undefined;
   }
-
-  return new Promise((resolve) => {
-    try {
-      const request = database.transaction(SVG_STORE_NAME, 'readonly').objectStore(SVG_STORE_NAME).get(source);
-
-      request.onsuccess = () => {
-        const svg = (request.result as { svg?: unknown } | undefined)?.svg;
-
-        if (typeof svg !== 'string') {
-          resolve(undefined);
-          return;
-        }
-
-        try {
-          resolve(normalizeTikzEditorSvg(svg));
-        } catch {
-          resolve(undefined);
-        }
-      };
-      request.onerror = () => resolve(undefined);
-    } catch {
-      resolve(undefined);
-    }
-  });
 }
 
-async function persistSvg (source: string, svg: string): Promise<void> {
-  const database = await openSvgCacheDatabase();
+function persistSvg(source: string, svg: string): void {
+  const previous = pendingSvgWrites.get(source);
+  const pending = (async (): Promise<void> => {
+    await previous;
 
-  if (!database) {
-    return;
-  }
+    try {
+      await putPersistedTikzSvg(TIKZ_EDITOR_RENDERER_ID, source, svg);
+    } catch {
+      // IndexedDB may be unavailable or out of quota. Rendering must still
+      // succeed; without persistence the SVG will be regenerated next time.
+    }
+  })();
 
-  try {
-    const transaction = database.transaction(SVG_STORE_NAME, 'readwrite');
-    const store = transaction.objectStore(SVG_STORE_NAME);
-
-    store.put({ source, svg, updatedAt: Date.now() });
-    // Bound browser storage rather than allowing a book's diagrams to grow
-    // without limit. Old previews are safely regenerated if evicted.
-    const count = store.count();
-
-    count.onsuccess = () => {
-      let toRemove = count.result - TIKZ_EDITOR_PERSISTED_CACHE_LIMIT;
-
-      if (toRemove <= 0) {
-        return;
-      }
-
-      const cursor = store.index('updatedAt').openCursor();
-
-      cursor.onsuccess = () => {
-        const entry = cursor.result;
-
-        if (entry && toRemove > 0) {
-          entry.delete();
-          toRemove--;
-          entry.continue();
-        }
-      };
-    };
-  } catch {
-    // Private browsing, exhausted quotas, and disabled IndexedDB should never
-    // stop the diagram from being shown via the in-memory cache.
-  }
+  pendingSvgWrites.set(source, pending);
+  void pending.then(() => {
+    if (pendingSvgWrites.get(source) === pending) {
+      pendingSvgWrites.delete(source);
+    }
+  });
 }
 
 export interface TikzEditorMessage {
@@ -190,7 +119,9 @@ export function normalizeTikzEditorSvg (value: string): string {
     : svg.replace(/^<svg\b/i, '<svg xmlns="http://www.w3.org/2000/svg"');
 }
 
-/** Remember an SVG produced by the visible TikZ Editor for this exact source. */
+/** Persist an SVG produced by the visible TikZ Editor for this exact source.
+ * Return its normalized markup immediately so the editor can display it.
+ * Only Dexie keeps completed SVGs; no module-level SVG cache is maintained. */
 export function cacheTikzEditorSvg (source: string, value: string): string {
   const key = source.trim();
   const svg = normalizeTikzEditorSvg(value);
@@ -199,34 +130,22 @@ export function cacheTikzEditorSvg (source: string, value: string): string {
     throw new Error('Cannot cache TikZ Editor SVG for empty source.');
   }
 
-  // Refresh insertion order so the small module-level cache behaves like LRU.
-  renderedSvgCache.delete(key);
-  renderedSvgCache.set(key, svg);
-  void persistSvg(key, svg);
-
-  while (renderedSvgCache.size > TIKZ_EDITOR_SVG_CACHE_LIMIT) {
-    const oldest = renderedSvgCache.keys().next().value as string | undefined;
-
-    if (oldest === undefined) {
-      break;
-    }
-
-    renderedSvgCache.delete(oldest);
-  }
+  persistSvg(key, svg);
 
   return svg;
 }
 
-export function getCachedTikzEditorSvg (source: string): string | undefined {
+/** Read the persistent cache, waiting for a recent Save/Autosave to commit. */
+export async function getCachedTikzEditorSvg (source: string): Promise<string | undefined> {
   const key = source.trim();
-  const svg = renderedSvgCache.get(key);
 
-  if (svg !== undefined) {
-    renderedSvgCache.delete(key);
-    renderedSvgCache.set(key, svg);
+  if (!key) {
+    return undefined;
   }
 
-  return svg;
+  await pendingSvgWrites.get(key);
+
+  return readPersistedSvg(key);
 }
 
 function svgFromMessage (message: TikzEditorMessage): string | undefined {
@@ -467,11 +386,6 @@ let renderer: TikzEditorRenderer | undefined;
 /** Render TikZ through the same parser/semantic/SVG engine used by TikZ Editor. */
 export async function renderTikzWithEditor (source: string): Promise<string> {
   const key = source.trim();
-  const cached = getCachedTikzEditorSvg(key);
-
-  if (cached !== undefined) {
-    return cached;
-  }
 
   // A large Abilities tab can mount many identical visuals at once. Share a
   // single cache lookup / render for each source instead of queuing duplicates.
@@ -482,10 +396,10 @@ export async function renderTikzWithEditor (source: string): Promise<string> {
   }
 
   const request = (async (): Promise<string> => {
-    const persisted = await readPersistedSvg(key);
+    const persisted = await getCachedTikzEditorSvg(key);
 
     if (persisted !== undefined) {
-      return cacheTikzEditorSvg(key, persisted);
+      return persisted;
     }
 
     let lastError: unknown;

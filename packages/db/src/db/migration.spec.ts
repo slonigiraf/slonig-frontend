@@ -85,12 +85,14 @@ describe('IndexedDB production migration', (): void => {
       upgraded = new SlonigDB(databaseName);
       await upgraded.open();
 
-      assert.equal(upgraded.verno, 97);
+      assert.equal(upgraded.verno, 98);
       assert.equal(upgraded.tables.some(({ name }) => name === 'standardEmbeddings'), true);
       await upgraded.standardEmbeddings.put({ id: 'CCSS.6.RP.A.2', embedding: [0.25, 0.75] });
       assert.deepEqual(await upgraded.standardEmbeddings.get('CCSS.6.RP.A.2'), { id: 'CCSS.6.RP.A.2', embedding: [0.25, 0.75] });
       assert.equal(upgraded.tables.some(({ name }) => name === 'conceptEmbeddings'), true);
       assert.equal(upgraded.tables.some(({ name }) => name === 'mathpixPdfJobs'), true);
+      assert.equal(upgraded.tables.some(({ name }) => name === 'tikzSvgCache'), true);
+      assert.equal(await upgraded.tikzSvgCache.count(), 0, 'cache begins empty; no old SVG cache migration');
       await upgraded.mathpixPdfJobs.put({ bookId: 7, created: 1234, endPage: 40, pdfId: 'pdf-resume-7-1', startPage: 1 });
       assert.deepEqual(await upgraded.mathpixPdfJobs.get([7, 1, 40]), { bookId: 7, created: 1234, endPage: 40, pdfId: 'pdf-resume-7-1', startPage: 1 });
       await upgraded.conceptEmbeddings.put({ id: 42, bookId: 7, input: 'Slope\nRate of change', embedding: [0.1, 0.9] });

@@ -109,30 +109,34 @@ export default function TikzDisplay ({ alt, displayMode = 'default', hasCompileE
       });
     };
 
-    // A visible editor Save/Autosave gives us the exact SVG that the user just
-    // saw. Prefer it even when the DB still carries an older `valid:false`; a
-    // parent refresh can otherwise remount this component before the explicit
-    // retry token is observed and incorrectly suppress the known-good SVG.
-    const cachedSvg = getCachedTikzEditorSvg(value);
+    // A visible editor Save/Autosave produces a known-good SVG even when a
+    // stale compile-error flag has not yet been cleared by the parent. Look
+    // for it in Dexie before suppressing rendering due to that flag.
+    // Normal rendering checks Dexie itself, avoiding a duplicate DB lookup.
+    if (hasCompileError && !forceCompile) {
+      void getCachedTikzEditorSvg(value).then((cachedSvg) => {
+        if (isCancelled) {
+          return;
+        }
 
-    if (cachedSvg !== undefined) {
-      try {
-        mountSvg(host, cachedSvg);
-        reportCompileState(false);
-      } catch (reason) {
-        setError(reason instanceof Error ? reason.message : 'Unable to display rendered TikZ SVG.');
-        reportCompileState(true);
-      }
+        if (cachedSvg === undefined) {
+          setError('TikZ rendering previously failed for this code. Open Edit and Save and exit to retry.');
+          return;
+        }
+
+        try {
+          mountSvg(host, cachedSvg);
+          reportCompileState(false);
+        } catch (reason) {
+          setError(reason instanceof Error ? reason.message : 'Unable to display rendered TikZ SVG.');
+          reportCompileState(true);
+        }
+      });
 
       return () => {
         isCancelled = true;
         host.replaceChildren();
       };
-    }
-
-    if (hasCompileError && !forceCompile) {
-      setError('TikZ rendering previously failed for this code. Open Edit and Save and exit to retry.');
-      return;
     }
 
     preRenderTikz(value)

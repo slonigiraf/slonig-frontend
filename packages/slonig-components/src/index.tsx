@@ -28,7 +28,7 @@ import { Button, Modal, styled } from '@polkadot/react-components';
 import BN from 'bn.js';
 import { getIPFSContentIDForBytesAndPinIt, getIPFSBytesFromContentID, bnToSlonString, bnToSlonFloatOrNaN, createPeer, receiveWebRTCData, getQrWidth, saveToSessionStorage, loadFromSessionStorage, getKey, arrayBufferToBase64, base64ToArrayBuffer, decryptData, encryptData, keyForCid, nameFromKeyringPair, getBaseUrl, CODEC, getIPFSContentID, getIPFSContentIDAndPinIt, getIPFSDataFromContentID, digestFromCIDv1, getCIDFromBytes, storeEncryptedTextOnIPFS, retrieveDecryptedDataFromIPFS, parseJson, qrPadding } from './utils.js';
 import { useEffect, useState } from 'react';
-import { getSetting, LetterTemplate, SettingKey, storeSetting } from '@slonigiraf/db';
+import { deleteSlonigDatabase, getSetting, LetterTemplate, SettingKey, storeSetting } from '@slonigiraf/db';
 export * from './constants.js';
 export { default as SVGButton } from './SVGButton.js';
 export { EventsQueueProvider, useEventsQueue, Penalties, DownloadQRButton, BlockchainSyncProvider, useBlockchainSync, TokenTransferProvider, useTokenTransfer, DateInput, SelectableList, SenderComponent, SpanWithTags, ResizableImage, ShareButton, ClipboardCopyButton, QRWithShareAndCopy, QrScannerComponent, ButtonWithLabelBelow, ScanQR, IpfsProvider, useIpfsContext, InfoProvider, useInfo, LogProvider, useLog };
@@ -530,13 +530,9 @@ export async function clearAllData(onSuccess: () => void, onError: (error: strin
 
     console.log('Clear cookies')
 
-    // Clear IndexedDB (specifically Slonig database)
-    await new Promise<void>((resolve, reject) => {
-      const request = indexedDB.deleteDatabase('slonig');
-      request.onsuccess = () => resolve();
-      request.onerror = () => reject(new Error("Failed to delete IndexedDB."));
-      request.onblocked = () => reject(new Error("The database deletion is blocked."));
-    });
+    // Delete the main Dexie database and its TikZ SVG cache together. Leave
+    // legacy standalone `slonig-tikz-svg-*` caches untouched.
+    await deleteSlonigDatabase();
 
     // Call onSuccess after everything is cleared
     onSuccess();

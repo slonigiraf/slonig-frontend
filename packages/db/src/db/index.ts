@@ -30,6 +30,7 @@ import type { AiTutorStudentMessage } from './AiTutorStudentMessage.js';
 import type { StandardEmbedding } from './StandardEmbedding.js';
 import type { ConceptEmbedding } from './ConceptEmbedding.js';
 import type { MathpixPdfJob } from './MathpixPdfJob.js';
+import type { TikzSvgCacheEntry } from './TikzSvgCache.js';
 
 type LegacyBookSkill = Omit<Skill, 'exerciseIds'> & { bookExerciseIds?: number[] };
 type LegacyExerciseTemplate = Omit<ExerciseTemplate, 'skillId'> & { bookSkillId: number };
@@ -91,6 +92,7 @@ export class SlonigDB extends Dexie {
   standardEmbeddings!: Table<StandardEmbedding, string>;
   conceptEmbeddings!: Table<ConceptEmbedding, number>;
   mathpixPdfJobs!: Table<MathpixPdfJob, [number, number, number]>;
+  tikzSvgCache!: Table<TikzSvgCacheEntry, [string, string]>;
 
   constructor(name = 'slonig') {
     super(name);
@@ -595,6 +597,11 @@ export class SlonigDB extends Dexie {
     // one remote job that can be resumed for that slice.
     this.version(97).stores({
       mathpixPdfJobs: '&[bookId+startPage+endPage],bookId,pdfId'
+    });
+    // TikZ SVGs are regenerable: start with an empty cache and never import
+    // previews from the old standalone renderer-version IndexedDB databases.
+    this.version(98).stores({
+      tikzSvgCache: '&[rendererId+source],updatedAt'
     });
 
   }
