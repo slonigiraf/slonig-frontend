@@ -14,6 +14,7 @@ interface UseBookProcessingRunnerOptions extends BookProcessingRunnerState {
   fixOnlyFailedConcepts: boolean;
   generateAllConcepts: () => Promise<void>;
   generateAllConceptsModel: string;
+  generateOnlyMissingStandards: boolean;
   generateAllExercises: () => Promise<void>;
   identifyChapters: () => Promise<void>;
   onProcessingComplete: () => void;
@@ -28,7 +29,7 @@ interface UseBookProcessingRunnerOptions extends BookProcessingRunnerState {
   sortAllConcepts: (model: string) => Promise<void>;
 }
 
-export function useBookProcessingRunner ({ ageSamplePageCount, ageSampleTextCount, assignStandards, conceptChapterCount, deduplicateAllConcepts, embedAllConcepts, fixAllConcepts, fixOnlyFailedConcepts, generateAllConcepts, generateAllConceptsModel, generateAllExercises, identifyChapters, isAssigningStandards, isDeduplicatingConcepts, isEmbeddingConcepts, isFixingConcepts, isGeneratingAllConcepts, isGeneratingAllExercises, isIdentifyingChapters, isMmdConversionComplete, isRecognizingAll, isRefiningChapters, isSortingConcepts, onProcessingComplete, openAgeDetectionConfirmation, openLanguageDetectionConfirmation, openSubjectDetectionConfirmation, processingCommand, processingPage, recognizeAllPages, refineAllChapters, setActivePane, setError, sortAllConcepts, totalPages }: UseBookProcessingRunnerOptions): void {
+export function useBookProcessingRunner ({ ageSamplePageCount, ageSampleTextCount, assignStandards, conceptChapterCount, deduplicateAllConcepts, embedAllConcepts, fixAllConcepts, fixOnlyFailedConcepts, generateAllConcepts, generateAllConceptsModel, generateAllExercises, generateOnlyMissingStandards, identifyChapters, isAssigningStandards, isDeduplicatingConcepts, isEmbeddingConcepts, isFixingConcepts, isGeneratingAllConcepts, isGeneratingAllExercises, isIdentifyingChapters, isMmdConversionComplete, isRecognizingAll, isRefiningChapters, isSortingConcepts, onProcessingComplete, openAgeDetectionConfirmation, openLanguageDetectionConfirmation, openSubjectDetectionConfirmation, processingCommand, processingPage, recognizeAllPages, refineAllChapters, setActivePane, setError, sortAllConcepts, totalPages }: UseBookProcessingRunnerOptions): void {
   // Treat a command already present when the reader mounts as stale. This
   // preserves the old counter behavior when switching books/remounting readers.
   const handledCommandIdRef = useRef(processingCommand?.id);
@@ -124,9 +125,9 @@ export function useBookProcessingRunner ({ ageSamplePageCount, ageSampleTextCoun
         });
         return;
       case 'standards':
-        assignStandards(true)
+        assignStandards(!generateOnlyMissingStandards)
           .catch((assignmentError) => setError(assignmentError instanceof Error ? assignmentError.message : 'Unable to assign chapter standards.'))
           .finally(onProcessingComplete);
     }
-  }, [ageSamplePageCount, ageSampleTextCount, assignStandards, conceptChapterCount, deduplicateAllConcepts, embedAllConcepts, fixAllConcepts, fixOnlyFailedConcepts, generateAllConcepts, generateAllConceptsModel, generateAllExercises, identifyChapters, isAssigningStandards, isDeduplicatingConcepts, isEmbeddingConcepts, isFixingConcepts, isGeneratingAllConcepts, isGeneratingAllExercises, isIdentifyingChapters, isMmdConversionComplete, isRecognizingAll, isRefiningChapters, isSortingConcepts, onProcessingComplete, openAgeDetectionConfirmation, openLanguageDetectionConfirmation, openSubjectDetectionConfirmation, processingCommand, processingPage, recognizeAllPages, refineAllChapters, setActivePane, setError, sortAllConcepts, totalPages]);
+  }, [ageSamplePageCount, ageSampleTextCount, assignStandards, conceptChapterCount, deduplicateAllConcepts, embedAllConcepts, fixAllConcepts, fixOnlyFailedConcepts, generateAllConcepts, generateAllConceptsModel, generateAllExercises, generateOnlyMissingStandards, identifyChapters, isAssigningStandards, isDeduplicatingConcepts, isEmbeddingConcepts, isFixingConcepts, isGeneratingAllConcepts, isGeneratingAllExercises, isIdentifyingChapters, isMmdConversionComplete, isRecognizingAll, isRefiningChapters, isSortingConcepts, onProcessingComplete, openAgeDetectionConfirmation, openLanguageDetectionConfirmation, openSubjectDetectionConfirmation, processingCommand, processingPage, recognizeAllPages, refineAllChapters, setActivePane, setError, sortAllConcepts, totalPages]);
 }

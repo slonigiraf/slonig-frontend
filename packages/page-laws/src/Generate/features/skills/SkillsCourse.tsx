@@ -209,6 +209,7 @@ function SkillsCourse ({ book, onBookChange }: { book: Book; onBookChange: (upda
   const { ipfs, isIpfsReady } = useIpfsContext();
   const { currentPair, isLoggedIn, setLoginIsRequired } = useLoginContext();
   const [storedBook, setStoredBook] = useState(book);
+  const [coursePrice, setCoursePrice] = useState<BN | undefined>(BN_ZERO);
   const [modulePrice, setModulePrice] = useState<BN | undefined>(BN_ZERO);
   const [skillPrice, setSkillPrice] = useState<BN | undefined>(BN_ZERO);
   const [knowledgeId, setKnowledgeId] = useState(book.publishingLocationId || '');
@@ -347,8 +348,12 @@ function SkillsCourse ({ book, onBookChange }: { book: Book; onBookChange: (upda
     const unpublishedModules = publishableChapters.filter(({ chapter }) => !isKnowledgeId(chapter.knowledgeId) || !onChainIds.has(chapter.knowledgeId)).length;
     const unpublishedSkills = publishableChapters.reduce((count, { templates }) => count + templates.filter(({ template }) => !isKnowledgeId(template.i) || !onChainIds.has(template.i)).length, 0);
 
-    return (modulePrice || BN_ZERO).muln(unpublishedModules).add((skillPrice || BN_ZERO).muln(unpublishedSkills));
-  }, [modulePrice, onChainIds, publishableChapters, skillPrice]);
+    const unpublishedCourse = !isKnowledgeId(storedBook.knowledgeId) || !onChainIds.has(storedBook.knowledgeId);
+
+    return (unpublishedCourse ? coursePrice || BN_ZERO : BN_ZERO)
+      .add((modulePrice || BN_ZERO).muln(unpublishedModules))
+      .add((skillPrice || BN_ZERO).muln(unpublishedSkills));
+  }, [coursePrice, modulePrice, onChainIds, publishableChapters, skillPrice, storedBook.knowledgeId]);
   const isCoursePublished = isKnowledgeId(storedBook.knowledgeId) && onChainIds.has(storedBook.knowledgeId);
   const isOrganizationLocked = isPublishing || courseChapters.some(({ chapter }) => isKnowledgeId(chapter.knowledgeId) && onChainIds.has(chapter.knowledgeId));
 
@@ -932,6 +937,7 @@ function SkillsCourse ({ book, onBookChange }: { book: Book; onBookChange: (upda
         api,
         bookId: book.id,
         courseName: formatBookTitle(courseName, storedBook.language),
+        coursePrice,
         currentPair,
         knowledgeId,
         loadKnowledgeItem,
@@ -955,7 +961,7 @@ function SkillsCourse ({ book, onBookChange }: { book: Book; onBookChange: (upda
     } finally {
       setIsPublishing(false);
     }
-  }, [api, book.id, courseName, currentPair, flushCourseName, isIpfsReady, isLoggedIn, knowledgeId, loadKnowledgeItem, modulePrice, pinKnowledgeItem, preparePublishedAbility, publishableChapters, setLoginIsRequired, showInfo, skillPrice, storedBook]);
+  }, [api, book.id, courseName, coursePrice, currentPair, flushCourseName, isIpfsReady, isLoggedIn, knowledgeId, loadKnowledgeItem, modulePrice, pinKnowledgeItem, preparePublishedAbility, publishableChapters, setLoginIsRequired, showInfo, skillPrice, storedBook]);
 
 
   return <StyledSkillsCourse>
@@ -1043,6 +1049,16 @@ function SkillsCourse ({ book, onBookChange }: { book: Book; onBookChange: (upda
             onChange={rememberLocation}
             value={knowledgeId}
           />
+          <div className='coursePriceField'>
+            <InputBalance
+              isDisabled={isPublishing || isCoursePublished}
+              isZeroable
+              label='Course insertion price'
+              onChange={setCoursePrice}
+              value={coursePrice}
+            />
+            <small>Paid when the course knowledge ID is first created on-chain. Republishing keeps the existing price.</small>
+          </div>
           <InputBalance
             isDisabled={isPublishing}
             isZeroable
@@ -1129,6 +1145,7 @@ const PublishCourseContent = styled.div`
   width: 100%;
 
   > .ui--Button { align-self: flex-start; margin: 0; }
+  .coursePriceField { display: flex; flex-direction: column; gap: 0.25rem; }
   .total, .publishStatus { font-weight: 600; margin: 0; }
 `;
 

@@ -38,6 +38,25 @@ export interface StoredChapterStandards {
 
 export type StoredBookStandards = Record<string, StoredChapterStandards>;
 
+/** An empty match list is not an identified standards mapping and can be retried. */
+export function hasChapterStandards (entry: StoredChapterStandards | undefined): boolean {
+  return Boolean(entry?.standards.length);
+}
+
+/** Retry missing, empty, or stale mappings, preserving successful ones. */
+export function needsChapterStandardsIdentification (entry: StoredChapterStandards | undefined, fingerprint: string, force = false): boolean {
+  return force || entry?.conceptFingerprint !== fingerprint || !hasChapterStandards(entry);
+}
+
+/** Invalidate both chapter mappings after a concept (and its abilities) moves. */
+export function removeChapterStandards (stored: StoredBookStandards, chapterKeys: readonly string[]): StoredBookStandards {
+  const next = { ...stored };
+
+  chapterKeys.forEach((key) => { delete next[key]; });
+
+  return next;
+}
+
 export const STANDARD_FRAMEWORKS: ReadonlyArray<{ key: StandardsFramework; label: string }> = [
   { key: 'ccss', label: 'Common Core State Standards' },
   { key: 'ngss', label: 'Next Generation Science Standards' },

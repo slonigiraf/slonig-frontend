@@ -191,11 +191,20 @@ export function UploadStageDialogs ({ processing, selectedBook }: UploadStageDia
     </StageRunPricePopup>}
     {standardsExercises.isStandardsConfirmationOpen && !isFastForwardRunning && <StageRunPricePopup
       header={t('Standards')}
+      isRunDisabled={standardsExercises.generateOnlyMissingStandards && standardsExercises.standardsChapterCounts?.missing === 0}
       onClose={standardsExercises.closeStandardsConfirmation}
       onRun={standardsExercises.confirmAssignStandards}
       runLabel={t('Run')}
     >
-      <p>{t('Match standards for every chapter from its extracted concepts? The same embedding model selected in Embedings is used to embed the standards catalogs, while the cached concept vectors are reused to reduce every framework to the nearest candidates. Only those candidates are sent to the selected AI model three times, and a standard is kept when at least two runs agree.')}</p>
+      <p>{t('Match chapter standards from extracted concepts. The embedding model selected in Embedings is used to shortlist candidates, then the AI model matches them in three runs (two must agree).')}</p>
+      <Toggle
+        label={t('Only for chapters missing standards')}
+        onChange={standardsExercises.setGenerateOnlyMissingStandards}
+        value={standardsExercises.generateOnlyMissingStandards}
+      />
+      {standardsExercises.standardsChapterCounts && <p>{standardsExercises.generateOnlyMissingStandards
+        ? t('{{missing}} of {{total}} chapters need standards identification.', { replace: standardsExercises.standardsChapterCounts })
+        : t('Re-identify standards for all {{total}} chapters, including chapters with existing matches.', { replace: standardsExercises.standardsChapterCounts })}</p>}
       <AiPriceEstimate estimate={standardsExercises.standardsEstimate} />
       <OpenRouterModelSelector
         className='batchModelSelect'

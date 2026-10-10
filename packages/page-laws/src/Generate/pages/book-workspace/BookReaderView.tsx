@@ -16,7 +16,7 @@ import { fixConceptsChapterKey } from '../../book/infrastructure/storage/fixConc
 import { formatOpenRouterSpend } from '../../../openrouter/cost.js';
 import { pageChapterEvidence } from '../../book/domain/chapters/chapterSegmentation.js';
 import { missingGeneratedExerciseConceptIndexes } from '../../book/domain/exercises/exercises.js';
-import { STANDARD_FRAMEWORKS, standardsChapterKey } from '../../book/domain/standards/standards.js';
+import { hasChapterStandards, STANDARD_FRAMEWORKS, standardsChapterKey } from '../../book/domain/standards/standards.js';
 import Skills, { SkillsCourse } from '../../features/skills/index.js';
 import { AiPriceEstimate } from '../../shared/ui/PriceEstimate.js';
 import ProcessingPopup from '../../shared/ui/ProcessingPopup.js';
@@ -41,6 +41,7 @@ export function BookReaderView ({ controller }: Props): React.ReactElement {
     applyDeduplicateConceptsReview,
     applyFixConceptsReview,
     assignCurrentPageToChapter,
+    assignStandards,
     autoRunAll,
     autoRunProgress,
     autoRunStartKey,
@@ -218,6 +219,7 @@ export function BookReaderView ({ controller }: Props): React.ReactElement {
     sortedConceptsChapterCount,
     standardDescriptions,
     standardsAssignedChapterCount,
+    standardsTargetChapterCount,
     standardsByChapter,
     standardsChapterIndex,
     standardsChapterOutputRef,
@@ -607,6 +609,8 @@ export function BookReaderView ({ controller }: Props): React.ReactElement {
   };
 
   const standardsPane = (): React.ReactNode => {
+    const missingStandardsCount = conceptChapters.filter(({ chapterId, title, pageNumbers }) =>
+      !hasChapterStandards(standardsByChapter[standardsChapterKey(chapterId, title, pageNumbers)])).length;
     const assignment = currentStandardsChapterKey === undefined ? undefined : standardsByChapter[currentStandardsChapterKey];
     const applicableFrameworks = STANDARD_FRAMEWORKS.map((framework) => ({
       ...framework,
@@ -615,7 +619,14 @@ export function BookReaderView ({ controller }: Props): React.ReactElement {
 
     return <div className='tabPanel standardsPanel'>
       <div className='detailsHeader'>
-        <span>{isAssigningStandards ? `Identifying standards… ${standardsAssignedChapterCount}/${conceptChapters.length}` : 'Standards identified from chapter concepts'}</span>
+        <span>{isAssigningStandards
+          ? `Identifying standards… ${standardsAssignedChapterCount}/${standardsTargetChapterCount || conceptChapters.length}`
+          : `${conceptChapters.length - missingStandardsCount} of ${conceptChapters.length} chapters have standards${missingStandardsCount ? ` · ${missingStandardsCount} missing` : ''}`}</span>
+        <Button
+          isDisabled={isAssigningStandards || !missingStandardsCount}
+          label={`Identify missing standards (${missingStandardsCount})`}
+          onClick={() => { void assignStandards(false).catch((error: unknown) => setError(error instanceof Error ? error.message : 'Unable to identify missing standards.')); }}
+        />
       </div>
       <div
         className='conceptsOutput standardsOutput'
@@ -650,7 +661,7 @@ export function BookReaderView ({ controller }: Props): React.ReactElement {
                     </li>;
                   })}</ul>
                 </section>)
-                : <p className='emptyOutput'>No applicable standards were identified for this chapter.</p>}
+                : <p className='emptyOutput'>No standards were matched for this chapter. You can retry missing standards identification.</p>}
       </div>
       {isAssigningStandards && <small className='standardsSpend'>OpenRouter spend: {formatOpenRouterSpend(openRouterSpent)}</small>}
     </div>;
@@ -1169,7 +1180,7 @@ export function BookReaderView ({ controller }: Props): React.ReactElement {
           ['embeddings', 'Embedings', revealedPanes.has('embeddings') || isBookProcessingStageComplete(book, 'embeddings'), undefined],
           ['conceptExercises', 'Exercises', revealedPanes.has('conceptExercises'), entityCounts.exercises],
           ['preExercisesExercises', 'Abilities', revealedPanes.has('preExercisesExercises') || isBookProcessingStageComplete(book, 'abilities'), entityCounts.abilities],
-          ['standards', 'Standards', revealedPanes.has('standards') || isBookProcessingStageComplete(book, 'standards'), undefined],
+          ['standards', 'Standards', revealedPanes.has('standards') || isBookProcessingStageComplete(book, 'standards') || Object.keys(standardsByChapter).length > 0, undefined],
           ['skillsCourse', 'Course', revealedPanes.has('skillsCourse') || isBookProcessingStageComplete(book, 'abilities'), undefined]
         ] as Array<[ReaderPane, string, boolean, number | undefined]>).filter(([, , isVisible]) => isVisible).map(([pane, label, , count]) => (
           <button
@@ -1252,10 +1263,14 @@ export function BookReaderView ({ controller }: Props): React.ReactElement {
               onChange={({ target }) => changeStandardsChapter(Number(target.value))}
               value={conceptChapters.length ? standardsChapterIndex : ''}
             >
-              {conceptChapters.map(({ chapterId, pageNumbers, title }, index) => <option
-                key={standardsChapterKey(chapterId, title, pageNumbers)}
-                value={index}
-              >{title || 'Chapter not identified'}</option>)}
+              {conceptChapters.map(({ chapterId, pageNumbers, title }, index) => {
+                const isMissing = activePane === 'standards' && !hasChapterStandards(standardsByChapter[standardsChapterKey(chapterId, title, pageNumbers)]);
+
+                return <option
+                  key={standardsChapterKey(chapterId, title, pageNumbers)}
+                  value={index}
+                >{activePane === 'standards' ? (isMissing ? '⚠ Missing standards — ' : '✓ ') : ''}{title || 'Chapter not identified'}</option>;
+              })}
             </select></label>
             <Button
               aria-label='Edit chapter name'

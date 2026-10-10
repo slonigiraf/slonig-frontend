@@ -40,6 +40,7 @@ export function useBookReaderController (props: Props) {
     fixOnlyFailedConcepts,
     generateAllConceptsModel,
     generateOnlyMissingConcepts,
+    generateOnlyMissingStandards,
     generateOnlyMissingExercises,
     isPriceDisabled = false,
     onAbortFastForward,
@@ -99,6 +100,7 @@ export function useBookReaderController (props: Props) {
   const [conceptEmbeddingsRefreshToken, setConceptEmbeddingsRefreshToken] = useState(0);
   const [conceptChapterIndex, setConceptChapterIndex] = useState(0);
   const [standardsAssignedChapterCount, setStandardsAssignedChapterCount] = useState(0);
+  const [standardsTargetChapterCount, setStandardsTargetChapterCount] = useState(0);
   const [fixConceptsTargetChapterCount, setFixConceptsTargetChapterCount] = useState(0);
   const [isAssigningStandards, setIsAssigningStandards] = useState(false);
   const [conceptFirstPageByKey, setConceptFirstPageByKey] = useState<Map<string, number>>(new Map());
@@ -533,6 +535,7 @@ export function useBookReaderController (props: Props) {
     setOpenRouterSpent,
     setSkillsRefreshToken,
     setStandardsAssignedChapterCount,
+    setStandardsTargetChapterCount,
     setStandardsByChapter,
     standardsByChapter,
     standardsModel,
@@ -552,6 +555,7 @@ export function useBookReaderController (props: Props) {
     generateAllConcepts,
     generateAllConceptsModel,
     generateAllExercises,
+    generateOnlyMissingStandards,
     identifyChapters,
     isAssigningStandards,
     isDeduplicatingConcepts,
@@ -626,7 +630,8 @@ export function useBookReaderController (props: Props) {
     setConceptFirstPageByKey,
     setConcepts,
     setError,
-    setSkillsRefreshToken
+    setSkillsRefreshToken,
+    setStandardsByChapter
   });
 
 
@@ -697,7 +702,8 @@ export function useBookReaderController (props: Props) {
     refinedChaptersChapterCount,
     sortedConceptsChapterCount,
     standardsAssignedChapterCount,
-    totalPages
+    standardsTargetChapterCount,
+    totalPages,
   });
   const { setLastReaderProcessing } = processingStatus;
 
@@ -815,6 +821,8 @@ export function useBookReaderController (props: Props) {
     setConceptChapterIndex,
     standardsAssignedChapterCount,
     setStandardsAssignedChapterCount,
+    standardsTargetChapterCount,
+    setStandardsTargetChapterCount,
     fixConceptsTargetChapterCount,
     setFixConceptsTargetChapterCount,
     isAssigningStandards,

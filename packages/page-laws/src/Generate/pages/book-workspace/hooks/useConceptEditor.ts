@@ -7,6 +7,8 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import type { Dispatch, MutableRefObject, SetStateAction } from 'react';
 import { reportOpenRouterCost } from '../../../../openrouter/cost.js';
 import { conceptChapterMoveInsertionIndex } from '../../../book/domain/concepts/conceptChapterMove.js';
+import { removeChapterStandards, standardsChapterKey, type StoredBookStandards } from '../../../book/domain/standards/standards.js';
+import { loadStoredBookStandards, storeBookStandards } from '../../../book/infrastructure/storage/standardsStorage.js';
 import type { ConceptChapterNavigationItem } from '../../../book/domain/concepts/conceptRecognition.js';
 import { parseFixedConcept } from '../../../book/domain/concepts/fixConcepts.js';
 import { fixSingleConceptPrompt } from '../../../book/application/concepts/conceptPrompts.js';
@@ -36,6 +38,7 @@ interface UseConceptEditorOptions {
   setConcepts: Dispatch<SetStateAction<BookConcept[]>>;
   setError: Dispatch<SetStateAction<string>>;
   setSkillsRefreshToken: Dispatch<SetStateAction<number>>;
+  setStandardsByChapter: Dispatch<SetStateAction<StoredBookStandards>>;
 }
 
 export function useConceptEditor ({
@@ -57,7 +60,8 @@ export function useConceptEditor ({
   setConceptFirstPageByKey,
   setConcepts,
   setError,
-  setSkillsRefreshToken
+  setSkillsRefreshToken,
+  setStandardsByChapter
 }: UseConceptEditorOptions) {
   const [isAddingConcept, setIsAddingConcept] = useState(false);
   const [isSavingNewConcept, setIsSavingNewConcept] = useState(false);
@@ -283,6 +287,15 @@ export function useConceptEditor ({
         if (sourceIds.length === sourceConcepts.length && sourceIds.length) {
           await reorderBookConcepts(sourceIds, sourceChapter.chapterId);
         }
+
+        // The moved concept's associated abilities follow it. Both chapter
+        // standards mappings are now stale, while all other chapters are valid.
+        const affectedKeys = [sourceChapter, targetChapter].map(({ chapterId, title, pageNumbers }) =>
+          standardsChapterKey(chapterId, title, pageNumbers));
+        const remaining = removeChapterStandards(loadStoredBookStandards(book.id), affectedKeys);
+
+        storeBookStandards(book.id, remaining);
+        setStandardsByChapter((current) => removeChapterStandards(current, affectedKeys));
       }
 
       await reloadCurrentChapterConcepts();
@@ -295,7 +308,7 @@ export function useConceptEditor ({
       setError(message);
       throw caught;
     }
-  }, [book.id, conceptChapterIndex, conceptChapters, pages, refreshConceptCounts, reloadCurrentChapterConcepts, setError, setSkillsRefreshToken]);
+  }, [book.id, conceptChapterIndex, conceptChapters, pages, refreshConceptCounts, reloadCurrentChapterConcepts, setError, setSkillsRefreshToken, setStandardsByChapter]);
 
   const fixConceptWithAi = useCallback(async (concept: BookConcept): Promise<void> => {
     try {

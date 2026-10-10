@@ -41,6 +41,7 @@ export interface PublishProcessedBookOptions {
   api: ApiPromise;
   bookId: number;
   courseName: string;
+  coursePrice?: BN;
   currentPair: KeyringPair;
   knowledgeId: string;
   loadKnowledgeItem: (id: string) => Promise<KnowledgeItem | undefined>;
@@ -336,7 +337,7 @@ async function submitTransaction (transaction: SubmittableExtrinsic<'promise'>, 
   });
 }
 
-export async function publishProcessedBook ({ api, bookId, courseName, currentPair, knowledgeId, loadKnowledgeItem, modulePrice, onBookUpdated, onPublishedIds, onStatus, pinKnowledgeItem, preparePublishedAbility, publishableChapters, skillPrice, storedBook }: PublishProcessedBookOptions): Promise<Book> {
+export async function publishProcessedBook ({ api, bookId, courseName, coursePrice, currentPair, knowledgeId, loadKnowledgeItem, modulePrice, onBookUpdated, onPublishedIds, onStatus, pinKnowledgeItem, preparePublishedAbility, publishableChapters, skillPrice, storedBook }: PublishProcessedBookOptions): Promise<Book> {
   const batchAll = api.tx.utility?.batchAll;
 
   if (!batchAll) {
@@ -417,18 +418,19 @@ export async function publishProcessedBook ({ api, bookId, courseName, currentPa
 
     const initialCourse = initialBookCourseJson(savedCourseId, trimmedCourseName);
     const initialCourseDigest = await pinKnowledgeItem(initialCourse);
-    const courseCreate = api.tx.laws.create(savedCourseId, initialCourseDigest, BN_ZERO);
+    const amount = coursePrice || BN_ZERO;
+    const courseCreate = api.tx.laws.create(savedCourseId, initialCourseDigest, amount);
     const { partialFee } = await courseCreate.paymentInfo(currentPair);
     const balances = await api.derive.balances.all(currentPair.address);
     const existentialDeposit = new BN(api.consts.balances.existentialDeposit.toString());
-    const requiredBalance = new BN(partialFee.toString()).add(existentialDeposit);
+    const requiredBalance = amount.add(new BN(partialFee.toString())).add(existentialDeposit);
 
     if (balances.availableBalance.lt(requiredBalance)) {
-      throw new Error('Your balance is insufficient for the course publishing fee and the existential deposit.');
+      throw new Error('Your balance is insufficient for the course insertion price, publishing fee, and existential deposit.');
     }
 
     await submitTransaction(courseCreate, currentPair, api);
-    savedCourse = { amount: BN_ZERO, digestHex: initialCourseDigest, json: initialCourse };
+    savedCourse = { amount, digestHex: initialCourseDigest, json: initialCourse };
     onPublishedIds([savedCourseId]);
   }
 

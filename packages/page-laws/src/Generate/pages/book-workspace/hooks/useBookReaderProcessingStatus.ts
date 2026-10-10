@@ -43,6 +43,7 @@ interface UseBookReaderProcessingStatusOptions {
   refinedChaptersChapterCount: number;
   sortedConceptsChapterCount: number;
   standardsAssignedChapterCount: number;
+  standardsTargetChapterCount: number;
   totalPages: number;
 }
 
@@ -80,6 +81,7 @@ export function useBookReaderProcessingStatus ({
   refinedChaptersChapterCount,
   sortedConceptsChapterCount,
   standardsAssignedChapterCount,
+  standardsTargetChapterCount,
   totalPages
 }: UseBookReaderProcessingStatusOptions) {
   const { t } = useTranslation();
@@ -88,7 +90,9 @@ export function useBookReaderProcessingStatus ({
     ? 1
     : isFixingConcepts || pendingProcessingAction === 'fixConcepts'
       ? Math.max(1, fixConceptsTargetChapterCount || conceptChapterCount)
-      : isGeneratingAllConcepts || pendingProcessingAction === 'concepts' || isSortingConcepts || pendingProcessingAction === 'sortConcepts' || isRefiningChapters || pendingProcessingAction === 'refineChapters' || isAssigningStandards || pendingProcessingAction === 'standards'
+      : isAssigningStandards
+        ? Math.max(1, standardsTargetChapterCount || conceptChapterCount)
+      : isGeneratingAllConcepts || pendingProcessingAction === 'concepts' || isSortingConcepts || pendingProcessingAction === 'sortConcepts' || isRefiningChapters || pendingProcessingAction === 'refineChapters' || pendingProcessingAction === 'standards'
         ? Math.max(1, conceptChapterCount)
         : Math.max(1, totalPages);
   const processingValue = isDetectingBookLanguage || isDetectingBookSubject || isDetectingBookAge || processingPage !== undefined || isEmbeddingConcepts || pendingProcessingAction === 'embeddings' || isDeduplicatingConcepts || pendingProcessingAction === 'deduplicateConcepts'

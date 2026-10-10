@@ -37,6 +37,7 @@ export function UploadReader ({ book, file, isBusy, processing }: UploadReaderPr
       generateAllConceptsModel={processing.generateAllConceptsModel}
       standardsModel={processing.standardsModel}
       generateOnlyMissingConcepts={processing.conceptGeneration.generateOnlyMissingConcepts}
+      generateOnlyMissingStandards={processing.standardsExercises.generateOnlyMissingStandards}
       isPriceDisabled={isBusy || processing.pricing.isFastForwardRunning}
       onAbortFastForward={processing.pricing.abortFastForward}
       onAutoRunComplete={processing.pricing.onFastForwardComplete}

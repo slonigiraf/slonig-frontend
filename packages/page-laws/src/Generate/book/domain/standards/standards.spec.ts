@@ -4,7 +4,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { embeddingCosineDistance, mergeStandardsMatches, moduleStandardsText, parseStandardsMatches, STANDARDS_MATCH_RUNS, standardEmbeddingInput, standardsCandidatesFromEmbeddings, standardsConceptEmbeddingInput, standardsConceptFingerprint, standardsConceptInputs, standardsMatchesFromEmbeddings, standardsMatchingPrompt, standardsPathForBookSubject, type StandardsCatalog } from './standards.js';
+import { embeddingCosineDistance, hasChapterStandards, mergeStandardsMatches, moduleStandardsText, needsChapterStandardsIdentification, parseStandardsMatches, removeChapterStandards, STANDARDS_MATCH_RUNS, standardEmbeddingInput, standardsCandidatesFromEmbeddings, standardsConceptEmbeddingInput, standardsConceptFingerprint, standardsConceptInputs, standardsMatchesFromEmbeddings, standardsMatchingPrompt, standardsPathForBookSubject, type StandardsCatalog } from './standards.js';
 import { loadStandardsCatalogsForBookSubject } from '../../infrastructure/standards/standardsCatalog.js';
 import { loadStoredBookStandards } from '../../infrastructure/storage/standardsStorage.js';
 
@@ -19,6 +19,30 @@ const catalog: StandardsCatalog = {
 };
 
 describe('chapter standards', (): void => {
+  it('treats missing and empty mappings as retryable, but keeps successful mappings', (): void => {
+    assert.equal(hasChapterStandards(undefined), false);
+    assert.equal(hasChapterStandards({ conceptFingerprint: 'a', standards: [] }), false);
+    assert.equal(hasChapterStandards({ conceptFingerprint: 'a', standards: [{ code: 'CCSS.6.RP.A.2', framework: 'ccss' }] }), true);
+  });
+
+  it('selects only missing, empty, or outdated mappings for a normal standards run', (): void => {
+    const existing = { conceptFingerprint: 'current', standards: [{ code: 'CCSS.6.RP.A.2', framework: 'ccss' as const }] };
+
+    assert.equal(needsChapterStandardsIdentification(existing, 'current'), false);
+    assert.equal(needsChapterStandardsIdentification(existing, 'current', true), true);
+    assert.equal(needsChapterStandardsIdentification(existing, 'changed'), true);
+    assert.equal(needsChapterStandardsIdentification(undefined, 'current'), true);
+    assert.equal(needsChapterStandardsIdentification({ ...existing, standards: [] }, 'current'), true);
+  });
+
+  it('invalidates only the source and destination chapter standards after a move', (): void => {
+    const mapping = { conceptFingerprint: 'a', standards: [{ code: 'CCSS.6.RP.A.2', framework: 'ccss' as const }] };
+    const stored = { 'id:1': mapping, 'id:2': mapping, 'id:3': mapping };
+    const updated = removeChapterStandards(stored, ['id:1', 'id:3']);
+
+    assert.deepEqual(Object.keys(updated), ['id:2']);
+    assert.deepEqual(Object.keys(stored), ['id:1', 'id:2', 'id:3']);
+  });
   it('runs AI standards confirmation three times and reconciles with a 2-of-3 majority', (): void => {
     assert.equal(STANDARDS_MATCH_RUNS, 3);
     assert.deepEqual(mergeStandardsMatches([

@@ -12,7 +12,7 @@ import { processExtractedChapterContent } from '../../../book/application/proces
 import { DEFAULT_STANDARDS_MODEL } from '../../../book/application/config.js';
 import { type ConceptChapterNavigationItem } from '../../../book/domain/concepts/conceptRecognition.js';
 import { bookLanguageLabel } from '../../../book/domain/metadata/bookLanguage.js';
-import { standardsChapterKey, standardsConceptFingerprint, standardsConceptInputs, standardsPathForBookSubject, type StoredBookStandards } from '../../../book/domain/standards/standards.js';
+import { hasChapterStandards, needsChapterStandardsIdentification, standardsChapterKey, standardsConceptFingerprint, standardsConceptInputs, standardsPathForBookSubject, type StoredBookStandards } from '../../../book/domain/standards/standards.js';
 import { loadStandardsCatalogsForBookSubject } from '../../../book/infrastructure/standards/standardsCatalog.js';
 import { storeBookStandards } from '../../../book/infrastructure/storage/standardsStorage.js';
 import { cachedConceptEmbeddingMap, ensureStandardEmbeddingCache } from '../../../book/infrastructure/ai/standardsEmbeddings.js';
@@ -49,6 +49,7 @@ interface UseBookLearningContentProcessingOptions {
   setOpenRouterSpent: Dispatch<SetStateAction<number>>;
   setSkillsRefreshToken: Dispatch<SetStateAction<number>>;
   setStandardsAssignedChapterCount: Dispatch<SetStateAction<number>>;
+  setStandardsTargetChapterCount: Dispatch<SetStateAction<number>>;
   setStandardsByChapter: Dispatch<SetStateAction<StoredBookStandards>>;
   standardsByChapter: StoredBookStandards;
   standardsModel: string;
@@ -84,6 +85,7 @@ export function useBookLearningContentProcessing ({
   setOpenRouterSpent,
   setSkillsRefreshToken,
   setStandardsAssignedChapterCount,
+  setStandardsTargetChapterCount,
   setStandardsByChapter,
   standardsByChapter,
   standardsModel,
@@ -277,6 +279,7 @@ export function useBookLearningContentProcessing ({
     setError('');
     setIsAssigningStandards(true);
     setStandardsAssignedChapterCount(0);
+    setStandardsTargetChapterCount(0);
     setOpenRouterSpent(0);
 
     try {
@@ -298,52 +301,65 @@ export function useBookLearningContentProcessing ({
         throw new Error('Concept Embedings are missing or stale for the selected model. Run Embedings again before Standards.');
       }
 
+      // Determine the chapters to retry before making expensive OpenRouter calls.
+      // Preserve successful chapter mappings, even on a partial run.
+      const requests = conceptChapters.map((chapter) => {
+        const rows = getChapterStandardsConceptRows(conceptInventory, chapter);
+        const concepts = standardsConceptInputs(rows);
+        const fingerprint = standardsConceptFingerprint(concepts, standardsPathForBookSubject(book.subject) ?? 'no-standards');
+        const chapterKey = standardsChapterKey(chapter.chapterId, chapter.title, chapter.pageNumbers);
+
+        return { chapter, chapterKey, concepts, fingerprint, rows };
+      }).filter(({ chapterKey, fingerprint }) => needsChapterStandardsIdentification(standardsByChapter[chapterKey], fingerprint, force));
+
+      setStandardsTargetChapterCount(requests.length);
+
+      if (!requests.length) {
+        await completeStage('standards');
+        revealPane('standards');
+        return;
+      }
+
       const standardEmbeddings = await ensureStandardEmbeddingCache(client, embeddingModel, catalogs, addStandardsCost);
 
       setConceptEmbeddingsRefreshToken((token) => token + 1);
-      const results = await mapConcurrent(conceptChapters, OPENROUTER_CONCURRENCY, async (chapter: ConceptChapterNavigationItem) => {
-        const chapterConceptRows = getChapterStandardsConceptRows(conceptInventory, chapter);
-        const concepts = standardsConceptInputs(chapterConceptRows);
-        const fingerprint = standardsConceptFingerprint(concepts, standardsPathForBookSubject(book.subject) ?? 'no-standards');
-        const chapterKey = standardsChapterKey(chapter.chapterId, chapter.title, chapter.pageNumbers);
-        const existing = standardsByChapter[chapterKey];
-
-        if (!force && existing?.conceptFingerprint === fingerprint) {
-          setStandardsAssignedChapterCount((count) => count + 1);
-
-          return { chapterKey, entry: existing, status: 'fulfilled' as const };
-        }
-
+      const results = await mapConcurrent(requests, OPENROUTER_CONCURRENCY, async ({ chapter, chapterKey, concepts, fingerprint, rows }) => {
         try {
-          const chapterEmbeddings = chapterConceptRows.flatMap(({ id }) => id === undefined ? [] : (conceptEmbeddings.get(id) ? [conceptEmbeddings.get(id) as number[]] : []));
+          const chapterEmbeddings = rows.flatMap(({ id }) => id === undefined ? [] : (conceptEmbeddings.get(id) ? [conceptEmbeddings.get(id) as number[]] : []));
           const standards = await requestChapterStandards(client, standardsModel || DEFAULT_STANDARDS_MODEL, chapter.title, concepts, chapterEmbeddings, catalogs, standardEmbeddings, addStandardsCost);
-
-          setStandardsAssignedChapterCount((count) => count + 1);
 
           return { chapterKey, entry: { conceptFingerprint: fingerprint, standards }, status: 'fulfilled' as const };
         } catch (reason) {
           return { chapterKey, reason, status: 'rejected' as const };
+        } finally {
+          setStandardsAssignedChapterCount((count) => count + 1);
         }
       });
       const next = { ...standardsByChapter };
       let failures = 0;
+      let succeeded = 0;
 
       results.forEach((result) => {
         if (result.status === 'rejected') {
           failures++;
         } else {
+          succeeded++;
           next[result.chapterKey] = result.entry;
         }
       });
 
       setStandardsByChapter(next);
       storeBookStandards(book.id, next);
+      revealPane('standards');
+
+      // A partial run is successful: available mappings remain usable, and
+      // missing chapters are clearly marked for a targeted retry.
+      if (succeeded || conceptChapters.some((chapter) => hasChapterStandards(next[standardsChapterKey(chapter.chapterId, chapter.title, chapter.pageNumbers)]))) {
+        await completeStage('standards');
+      }
 
       if (failures) {
-        setError(`${failures} of ${conceptChapters.length} chapters could not have standards identified. Retry Standards identification.`);
-      } else {
-        await completeStage('standards');
-        revealPane('standards');
+        setError(`${failures} of ${requests.length} chapter${requests.length === 1 ? '' : 's'} could not have standards identified. Successful chapters were saved. Retry only chapters missing standards.`);
       }
     } finally {
       setIsAssigningStandards(false);

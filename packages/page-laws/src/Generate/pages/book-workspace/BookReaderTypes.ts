@@ -19,6 +19,7 @@ export interface Props {
   fixOnlyFailedConcepts: boolean;
   generateAllConceptsModel: string;
   generateOnlyMissingConcepts: boolean;
+  generateOnlyMissingStandards: boolean;
   generateOnlyMissingExercises: boolean;
   isPriceDisabled?: boolean;
   onAbortFastForward: () => void;

@@ -55,7 +55,7 @@ import { assertDisjointSortChapterConcepts, conceptsForSortChapter } from '../..
 import { getBookAgeSamplePageNumbers, parseDetectedBookAge } from '../../domain/metadata/bookAge.js';
 import { getMiddleBookPageNumbers, normalizeLanguageCode, parseDetectedBookLanguage } from '../../domain/metadata/bookLanguage.js';
 import { automaticBookSubjectForLanguage, parseDetectedBookSubject } from '../../domain/metadata/bookSubject.js';
-import { standardsChapterKey, standardsConceptFingerprint, standardsConceptInputs, standardsPathForBookSubject, type StoredBookStandards } from '../../domain/standards/standards.js';
+import { needsChapterStandardsIdentification, standardsChapterKey, standardsConceptFingerprint, standardsConceptInputs, standardsPathForBookSubject, type StoredBookStandards } from '../../domain/standards/standards.js';
 import { BOOK_AGE_DETECTION_PROMPT, BOOK_LANGUAGE_DETECTION_PROMPT, BOOK_SUBJECT_DETECTION_PROMPT } from '../../infrastructure/ai/prompts/metadata.js';
 import { cachedConceptEmbeddingMap, ensureConceptEmbeddingCache, ensureStandardEmbeddingCache } from '../../infrastructure/ai/standardsEmbeddings.js';
 import { extractPdfOutlineChapterBoundaries, loadPdfJs } from '../../infrastructure/pdf/pdf.js';
@@ -959,7 +959,7 @@ async function runStandards ({ book, command, cost, progress, signal, throwIfAbo
       const fingerprint = standardsConceptFingerprint(concepts, standardsPathForBookSubject(book.subject) ?? 'no-standards');
       const chapterKey = standardsChapterKey(chapter.chapterId, chapter.title, chapter.pageNumbers);
       const current = existing[chapterKey];
-      if (!command.options.force && current?.conceptFingerprint === fingerprint) return { chapterKey, entry: current, status: 'fulfilled' as const };
+      if (current && !needsChapterStandardsIdentification(current, fingerprint, command.options.force)) return { chapterKey, entry: current, status: 'fulfilled' as const };
       const chapterEmbeddings = rows.flatMap(({ id }) => id === undefined ? [] : (conceptEmbeddings.get(id) ? [conceptEmbeddings.get(id) as number[]] : []));
       const standards = await requestChapterStandards(client, command.options.standardsModel || DEFAULT_STANDARDS_MODEL, chapter.title, concepts, chapterEmbeddings, catalogs, standardEmbeddings, cost);
       return { chapterKey, entry: { conceptFingerprint: fingerprint, standards }, status: 'fulfilled' as const };
@@ -976,8 +976,15 @@ async function runStandards ({ book, command, cost, progress, signal, throwIfAbo
     else failures.push(conceptGenerationErrorMessage(result.reason));
   });
   await putBookProcessingArtifact(book.id, STANDARDS_ARTIFACT, next);
-  if (failures.length) throw new Error(`${failures.length} of ${chapters.length} chapters could not have standards identified. ${failures.join(' | ')}`);
+  // Successful chapters count as progress even when other chapters failed.
+  // Only fail the stage if no chapter could be identified at all.
+  if (failures.length === chapters.length) {
+    throw new Error(`${failures.length} of ${chapters.length} chapters could not have standards identified. ${failures.join(' | ')}`);
+  }
   await completeBookProcessingStage(book.id, 'standards');
+  if (failures.length) {
+    await progress(chapters.length, chapters.length, `${failures.length} chapter${failures.length === 1 ? '' : 's'} missing standards; successful mappings saved`);
+  }
 }
 
 
