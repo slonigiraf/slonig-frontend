@@ -103,15 +103,3 @@ export function clearBookExternalCalls (bookId: number): void {
 export function bookExternalCallTotal (counts: BookStageExternalCallCounts | undefined): number {
   return BOOK_EXTERNAL_CALL_PROVIDERS.reduce((total, provider) => total + (counts?.[provider] ?? 0), 0);
 }
-
-export function sumBookExternalCalls (calls: BookExternalCalls, stages: BookStageSpendKey[]): BookStageExternalCallCounts {
-  return stages.reduce<BookStageExternalCallCounts>((totals, stage) => {
-    const counts = calls[stage];
-
-    BOOK_EXTERNAL_CALL_PROVIDERS.forEach((provider) => {
-      totals[provider] = (totals[provider] ?? 0) + (counts?.[provider] ?? 0);
-    });
-
-    return totals;
-  }, {});
-}

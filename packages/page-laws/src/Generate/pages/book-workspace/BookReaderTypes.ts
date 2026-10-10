@@ -20,7 +20,6 @@ export interface Props {
   generateAllConceptsModel: string;
   generateOnlyMissingConcepts: boolean;
   generateOnlyMissingStandards: boolean;
-  generateOnlyMissingExercises: boolean;
   isPriceDisabled?: boolean;
   onAbortFastForward: () => void;
   onAutoRunComplete?: () => void;

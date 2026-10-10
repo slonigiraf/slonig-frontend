@@ -24,7 +24,7 @@ interface UploadStageDialogsProps {
 
 export function UploadStageDialogs ({ processing, selectedBook }: UploadStageDialogsProps): React.ReactElement {
   const { t } = useTranslation();
-  const { conceptGeneration, conceptOrganization, metadata, pricing, standardsExercises } = processing;
+  const { conceptGeneration, conceptOrganization, metadata, pricing, standardsProcessing } = processing;
   const isFastForwardRunning = pricing.isFastForwardRunning;
   const startIndex = BOOK_PRICE_STAGES.findIndex(({ key }) => key === pricing.fastForwardStartKey);
   const refineIndex = BOOK_PRICE_STAGES.findIndex(({ key }) => key === 'refineChapters');
@@ -189,23 +189,23 @@ export function UploadStageDialogs ({ processing, selectedBook }: UploadStageDia
         value={processing.generateAllConceptsModel}
       />
     </StageRunPricePopup>}
-    {standardsExercises.isStandardsConfirmationOpen && !isFastForwardRunning && <StageRunPricePopup
+    {standardsProcessing.isStandardsConfirmationOpen && !isFastForwardRunning && <StageRunPricePopup
       header={t('Standards')}
-      isRunDisabled={standardsExercises.generateOnlyMissingStandards && standardsExercises.standardsChapterCounts?.missing === 0}
-      onClose={standardsExercises.closeStandardsConfirmation}
-      onRun={standardsExercises.confirmAssignStandards}
+      isRunDisabled={standardsProcessing.generateOnlyMissingStandards && standardsProcessing.standardsChapterCounts?.missing === 0}
+      onClose={standardsProcessing.closeStandardsConfirmation}
+      onRun={standardsProcessing.confirmAssignStandards}
       runLabel={t('Run')}
     >
       <p>{t('Match chapter standards from extracted concepts. The embedding model selected in Embedings is used to shortlist candidates, then the AI model matches them in three runs (two must agree).')}</p>
       <Toggle
         label={t('Only for chapters missing standards')}
-        onChange={standardsExercises.setGenerateOnlyMissingStandards}
-        value={standardsExercises.generateOnlyMissingStandards}
+        onChange={standardsProcessing.setGenerateOnlyMissingStandards}
+        value={standardsProcessing.generateOnlyMissingStandards}
       />
-      {standardsExercises.standardsChapterCounts && <p>{standardsExercises.generateOnlyMissingStandards
-        ? t('{{missing}} of {{total}} chapters need standards identification.', { replace: standardsExercises.standardsChapterCounts })
-        : t('Re-identify standards for all {{total}} chapters, including chapters with existing matches.', { replace: standardsExercises.standardsChapterCounts })}</p>}
-      <AiPriceEstimate estimate={standardsExercises.standardsEstimate} />
+      {standardsProcessing.standardsChapterCounts && <p>{standardsProcessing.generateOnlyMissingStandards
+        ? t('{{missing}} of {{total}} chapters need standards identification.', { replace: standardsProcessing.standardsChapterCounts })
+        : t('Re-identify standards for all {{total}} chapters, including chapters with existing matches.', { replace: standardsProcessing.standardsChapterCounts })}</p>}
+      <AiPriceEstimate estimate={standardsProcessing.standardsEstimate} />
       <OpenRouterModelSelector
         className='batchModelSelect'
         modelLabel={t('Model')}
@@ -214,27 +214,6 @@ export function UploadStageDialogs ({ processing, selectedBook }: UploadStageDia
         value={processing.standardsModel}
       />
     </StageRunPricePopup>}
-    {standardsExercises.isGenerateExercisesConfirmationOpen && !isFastForwardRunning && <StageRunPricePopup
-      header={t('Generate exercises')}
-      onClose={standardsExercises.closeGenerateExercisesConfirmation}
-      onRun={standardsExercises.confirmGenerateExercises}
-      runLabel={t('Run')}
-    >
-      <p>{t('Generate one succinct, transformation-first exercise per concept, keep one per non-overlapping book exercise, and skip book exercises already covered by concepts?')}</p>
-      <Toggle
-        isDisabled={!standardsExercises.hasConceptsMissingExercise}
-        label={t('Only for concepts, missing an exercise')}
-        onChange={standardsExercises.setGenerateOnlyMissingExercises}
-        value={standardsExercises.generateOnlyMissingExercises}
-      />
-      <AiPriceEstimate estimate={standardsExercises.generateExercisesEstimate} />
-      <OpenRouterModelSelector
-        className='batchModelSelect'
-        modelLabel={t('Model')}
-        onChange={processing.setGenerateAllConceptsModel}
-        providerLabel={t('Provider')}
-        value={processing.generateAllConceptsModel}
-      />
-    </StageRunPricePopup>}
+
   </>;
 }

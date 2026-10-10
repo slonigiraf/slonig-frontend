@@ -107,7 +107,6 @@ export function BookReaderView ({ controller }: Props): React.ReactElement {
     fixExerciseWithAi,
     fixedConceptsChapterCount,
     generatedConceptsChapterCount,
-    generatedExercisesPageCount,
     goToPage,
     hasReaderProcessing,
     hasRecognitionBeenAttempted,
@@ -128,7 +127,6 @@ export function BookReaderView ({ controller }: Props): React.ReactElement {
     isExerciseChapterLoading,
     isFixingConcepts,
     isGeneratingAllConcepts,
-    isGeneratingAllExercises,
     isGeneratingChapterConcepts,
     isIdentifyingChapters,
     isLanguageDetectionConfirmationOpen,
@@ -481,8 +479,6 @@ export function BookReaderView ({ controller }: Props): React.ReactElement {
         ? `Sorting concepts by ZPD… ${sortedConceptsChapterCount}/${conceptChapters.length}`
       : isRefiningChapters
         ? `Refining chapters by theme… ${refinedChaptersChapterCount}/${conceptChapters.length}`
-      : isGeneratingAllExercises
-      ? `Generating exercises… ${generatedExercisesPageCount}/${totalPages}`
       : isGeneratingChapterConcepts
         ? 'Extracting and saving concepts for this chapter…'
         : 'Concepts';

@@ -26,7 +26,6 @@ interface UseBookChapterActionsOptions {
   generateAllConceptsModel: string;
   isDeletingChapters: boolean;
   isGeneratingAllConcepts: boolean;
-  isGeneratingAllExercises: boolean;
   isIdentifyingChapters: boolean;
   isRecognizingAll: boolean;
   newChapterTitle: string;
@@ -66,7 +65,6 @@ export function useBookChapterActions ({
   generateAllConceptsModel,
   isDeletingChapters,
   isGeneratingAllConcepts,
-  isGeneratingAllExercises,
   isIdentifyingChapters,
   isRecognizingAll,
   newChapterTitle,
@@ -258,7 +256,7 @@ export function useBookChapterActions ({
   }, [book.id, currentChapter?.id, refreshChapterAssignments, synchronizeChapterProcessingStage]);
 
   const identifyChapters = useCallback(async (): Promise<void> => {
-    if (!totalPages || processingPage !== undefined || isGeneratingAllConcepts || isRecognizingAll || isGeneratingAllExercises || isIdentifyingChapters) {
+    if (!totalPages || processingPage !== undefined || isGeneratingAllConcepts || isRecognizingAll || isIdentifyingChapters) {
       return;
     }
 
@@ -336,7 +334,7 @@ export function useBookChapterActions ({
       setIsIdentifyingChapters(false);
       onProcessingComplete();
     }
-  }, [currentReaderProcessingSignal, addChaptersCost, completeStage, book.id, book.language, generateAllConceptsModel, isGeneratingAllConcepts, isGeneratingAllExercises, isIdentifyingChapters, isRecognizingAll, onProcessingComplete, pages, pdf, processingPage, refreshChapterAssignments, revealPane, totalPages]);
+  }, [currentReaderProcessingSignal, addChaptersCost, completeStage, book.id, book.language, generateAllConceptsModel, isGeneratingAllConcepts, isIdentifyingChapters, isRecognizingAll, onProcessingComplete, pages, pdf, processingPage, refreshChapterAssignments, revealPane, totalPages]);
 
   return {
     assignCurrentPageToChapter,

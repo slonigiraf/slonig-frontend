@@ -69,15 +69,6 @@ export function clearFixConceptsChapterStatuses (bookId: number): FixConceptsCha
   return cleared;
 }
 
-export function setFixConceptsChapterStatus (bookId: number, chapter: ConceptChapterNavigationItem, status: FixConceptsChapterStatus): FixConceptsChapterStatuses {
-  const statuses = loadFixConceptsChapterStatuses(bookId);
-
-  statuses[fixConceptsChapterKey(chapter)] = status;
-  storeFixConceptsChapterStatuses(bookId, statuses);
-
-  return statuses;
-}
-
 export function failedFixConceptChapterKeys (bookId: number, chapters: ConceptChapterNavigationItem[]): Set<string> {
   const statuses = loadFixConceptsChapterStatuses(bookId);
 

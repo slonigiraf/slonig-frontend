@@ -37,7 +37,7 @@ export function UploadReader ({ book, file, isBusy, processing }: UploadReaderPr
       generateAllConceptsModel={processing.generateAllConceptsModel}
       standardsModel={processing.standardsModel}
       generateOnlyMissingConcepts={processing.conceptGeneration.generateOnlyMissingConcepts}
-      generateOnlyMissingStandards={processing.standardsExercises.generateOnlyMissingStandards}
+      generateOnlyMissingStandards={processing.standardsProcessing.generateOnlyMissingStandards}
       isPriceDisabled={isBusy || processing.pricing.isFastForwardRunning}
       onAbortFastForward={processing.pricing.abortFastForward}
       onAutoRunComplete={processing.pricing.onFastForwardComplete}
@@ -49,7 +49,6 @@ export function UploadReader ({ book, file, isBusy, processing }: UploadReaderPr
       processingCommand={processing.processingCommand}
       processingToolbar={processing.processingToolbars.prefix}
       processingToolbarAfterFixImages={processing.processingToolbars.suffix}
-      generateOnlyMissingExercises={processing.standardsExercises.generateOnlyMissingExercises}
     />
   </React.Suspense>;
 }

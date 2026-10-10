@@ -27,15 +27,6 @@ export const DEDUPLICATE_CONCEPTS_RUNS = 2;
 export const DEDUPLICATION_MAX_COSINE_DISTANCE = 0.3;
 export const DEDUPLICATION_MAX_NEIGHBORS_PER_CONCEPT = 5;
 
-interface DeduplicateConceptResponsePair {
-  conceptIdA: number;
-  conceptIdB: number;
-}
-
-interface DeduplicateConceptResponse {
-  duplicatePairs: DeduplicateConceptResponsePair[];
-}
-
 function isRecord (value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
@@ -152,15 +143,6 @@ function deduplicateConceptCandidatesFiltered (
   });
 
   return Array.from(byPair.values()).sort((a, b) => a.cosineDistance - b.cosineDistance || a.conceptIdA - b.conceptIdA || a.conceptIdB - b.conceptIdB);
-}
-
-export function deduplicateConceptCandidates (
-  concepts: DeduplicateConceptInput[],
-  embeddings: ReadonlyMap<number, number[]>,
-  maxDistance = DEDUPLICATION_MAX_COSINE_DISTANCE,
-  maxNeighborsPerConcept = DEDUPLICATION_MAX_NEIGHBORS_PER_CONCEPT
-): DeduplicateConceptCandidatePair[] {
-  return deduplicateConceptCandidatesFiltered(concepts, embeddings, () => true, maxDistance, maxNeighborsPerConcept);
 }
 
 export function deduplicateConceptCandidatesWithinChapters (

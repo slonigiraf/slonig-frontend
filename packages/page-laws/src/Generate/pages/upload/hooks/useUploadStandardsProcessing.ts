@@ -2,18 +2,16 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { Book } from '@slonigiraf/db';
-import { getBookConceptsForBookPage, getBookPages, getConceptEmbeddings, getExercisesForBookPage, getStandardEmbeddings, isBookProcessingStageComplete, resetBookProcessingStagesFrom } from '@slonigiraf/db';
+import { getBookConceptsForBookPage, getBookPages, getConceptEmbeddings, getStandardEmbeddings, isBookProcessingStageComplete, resetBookProcessingStagesFrom } from '@slonigiraf/db';
 import type { Dispatch, SetStateAction } from 'react';
 import { useCallback, useEffect, useState } from 'react';
 
 import type { AiInputEstimate } from '../../../book/application/pricing/aiEstimate.js';
 import type { BookReaderCommandAction, PendingBookProcessingAction } from '../../../book/application/pipeline/bookPipeline.js';
 
-import { estimateAiInput, estimateAiRequests } from '../../../book/application/pricing/aiEstimate.js';
-import { conceptBelongsToChapter, sortConceptsByDisplayOrder } from '../../../book/domain/chapters/refineChapters.js';
-import { exerciseGenerationRequestEstimate } from '../../../book/application/processing/bookProcessing.js';
+import { estimateAiInput } from '../../../book/application/pricing/aiEstimate.js';
+import { conceptBelongsToChapter } from '../../../book/domain/chapters/refineChapters.js';
 import { conceptChaptersFromPages } from '../../../book/domain/concepts/conceptRecognition.js';
-import { bookLanguageLabel } from '../../../book/domain/metadata/bookLanguage.js';
 import { needsChapterStandardsIdentification, STANDARDS_MATCH_RUNS, standardsCandidatesFromEmbeddings, standardsChapterKey, standardsConceptFingerprint, standardsConceptInputs, standardsMatchingPrompt, standardsPathForBookSubject, standardEmbeddingInput } from '../../../book/domain/standards/standards.js';
 import { loadStandardsCatalogsForBookSubject } from '../../../book/infrastructure/standards/standardsCatalog.js';
 import { conceptEmbeddingInput } from '../../../book/infrastructure/ai/standardsEmbeddings.js';
@@ -31,9 +29,8 @@ function combineAiEstimates (...estimates: AiInputEstimate[]): AiInputEstimate {
   }), { inputPriceUsd: 0, inputTokens: 0, outputPriceUsd: 0, outputTokens: 0, requests: 0, totalPriceUsd: 0 });
 }
 
-interface UploadStandardsExercisesProcessingParams {
+interface UploadStandardsProcessingParams {
   embeddingModel: string;
-  generateAllConceptsModel: string;
   requestProcessing: (action: BookReaderCommandAction) => void;
   selectedBook?: Book;
   setBooks: Dispatch<SetStateAction<Book[]>>;
@@ -42,12 +39,8 @@ interface UploadStandardsExercisesProcessingParams {
   standardsModel: string;
 }
 
-export function useUploadStandardsExercisesProcessing ({ embeddingModel, generateAllConceptsModel, requestProcessing, selectedBook, setBooks, setError, setPendingProcessingAction, standardsModel }: UploadStandardsExercisesProcessingParams) {
+export function useUploadStandardsProcessing ({ embeddingModel, requestProcessing, selectedBook, setBooks, setError, setPendingProcessingAction, standardsModel }: UploadStandardsProcessingParams) {
   const { t } = useTranslation();
-  const [generateExercisesEstimate, setGenerateExercisesEstimate] = useState<AiInputEstimate>();
-  const [generateOnlyMissingExercises, setGenerateOnlyMissingExercises] = useState(false);
-  const [hasConceptsMissingExercise, setHasConceptsMissingExercise] = useState(false);
-  const [isGenerateExercisesConfirmationOpen, setIsGenerateExercisesConfirmationOpen] = useState(false);
   const [isStandardsConfirmationOpen, setIsStandardsConfirmationOpen] = useState(false);
   const [generateOnlyMissingStandards, setGenerateOnlyMissingStandards] = useState(true);
   const [standardsChapterCounts, setStandardsChapterCounts] = useState<{ missing: number; total: number }>();
@@ -270,138 +263,12 @@ export function useUploadStandardsExercisesProcessing ({ embeddingModel, generat
     });
   }, [generateOnlyMissingStandards, standardsChapterCounts, requestProcessing, selectedBook, t, setBooks, setError, setPendingProcessingAction]);
 
-  const onGenerateExercises = useCallback((): void => {
-    if (!selectedBook) {
-      return;
-    }
-
-    if (!selectedBook.language) {
-      setError(t('Book language has not been set yet. Open the Language step, then detect it from text or choose it manually.'));
-      return;
-    }
-
-    if (!selectedBook.subject) {
-      setError(t('Book subject has not been set yet. Open the Subject step, then detect it from text or choose it manually.'));
-      return;
-    }
-
-    setGenerateExercisesEstimate(undefined);
-    setGenerateOnlyMissingExercises(false);
-    setHasConceptsMissingExercise(false);
-    setIsGenerateExercisesConfirmationOpen(true);
-  }, [selectedBook, t, requestProcessing, setBooks, setError, setPendingProcessingAction]);
-
-  const onRetryMissingExercises = useCallback((): void => {
-    if (!selectedBook) {
-      return;
-    }
-
-    setGenerateExercisesEstimate(undefined);
-    setGenerateOnlyMissingExercises(true);
-    setHasConceptsMissingExercise(true);
-    setIsGenerateExercisesConfirmationOpen(true);
-  }, [selectedBook, requestProcessing, setBooks, setError, setPendingProcessingAction]);
-
-  useEffect(() => {
-    if (!isGenerateExercisesConfirmationOpen || !selectedBook) {
-      return;
-    }
-
-    getBookPages(selectedBook.id).then(async (pages) => {
-      const storedPages = pages
-        .filter(({ chapter, chapterId, conceptsProcessed, excludedFromAnalysis }) => conceptsProcessed && !excludedFromAnalysis && (chapterId !== undefined || Boolean(chapter.trim())))
-        .sort((a, b) => a.pageNumber - b.pageNumber);
-      const pageRows = await Promise.all(storedPages.map(async (storedPage) => ({
-        concepts: await getBookConceptsForBookPage(selectedBook.id, storedPage.pageNumber),
-        exercises: await getExercisesForBookPage([selectedBook.id, storedPage.pageNumber]),
-        storedPage
-      })));
-      const exerciseConceptIds = new Set(pageRows.flatMap(({ exercises }) => exercises.flatMap(({ conceptId }) => conceptId === undefined ? [] : [conceptId])));
-      const hasMissingExercise = pageRows.some(({ concepts }) => concepts.some(({ id }) => id === undefined || !exerciseConceptIds.has(id)));
-
-      const hasCoveredConcept = exerciseConceptIds.size > 0;
-
-      setHasConceptsMissingExercise(hasMissingExercise);
-      if (hasMissingExercise && hasCoveredConcept && !generateOnlyMissingExercises) {
-        setGenerateOnlyMissingExercises(true);
-      } else if (!hasMissingExercise && generateOnlyMissingExercises) {
-        setGenerateOnlyMissingExercises(false);
-      }
-
-      const conceptInventory = pageRows.flatMap(({ concepts }) => concepts);
-      const chapterInputs = conceptChaptersFromPages(pages).flatMap((chapter) => {
-        const targetConcepts = sortConceptsByDisplayOrder(conceptInventory.filter((concept) => conceptBelongsToChapter(concept, chapter)))
-          .filter(({ id }) => !generateOnlyMissingExercises || id === undefined || !exerciseConceptIds.has(id));
-        const conceptsByPage = new Map<number, typeof targetConcepts>();
-
-        targetConcepts.forEach((concept) => {
-          const pageConcepts = conceptsByPage.get(concept.bookPage[1]) ?? [];
-
-          pageConcepts.push(concept);
-          conceptsByPage.set(concept.bookPage[1], pageConcepts);
-        });
-        const chapterPages = Array.from(conceptsByPage.entries())
-          .sort(([a], [b]) => a - b)
-          .map(([pageNumber, concepts]) => ({
-            concepts: concepts.map(({ description, id, title }) => ({ description, sourceId: id, title })),
-            pageNumber
-          }));
-
-        return chapterPages.length ? [{ chapter: chapter.title, pages: chapterPages }] : [];
-      });
-      const bookDetectedLanguage = bookLanguageLabel(selectedBook.language);
-      const requests = chapterInputs
-        .map((chapterInput) => exerciseGenerationRequestEstimate(chapterInput, bookDetectedLanguage, selectedBook.age))
-        .flatMap((request) => request ? [request] : []);
-
-      setGenerateExercisesEstimate(estimateAiRequests(generateAllConceptsModel, requests));
-    }).catch(() => setError(t('Unable to estimate exercise generation cost.')));
-  }, [generateAllConceptsModel, generateOnlyMissingExercises, isGenerateExercisesConfirmationOpen, selectedBook, t, requestProcessing, setBooks, setError, setPendingProcessingAction]);
-
-  const closeGenerateExercisesConfirmation = useCallback((): void => {
-    setIsGenerateExercisesConfirmationOpen(false);
-    setGenerateOnlyMissingExercises(false);
-    setHasConceptsMissingExercise(false);
-    setPendingProcessingAction(undefined);
-  }, [requestProcessing, setBooks, setError, setPendingProcessingAction]);
-
-  const confirmGenerateExercises = useCallback((): void => {
-    setIsGenerateExercisesConfirmationOpen(false);
-
-    if (!selectedBook) {
-      return;
-    }
-
-    setPendingProcessingAction('abilities');
-
-    resetBookProcessingStagesFrom(selectedBook.id, 'abilities').then((updatedBook) => {
-      if (updatedBook) {
-        setBooks((current) => current.map((book) => book.id === updatedBook.id ? updatedBook : book));
-      }
-
-      requestProcessing('abilities');
-    }).catch(() => {
-      setPendingProcessingAction(undefined);
-      setError(t('Unable to reset the book processing stage.'));
-    });
-  }, [generateOnlyMissingExercises, requestProcessing, selectedBook, t, setBooks, setError, setPendingProcessingAction]);
-
-
   return {
-    closeGenerateExercisesConfirmation,
     closeStandardsConfirmation,
     confirmAssignStandards,
-    confirmGenerateExercises,
-    generateExercisesEstimate,
-    generateOnlyMissingExercises,
     generateOnlyMissingStandards,
-    hasConceptsMissingExercise,
-    isGenerateExercisesConfirmationOpen,
     isStandardsConfirmationOpen,
     onAssignStandards,
-    onGenerateExercises,
-    onRetryMissingExercises,
-    setGenerateOnlyMissingExercises,
     setGenerateOnlyMissingStandards,
     standardsChapterCounts,
     standardsEstimate

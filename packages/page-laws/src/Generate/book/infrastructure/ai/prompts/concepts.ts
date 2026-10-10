@@ -36,11 +36,6 @@ Return only valid JSON in this exact shape, keeping the original language of the
 
 Every pageNumber must be one of the supplied page numbers. Use an empty array when no new concepts are present. Keep each concept description focused on the explanation of the concept itself; do not turn an exercise statement into a concept description. Use only <kx>...</kx> as mathematical delimiters. Do not use \\(...\\), \\[...\\], $...$, or $$...$$ anywhere in the returned text. For example, write "<kx>n</kx>", never "\\(<kx>n</kx>\\)" or "\\(n\\)". Escape every backslash in mathematical notation so the result remains valid JSON. Do not add markdown or any text outside the JSON.`;
 
-// Compatibility alias for callers that still import the older name. Concept
-// extraction itself is chapter-scoped; the request prompt below supplies all
-// pages from one chapter together.
-export const BOOK_PAGE_EXTRACTION_PROMPT = BOOK_CHAPTER_EXTRACTION_PROMPT;
-
 export const BOOK_CHAPTER_EXTRACTION_REQUEST_PROMPT = (
   chapterTitle: string,
   pages: Array<{ imageNames: string[]; pageNumber: number; text: string }>,
@@ -56,6 +51,3 @@ The following ordered pages and ${pages.reduce((count, { imageNames }) => count 
 
 ${pages.map(({ imageNames, pageNumber, text }) => `--- page ${pageNumber} ---\nAttached page images: ${imageNames.length ? imageNames.join(', ') : 'none'}\n${text}`).join('\n\n')}`;
 };
-
-export const BOOK_PAGE_EXTRACTION_REQUEST_PROMPT = (text: string, imageNames: string[]): string =>
-  BOOK_CHAPTER_EXTRACTION_REQUEST_PROMPT('', [{ imageNames, pageNumber: 1, text }]);

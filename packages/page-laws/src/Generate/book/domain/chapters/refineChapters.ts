@@ -49,13 +49,6 @@ export function withRefineChaptersComplete (book: Book): Book {
   return { ...book, completedStages: [...completedStages, REFINE_CHAPTERS_STAGE] };
 }
 
-export function withRefineChaptersIncomplete (book: Book): Book {
-  return {
-    ...book,
-    completedStages: (book.completedStages ?? []).filter((stage) => String(stage) !== 'refineChapters')
-  };
-}
-
 export function sortConceptsByDisplayOrder (concepts: BookConcept[]): BookConcept[] {
   return concepts
     .map((concept, index) => ({ concept, index, order: Number.isFinite(concept.displayOrder) ? concept.displayOrder as number : index }))

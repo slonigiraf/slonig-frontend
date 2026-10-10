@@ -4,7 +4,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { clearFixConceptsChapterStatuses, failedFixConceptChapterKeys, fixConceptsChapterKey, loadFixConceptsChapterStatuses, setFixConceptsChapterStatus } from './fixConceptsProgress.js';
+import { clearFixConceptsChapterStatuses, failedFixConceptChapterKeys, fixConceptsChapterKey, loadFixConceptsChapterStatuses, storeFixConceptsChapterStatuses } from './fixConceptsProgress.js';
 
 describe('Fix concepts chapter progress', (): void => {
   it('uses chapter identity and page range for a stable progress key', (): void => {
@@ -17,8 +17,10 @@ describe('Fix concepts chapter progress', (): void => {
     const failedChapter = { chapterId: 2, pageNumbers: [3, 4], title: 'Two' };
 
     clearFixConceptsChapterStatuses(bookId);
-    setFixConceptsChapterStatus(bookId, fixedChapter, 'fixed');
-    setFixConceptsChapterStatus(bookId, failedChapter, 'failed');
+    storeFixConceptsChapterStatuses(bookId, {
+      [fixConceptsChapterKey(fixedChapter)]: 'fixed',
+      [fixConceptsChapterKey(failedChapter)]: 'failed'
+    });
 
     const statuses = loadFixConceptsChapterStatuses(bookId);
 

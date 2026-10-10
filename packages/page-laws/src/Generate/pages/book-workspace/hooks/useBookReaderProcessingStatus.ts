@@ -20,7 +20,6 @@ interface UseBookReaderProcessingStatusOptions {
   fixConceptsTargetChapterCount: number;
   fixedConceptsChapterCount: number;
   generatedConceptsChapterCount: number;
-  generatedExercisesPageCount: number;
   identifiedChapterPageCount: number;
   isAssigningStandards: boolean;
   isDeduplicatingConcepts: boolean;
@@ -30,7 +29,6 @@ interface UseBookReaderProcessingStatusOptions {
   isEmbeddingConcepts: boolean;
   isFixingConcepts: boolean;
   isGeneratingAllConcepts: boolean;
-  isGeneratingAllExercises: boolean;
   isGeneratingChapterConcepts: boolean;
   isIdentifyingChapters: boolean;
   isRecognizingAll: boolean;
@@ -58,7 +56,6 @@ export function useBookReaderProcessingStatus ({
   fixConceptsTargetChapterCount,
   fixedConceptsChapterCount,
   generatedConceptsChapterCount,
-  generatedExercisesPageCount,
   identifiedChapterPageCount,
   isAssigningStandards,
   isDeduplicatingConcepts,
@@ -68,7 +65,6 @@ export function useBookReaderProcessingStatus ({
   isEmbeddingConcepts,
   isFixingConcepts,
   isGeneratingAllConcepts,
-  isGeneratingAllExercises,
   isGeneratingChapterConcepts,
   isIdentifyingChapters,
   isRecognizingAll,
@@ -109,8 +105,6 @@ export function useBookReaderProcessingStatus ({
               ? refinedChaptersChapterCount
               : isAssigningStandards || pendingProcessingAction === 'standards'
                 ? standardsAssignedChapterCount
-                : isGeneratingAllExercises || pendingProcessingAction === 'exercises'
-                  ? generatedExercisesPageCount
                   : generatedConceptsChapterCount;
   const processingLabel = isGeneratingChapterConcepts
     ? t('Processing chapter {{chapter}}', { replace: { chapter: currentConceptChapterTitle || '' } })
@@ -138,9 +132,7 @@ export function useBookReaderProcessingStatus ({
                           ? t('Clustering concepts into thematic chapters')
                           : isAssigningStandards || pendingProcessingAction === 'standards'
                             ? t('Matching standards to chapter concepts')
-                            : isGeneratingAllExercises || pendingProcessingAction === 'exercises'
-                              ? t('Generating exercises')
-                              : t('Extracting concepts by chapter');
+                            : t('Extracting concepts by chapter');
 
   const readerProcessingStage: BookStageSpendKey | undefined = confirmedProcessingStage
     ?? (isGeneratingChapterConcepts
@@ -169,9 +161,7 @@ export function useBookReaderProcessingStatus ({
                             ? REFINE_CHAPTERS_SPEND_STAGE
                             : isAssigningStandards
                               ? 'standards'
-                              : isGeneratingAllExercises
-                                ? 'exercises'
-                                : pendingProcessingAction ?? (processingPage !== undefined ? 'recognize' : undefined));
+                              : pendingProcessingAction ?? (processingPage !== undefined ? 'recognize' : undefined));
 
   useBookStageTimer(bookId, readerProcessingStage);
 
@@ -189,8 +179,7 @@ export function useBookReaderProcessingStatus ({
     isDeduplicatingConcepts ||
     isSortingConcepts ||
     isRefiningChapters ||
-    isAssigningStandards ||
-    isGeneratingAllExercises
+    isAssigningStandards
   );
   const readerProcessing: ProcessingStatus | undefined = hasReaderProcessing
     ? {

@@ -12,7 +12,6 @@ export interface BookProcessingRunnerState {
   isEmbeddingConcepts: boolean;
   isFixingConcepts: boolean;
   isGeneratingAllConcepts: boolean;
-  isGeneratingAllExercises: boolean;
   isIdentifyingChapters: boolean;
   isMmdConversionComplete: boolean;
   isRecognizingAll: boolean;
@@ -32,7 +31,6 @@ export function isBookProcessingCommandReady (action: BookReaderCommandAction, s
     isEmbeddingConcepts,
     isFixingConcepts,
     isGeneratingAllConcepts,
-    isGeneratingAllExercises,
     isIdentifyingChapters,
     isMmdConversionComplete,
     isRecognizingAll,
@@ -55,15 +53,6 @@ export function isBookProcessingCommandReady (action: BookReaderCommandAction, s
         processingPage === undefined &&
         !isGeneratingAllConcepts &&
         !isRecognizingAll &&
-        !isGeneratingAllExercises &&
-        !isIdentifyingChapters;
-    case 'exercises':
-      return Boolean(totalPages) &&
-        processingPage === undefined &&
-        !isGeneratingAllConcepts &&
-        !isRecognizingAll &&
-        !isRefiningChapters &&
-        !isGeneratingAllExercises &&
         !isIdentifyingChapters;
     case 'fixConcepts':
       return Boolean(conceptChapterCount) &&
@@ -71,7 +60,6 @@ export function isBookProcessingCommandReady (action: BookReaderCommandAction, s
         !isGeneratingAllConcepts &&
         !isFixingConcepts &&
         !isRecognizingAll &&
-        !isGeneratingAllExercises &&
         !isIdentifyingChapters;
     case 'embeddings':
     case 'deduplicateConcepts':
@@ -83,7 +71,6 @@ export function isBookProcessingCommandReady (action: BookReaderCommandAction, s
         !isDeduplicatingConcepts &&
         !isSortingConcepts &&
         !isRecognizingAll &&
-        !isGeneratingAllExercises &&
         !isIdentifyingChapters;
     case 'refineChapters':
       return processingPage === undefined &&
@@ -94,14 +81,12 @@ export function isBookProcessingCommandReady (action: BookReaderCommandAction, s
         !isSortingConcepts &&
         !isRefiningChapters &&
         !isRecognizingAll &&
-        !isGeneratingAllExercises &&
         !isIdentifyingChapters;
     case 'standards':
       return Boolean(conceptChapterCount) &&
         processingPage === undefined &&
         !isGeneratingAllConcepts &&
         !isRecognizingAll &&
-        !isGeneratingAllExercises &&
         !isIdentifyingChapters &&
         !isAssigningStandards;
   }

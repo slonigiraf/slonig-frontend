@@ -55,11 +55,6 @@ type LocatedProcessingExercise = ProcessingExercise & { sourcePageNumber: number
 
 export type BookProcessingAi = (prompt: string) => Promise<string>;
 
-export interface PageSymbolStatistics {
-  mean: number;
-  standardDeviation: number;
-}
-
 export interface PageConceptProcessingState {
   conceptsProcessed?: boolean;
   pageNumber: number;
@@ -95,29 +90,6 @@ export function countUnprocessedBookPages (totalPages: number, pages: PageConcep
 
   return Math.max(0, targetPageNumbers.size - processedPageNumbers.size);
 }
-
-export function calculatePageSymbolStatistics (pageTexts: string[]): PageSymbolStatistics | undefined {
-  const symbolCounts = pageTexts.map((text) => text.length);
-
-  if (!symbolCounts.length) {
-    return undefined;
-  }
-
-  const mean = symbolCounts.reduce((sum, count) => sum + count, 0) / symbolCounts.length;
-  const variance = symbolCounts.reduce((sum, count) => sum + Math.pow(count - mean, 2), 0) / symbolCounts.length;
-
-  return { mean, standardDeviation: Math.sqrt(variance) };
-}
-
-export function isWithinTwoStandardDeviations (symbolCount: number, statistics?: PageSymbolStatistics): boolean {
-  if (!statistics || !Number.isFinite(symbolCount)) {
-    return false;
-  }
-
-  return Math.abs(symbolCount - statistics.mean) <= 2 * statistics.standardDeviation;
-}
-
-
 
 function parseJsonObject (content: string): Record<string, unknown> {
   const json = content.replace(/^```json\s*|\s*```$/g, '').trim();
@@ -257,7 +229,6 @@ export async function processExtractedChapterContent (extracted: ExtractedChapte
   }
 
   const exercises: LocatedProcessingExercise[] = generatedExercises;
-
 
   const localConceptIndexes = new Map<number, Map<number, number>>();
 

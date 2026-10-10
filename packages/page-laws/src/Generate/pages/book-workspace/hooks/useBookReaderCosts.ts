@@ -36,7 +36,6 @@ export function useBookReaderCosts ({ bookId, setOpenRouterSpent }: UseBookReade
   const addDeduplicateConceptsCost = useCallback((costUsd: number): void => addOpenRouterStageCost('deduplicateConcepts', costUsd), [addOpenRouterStageCost]);
   const addSortConceptsCost = useCallback((costUsd: number): void => addOpenRouterStageCost('sortConcepts', costUsd), [addOpenRouterStageCost]);
   const addRefineChaptersCost = useCallback((costUsd: number): void => addOpenRouterStageCost(REFINE_CHAPTERS_SPEND_STAGE, costUsd), [addOpenRouterStageCost]);
-  const addExercisesCost = useCallback((costUsd: number): void => addOpenRouterStageCost('exercises', costUsd), [addOpenRouterStageCost]);
   const addStandardsCost = useCallback((costUsd: number): void => addOpenRouterStageCost('standards', costUsd), [addOpenRouterStageCost]);
 
   return {
@@ -45,7 +44,6 @@ export function useBookReaderCosts ({ bookId, setOpenRouterSpent }: UseBookReade
     addConceptsCost,
     addDeduplicateConceptsCost,
     addEmbeddingsCost,
-    addExercisesCost,
     addFixConceptsCost,
     addLanguageCost,
     addOpenRouterStageCost,

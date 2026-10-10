@@ -13,13 +13,11 @@ interface ProcessingToolbarHandlers {
   onEmbeddings: () => void;
   onFixConcepts: () => void;
   onGenerateConcepts: () => void;
-  onGenerateExercises: () => void;
   onIdentifyChapters: () => void;
   onRecognize: () => void;
   onRefineChapters: () => void;
   onSkipRefineChapters: () => Promise<void>;
   onRetryMissingConcepts: () => void;
-  onRetryMissingExercises: () => void;
   onShowAge: () => void;
   onShowLanguage: () => void;
   onShowSubject: () => void;

@@ -52,9 +52,3 @@ export function estimateAiRequests (model: string, requests: AiRequestEstimate[]
 export function estimateAiInput (model: string, requestInputs: string[], outputTokensPerRequest = 1_000): AiInputEstimate {
   return estimateAiRequests(model, requestInputs.map((input) => ({ input, outputTokens: outputTokensPerRequest })));
 }
-
-export function formatAiInputEstimate ({ inputPriceUsd, inputTokens, outputPriceUsd, outputTokens, requests, totalPriceUsd }: AiInputEstimate): string {
-  const requestPrice = requests ? totalPriceUsd / requests : 0;
-
-  return `Estimated usage: ${inputTokens.toLocaleString()} input tokens ($${inputPriceUsd.toFixed(4)}) + ${outputTokens.toLocaleString()} output tokens ($${outputPriceUsd.toFixed(4)}) across ${requests.toLocaleString()} request${requests === 1 ? '' : 's'}; about $${requestPrice.toFixed(4)} per request and $${totalPriceUsd.toFixed(4)} total.`;
-}

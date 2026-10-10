@@ -41,7 +41,6 @@ interface UseBookConceptProcessingOptions {
   isEmbeddingConcepts: boolean;
   isFixingConcepts: boolean;
   isGeneratingAllConcepts: boolean;
-  isGeneratingAllExercises: boolean;
   isIdentifyingChapters: boolean;
   isRecognizingAll: boolean;
   isRefiningChapters: boolean;
@@ -115,7 +114,6 @@ export function useBookConceptProcessing ({
   isEmbeddingConcepts,
   isFixingConcepts,
   isGeneratingAllConcepts,
-  isGeneratingAllExercises,
   isIdentifyingChapters,
   isRecognizingAll,
   isRefiningChapters,
@@ -220,7 +218,6 @@ export function useBookConceptProcessing ({
     isEmbeddingConcepts,
     isFixingConcepts,
     isGeneratingAllConcepts,
-    isGeneratingAllExercises,
     isIdentifyingChapters,
     isRecognizingAll,
     isSortingConcepts,
@@ -267,7 +264,6 @@ export function useBookConceptProcessing ({
     isEmbeddingConcepts,
     isFixingConcepts,
     isGeneratingAllConcepts,
-    isGeneratingAllExercises,
     isIdentifyingChapters,
     isRecognizingAll,
     isRefiningChapters,

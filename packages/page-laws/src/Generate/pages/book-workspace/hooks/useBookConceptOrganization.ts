@@ -30,7 +30,6 @@ interface UseBookConceptOrganizationOptions {
   isEmbeddingConcepts: boolean;
   isFixingConcepts: boolean;
   isGeneratingAllConcepts: boolean;
-  isGeneratingAllExercises: boolean;
   isIdentifyingChapters: boolean;
   isRecognizingAll: boolean;
   isRefiningChapters: boolean;
@@ -67,7 +66,6 @@ export function useBookConceptOrganization ({
   isEmbeddingConcepts,
   isFixingConcepts,
   isGeneratingAllConcepts,
-  isGeneratingAllExercises,
   isIdentifyingChapters,
   isRecognizingAll,
   isRefiningChapters,
@@ -89,7 +87,7 @@ export function useBookConceptOrganization ({
   setSortedConceptsChapterCount
 }: UseBookConceptOrganizationOptions) {
   const sortAllConcepts = useCallback(async (model = generateAllConceptsModel): Promise<void> => {
-    if (isSortingConcepts || isDeduplicatingConcepts || isEmbeddingConcepts || isFixingConcepts || isGeneratingAllConcepts || isRecognizingAll || isIdentifyingChapters || isGeneratingAllExercises || fixConceptsReview || deduplicateConceptsReview) {
+    if (isSortingConcepts || isDeduplicatingConcepts || isEmbeddingConcepts || isFixingConcepts || isGeneratingAllConcepts || isRecognizingAll || isIdentifyingChapters || fixConceptsReview || deduplicateConceptsReview) {
       return;
     }
 
@@ -197,10 +195,10 @@ export function useBookConceptOrganization ({
     } finally {
       setIsSortingConcepts(false);
     }
-  }, [currentReaderProcessingSignal, addSortConceptsCost, book, completeStage, conceptChapters, currentConceptChapter, deduplicateConceptsReview, fixConceptsReview, generateAllConceptsModel, isDeduplicatingConcepts, isEmbeddingConcepts, isFixingConcepts, isGeneratingAllConcepts, isGeneratingAllExercises, isIdentifyingChapters, isRecognizingAll, isSortingConcepts, pages, revealPane]);
+  }, [currentReaderProcessingSignal, addSortConceptsCost, book, completeStage, conceptChapters, currentConceptChapter, deduplicateConceptsReview, fixConceptsReview, generateAllConceptsModel, isDeduplicatingConcepts, isEmbeddingConcepts, isFixingConcepts, isGeneratingAllConcepts, isIdentifyingChapters, isRecognizingAll, isSortingConcepts, pages, revealPane]);
 
   const refineAllChapters = useCallback(async (model = generateAllConceptsModel): Promise<void> => {
-    if (isRefiningChapters || isSortingConcepts || isDeduplicatingConcepts || isEmbeddingConcepts || isFixingConcepts || isGeneratingAllConcepts || isRecognizingAll || isIdentifyingChapters || isGeneratingAllExercises || fixConceptsReview || deduplicateConceptsReview) {
+    if (isRefiningChapters || isSortingConcepts || isDeduplicatingConcepts || isEmbeddingConcepts || isFixingConcepts || isGeneratingAllConcepts || isRecognizingAll || isIdentifyingChapters || fixConceptsReview || deduplicateConceptsReview) {
       return;
     }
 
@@ -301,7 +299,7 @@ export function useBookConceptOrganization ({
     } finally {
       setIsRefiningChapters(false);
     }
-  }, [currentReaderProcessingSignal, addRefineChaptersCost, book, conceptChapters, deduplicateConceptsReview, fixConceptsReview, generateAllConceptsModel, isDeduplicatingConcepts, isEmbeddingConcepts, isFixingConcepts, isGeneratingAllConcepts, isGeneratingAllExercises, isIdentifyingChapters, isRecognizingAll, isRefiningChapters, isSortingConcepts, onBookChange, pages, refreshChapterAssignments, refreshConceptCounts, refreshEntityCounts, revealPane]);
+  }, [currentReaderProcessingSignal, addRefineChaptersCost, book, conceptChapters, deduplicateConceptsReview, fixConceptsReview, generateAllConceptsModel, isDeduplicatingConcepts, isEmbeddingConcepts, isFixingConcepts, isGeneratingAllConcepts, isIdentifyingChapters, isRecognizingAll, isRefiningChapters, isSortingConcepts, onBookChange, pages, refreshChapterAssignments, refreshConceptCounts, refreshEntityCounts, revealPane]);
 
 
   return {

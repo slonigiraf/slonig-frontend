@@ -5,375 +5,346 @@
 
 import { strict as assert } from 'node:assert';
 
-import { areAllBookPagesConceptsProcessed, calculatePageSymbolStatistics, countUnprocessedBookPages, isWithinTwoStandardDeviations, MAX_EXERCISE_GENERATION_RETRIES, processExtractedChapterContent } from './bookProcessing.js';
+import { areAllBookPagesConceptsProcessed, countUnprocessedBookPages, MAX_EXERCISE_GENERATION_RETRIES, processExtractedChapterContent } from './bookProcessing.js';
 
 describe('book processing pipeline', (): void => {
-
-  it('calculates book page symbol statistics and identifies pages within two standard deviations', (): void => {
-    const statistics = calculatePageSymbolStatistics(['a'.repeat(100), 'b'.repeat(100), 'c'.repeat(100), 'd'.repeat(200)]);
-
-    assert.ok(statistics);
-    assert.equal(statistics.mean, 125);
-    assert.ok(Math.abs(statistics.standardDeviation - 43.30127018922193) < 1e-10);
-    assert.equal(isWithinTwoStandardDeviations(100, statistics), true);
-    assert.equal(isWithinTwoStandardDeviations(220, statistics), false);
-  });
-
-  it('treats equal-length pages as within two standard deviations when standard deviation is zero', (): void => {
-    const statistics = calculatePageSymbolStatistics(['a'.repeat(50), 'b'.repeat(50)]);
-
-    assert.ok(statistics);
-    assert.equal(statistics.mean, 50);
-    assert.equal(statistics.standardDeviation, 0);
-    assert.equal(isWithinTwoStandardDeviations(50, statistics), true);
-    assert.equal(isWithinTwoStandardDeviations(49, statistics), false);
-  });
-
-  it('includes zero-symbol recognized pages in the book mean and standard deviation', (): void => {
-    const statistics = calculatePageSymbolStatistics(['', 'a'.repeat(100), 'b'.repeat(100)]);
-
-    assert.ok(statistics);
-    assert.ok(Math.abs(statistics.mean - (200 / 3)) < 1e-10);
-    assert.ok(statistics.standardDeviation > 0);
-  });
-
   it('treats a processed page with zero concepts as complete for the Exercises stage', (): void => {
-    const pages = [
-      { conceptsProcessed: true, pageNumber: 1 },
-      { conceptsProcessed: true, pageNumber: 2 },
-      { conceptsProcessed: true, pageNumber: 3 }
-    ];
-
-    assert.equal(areAllBookPagesConceptsProcessed(3, pages), true);
-    assert.equal(countUnprocessedBookPages(3, pages), 0);
-  });
+      const pages = [
+        { conceptsProcessed: true, pageNumber: 1 },
+        { conceptsProcessed: true, pageNumber: 2 },
+        { conceptsProcessed: true, pageNumber: 3 }
+      ];
+  
+      assert.equal(areAllBookPagesConceptsProcessed(3, pages), true);
+      assert.equal(countUnprocessedBookPages(3, pages), 0);
+    });
 
   it('can ignore intentionally excluded pages when checking concept completion', (): void => {
-    const pages = [
-      { conceptsProcessed: true, pageNumber: 1 },
-      { conceptsProcessed: false, pageNumber: 2 },
-      { conceptsProcessed: true, pageNumber: 3 }
-    ];
-
-    assert.equal(areAllBookPagesConceptsProcessed(3, pages, [1, 3]), true);
-    assert.equal(countUnprocessedBookPages(3, pages, [1, 3]), 0);
-  });
+      const pages = [
+        { conceptsProcessed: true, pageNumber: 1 },
+        { conceptsProcessed: false, pageNumber: 2 },
+        { conceptsProcessed: true, pageNumber: 3 }
+      ];
+  
+      assert.equal(areAllBookPagesConceptsProcessed(3, pages, [1, 3]), true);
+      assert.equal(countUnprocessedBookPages(3, pages, [1, 3]), 0);
+    });
 
   it('keeps Exercises locked only while a page is actually unprocessed', (): void => {
-    const pages = [
-      { conceptsProcessed: true, pageNumber: 1 },
-      { conceptsProcessed: false, pageNumber: 2 },
-      { conceptsProcessed: true, pageNumber: 3 }
-    ];
-
-    assert.equal(areAllBookPagesConceptsProcessed(3, pages), false);
-    assert.equal(countUnprocessedBookPages(3, pages), 1);
-  });
+      const pages = [
+        { conceptsProcessed: true, pageNumber: 1 },
+        { conceptsProcessed: false, pageNumber: 2 },
+        { conceptsProcessed: true, pageNumber: 3 }
+      ];
+  
+      assert.equal(areAllBookPagesConceptsProcessed(3, pages), false);
+      assert.equal(countUnprocessedBookPages(3, pages), 1);
+    });
 
   it('generates one exercise per concept while ignoring legacy book exercises', async (): Promise<void> => {
-    const prompts: string[] = [];
-    const result = await processExtractedChapterContent({
-      chapter: 'Chapter',
-      pages: [{
-        concepts: [{ description: 'Read a value encoded by a marked gauge', title: 'Reading a gauge' }, { description: 'Convert units', title: 'Conversion' }],
-        exercises: [
-          { description: 'Convert 2 km to m.', solution: '2000 m', title: 'Book exercise 1' },
-          { description: 'Find the missing angle.', solution: '60 degrees', title: 'Book exercise 2' }
-        ],
-        pageNumber: 1
-      }]
-    }, (prompt) => {
-      prompts.push(prompt);
-
-      if (prompts.length === 1) {
-        assert.match(prompt, /exactly one complete exercise/i);
-        assert.match(prompt, /Preserve the concept's learner modality/i);
-        assert.doesNotMatch(prompt, /abilityMode/i);
-        assert.match(prompt, /Preserve the task's represented form/i);
-        assert.match(prompt, /Prefer one short sentence/i);
-        assert.match(prompt, /6-16 words/i);
-        assert.match(prompt, /no more than about 20 words/i);
-        assert.doesNotMatch(prompt, /fraction-representation concepts|fraction strip/i);
-        assert.match(prompt, /LaTeX fraction notation/i);
-        assert.match(prompt, /straight line with equally spaced ticks/i);
-        assert.match(prompt, /later be reused by changing 1-3 data-bearing words or values/i);
-        assert.doesNotMatch(prompt, /bookExercises|bookExerciseIndex|overlappingBookExerciseIndexes/i);
-
-        const input = JSON.parse(prompt.slice(prompt.lastIndexOf('\n') + 1)) as { concepts: Array<{ conceptIndex: number }> };
-
-        assert.deepEqual(Object.keys(input), ['concepts']);
-        assert.deepEqual(input.concepts.map(({ conceptIndex }) => conceptIndex), [0, 1]);
-
-        return Promise.resolve(JSON.stringify({
+      const prompts: string[] = [];
+      const result = await processExtractedChapterContent({
+        chapter: 'Chapter',
+        pages: [{
+          concepts: [{ description: 'Read a value encoded by a marked gauge', title: 'Reading a gauge' }, { description: 'Convert units', title: 'Conversion' }],
           exercises: [
-            { conceptIndex: 0, description: 'What value does the gauge show?', imageDescription: 'A gauge with an unlabeled pointer positioned at 60 on a 0 to 100 scale.', solution: '60', title: 'Read a gauge value' },
-            { conceptIndex: 0, description: 'Use the scale markings to calculate the value 60.', solution: '60', title: 'Later textual surrogate' },
-            { conceptIndex: 1, description: 'Convert <kx>3</kx> km to m.', solution: '<kx>3000</kx> m', title: 'Convert distance' }
-          ]
-        }));
-      }
-
-      throw new Error('Exercise generation must not make a second visual-correction request.');
+            { description: 'Convert 2 km to m.', solution: '2000 m', title: 'Book exercise 1' },
+            { description: 'Find the missing angle.', solution: '60 degrees', title: 'Book exercise 2' }
+          ],
+          pageNumber: 1
+        }]
+      }, (prompt) => {
+        prompts.push(prompt);
+  
+        if (prompts.length === 1) {
+          assert.match(prompt, /exactly one complete exercise/i);
+          assert.match(prompt, /Preserve the concept's learner modality/i);
+          assert.doesNotMatch(prompt, /abilityMode/i);
+          assert.match(prompt, /Preserve the task's represented form/i);
+          assert.match(prompt, /Prefer one short sentence/i);
+          assert.match(prompt, /6-16 words/i);
+          assert.match(prompt, /no more than about 20 words/i);
+          assert.doesNotMatch(prompt, /fraction-representation concepts|fraction strip/i);
+          assert.match(prompt, /LaTeX fraction notation/i);
+          assert.match(prompt, /straight line with equally spaced ticks/i);
+          assert.match(prompt, /later be reused by changing 1-3 data-bearing words or values/i);
+          assert.doesNotMatch(prompt, /bookExercises|bookExerciseIndex|overlappingBookExerciseIndexes/i);
+  
+          const input = JSON.parse(prompt.slice(prompt.lastIndexOf('\n') + 1)) as { concepts: Array<{ conceptIndex: number }> };
+  
+          assert.deepEqual(Object.keys(input), ['concepts']);
+          assert.deepEqual(input.concepts.map(({ conceptIndex }) => conceptIndex), [0, 1]);
+  
+          return Promise.resolve(JSON.stringify({
+            exercises: [
+              { conceptIndex: 0, description: 'What value does the gauge show?', imageDescription: 'A gauge with an unlabeled pointer positioned at 60 on a 0 to 100 scale.', solution: '60', title: 'Read a gauge value' },
+              { conceptIndex: 0, description: 'Use the scale markings to calculate the value 60.', solution: '60', title: 'Later textual surrogate' },
+              { conceptIndex: 1, description: 'Convert <kx>3</kx> km to m.', solution: '<kx>3000</kx> m', title: 'Convert distance' }
+            ]
+          }));
+        }
+  
+        throw new Error('Exercise generation must not make a second visual-correction request.');
+      });
+  
+      assert.equal(prompts.length, 1);
+      assert.equal(result.pages[0].exercises.length, 2);
+      assert.deepEqual(result.pages[0].exercises.map(({ title }) => title), ['Reading a gauge', 'Conversion']);
+      assert.equal(result.pages[0].exercises.filter(({ source }) => source === 'book').length, 0);
+      assert.equal(result.pages[0].exercises.filter(({ source }) => source === 'generated').length, 2);
+      assert.deepEqual(result.pages[0].exercises.filter(({ source }) => source === 'generated').map(({ conceptIndex }) => conceptIndex), [0, 1]);
+      assert.match(result.pages[0].exercises.find(({ conceptIndex, source }) => source === 'generated' && conceptIndex === 0)?.imageDescription ?? '', /gauge/i);
     });
-
-    assert.equal(prompts.length, 1);
-    assert.equal(result.pages[0].exercises.length, 2);
-    assert.deepEqual(result.pages[0].exercises.map(({ title }) => title), ['Reading a gauge', 'Conversion']);
-    assert.equal(result.pages[0].exercises.filter(({ source }) => source === 'book').length, 0);
-    assert.equal(result.pages[0].exercises.filter(({ source }) => source === 'generated').length, 2);
-    assert.deepEqual(result.pages[0].exercises.filter(({ source }) => source === 'generated').map(({ conceptIndex }) => conceptIndex), [0, 1]);
-    assert.match(result.pages[0].exercises.find(({ conceptIndex, source }) => source === 'generated' && conceptIndex === 0)?.imageDescription ?? '', /gauge/i);
-  });
 
   it('rejects multiple-choice exercises and recovers them as open-response tasks', async (): Promise<void> => {
-    const prompts: string[] = [];
-    const result = await processExtractedChapterContent({
-      chapter: 'Arithmetic',
-      pages: [{ concepts: [{ description: 'Add two values', title: 'Addition' }], pageNumber: 1 }]
-    }, (prompt) => {
-      prompts.push(prompt);
-
-      if (prompts.length === 1) {
+      const prompts: string[] = [];
+      const result = await processExtractedChapterContent({
+        chapter: 'Arithmetic',
+        pages: [{ concepts: [{ description: 'Add two values', title: 'Addition' }], pageNumber: 1 }]
+      }, (prompt) => {
+        prompts.push(prompt);
+  
+        if (prompts.length === 1) {
+          return Promise.resolve(JSON.stringify({ exercises: [{
+            conceptIndex: 0,
+            description: 'What is <kx>3+4</kx>? A) 6 B) 7 C) 8',
+            solution: '<kx>7</kx>'
+          }] }));
+        }
+  
+        assert.match(prompt, /Never generate multiple-choice Exercises/i);
         return Promise.resolve(JSON.stringify({ exercises: [{
           conceptIndex: 0,
-          description: 'What is <kx>3+4</kx>? A) 6 B) 7 C) 8',
-          solution: '<kx>7</kx>'
+          description: 'Calculate <kx>3+4</kx>.',
+          solution: '<kx>3+4=7</kx>'
         }] }));
-      }
-
-      assert.match(prompt, /Never generate multiple-choice Exercises/i);
-      return Promise.resolve(JSON.stringify({ exercises: [{
-        conceptIndex: 0,
-        description: 'Calculate <kx>3+4</kx>.',
-        solution: '<kx>3+4=7</kx>'
-      }] }));
+      });
+  
+      assert.equal(prompts.length, 2);
+      assert.equal(result.pages[0].exercises.length, 1);
+      assert.equal(result.pages[0].exercises[0].description, 'Calculate <kx>3+4</kx>.');
     });
-
-    assert.equal(prompts.length, 2);
-    assert.equal(result.pages[0].exercises.length, 1);
-    assert.equal(result.pages[0].exercises[0].description, 'Calculate <kx>3+4</kx>.');
-  });
 
   it('keeps source concept ids for local persistence without exposing them to the AI prompt', async (): Promise<void> => {
-    const result = await processExtractedChapterContent({
-      chapter: 'Chapter',
-      pages: [{
-        concepts: [{ description: 'Convert units', sourceId: 42, title: 'Conversion' }],
-        pageNumber: 1
-      }]
-    }, (prompt) => {
-      const input = JSON.parse(prompt.slice(prompt.lastIndexOf('\n') + 1)) as { concepts: Array<Record<string, unknown>> };
-
-      assert.equal(input.concepts[0].sourceId, undefined);
-
-      return Promise.resolve(JSON.stringify({
-        exercises: [{ conceptIndex: 0, description: 'Convert <kx>3</kx> km to m.', solution: '<kx>3000</kx> m', title: 'Convert distance' }]
-      }));
+      const result = await processExtractedChapterContent({
+        chapter: 'Chapter',
+        pages: [{
+          concepts: [{ description: 'Convert units', sourceId: 42, title: 'Conversion' }],
+          pageNumber: 1
+        }]
+      }, (prompt) => {
+        const input = JSON.parse(prompt.slice(prompt.lastIndexOf('\n') + 1)) as { concepts: Array<Record<string, unknown>> };
+  
+        assert.equal(input.concepts[0].sourceId, undefined);
+  
+        return Promise.resolve(JSON.stringify({
+          exercises: [{ conceptIndex: 0, description: 'Convert <kx>3</kx> km to m.', solution: '<kx>3000</kx> m', title: 'Convert distance' }]
+        }));
+      });
+  
+      assert.equal(result.pages[0].concepts[0].sourceId, 42);
+      assert.equal(result.pages[0].exercises[0].conceptIndex, 0);
+      assert.equal(result.pages[0].exercises[0].title, 'Conversion');
     });
-
-    assert.equal(result.pages[0].concepts[0].sourceId, 42);
-    assert.equal(result.pages[0].exercises[0].conceptIndex, 0);
-    assert.equal(result.pages[0].exercises[0].title, 'Conversion');
-  });
 
   it('copies the exact concept title even when AI omits or invents an Exercise title', async (): Promise<void> => {
-    const result = await processExtractedChapterContent({
-      chapter: 'Biology',
-      pages: [{ concepts: [{ title: 'DNA & RNA: TP53', description: 'Explain the difference.' }], pageNumber: 1 }]
-    }, () => Promise.resolve(JSON.stringify({ exercises: [{ conceptIndex: 0, description: 'Compare DNA and RNA.', solution: 'They differ.', title: 'Invented exercise heading' }] })));
-
-    assert.equal(result.pages[0].exercises[0].title, 'DNA & RNA: TP53');
-
-    const missingTitle = await processExtractedChapterContent({
-      chapter: 'Biology',
-      pages: [{ concepts: [{ title: 'DNA & RNA: TP53', description: 'Explain the difference.' }], pageNumber: 1 }]
-    }, () => Promise.resolve(JSON.stringify({ exercises: [{ conceptIndex: 0, description: 'Compare DNA and RNA.', solution: 'They differ.' }] })));
-
-    assert.equal(missingTitle.pages[0].exercises[0].title, 'DNA & RNA: TP53');
-  });
+      const result = await processExtractedChapterContent({
+        chapter: 'Biology',
+        pages: [{ concepts: [{ title: 'DNA & RNA: TP53', description: 'Explain the difference.' }], pageNumber: 1 }]
+      }, () => Promise.resolve(JSON.stringify({ exercises: [{ conceptIndex: 0, description: 'Compare DNA and RNA.', solution: 'They differ.', title: 'Invented exercise heading' }] })));
+  
+      assert.equal(result.pages[0].exercises[0].title, 'DNA & RNA: TP53');
+  
+      const missingTitle = await processExtractedChapterContent({
+        chapter: 'Biology',
+        pages: [{ concepts: [{ title: 'DNA & RNA: TP53', description: 'Explain the difference.' }], pageNumber: 1 }]
+      }, () => Promise.resolve(JSON.stringify({ exercises: [{ conceptIndex: 0, description: 'Compare DNA and RNA.', solution: 'They differ.' }] })));
+  
+      assert.equal(missingTitle.pages[0].exercises[0].title, 'DNA & RNA: TP53');
+    });
 
   it('does not carry source book exercises forward when there are no concepts', async (): Promise<void> => {
-    let calls = 0;
-    const duplicateBookExercise = { description: 'Compute <kx>2+2</kx>.', solution: '<kx>4</kx>', title: 'Compute' };
-    const result = await processExtractedChapterContent({
-      chapter: 'Chapter',
-      pages: [
-        { concepts: [], exercises: [duplicateBookExercise], pageNumber: 1 },
-        { concepts: [], exercises: [duplicateBookExercise], pageNumber: 2 }
-      ]
-    }, () => {
-      calls++;
-
-      return Promise.resolve('{}');
+      let calls = 0;
+      const duplicateBookExercise = { description: 'Compute <kx>2+2</kx>.', solution: '<kx>4</kx>', title: 'Compute' };
+      const result = await processExtractedChapterContent({
+        chapter: 'Chapter',
+        pages: [
+          { concepts: [], exercises: [duplicateBookExercise], pageNumber: 1 },
+          { concepts: [], exercises: [duplicateBookExercise], pageNumber: 2 }
+        ]
+      }, () => {
+        calls++;
+  
+        return Promise.resolve('{}');
+      });
+  
+      assert.equal(calls, 0);
+      assert.equal(result.pages[0].exercises.length, 0);
+      assert.equal(result.pages[1].exercises.length, 0);
     });
-
-    assert.equal(calls, 0);
-    assert.equal(result.pages[0].exercises.length, 0);
-    assert.equal(result.pages[1].exercises.length, 0);
-  });
 
   it('stores Exercise visual descriptions without storing image bytes', async (): Promise<void> => {
-    let request = 0;
-    const result = await processExtractedChapterContent({
-      chapter: 'Chapter',
-      pages: [{
-        concepts: [{ description: 'Read number lines', title: 'Number line' }],
-        exercises: [],
-        pageNumber: 1
-      }]
-    }, (prompt) => {
-      request++;
-      assert.match(prompt, /single generation pass/i);
-      assert.match(prompt, /learner's required input and output/i);
-      assert.match(prompt, /answer-bearing visual facts/i);
-
-      return Promise.resolve(JSON.stringify({
-        exercises: [{
-          conceptIndex: 0,
-          description: 'Read the marked value.',
-          imageDescription: 'A horizontal number line from 0 to 10 with a single unlabeled point at 6.',
-          solution: '6',
-          solutionImageDescription: '',
-          title: 'Read number line'
+      let request = 0;
+      const result = await processExtractedChapterContent({
+        chapter: 'Chapter',
+        pages: [{
+          concepts: [{ description: 'Read number lines', title: 'Number line' }],
+          exercises: [],
+          pageNumber: 1
         }]
-      }));
+      }, (prompt) => {
+        request++;
+        assert.match(prompt, /single generation pass/i);
+        assert.match(prompt, /learner's required input and output/i);
+        assert.match(prompt, /answer-bearing visual facts/i);
+  
+        return Promise.resolve(JSON.stringify({
+          exercises: [{
+            conceptIndex: 0,
+            description: 'Read the marked value.',
+            imageDescription: 'A horizontal number line from 0 to 10 with a single unlabeled point at 6.',
+            solution: '6',
+            solutionImageDescription: '',
+            title: 'Read number line'
+          }]
+        }));
+      });
+  
+      assert.equal(request, 1);
+      assert.equal(result.pages[0].exercises.length, 1);
+      assert.match(result.pages[0].exercises[0].imageDescription ?? '', /number line/i);
+      assert.equal(result.pages[0].exercises[0].solutionImageDescription ?? '', '');
+      assert.equal('solutionImageDescription' in result.pages[0].exercises[0], false);
+      assert.equal('image' in result.pages[0].exercises[0], false);
+      assert.equal('images' in result.pages[0].exercises[0], false);
     });
-
-    assert.equal(request, 1);
-    assert.equal(result.pages[0].exercises.length, 1);
-    assert.match(result.pages[0].exercises[0].imageDescription ?? '', /number line/i);
-    assert.equal(result.pages[0].exercises[0].solutionImageDescription ?? '', '');
-    assert.equal('solutionImageDescription' in result.pages[0].exercises[0], false);
-    assert.equal('image' in result.pages[0].exercises[0], false);
-    assert.equal('images' in result.pages[0].exercises[0], false);
-  });
 
   it('designs a required solution visual in the same generation pass', async (): Promise<void> => {
-    let requests = 0;
-    const result = await processExtractedChapterContent({
-      chapter: 'Chapter',
-      pages: [{
-        concepts: [{ description: 'Plot ordered pairs', title: 'Coordinate plotting' }],
-        exercises: [],
-        pageNumber: 1
-      }]
-    }, (prompt) => {
-      requests++;
-      assert.match(prompt, /single generation pass/i);
-      assert.match(prompt, /no second visual-design pass will run/i);
-      assert.match(prompt, /solutionImageDescription/);
-      assert.match(prompt, /create, complete, mark, label, plot, draw, arrange/i);
-
-      return Promise.resolve(JSON.stringify({
-        exercises: [{
-          conceptIndex: 0,
-          description: 'Plot <kx>(4,-2)</kx>.',
-          imageDescription: '',
-          solution: 'Plot right 4, down 2.',
-          solutionImageDescription: 'A coordinate plane with the point (4,-2) plotted and labeled.',
-          title: 'Plot point'
+      let requests = 0;
+      const result = await processExtractedChapterContent({
+        chapter: 'Chapter',
+        pages: [{
+          concepts: [{ description: 'Plot ordered pairs', title: 'Coordinate plotting' }],
+          exercises: [],
+          pageNumber: 1
         }]
-      }));
+      }, (prompt) => {
+        requests++;
+        assert.match(prompt, /single generation pass/i);
+        assert.match(prompt, /no second visual-design pass will run/i);
+        assert.match(prompt, /solutionImageDescription/);
+        assert.match(prompt, /create, complete, mark, label, plot, draw, arrange/i);
+  
+        return Promise.resolve(JSON.stringify({
+          exercises: [{
+            conceptIndex: 0,
+            description: 'Plot <kx>(4,-2)</kx>.',
+            imageDescription: '',
+            solution: 'Plot right 4, down 2.',
+            solutionImageDescription: 'A coordinate plane with the point (4,-2) plotted and labeled.',
+            title: 'Plot point'
+          }]
+        }));
+      });
+  
+      assert.equal(requests, 1);
+      assert.match(result.pages[0].exercises[0].solutionImageDescription ?? '', /\(4,-2\)/);
     });
-
-    assert.equal(requests, 1);
-    assert.match(result.pages[0].exercises[0].solutionImageDescription ?? '', /\(4,-2\)/);
-  });
 
   it('keeps a text-only exercise text-only without a later visual correction pass', async (): Promise<void> => {
-    let requests = 0;
-    const result = await processExtractedChapterContent({
-      chapter: 'Chapter',
-      pages: [{
-        concepts: [{ description: 'Convert kilometers to meters', title: 'Metric conversion' }],
-        exercises: [],
-        pageNumber: 1
-      }]
-    }, (prompt) => {
-      requests++;
-      assert.match(prompt, /When neither the target input nor target output is representational/i);
-      assert.match(prompt, /keep both visual-description fields empty/i);
-      assert.match(prompt, /Never add a visual for decoration/i);
-      assert.match(prompt, /no second visual-design pass will run/i);
-
-      return Promise.resolve(JSON.stringify({
-        exercises: [{
-          conceptIndex: 0,
-          description: 'Convert <kx>3</kx> km to m.',
-          imageDescription: '',
-          solution: '<kx>3\\times1000=3000</kx> m.',
-          solutionImageDescription: '',
-          title: 'Convert distance'
+      let requests = 0;
+      const result = await processExtractedChapterContent({
+        chapter: 'Chapter',
+        pages: [{
+          concepts: [{ description: 'Convert kilometers to meters', title: 'Metric conversion' }],
+          exercises: [],
+          pageNumber: 1
         }]
-      }));
+      }, (prompt) => {
+        requests++;
+        assert.match(prompt, /When neither the target input nor target output is representational/i);
+        assert.match(prompt, /keep both visual-description fields empty/i);
+        assert.match(prompt, /Never add a visual for decoration/i);
+        assert.match(prompt, /no second visual-design pass will run/i);
+  
+        return Promise.resolve(JSON.stringify({
+          exercises: [{
+            conceptIndex: 0,
+            description: 'Convert <kx>3</kx> km to m.',
+            imageDescription: '',
+            solution: '<kx>3\\times1000=3000</kx> m.',
+            solutionImageDescription: '',
+            title: 'Convert distance'
+          }]
+        }));
+      });
+  
+      const generated = result.pages[0].exercises[0];
+  
+      assert.equal(requests, 1);
+      assert.equal(generated.imageDescription ?? '', '');
+      assert.equal(generated.solutionImageDescription ?? '', '');
+      assert.equal('imageDescription' in generated, false);
+      assert.equal('solutionImageDescription' in generated, false);
     });
-
-    const generated = result.pages[0].exercises[0];
-
-    assert.equal(requests, 1);
-    assert.equal(generated.imageDescription ?? '', '');
-    assert.equal(generated.solutionImageDescription ?? '', '');
-    assert.equal('imageDescription' in generated, false);
-    assert.equal('solutionImageDescription' in generated, false);
-  });
 
   it('passes learner age into Exercise generation and recovery prompts', async (): Promise<void> => {
-    const prompts: string[] = [];
-
-    await processExtractedChapterContent({
-      chapter: 'Chapter',
-      pages: [{ concepts: [{ description: 'Add within 20', title: 'Addition' }], exercises: [], pageNumber: 1 }]
-    }, (prompt) => {
-      prompts.push(prompt);
-
-      if (prompts.length === 1) {
+      const prompts: string[] = [];
+  
+      await processExtractedChapterContent({
+        chapter: 'Chapter',
+        pages: [{ concepts: [{ description: 'Add within 20', title: 'Addition' }], exercises: [], pageNumber: 1 }]
+      }, (prompt) => {
+        prompts.push(prompt);
+  
+        if (prompts.length === 1) {
+          assert.match(prompt, /current learner age is 8 years/i);
+          return Promise.resolve('{"exercises":[]}');
+        }
+  
         assert.match(prompt, /current learner age is 8 years/i);
-        return Promise.resolve('{"exercises":[]}');
-      }
-
-      assert.match(prompt, /current learner age is 8 years/i);
-      return Promise.resolve('{"exercises":[{"conceptIndex":0,"title":"Add","description":"Add <kx>7+5</kx>.","solution":"<kx>7+5=12</kx>"}]}');
-    }, 'English', 8);
-
-    assert.equal(prompts.length, 2);
-  });
-
-  it('retries missing concepts together up to three times', async (): Promise<void> => {
-    const prompts: string[] = [];
-    const exercise = (conceptIndex: number): Record<string, unknown> => ({ conceptIndex, description: `Task ${conceptIndex}`, solution: `Solution ${conceptIndex}`, title: `Exercise ${conceptIndex}` });
-    const result = await processExtractedChapterContent({
-      chapter: 'Chapter',
-      pages: [{
-        concepts: [{ description: 'A', title: 'Concept A' }, { description: 'B', title: 'Concept B' }],
-        exercises: [],
-        pageNumber: 1
-      }]
-    }, (prompt) => {
-      prompts.push(prompt);
-
-      if (prompts.length === 1) {
-        return Promise.resolve(JSON.stringify({ exercises: [exercise(0)] }));
-      }
-
-      if (prompts.length <= 3) {
-        const input = JSON.parse(prompt.slice(prompt.lastIndexOf('\n') + 1)) as { concepts: Array<{ conceptIndex: number }> };
-
-        assert.deepEqual(input.concepts.map(({ conceptIndex }) => conceptIndex), [1]);
-
-        return Promise.resolve('{"exercises":[]}');
-      }
-
-      if (prompts.length === 4) {
-        assert.match(prompt, /recovery attempt 3 of 3/i);
-
-        return Promise.resolve(JSON.stringify({ exercises: [exercise(1)] }));
-      }
-
-      throw new Error('Unexpected exercise-generation request.');
+        return Promise.resolve('{"exercises":[{"conceptIndex":0,"title":"Add","description":"Add <kx>7+5</kx>.","solution":"<kx>7+5=12</kx>"}]}');
+      }, 'English', 8);
+  
+      assert.equal(prompts.length, 2);
     });
 
-    assert.equal(MAX_EXERCISE_GENERATION_RETRIES, 3);
-    assert.equal(prompts.length, 4);
-    assert.deepEqual(result.pages[0].exercises.map(({ conceptIndex }) => conceptIndex), [0, 1]);
-  });
+  it('retries missing concepts together up to three times', async (): Promise<void> => {
+      const prompts: string[] = [];
+      const exercise = (conceptIndex: number): Record<string, unknown> => ({ conceptIndex, description: `Task ${conceptIndex}`, solution: `Solution ${conceptIndex}`, title: `Exercise ${conceptIndex}` });
+      const result = await processExtractedChapterContent({
+        chapter: 'Chapter',
+        pages: [{
+          concepts: [{ description: 'A', title: 'Concept A' }, { description: 'B', title: 'Concept B' }],
+          exercises: [],
+          pageNumber: 1
+        }]
+      }, (prompt) => {
+        prompts.push(prompt);
+  
+        if (prompts.length === 1) {
+          return Promise.resolve(JSON.stringify({ exercises: [exercise(0)] }));
+        }
+  
+        if (prompts.length <= 3) {
+          const input = JSON.parse(prompt.slice(prompt.lastIndexOf('\n') + 1)) as { concepts: Array<{ conceptIndex: number }> };
+  
+          assert.deepEqual(input.concepts.map(({ conceptIndex }) => conceptIndex), [1]);
+  
+          return Promise.resolve('{"exercises":[]}');
+        }
+  
+        if (prompts.length === 4) {
+          assert.match(prompt, /recovery attempt 3 of 3/i);
+  
+          return Promise.resolve(JSON.stringify({ exercises: [exercise(1)] }));
+        }
+  
+        throw new Error('Unexpected exercise-generation request.');
+      });
+  
+      assert.equal(MAX_EXERCISE_GENERATION_RETRIES, 3);
+      assert.equal(prompts.length, 4);
+      assert.deepEqual(result.pages[0].exercises.map(({ conceptIndex }) => conceptIndex), [0, 1]);
+    });
 });

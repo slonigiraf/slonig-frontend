@@ -16,7 +16,7 @@ import { useUploadConceptGeneration } from './useUploadConceptGeneration.js';
 import { useUploadConceptOrganization } from './useUploadConceptOrganization.js';
 import { useUploadMetadataProcessing } from './useUploadMetadataProcessing.js';
 import { useUploadPricing } from './useUploadPricing.js';
-import { useUploadStandardsExercisesProcessing } from './useUploadStandardsExercisesProcessing.js';
+import { useUploadStandardsProcessing } from './useUploadStandardsProcessing.js';
 
 interface UploadProcessingParams {
   isBusy: boolean;
@@ -77,9 +77,8 @@ export function useUploadProcessing ({ isBusy, readerFile, refreshBooks, selecte
     setError,
     setPendingProcessingAction
   });
-  const standardsExercises = useUploadStandardsExercisesProcessing({
+  const standardsProcessing = useUploadStandardsProcessing({
     embeddingModel,
-    generateAllConceptsModel,
     requestProcessing,
     selectedBook,
     setBooks,
@@ -120,10 +119,8 @@ export function useUploadProcessing ({ isBusy, readerFile, refreshBooks, selecte
       conceptOrganization.confirmSortConcepts();
     } else if (conceptOrganization.isRefineChaptersConfirmationOpen) {
       conceptOrganization.confirmRefineChapters();
-    } else if (standardsExercises.isGenerateExercisesConfirmationOpen) {
-      standardsExercises.confirmGenerateExercises();
-    } else if (standardsExercises.isStandardsConfirmationOpen) {
-      standardsExercises.confirmAssignStandards();
+    } else if (standardsProcessing.isStandardsConfirmationOpen) {
+      standardsProcessing.confirmAssignStandards();
     }
   }, [
     conceptOrganization.confirmDeduplicateConcepts,
@@ -143,10 +140,8 @@ export function useUploadProcessing ({ isBusy, readerFile, refreshBooks, selecte
     metadata.isIdentifyChaptersConfirmationOpen,
     metadata.isRecognizeConfirmationOpen,
     pricing.isFastForwardRunning,
-    standardsExercises.confirmAssignStandards,
-    standardsExercises.confirmGenerateExercises,
-    standardsExercises.isGenerateExercisesConfirmationOpen,
-    standardsExercises.isStandardsConfirmationOpen
+    standardsProcessing.confirmAssignStandards,
+    standardsProcessing.isStandardsConfirmationOpen
   ]);
 
   const onBookChange = useCallback((updatedBook: Book): void => {
@@ -160,18 +155,16 @@ export function useUploadProcessing ({ isBusy, readerFile, refreshBooks, selecte
 
   const processingToolbars = selectedBook
     ? createProcessingToolbars(selectedBook, isBusy, Boolean(readerFile), {
-      onAssignStandards: standardsExercises.onAssignStandards,
+      onAssignStandards: standardsProcessing.onAssignStandards,
       onDeduplicateConcepts: conceptOrganization.onDeduplicateConcepts,
       onEmbeddings: conceptGeneration.onEmbeddings,
       onFixConcepts: conceptGeneration.onFixConcepts,
       onGenerateConcepts: conceptGeneration.onGenerateConcepts,
-      onGenerateExercises: standardsExercises.onGenerateExercises,
       onIdentifyChapters: metadata.onIdentifyChapters,
       onRecognize: metadata.onRecognize,
       onRefineChapters: conceptOrganization.onRefineChapters,
       onSkipRefineChapters: conceptOrganization.skipRefineChapters,
       onRetryMissingConcepts: conceptGeneration.onRetryMissingConcepts,
-      onRetryMissingExercises: standardsExercises.onRetryMissingExercises,
       onShowAge: metadata.onShowAge,
       onShowLanguage: metadata.onShowLanguage,
       onShowSubject: metadata.onShowSubject,
@@ -194,7 +187,7 @@ export function useUploadProcessing ({ isBusy, readerFile, refreshBooks, selecte
     setEmbeddingModel,
     setGenerateAllConceptsModel,
     setStandardsModel,
-    standardsExercises,
+    standardsProcessing,
     standardsModel
   };
 }

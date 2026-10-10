@@ -90,10 +90,6 @@ VISUAL REQUEST:
 ${visualPrompt}`;
 };
 
-// Kept as a compatibility alias for code outside this package that imported the
-// older name. It now requests a structured scene rather than raw SVG markup.
-export const OPEN_ROUTER_SVG_PROMPT = (visualPrompt: string, purpose: 'question' | 'solution'): string => OPEN_ROUTER_VISUAL_SPEC_PROMPT(visualPrompt, purpose);
-
 export const OPEN_ROUTER_SOLUTION_RASTER_PROMPT = (visualPrompt: string): string => {
   return `Create the complete worked-solution visual. Show the correct constructed, drawn, labeled, shaded, plotted, graphed, marked, or modified result required by the solution. If this is an updated version of a question visual, preserve all unchanged base objects, labels, scale, coordinate system, and layout and apply only the requested change.
 

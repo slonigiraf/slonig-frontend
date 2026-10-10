@@ -42,7 +42,6 @@ interface UseBookConceptQualityOptions {
   isEmbeddingConcepts: boolean;
   isFixingConcepts: boolean;
   isGeneratingAllConcepts: boolean;
-  isGeneratingAllExercises: boolean;
   isIdentifyingChapters: boolean;
   isRecognizingAll: boolean;
   isSortingConcepts: boolean;
@@ -94,7 +93,6 @@ export function useBookConceptQuality ({
   isEmbeddingConcepts,
   isFixingConcepts,
   isGeneratingAllConcepts,
-  isGeneratingAllExercises,
   isIdentifyingChapters,
   isRecognizingAll,
   isSortingConcepts,
@@ -126,7 +124,7 @@ export function useBookConceptQuality ({
   setSkillsRefreshToken
 }: UseBookConceptQualityOptions) {
   const fixAllConcepts = useCallback(async (model = generateAllConceptsModel, onlyFailed = false): Promise<void> => {
-    if (!conceptChapters.length || isFixingConcepts || isDeduplicatingConcepts || isGeneratingAllConcepts || isRecognizingAll || isIdentifyingChapters || isGeneratingAllExercises || fixConceptsReview || deduplicateConceptsReview) {
+    if (!conceptChapters.length || isFixingConcepts || isDeduplicatingConcepts || isGeneratingAllConcepts || isRecognizingAll || isIdentifyingChapters || fixConceptsReview || deduplicateConceptsReview) {
       return;
     }
 
@@ -218,7 +216,7 @@ export function useBookConceptQuality ({
     } finally {
       setIsFixingConcepts(false);
     }
-  }, [currentReaderProcessingSignal, addFixConceptsCost, book, conceptChapters, deduplicateConceptsReview, fixConceptsReview, generateAllConceptsModel, isDeduplicatingConcepts, isEmbeddingConcepts, isFixingConcepts, isGeneratingAllConcepts, isGeneratingAllExercises, isIdentifyingChapters, isRecognizingAll, pages, revealPane]);
+  }, [currentReaderProcessingSignal, addFixConceptsCost, book, conceptChapters, deduplicateConceptsReview, fixConceptsReview, generateAllConceptsModel, isDeduplicatingConcepts, isEmbeddingConcepts, isFixingConcepts, isGeneratingAllConcepts, isIdentifyingChapters, isRecognizingAll, pages, revealPane]);
 
   const discardFixConceptsReview = useCallback((): void => {
     if (isApplyingFixConceptsReview) {
@@ -360,7 +358,7 @@ export function useBookConceptQuality ({
   }, [book, conceptChapters, currentConceptChapter, fixConceptsReview, isApplyingFixConceptsReview, onBookChange, onProcessingComplete, pages, refreshConceptCounts, refreshEntityCounts]);
 
   const embedAllConcepts = useCallback(async (): Promise<void> => {
-    if (isEmbeddingConcepts || isDeduplicatingConcepts || isFixingConcepts || isSortingConcepts || isGeneratingAllConcepts || isRecognizingAll || isIdentifyingChapters || isGeneratingAllExercises || fixConceptsReview || deduplicateConceptsReview) {
+    if (isEmbeddingConcepts || isDeduplicatingConcepts || isFixingConcepts || isSortingConcepts || isGeneratingAllConcepts || isRecognizingAll || isIdentifyingChapters || fixConceptsReview || deduplicateConceptsReview) {
       return;
     }
 
@@ -392,10 +390,10 @@ export function useBookConceptQuality ({
     } finally {
       setIsEmbeddingConcepts(false);
     }
-  }, [currentReaderProcessingSignal, addEmbeddingsCost, book, completeStage, deduplicateConceptsReview, embeddingModel, fixConceptsReview, isDeduplicatingConcepts, isEmbeddingConcepts, isFixingConcepts, isGeneratingAllConcepts, isGeneratingAllExercises, isIdentifyingChapters, isRecognizingAll, isSortingConcepts, pages, revealPane]);
+  }, [currentReaderProcessingSignal, addEmbeddingsCost, book, completeStage, deduplicateConceptsReview, embeddingModel, fixConceptsReview, isDeduplicatingConcepts, isEmbeddingConcepts, isFixingConcepts, isGeneratingAllConcepts, isIdentifyingChapters, isRecognizingAll, isSortingConcepts, pages, revealPane]);
 
   const deduplicateAllConcepts = useCallback(async (model = generateAllConceptsModel): Promise<void> => {
-    if (isDeduplicatingConcepts || isEmbeddingConcepts || isFixingConcepts || isSortingConcepts || isGeneratingAllConcepts || isRecognizingAll || isIdentifyingChapters || isGeneratingAllExercises || fixConceptsReview || deduplicateConceptsReview) {
+    if (isDeduplicatingConcepts || isEmbeddingConcepts || isFixingConcepts || isSortingConcepts || isGeneratingAllConcepts || isRecognizingAll || isIdentifyingChapters || fixConceptsReview || deduplicateConceptsReview) {
       return;
     }
 
@@ -500,7 +498,7 @@ export function useBookConceptQuality ({
     } finally {
       setIsDeduplicatingConcepts(false);
     }
-  }, [currentReaderProcessingSignal, addDeduplicateConceptsCost, book, deduplicateConceptsReview, embeddingModel, fixConceptsReview, generateAllConceptsModel, isDeduplicatingConcepts, isEmbeddingConcepts, isFixingConcepts, isGeneratingAllConcepts, isGeneratingAllExercises, isIdentifyingChapters, isRecognizingAll, isSortingConcepts, loadDeduplicateConceptInventory, revealPane]);
+  }, [currentReaderProcessingSignal, addDeduplicateConceptsCost, book, deduplicateConceptsReview, embeddingModel, fixConceptsReview, generateAllConceptsModel, isDeduplicatingConcepts, isEmbeddingConcepts, isFixingConcepts, isGeneratingAllConcepts, isIdentifyingChapters, isRecognizingAll, isSortingConcepts, loadDeduplicateConceptInventory, revealPane]);
 
   useEffect((): void => {
     if (autoRunAll && fixConceptsReview && !isApplyingFixConceptsReview) {

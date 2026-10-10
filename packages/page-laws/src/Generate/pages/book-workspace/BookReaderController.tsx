@@ -41,7 +41,6 @@ export function useBookReaderController (props: Props) {
     generateAllConceptsModel,
     generateOnlyMissingConcepts,
     generateOnlyMissingStandards,
-    generateOnlyMissingExercises,
     isPriceDisabled = false,
     onAbortFastForward,
     onAutoRunComplete,
@@ -132,11 +131,9 @@ export function useBookReaderController (props: Props) {
   const [isGeneratingChapterConcepts, setIsGeneratingChapterConcepts] = useState(false);
   const [isMaximized, setIsMaximized] = useState(() => getSessionReaderMaximized(book.id));
   const [isPageGenerationConfirmationOpen, setIsPageGenerationConfirmationOpen] = useState(false);
-  const [isGeneratingAllExercises, setIsGeneratingAllExercises] = useState(false);
   const [openRouterSpent, setOpenRouterSpent] = useState(0);
   const [hasRecognitionBeenAttempted, setHasRecognitionBeenAttempted] = useState(() => getSessionRecognitionAttempted(book.id));
   const [revealedPanes, setRevealedPanes] = useState<Set<ReaderPane>>(new Set());
-  const [generatedExercisesPageCount, setGeneratedExercisesPageCount] = useState(0);
   const [pageInput, setPageInput] = useState('1');
   const [pageNumber, setPageNumber] = useState(1);
   const [pages, setPages] = useState<Map<number, BookPage>>(new Map());
@@ -189,7 +186,6 @@ export function useBookReaderController (props: Props) {
     addConceptsCost,
     addDeduplicateConceptsCost,
     addEmbeddingsCost,
-    addExercisesCost,
     addFixConceptsCost,
     addLanguageCost,
     addOpenRouterStageCost,
@@ -396,7 +392,6 @@ export function useBookReaderController (props: Props) {
     generateAllConceptsModel,
     isDeletingChapters,
     isGeneratingAllConcepts,
-    isGeneratingAllExercises,
     isIdentifyingChapters,
     isRecognizingAll,
     newChapterTitle,
@@ -449,7 +444,6 @@ export function useBookReaderController (props: Props) {
     isEmbeddingConcepts,
     isFixingConcepts,
     isGeneratingAllConcepts,
-    isGeneratingAllExercises,
     isIdentifyingChapters,
     isRecognizingAll,
     isRefiningChapters,
@@ -507,41 +501,26 @@ export function useBookReaderController (props: Props) {
     sortAllConcepts
   } = conceptProcessing;
   const learningContentProcessing = useBookLearningContentProcessing({
-    addExercisesCost,
     addStandardsCost,
     book,
     completeStage,
     conceptChapters,
     currentReaderProcessingSignal,
     embeddingModel,
-    generateAllConceptsModel,
-    generateOnlyMissingExercises,
     isAssigningStandards,
-    isGeneratingAllConcepts,
-    isGeneratingAllExercises,
-    isIdentifyingChapters,
-    isRecognizingAll,
-    isRefiningChapters,
-    onProcessingComplete,
     pages,
-    processingPage,
-    refreshEntityCounts,
     revealPane,
     setConceptEmbeddingsRefreshToken,
     setError,
-    setGeneratedExercisesPageCount,
     setIsAssigningStandards,
-    setIsGeneratingAllExercises,
     setOpenRouterSpent,
-    setSkillsRefreshToken,
     setStandardsAssignedChapterCount,
     setStandardsTargetChapterCount,
     setStandardsByChapter,
     standardsByChapter,
-    standardsModel,
-    totalPages
+    standardsModel
   });
-  const { assignStandards, generateAllExercises } = learningContentProcessing;
+  const { assignStandards } = learningContentProcessing;
 
   useBookProcessingRunner({
     ageSamplePageCount: ageSamplePageNumbers.length,
@@ -554,7 +533,6 @@ export function useBookReaderController (props: Props) {
     fixOnlyFailedConcepts,
     generateAllConcepts,
     generateAllConceptsModel,
-    generateAllExercises,
     generateOnlyMissingStandards,
     identifyChapters,
     isAssigningStandards,
@@ -562,7 +540,6 @@ export function useBookReaderController (props: Props) {
     isEmbeddingConcepts,
     isFixingConcepts,
     isGeneratingAllConcepts,
-    isGeneratingAllExercises,
     isIdentifyingChapters,
     isMmdConversionComplete,
     isRecognizingAll,
@@ -679,7 +656,6 @@ export function useBookReaderController (props: Props) {
     fixConceptsTargetChapterCount,
     fixedConceptsChapterCount,
     generatedConceptsChapterCount,
-    generatedExercisesPageCount,
     identifiedChapterPageCount,
     isAssigningStandards,
     isDeduplicatingConcepts,
@@ -689,7 +665,6 @@ export function useBookReaderController (props: Props) {
     isEmbeddingConcepts,
     isFixingConcepts,
     isGeneratingAllConcepts,
-    isGeneratingAllExercises,
     isGeneratingChapterConcepts,
     isIdentifyingChapters,
     isRecognizingAll,
@@ -727,7 +702,6 @@ export function useBookReaderController (props: Props) {
     setIsSortingConcepts(false);
     setIsRefiningChapters(false);
     setIsAssigningStandards(false);
-    setIsGeneratingAllExercises(false);
     setConfirmedProcessingStage(undefined);
     setAutoRunProcessing(undefined);
     setLastReaderProcessing(undefined);
@@ -751,7 +725,6 @@ export function useBookReaderController (props: Props) {
     fixOnlyFailedConcepts,
     generateAllConceptsModel,
     generateOnlyMissingConcepts,
-    generateOnlyMissingExercises,
     isPriceDisabled,
     onAbortFastForward,
     onAutoRunComplete,
@@ -876,16 +849,12 @@ export function useBookReaderController (props: Props) {
     setIsMaximized,
     isPageGenerationConfirmationOpen,
     setIsPageGenerationConfirmationOpen,
-    isGeneratingAllExercises,
-    setIsGeneratingAllExercises,
     openRouterSpent,
     setOpenRouterSpent,
     hasRecognitionBeenAttempted,
     setHasRecognitionBeenAttempted,
     revealedPanes,
     setRevealedPanes,
-    generatedExercisesPageCount,
-    setGeneratedExercisesPageCount,
     pageInput,
     setPageInput,
     pageNumber,
