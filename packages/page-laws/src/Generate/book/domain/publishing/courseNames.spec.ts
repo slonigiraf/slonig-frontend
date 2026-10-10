@@ -11,15 +11,22 @@ import { parseNameSuggestions } from './courseNames.js';
 describe('parseNameSuggestions', (): void => {
   it('parses and trims one name per requested chapter', (): void => {
     assert.deepEqual(parseNameSuggestions('{"bookName":" Better algebra ","chapters":[{"id":2,"title":" Linear equations "}]}', [2]), {
-      bookName: 'Better Algebra',
-      chapters: [{ id: 2, title: 'Linear Equations' }]
+      bookName: 'Better algebra',
+      chapters: [{ id: 2, title: 'Linear equations' }]
     });
   });
 
-  it('removes leading numbers and uses title case', (): void => {
+  it('removes leading numbers and uses English sentence case', (): void => {
     assert.deepEqual(parseNameSuggestions('{"bookName":"INTRODUCTION TO DNA AND BIOLOGY","chapters":[{"id":1,"title":"Chapter 2: the art of algebra"}]}', [1]), {
-      bookName: 'Introduction to DNA and Biology',
-      chapters: [{ id: 1, title: 'The Art of Algebra' }]
+      bookName: 'Introduction to DNA and biology',
+      chapters: [{ id: 1, title: 'The art of algebra' }]
+    });
+  });
+
+  it('respects native orthography for non-English books', (): void => {
+    assert.deepEqual(parseNameSuggestions('{"bookName":"Die Grundlagen der Mathematik","chapters":[{"id":5,"title":"2. Grundlagen der Mathematik"}]}', [5], 'de'), {
+      bookName: 'Die Grundlagen der Mathematik',
+      chapters: [{ id: 5, title: 'Grundlagen der Mathematik' }]
     });
   });
 

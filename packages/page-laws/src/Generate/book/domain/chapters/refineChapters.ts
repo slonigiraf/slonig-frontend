@@ -106,7 +106,7 @@ Rules, in priority order:
 3. When splitting is useful, aim for about ${MIN_REFINED_CHAPTER_CONCEPTS}-${MAX_REFINED_CHAPTER_CONCEPTS} concepts per output chapter. Among similarly coherent thematic boundaries, strongly prefer the grouping whose chapter sizes are as even as practical. Avoid results where one chapter is much smaller or larger than the others when a nearby natural boundary would make the sizes more similar.
 4. Choose 2 or 3 output chapters according to the total concept count and available natural boundaries, favoring a chapter count that keeps most groups in the ${MIN_REFINED_CHAPTER_CONCEPTS}-${MAX_REFINED_CHAPTER_CONCEPTS} range. For example, 18 concepts should usually become two similarly sized chapters rather than one very small and one very large chapter; 24 concepts may become two chapters of about 12 or three chapters of about 8 depending on the stronger thematic boundaries.
 5. Prefer a single unsplit chapter when there are too few concepts for useful clustering, when the material is one coherent theme, or when every possible split would create weak fragments.
-6. Each output title must name the specific theme covered by its concepts. Use Title Case (example: "This Is an Example of a Title"), keep titles concise and distinct, and NEVER start a chapter title with chapter numbers, Roman numerals, or a "Chapter 2" prefix.
+6. Each output title must name the specific theme covered by its concepts. Follow the book language's native capitalization rules (for English use sentence case: "This is an example of a title"; preserve proper nouns and acronyms), keep titles concise and distinct, and NEVER start a chapter title with chapter numbers, Roman numerals, or a "Chapter 2" prefix.
 7. Do not add, remove, merge, split, rename, or rewrite concepts themselves.
 8. Because the application persists real chapters using source-page anchors, do not propose more output chapters than the available source pages. The maximum here is ${Math.max(1, Math.min(MAX_REFINED_CHAPTERS_PER_SOURCE, pageCount))}.
 
@@ -119,7 +119,7 @@ Return only valid JSON in this exact shape:
 If no split is useful, return exactly one chapter containing every conceptIndex in the original order. Return {"chapters":[]} when there are no concepts.`;
 }
 
-export function parseRefinedChapterGroups (content: string, conceptCount: number, pageCount = Number.MAX_SAFE_INTEGER): RefinedChapterGroups {
+export function parseRefinedChapterGroups (content: string, conceptCount: number, pageCount = Number.MAX_SAFE_INTEGER, language = 'en'): RefinedChapterGroups {
   if (!Number.isSafeInteger(conceptCount) || conceptCount < 0 || !Number.isSafeInteger(pageCount) || pageCount < 0) {
     throw new Error('Invalid chapter size for Refine Chapters.');
   }
@@ -163,7 +163,7 @@ export function parseRefinedChapterGroups (content: string, conceptCount: number
       throw new Error('OpenRouter returned invalid Refine Chapters data.');
     }
 
-    return { conceptIndexes: chapter.conceptIndexes, title: formatChapterTitle(title) };
+    return { conceptIndexes: chapter.conceptIndexes, title: formatChapterTitle(title, language) };
   });
   const flattened = chapters.flatMap(({ conceptIndexes }) => conceptIndexes);
   const expected = Array.from({ length: conceptCount }, (_, index) => index);

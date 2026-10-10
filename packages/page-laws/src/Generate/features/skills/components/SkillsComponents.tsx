@@ -20,7 +20,7 @@ import { nextStoredTikzValidity } from '../../../../Edit/tikzValidation.js';
 import { parseStoredAbility, withAbilityVisualSource } from '../../../../abilities/abilities.js';
 import { abilityModuleId, storedAbilityImageId } from '../../../book/application/abilities/abilityProcessing.js';
 import { stripMarkdownImageReferences } from '../../../book/infrastructure/pdf/bookImageRefs.js';
-import { EditForm, FixResultsReviewContent } from '../SkillsStyles.js';
+import { EditForm } from '../SkillsStyles.js';
 import { CONCEPT_REDO_STAGES } from '../conceptRedoStages.js';
 import FixingOverlay from '../../../shared/ui/FixingOverlay.js';
 import ItemActionsMenu from '../../../shared/ui/ItemActionsMenu.js';
@@ -107,20 +107,20 @@ export function ChapterNavigation ({ chapters, index, matchExercises = false, mi
   </div>;
 }
 
-export function ChapterTitleEditor ({ chapter, onClose, onError, onSaved }: { chapter: BookChapter; onClose: () => void; onError: (error: string) => void; onSaved: () => void }): React.ReactElement {
+export function ChapterTitleEditor ({ chapter, language, onClose, onError, onSaved }: { chapter: BookChapter; language?: string; onClose: () => void; onError: (error: string) => void; onSaved: () => void }): React.ReactElement {
   const [title, setTitle] = useState(chapter.title);
   const save = useCallback((): void => {
     if (chapter.id === undefined || !title.trim()) {
       return;
     }
 
-    updateBookChapterTitle(chapter.id, formatChapterTitle(title))
+    updateBookChapterTitle(chapter.id, formatChapterTitle(title, language))
       .then(() => {
         onSaved();
         onClose();
       })
       .catch((error) => onError(error instanceof Error ? error.message : 'Unable to rename the chapter.'));
-  }, [chapter.id, onClose, onError, onSaved, title]);
+  }, [chapter.id, language, onClose, onError, onSaved, title]);
 
   return <Modal
     header='Edit chapter name'
@@ -322,10 +322,9 @@ function cloneAbility (ability: GeneratedAbility): GeneratedAbility {
   return { ...ability, q: ability.q.map((exercise) => ({ ...exercise })) };
 }
 
-export function AbilityCard ({ isBusy = false, onDeleted, onError, onFix, record, sourceExercise }: { isBusy?: boolean; onDeleted: () => void; onError: (message: string) => void; onFix: (record: StoredAbility, stage: ConceptRedoStage) => Promise<void>; record: StoredAbility; sourceExercise?: Exercise }): React.ReactElement {
+export function AbilityCard ({ isBusy = false, onDeleted, onError, onFix, record }: { isBusy?: boolean; onDeleted: () => void; onError: (message: string) => void; onFix: (record: StoredAbility, stage: ConceptRedoStage) => Promise<void>; record: StoredAbility }): React.ReactElement {
   const [isRedoDialogOpen, setIsRedoDialogOpen] = useState(false);
   const [redoStart, setRedoStart] = useState<ConceptRedoStage>('exercises');
-  const [isSourceExerciseShown, setIsSourceExerciseShown] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [isFixing, setIsFixing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -436,7 +435,6 @@ export function AbilityCard ({ isBusy = false, onDeleted, onError, onFix, record
     <div className='contentCardActions'>
       <ItemActionsMenu
         actions={[
-          { label: 'Show Exercise', onClick: () => setIsSourceExerciseShown(true) },
           { label: isFixing ? 'Regenerating…' : 'Fix with AI', isDisabled: isBusy || isFixing || isSaving, onClick: () => setIsRedoDialogOpen(true) },
           { label: 'Edit', isDisabled: isBusy || isFixing, onClick: openEdit },
           { label: 'Delete', isDestructive: true, isDisabled: isBusy || isFixing || isSaving, onClick: remove }
@@ -479,22 +477,6 @@ export function AbilityCard ({ isBusy = false, onDeleted, onError, onFix, record
             <Button icon='play' label='Run' onClick={fix} />
           </Button.Group>
         </div>
-      </Modal.Content>
-    </Modal>}
-    {isSourceExerciseShown && <Modal
-      header='Source Exercise'
-      onClose={() => setIsSourceExerciseShown(false)}
-      size='large'
-    >
-      <Modal.Content>
-        <FixResultsReviewContent>
-          {sourceExercise
-            ? <>
-              <p>This Exercise was used to generate the Ability.</p>
-              <ExerciseReviewCard exercise={sourceExercise} />
-            </>
-            : <p>The source Exercise for this Ability could not be found. It may have been deleted or moved.</p>}
-        </FixResultsReviewContent>
       </Modal.Content>
     </Modal>}
     {isEditing && <Modal

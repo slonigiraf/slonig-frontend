@@ -133,17 +133,18 @@ function TitleSaveIndicator ({ onRetry, status }: { onRetry: () => void; status:
 
 interface ChapterViewProps extends DraggableRowProps {
   chapter: BookChapter;
+  language?: string;
   isPublishing: boolean;
   isPublished: boolean;
   onDelete: (chapter: BookChapter) => Promise<void>;
   onSaveName: (chapter: BookChapter, title: string) => Promise<void>;
 }
 
-function ChapterView ({ chapter, dragKey, isDraggingDisabled, isPublished, isPublishing, onDelete, onDragStart, onDrop, onSaveName }: ChapterViewProps): React.ReactElement {
+function ChapterView ({ chapter, language, dragKey, isDraggingDisabled, isPublished, isPublishing, onDelete, onDragStart, onDrop, onSaveName }: ChapterViewProps): React.ReactElement {
   const { showInfo } = useInfo();
   const [isEditingName, setIsEditingName] = useState(false);
   const { flush, onChange, status, title } = useAutosavedTitle({
-    normalize: formatChapterTitle,
+    normalize: (value) => formatChapterTitle(value, language),
     onError: (error) => showInfo(`Unable to rename the chapter: ${errorMessage(error)}`, 'error'),
     save: (name) => onSaveName(chapter, name),
     sourceTitle: chapter.title
@@ -368,7 +369,7 @@ function SkillsCourse ({ book, onBookChange }: { book: Book; onBookChange: (upda
     setPublishStatus('Book name saved.');
   }, [book.id, onBookChange]);
   const { acceptSavedTitle: acceptSavedCourseName, flush: flushCourseName, onChange: changeCourseName, status: bookTitleSaveStatus, title: courseName } = useAutosavedTitle({
-    normalize: formatBookTitle,
+    normalize: (value) => formatBookTitle(value, book.language),
     onError: (error) => showInfo(`Unable to save the book name: ${errorMessage(error)}`, 'error'),
     save: saveBookName,
     sourceTitle: book.name
@@ -460,7 +461,7 @@ function SkillsCourse ({ book, onBookChange }: { book: Book; onBookChange: (upda
       return;
     }
 
-    const title = formatChapterTitle(titleValue);
+    const title = formatChapterTitle(titleValue, storedBook.language);
 
     if (!title) {
       return;
@@ -474,7 +475,7 @@ function SkillsCourse ({ book, onBookChange }: { book: Book; onBookChange: (upda
     }
 
     setPublishStatus('Chapter name saved.');
-  }, [onChainIds]);
+  }, [onChainIds, storedBook.language]);
 
   const deleteTemplate = useCallback(async (recordId: string): Promise<void> => {
     try {
@@ -858,6 +859,7 @@ function SkillsCourse ({ book, onBookChange }: { book: Book; onBookChange: (upda
       const response = await openRouterRequestGate.run(() => client.chat.completions.create({
         messages: [{
           content: COURSE_NAMES_PROMPT({
+            language: storedBook.language,
             bookName: courseName,
             chapters: courseChapters.map(({ chapter, templates }) => ({
               abilityTitles: templates.map(({ template }) => template.h),
@@ -877,7 +879,7 @@ function SkillsCourse ({ book, onBookChange }: { book: Book; onBookChange: (upda
         throw new Error('OpenRouter returned no names.');
       }
 
-      const suggestions = parseNameSuggestions(content, chapterIds);
+      const suggestions = parseNameSuggestions(content, chapterIds, storedBook.language);
       await Promise.all(suggestions.chapters.map(({ id, title }) => updateBookChapterTitle(id, title)));
       const savedBook = await updateBookFields(storedBook.id, { name: suggestions.bookName });
 
@@ -929,7 +931,7 @@ function SkillsCourse ({ book, onBookChange }: { book: Book; onBookChange: (upda
       await publishProcessedBook({
         api,
         bookId: book.id,
-        courseName: formatBookTitle(courseName),
+        courseName: formatBookTitle(courseName, storedBook.language),
         currentPair,
         knowledgeId,
         loadKnowledgeItem,
@@ -1000,6 +1002,7 @@ function SkillsCourse ({ book, onBookChange }: { book: Book; onBookChange: (upda
           ? (
             <ChapterView
               chapter={item.chapter}
+              language={storedBook.language}
               dragKey={item.key}
               isDraggingDisabled={isOrganizationLocked || isReorderingAbilities}
               isPublished={isKnowledgeId(item.chapter.knowledgeId) && onChainIds.has(item.chapter.knowledgeId)}

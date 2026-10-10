@@ -104,7 +104,7 @@ ${ABILITY_GENERATION_INSTRUCTIONS_PROMPT}`;
 
 export const SOURCES_TO_SKILLS_PROMPT = `You are an educational content methodologist. Convert each supplied book concept or book exercise into exactly one smallest useful, narrow, observable skill. Preserve the source-item order and return one skill for every source item, even when two source items appear similar. Each skill must state an unambiguous input, operation, and expected output. Do not merge items, omit items, generate multiple skills for one item, use broad topic names, or invent unsupported material.
 
-Use sentence case for each skill title (example: "This is an example of a title"), preserving proper nouns and acronyms. Formulate every skill title and description abstractly, using the subject's general terms and concepts. Describe the general input type, operation, and output type. Do not include, copy, or depend on specific examples, names, numbers, sentences, objects, or exercise parameters from the source.
+Follow each language's capitalization conventions for skill titles. In English, use sentence case ("This is an example of a title"), preserving proper nouns and acronyms; in other languages use native orthography. Formulate every skill title and description abstractly, using the subject's general terms and concepts. Describe the general input type, operation, and output type. Do not include, copy, or depend on specific examples, names, numbers, sentences, objects, or exercise parameters from the source.
 
 The request supplies the book's ISO 639-1 language code. Write every generated skill title and description strictly in that language. A ru book must produce Russian skills and a tr book must produce Turkish skills. Never infer a different output language or default to English because these instructions and JSON field names are English. Keep formulas, symbols, and proper names unchanged where appropriate.
 
@@ -138,7 +138,7 @@ export const ATOMIC_ABILITY_WORKFLOW_SYSTEM_PROMPT = ABILITY_WORKFLOW_SYSTEM_PRO
 export const EXERCISE_ABILITIES_SYSTEM_PROMPT = ABILITY_WORKFLOW_SYSTEM_PROMPT;
 
 export const REPAIR_SYSTEM_PROMPT = (language: string, learnerAge?: number): string => {
-  return `Use sentence case when editing a Concept title, but never rename an Exercise or Ability based on style: for linked Exercises and Abilities always copy the source Concept title EXACTLY, including capitalization and markup. Keep ISO language ${language}. Return only the requested JSON object. ${LEARNER_AGE_PROMPT(learnerAge)}`;
+  return `Use the language's native capitalization conventions when editing a Concept title (English: sentence case, preserving proper nouns and acronyms), but never rename an Exercise or Ability based on style: for linked Exercises and Abilities always copy the source Concept title EXACTLY, including capitalization and markup. Keep ISO language ${language}. Return only the requested JSON object. ${LEARNER_AGE_PROMPT(learnerAge)}`;
 };
 
 export const EXERCISE_ABILITIES_PROMPT = (language: string, chapterTitle: string, exercises: unknown): string => {

@@ -3,7 +3,6 @@
 
 import type { BookConcept, Exercise } from '@slonigiraf/db';
 
-import { formatSentenceCaseTitle } from '../naming/sentenceCase.js';
 
 export interface ExerciseRepairReview {
   errors: string[];
@@ -104,7 +103,8 @@ function parseCorrectedExercise (value: unknown, original: Exercise): Exercise {
     ...(imageDescription ? { imageDescription } : {}),
     solution: value.solution.trim(),
     ...(solutionImageDescription ? { solutionImageDescription } : {}),
-    title: formatSentenceCaseTitle(value.title)
+    // The source Concept owns the title; repairing an Exercise must not re-case it.
+    title: original.title
   };
 }
 

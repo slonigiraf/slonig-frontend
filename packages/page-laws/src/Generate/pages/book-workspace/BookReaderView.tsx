@@ -892,6 +892,7 @@ export function BookReaderView ({ controller }: Props): React.ReactElement {
     <StyledReader className={`bookReader${isMaximized ? ' isMaximized' : ''}`}>
       {editingChapter && <ChapterTitleEditor
         chapter={editingChapter}
+        language={book.language}
         onClose={closeChapterEditor}
         onError={setError}
         onSaved={refreshAfterChapterRename}

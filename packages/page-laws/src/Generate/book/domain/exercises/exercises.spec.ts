@@ -44,6 +44,7 @@ describe('exercise repair', (): void => {
     assert.deepEqual(result.reviews[0].exercise?.bookPage, original.bookPage);
     assert.equal(result.reviews[0].exercise?.conceptId, original.conceptId);
     assert.equal(result.reviews[0].exercise?.source, original.source);
+    assert.equal(result.reviews[0].exercise?.title, original.title);
     assert.equal(result.reviews[0].exercise?.solution, '<kx>1 + 2 = 3</kx>.');
   });
 

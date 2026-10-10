@@ -30,6 +30,11 @@ describe('fix concepts', (): void => {
     assert.equal(parseFixedConcept('{"title":"Finding the Main Idea","description":"An example description."}').title, 'Finding the main idea');
   });
 
+  it('preserves native capitalized nouns in non-English repairs', (): void => {
+    assert.equal(parseFixedConcept('{"title":"Die Grundlagen der Mathematik","description":"Ein Überblick."}', 'de').title, 'Die Grundlagen der Mathematik');
+    assert.equal(parseMissingChapterConcepts('{"concepts":[{"title":"Die Grundlagen der Mathematik","description":"Ein Überblick.","pageNumber":1}]}', [], new Set([1]), 'de').concepts[0].title, 'Die Grundlagen der Mathematik');
+  });
+
   it('stores Fix-generated concepts on their source page with the Fix attempt', (): void => {
     assert.deepEqual(chapterLevelMissingConcept(42, 7, {
       description: 'The bottom number in a fraction.',

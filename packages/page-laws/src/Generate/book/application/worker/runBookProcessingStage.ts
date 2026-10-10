@@ -437,7 +437,7 @@ async function runChapters ({ book, command, cost, progress, signal, throwIfAbor
   let processedThrough = 0;
   const proposals = (await mapConcurrent(windows, Math.min(3, OPENROUTER_CONCURRENCY), async (window) => {
     throwIfAborted();
-    const result = await requestChapterBoundaries(client, command.options.model || DEFAULT_PROCESSING_MODEL, chapterWindowPrompt(window), totalPages, cost);
+    const result = await requestChapterBoundaries(client, command.options.model || DEFAULT_PROCESSING_MODEL, chapterWindowPrompt(window), totalPages, cost, book.language);
 
     processedThrough = Math.max(processedThrough, window[window.length - 1]?.pageNumber ?? processedThrough);
     await progress(processedThrough, totalPages, 'Identifying chapters from page text');
@@ -445,8 +445,8 @@ async function runChapters ({ book, command, cost, progress, signal, throwIfAbor
   })).flat();
   const evidence = pages.map(pageChapterEvidence);
   const structural = deriveStructuralChapterCandidates(evidence);
-  const reconciled = await requestChapterBoundaries(client, command.options.model || DEFAULT_PROCESSING_MODEL, chapterReconciliationPrompt(proposals, evidence, totalPages, structural), totalPages, cost);
-  const stable = stabilizeChapterBoundaries(reconciled.length ? reconciled : proposals, structural, totalPages, evidence);
+  const reconciled = await requestChapterBoundaries(client, command.options.model || DEFAULT_PROCESSING_MODEL, chapterReconciliationPrompt(proposals, evidence, totalPages, structural), totalPages, cost, book.language);
+  const stable = stabilizeChapterBoundaries(reconciled.length ? reconciled : proposals, structural, totalPages, evidence, book.language);
   const boundaries = chapterAssignmentsFromBoundaries(stable, totalPages);
 
   await replaceBookChapterAssignments(book.id, boundaries);
@@ -497,7 +497,7 @@ async function runConcepts ({ book, command, cost, progress, signal, throwIfAbor
       throwIfAborted();
       const chapterPages = chapter.pageNumbers.map((pageNumber) => pages.find((page) => page.pageNumber === pageNumber) as BookPage);
       const inputs = await getChapterConceptInputs(chapterPages);
-      const generated = await generateChapterContentWithEmptyConceptRetry(client, command.options.model || DEFAULT_PROCESSING_MODEL, chapter.title, inputs, book.age, inputs.length > 0, cost);
+      const generated = await generateChapterContentWithEmptyConceptRetry(client, command.options.model || DEFAULT_PROCESSING_MODEL, chapter.title, inputs, book.age, inputs.length > 0, cost, book.language);
 
       await storeGeneratedChapterConcepts(book.id, chapterPages, generated);
       successes++;
@@ -596,7 +596,7 @@ async function runFixConcepts ({ book, command, cost, progress, signal, throwIfA
       }
       for (const concept of result.missing) {
         throwIfAborted();
-        await createBookConcept(chapterLevelMissingConcept(book.id, result.chapter.chapterId, concept, attempt));
+        await createBookConcept(chapterLevelMissingConcept(book.id, result.chapter.chapterId, concept, attempt, book.language));
       }
       nextStatuses[fixConceptsChapterKey(result.chapter)] = 'fixed';
     } catch (reason) {

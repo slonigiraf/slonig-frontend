@@ -10,20 +10,20 @@ import { Button, Input, Modal } from '@polkadot/react-components';
 import { formatChapterTitle } from '../../../../book/domain/chapters/chapterTitles.js';
 import { ChapterTitleEditorContent } from './ChapterTitleEditor.styles.js';
 
-function ChapterTitleEditor ({ chapter, onClose, onError, onSaved }: { chapter: BookChapter; onClose: () => void; onError: (error: string) => void; onSaved: () => void }): React.ReactElement {
+function ChapterTitleEditor ({ chapter, language, onClose, onError, onSaved }: { chapter: BookChapter; language?: string; onClose: () => void; onError: (error: string) => void; onSaved: () => void }): React.ReactElement {
   const [title, setTitle] = useState(chapter.title);
   const save = useCallback((): void => {
     if (chapter.id === undefined || !title.trim()) {
       return;
     }
 
-    updateBookChapterTitle(chapter.id, formatChapterTitle(title))
+    updateBookChapterTitle(chapter.id, formatChapterTitle(title, language))
       .then(() => {
         onSaved();
         onClose();
       })
       .catch((error) => onError(error instanceof Error ? error.message : 'Unable to rename the chapter.'));
-  }, [chapter.id, onClose, onError, onSaved, title]);
+  }, [chapter.id, language, onClose, onError, onSaved, title]);
 
   return <Modal
     header='Edit chapter name'

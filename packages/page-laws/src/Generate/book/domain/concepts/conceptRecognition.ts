@@ -32,7 +32,7 @@ function normalizeConceptTitle (title: string): string {
   return title.toLocaleLowerCase().replace(/\s+/g, ' ').trim();
 }
 
-export function parseGeneratedChapterConcepts (content: string, allowedPageNumbers: Set<number>): GeneratedChapterConcepts {
+export function parseGeneratedChapterConcepts (content: string, allowedPageNumbers: Set<number>, language = 'en'): GeneratedChapterConcepts {
   const json = content.replace(/^```json\s*|\s*```$/g, '').trim();
   let parsed: Partial<GeneratedChapterConcepts>;
 
@@ -48,7 +48,7 @@ export function parseGeneratedChapterConcepts (content: string, allowedPageNumbe
 
   const seenTitles = new Set<string>();
   const concepts = parsed.concepts
-    .map(({ description, pageNumber, title }) => ({ description: description.trim(), pageNumber, title: formatSentenceCaseTitle(title) }))
+    .map(({ description, pageNumber, title }) => ({ description: description.trim(), pageNumber, title: formatSentenceCaseTitle(title, language) }))
     .filter(({ title }) => title)
     .sort((a, b) => a.pageNumber - b.pageNumber)
     .filter(({ title }) => {

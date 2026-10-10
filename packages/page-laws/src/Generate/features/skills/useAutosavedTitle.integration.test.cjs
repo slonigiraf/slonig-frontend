@@ -15,7 +15,8 @@ function load(file, mockRequire) {
   return out.exports;
 }
 const queueExports=load(path.join(dir,'titleSaveQueue.ts'),()=>{throw Error('Unexpected import')});
-const chapterTitles = load(path.resolve(dir,'../../book/domain/chapters/chapterTitles.ts'),()=>{throw Error('Unexpected import')});
+const sentenceCase = load(path.resolve(dir,'../../book/domain/naming/sentenceCase.ts'),()=>{throw Error('Unexpected import')});
+const chapterTitles = load(path.resolve(dir,'../../book/domain/chapters/chapterTitles.ts'),(name)=>{if(name==='../naming/sentenceCase.js')return sentenceCase;throw Error(name)});
 
 function mountTitle(initial, save, normalize=chapterTitles.formatBookTitle, errorLog=[]) {
   const slots=[], effects=[];let cursor=0, active=true;
@@ -45,41 +46,41 @@ test('Course book title: typing alone persists after debounce, including a readb
   page.current.onChange('a guide to coding');page.render();
   assert.equal(stored,'Initial Book');
   await wait(720);page.render();
-  assert.equal(stored,'A Guide to Coding');
+  assert.equal(stored,'A guide to coding');
   assert.equal(page.current.status,'saved');
   page.unmount();
   const reopened=mountTitle(stored,async()=>{});
-  assert.equal(reopened.current.title,'A Guide to Coding');reopened.unmount();
+  assert.equal(reopened.current.title,'A guide to coding');reopened.unmount();
 });
 
 test('Course book title: blur and Enter flush immediately and normalize casing',async()=>{
   let stored='Initial Book';const page=mountTitle(stored,async title=>{stored=title;});
   page.current.onChange('understanding machine learning');page.render();
   await page.current.flush(true);page.render();
-  assert.equal(stored,'Understanding Machine Learning');
+  assert.equal(stored,'Understanding machine learning');
   assert.equal(page.current.title,stored);
   page.current.onChange('the art of writing');page.render();
   await page.current.flush(true);page.render();
-  assert.equal(stored,'The Art of Writing');page.unmount();
+  assert.equal(stored,'The art of writing');page.unmount();
 });
 
 test('Chapter title: strips numeric prefixes and persists on blur',async()=>{
   let stored='1. First Chapter';const page=mountTitle(stored,async title=>{stored=title;},chapterTitles.formatChapterTitle);
   page.current.onChange('3. working with fractions');page.render();
   await page.current.flush(true);page.render();
-  assert.equal(stored,'Working with Fractions');page.unmount();
+  assert.equal(stored,'Working with fractions');page.unmount();
 });
 
 test('Switching away from Course commits a draft even before debounce',async()=>{
   let stored='Old Book';const page=mountTitle(stored,async title=>{stored=title;});
   page.current.onChange('updated book');page.render();page.unmount();
-  await wait(25);assert.equal(stored,'Updated Book');
+  await wait(25);assert.equal(stored,'Updated book');
 });
 
 test('New edits are queued behind slow edits; latest value survives',async()=>{
   let stored='Original';let release;
   const page=mountTitle(stored,async title=>{
-    if(title==='First Edit')await new Promise(resolve=>{release=resolve;});
+    if(title==='First edit')await new Promise(resolve=>{release=resolve;});
     stored=title;
   });
   page.current.onChange('first edit');page.render();
@@ -87,7 +88,7 @@ test('New edits are queued behind slow edits; latest value survives',async()=>{
   page.current.onChange('second edit');page.render();
   const second=page.current.flush();release();
   await Promise.all([first,second]);page.render();
-  assert.equal(stored,'Second Edit');assert.equal(page.current.status,'saved');page.unmount();
+  assert.equal(stored,'Second edit');assert.equal(page.current.status,'saved');page.unmount();
 });
 
 test('Failure remains visible and Retry persists the same draft',async()=>{
@@ -97,7 +98,7 @@ test('Failure remains visible and Retry persists the same draft',async()=>{
   await page.current.flush();page.render();
   assert.equal(page.current.status,'error');assert.equal(errors.length,1);
   fail=false;await page.current.flush(true);page.render();
-  assert.equal(stored,'A New Title');assert.equal(page.current.status,'saved');page.unmount();
+  assert.equal(stored,'A new title');assert.equal(page.current.status,'saved');page.unmount();
 });
 
 

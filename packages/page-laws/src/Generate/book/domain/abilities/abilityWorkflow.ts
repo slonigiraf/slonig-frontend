@@ -112,7 +112,7 @@ export function transportAbilityMaterializationEvidence ({ description, id, imag
   };
 }
 
-export function parseAbilityBlueprints (content: string, expectedExerciseIds: number[]): AbilityBlueprint[] {
+export function parseAbilityBlueprints (content: string, expectedExerciseIds: number[], language = 'en'): AbilityBlueprint[] {
   const parsed = parseJson(content);
   const plans = isRecord(parsed) ? parsed.plans : undefined;
 
@@ -162,7 +162,7 @@ export function parseAbilityBlueprints (content: string, expectedExerciseIds: nu
       }
 
       signatures.add(signature);
-      result.push({ exerciseId, input, method, operation, output, questionVisual, skillIndex, solutionVisual, title: formatSentenceCaseTitle(title) });
+      result.push({ exerciseId, input, method, operation, output, questionVisual, skillIndex, solutionVisual, title: formatSentenceCaseTitle(title, language) });
     });
   }
 
@@ -460,7 +460,7 @@ export async function planAtomicAbilityExercise (
   const exerciseId = exercise.id;
   const source = transportCompactAbilitySourceExercise(exercise);
   const parseBlueprintStage = (content: string): AbilityBlueprint[] => {
-    const blueprints = parseAbilityBlueprints(content, [exerciseId]);
+    const blueprints = parseAbilityBlueprints(content, [exerciseId], language);
 
     validateAbilityBlueprintEvidence(blueprints, [exercise]);
 
@@ -672,7 +672,7 @@ Language: ${language}
 
 Create exactly one Ability definition that represents the complete coherent skill trained by the source Exercise. Do not decompose it into atomic sub-skills. If the Exercise uses several inseparable steps or operations to reach its requested output, keep that sequence together in the same Ability. Preserve each supplied Exercise as one Ability.
 
-Describe the general input, the complete learner operation or operation sequence, the expected output, and the stable method. Use sentence case for the Ability title ("This is an example of a title") with proper nouns preserved. Keep the title short and observable. The two learner-facing practice instances generated later must exercise this same complete contract with different concrete data.
+Describe the general input, the complete learner operation or operation sequence, the expected output, and the stable method. Follow the language's native capitalization rules for the Ability title; for English use sentence case ("This is an example of a title") preserving proper nouns and acronyms. Keep the title short and observable. The two learner-facing practice instances generated later must exercise this same complete contract with different concrete data.
 
 Visual contract: questionVisual="required" only when the learner must inspect task-essential visual/spatial information that cannot be moved into text without changing or revealing the task. solutionVisual="new" only for a newly created visual answer, "modify-question" only when the answer changes the supplied question visual, otherwise "none". A modify-question solution requires questionVisual="required". Never request decorative visuals.
 
@@ -689,7 +689,7 @@ export function abilityMaterializationPrompt (language: string, chapterTitle: st
 Chapter: ${chapterTitle}
 Language: ${language}
 
-Create exactly one Ability with exactly two concrete practice instances. Use sentence case for the Ability name ("This is an example of a title") while retaining proper nouns. Copy blueprint.title to ability.h unchanged. Both instances must train the same complete Exercise-level input, operation or operation sequence, output, method, direction, reasoning depth, and difficulty; vary only instructionally safe concrete task data, arrangements, or contexts and independently recalculate each answer.
+Create exactly one Ability with exactly two concrete practice instances. Use the language's native capitalization for the Ability name; in English use sentence case ("This is an example of a title") while retaining proper nouns and acronyms. Copy blueprint.title to ability.h unchanged. Both instances must train the same complete Exercise-level input, operation or operation sequence, output, method, direction, reasoning depth, and difficulty; vary only instructionally safe concrete task data, arrangements, or contexts and independently recalculate each answer.
 
 ${ABILITY_MEANINGFUL_VARIATION_PROMPT} Keep tasks direct (normally <=32 words), answers compact (normally <=38 words), and titles <=12 words. No hints, tutorial prose, answer choices, book references, or redundant explanation. Use <kx>...</kx> for mathematical notation. ability.i="", t=3, and q[].p/q[].i remain empty because images are materialized later.
 

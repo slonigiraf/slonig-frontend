@@ -192,7 +192,7 @@ export function useBookChapterActions ({
   }, [book.id, isDeletingChapters, pages, refreshChapterAssignments, refreshConceptCounts, refreshEntityCounts, selectedChapterIds, synchronizeChapterProcessingStage]);
 
   const saveCurrentChapterTitle = useCallback(async (): Promise<void> => {
-    const title = formatChapterTitle(chapterTitleDraft);
+    const title = formatChapterTitle(chapterTitleDraft, book.language);
 
     if (currentChapter?.id === undefined || !title) {
       return;
@@ -222,7 +222,7 @@ export function useBookChapterActions ({
   }, [book.id, pageNumber, refreshChapterAssignments, synchronizeChapterProcessingStage]);
 
   const startChapterHere = useCallback(async (): Promise<void> => {
-    const title = formatChapterTitle(newChapterTitle);
+    const title = formatChapterTitle(newChapterTitle, book.language);
 
     if (!title) {
       setError('Enter a chapter title first.');

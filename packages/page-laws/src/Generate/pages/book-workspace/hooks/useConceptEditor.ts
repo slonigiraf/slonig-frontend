@@ -324,7 +324,7 @@ export function useConceptEditor ({
         throw new Error('OpenRouter returned no single Concept repair data.');
       }
 
-      const fixed = parseFixedConcept(content);
+      const fixed = parseFixedConcept(content, book.language);
 
       if (fixed.title !== concept.title || fixed.description !== concept.description) {
         await saveConcept(concept, fixed.title, fixed.description, conceptChapterIndex);

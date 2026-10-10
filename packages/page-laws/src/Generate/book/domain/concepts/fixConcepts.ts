@@ -31,7 +31,7 @@ export function combineFixChapterConceptsResults (results: FixChapterConceptsRes
   };
 }
 
-export function parseFixedConcept (content: string): FixedConcept {
+export function parseFixedConcept (content: string, language = 'en'): FixedConcept {
   const json = content.replace(/^```json\s*|\s*```$/gi, '').trim();
   let parsed: Partial<FixedConcept>;
 
@@ -45,25 +45,26 @@ export function parseFixedConcept (content: string): FixedConcept {
     throw new Error('OpenRouter returned invalid single Concept repair data.');
   }
 
-  return { description: parsed.description.trim(), title: formatSentenceCaseTitle(parsed.title) };
+  return { description: parsed.description.trim(), title: formatSentenceCaseTitle(parsed.title, language) };
 }
 
 export function chapterLevelMissingConcept (
   bookId: BookConcept['bookPage'][0],
   chapterId: BookConcept['chapterId'],
   concept: MissingChapterConcept,
-  attempt = 0
+  attempt = 0,
+  language = 'en'
 ): Pick<BookConcept, 'attempt' | 'bookPage' | 'chapterId' | 'description' | 'title'> {
   return {
     attempt,
     bookPage: [bookId, concept.pageNumber],
     chapterId,
     description: concept.description,
-    title: formatSentenceCaseTitle(concept.title)
+    title: formatSentenceCaseTitle(concept.title, language)
   };
 }
 
-export function parseMissingChapterConcepts (content: string, existingConcepts: Array<Pick<BookConcept, 'description' | 'title'>> = [], allowedPageNumbers?: Set<number>): FixChapterConceptsResult {
+export function parseMissingChapterConcepts (content: string, existingConcepts: Array<Pick<BookConcept, 'description' | 'title'>> = [], allowedPageNumbers?: Set<number>, language = 'en'): FixChapterConceptsResult {
   const json = content.replace(/^```json\s*|\s*```$/gi, '').trim();
   let parsed: Partial<FixChapterConceptsResult>;
 
@@ -95,7 +96,7 @@ export function parseMissingChapterConcepts (content: string, existingConcepts: 
       return [];
     }
 
-    return [{ description: trimmedDescription, pageNumber, title: formatSentenceCaseTitle(trimmedTitle) }];
+    return [{ description: trimmedDescription, pageNumber, title: formatSentenceCaseTitle(trimmedTitle, language) }];
   });
 
   const removeConceptIndexes = Array.from(new Set((parsed.removeConceptIndexes ?? []).flatMap((value): number[] =>

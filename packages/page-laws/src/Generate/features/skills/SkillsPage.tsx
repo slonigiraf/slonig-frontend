@@ -1978,6 +1978,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
   return <StyledSkills className={pipelineOnly ? 'pipelineOnly' : undefined}>
     {editingChapter && <ChapterTitleEditor
       chapter={editingChapter}
+      language={book.language}
       onClose={closeChapterEditor}
       onError={setError}
       onSaved={refresh}
@@ -2029,7 +2030,6 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
     />
     <SkillsContentView
       abilitiesOutputRef={abilitiesOutputRef}
-      allExercises={allExercises}
       bookId={book.id}
       chapterContentOutputRef={chapterContentOutputRef}
       chapterIndex={chapterIndex}

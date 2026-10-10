@@ -8,7 +8,7 @@ export interface NameSuggestions {
   chapters: Array<{ id: number; title: string }>;
 }
 
-export function parseNameSuggestions (content: string, chapterIds: number[]): NameSuggestions {
+export function parseNameSuggestions (content: string, chapterIds: number[], language = 'en'): NameSuggestions {
   const parsed: unknown = JSON.parse(content.trim().replace(/^```(?:json)?\s*|\s*```$/gi, ''));
 
   if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
@@ -30,7 +30,7 @@ export function parseNameSuggestions (content: string, chapterIds: number[]): Na
   }
 
   return {
-    bookName: formatBookTitle(result.bookName),
-    chapters: chapters.map(({ id, title }) => ({ id, title: formatChapterTitle(title) }))
+    bookName: formatBookTitle(result.bookName, language),
+    chapters: chapters.map(({ id, title }) => ({ id, title: formatChapterTitle(title, language) }))
   };
 }

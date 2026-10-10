@@ -5,7 +5,7 @@
 
 import { strict as assert } from 'node:assert';
 
-import { groupAbilitiesByConcept, indexSourceExercisesByModuleId } from './abilityConceptGroups.js';
+import { groupAbilitiesByConcept } from './abilityConceptGroups.js';
 
 describe('Ability cards grouped under Concepts', (): void => {
   it('groups several exercises into the same Concept, preserving Ability order', (): void => {
@@ -45,25 +45,5 @@ describe('Ability cards grouped under Concepts', (): void => {
     assert.deepEqual(result.groups[0].abilities, []);
     assert.deepEqual(result.withoutConcept.map(({ moduleId }) => moduleId), ['exercise:200', 'exercise:300']);
     assert.deepEqual(result.unmatched.map(({ moduleId }) => moduleId), ['unknown']);
-  });
-});
-
-
-describe('Source Exercise popup lookup', (): void => {
-  it('resolves each Ability to its own generation Exercise, even if card order differs', (): void => {
-    const first = { conceptId: 10, description: 'First original task', id: 123, title: 'Count the apples' };
-    const second = { conceptId: 10, description: 'Second original task', id: 456, title: 'Compare the groups' };
-    const lookup = indexSourceExercisesByModuleId([first, second], (id) => `book-7-exercise-${id}`);
-
-    assert.equal(lookup.get('book-7-exercise-456'), second);
-    assert.equal(lookup.get('book-7-exercise-123'), first);
-    assert.equal(lookup.get('book-7-exercise-999'), undefined);
-  });
-
-  it('does not link a saved but not yet identified Exercise to an Ability', (): void => {
-    const lookup = indexSourceExercisesByModuleId([{ title: 'Unassigned Exercise' }, { id: 8, title: 'Saved Exercise' }], (id) => `exercise:${id}`);
-
-    assert.equal(lookup.size, 1);
-    assert.equal(lookup.get('exercise:8')?.title, 'Saved Exercise');
   });
 });

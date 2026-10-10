@@ -304,7 +304,7 @@ export function useBookConceptQuality ({
           }
 
           for (const concept of missing) {
-            await createBookConcept(chapterLevelMissingConcept(book.id, chapter.chapterId, concept, attempt));
+            await createBookConcept(chapterLevelMissingConcept(book.id, chapter.chapterId, concept, attempt, book.language));
             added++;
           }
 

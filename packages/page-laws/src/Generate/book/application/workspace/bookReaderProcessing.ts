@@ -45,7 +45,7 @@ async function runConceptRequestWithRetry<T>(request: () => Promise<T>): Promise
   return openRouterRequestGate.run(request);
 }
 
-async function requestGeneratedChapterContent(client: OpenAI, model: string, chapterTitle: string, pages: ChapterConceptInputPage[], learnerAge: number | undefined, onCost?: OpenRouterCostReporter): Promise<GeneratedChapterConcepts> {
+async function requestGeneratedChapterContent(client: OpenAI, model: string, chapterTitle: string, pages: ChapterConceptInputPage[], learnerAge: number | undefined, onCost?: OpenRouterCostReporter, language = 'en'): Promise<GeneratedChapterConcepts> {
   const usablePages = pages.filter(({ input }) => input.text.trim() || input.images.length);
 
   if (!usablePages.length) {
@@ -76,7 +76,7 @@ async function requestGeneratedChapterContent(client: OpenAI, model: string, cha
     return { concepts: [] };
   }
 
-  return parseGeneratedChapterConcepts(generatedContent, new Set(usablePages.map(({ pageNumber }) => pageNumber)));
+  return parseGeneratedChapterConcepts(generatedContent, new Set(usablePages.map(({ pageNumber }) => pageNumber)), language);
 }
 
 async function requestMissingChapterConcepts(client: OpenAI, model: string, chapterTitle: string, chapterMmd: string, concepts: BookConcept[], allowedPageNumbers: number[], book: Pick<Book, 'age' | 'language' | 'subject'>, onCost?: OpenRouterCostReporter) {
@@ -94,7 +94,7 @@ async function requestMissingChapterConcepts(client: OpenAI, model: string, chap
     throw new Error('OpenRouter returned no Fix Concepts data.');
   }
 
-  return parseMissingChapterConcepts(content, concepts, new Set(allowedPageNumbers));
+  return parseMissingChapterConcepts(content, concepts, new Set(allowedPageNumbers), book.language);
 }
 
 async function requestDeduplicateConceptPairs(client: OpenAI, model: string, concepts: DeduplicateConceptInput[], candidates: DeduplicateConceptCandidatePair[], book: Pick<Book, 'age' | 'language' | 'subject'>, onCost?: OpenRouterCostReporter): Promise<DeduplicateConceptPair[]> {
@@ -148,7 +148,7 @@ async function requestRefinedChapterGroups(client: OpenAI, model: string, chapte
     throw new Error('OpenRouter returned no Refine Chapters data.');
   }
 
-  return parseRefinedChapterGroups(content, concepts.length, pageCount).chapters;
+  return parseRefinedChapterGroups(content, concepts.length, pageCount, book.language).chapters;
 }
 
 async function requestChapterStandards(client: OpenAI, model: string, chapterTitle: string, concepts: ReturnType<typeof standardsConceptInputs>, conceptEmbeddings: number[][], catalogs: StandardsCatalog[], standardEmbeddings: ReadonlyMap<string, number[]>, onCost?: OpenRouterCostReporter): Promise<CurriculumStandard[]> {
@@ -221,11 +221,11 @@ function getChapterStandardsConceptRows(concepts: BookConcept[], chapter: Concep
   });
 }
 
-async function generateSingleChapterIdentificationRunWithEmptyRetry(client: OpenAI, model: string, chapterTitle: string, pages: ChapterConceptInputPage[], learnerAge: number | undefined, retryEmptyConcepts: boolean, onCost?: OpenRouterCostReporter): Promise<GeneratedChapterConcepts> {
+async function generateSingleChapterIdentificationRunWithEmptyRetry(client: OpenAI, model: string, chapterTitle: string, pages: ChapterConceptInputPage[], learnerAge: number | undefined, retryEmptyConcepts: boolean, onCost?: OpenRouterCostReporter, language = 'en'): Promise<GeneratedChapterConcepts> {
   let firstResult: GeneratedChapterConcepts;
 
   try {
-    firstResult = await requestGeneratedChapterContent(client, model, chapterTitle, pages, learnerAge, onCost);
+    firstResult = await requestGeneratedChapterContent(client, model, chapterTitle, pages, learnerAge, onCost, language);
   } catch (error) {
     // A structurally invalid model response is nondeterministic and worth one
     // fresh attempt. API transport/provider failures are already retried inside
@@ -234,7 +234,7 @@ async function generateSingleChapterIdentificationRunWithEmptyRetry(client: Open
       throw error;
     }
 
-    return requestGeneratedChapterContent(client, model, chapterTitle, pages, learnerAge, onCost);
+    return requestGeneratedChapterContent(client, model, chapterTitle, pages, learnerAge, onCost, language);
   }
 
   if (firstResult.concepts.length || !retryEmptyConcepts) {
@@ -242,7 +242,7 @@ async function generateSingleChapterIdentificationRunWithEmptyRetry(client: Open
   }
 
   try {
-    const secondResult = await requestGeneratedChapterContent(client, model, chapterTitle, pages, learnerAge, onCost);
+    const secondResult = await requestGeneratedChapterContent(client, model, chapterTitle, pages, learnerAge, onCost, language);
 
     return secondResult.concepts.length ? secondResult : firstResult;
   } catch (error) {
@@ -256,14 +256,14 @@ async function generateSingleChapterIdentificationRunWithEmptyRetry(client: Open
   }
 }
 
-async function generateChapterContentWithEmptyConceptRetry(client: OpenAI, model: string, chapterTitle: string, pages: ChapterConceptInputPage[], learnerAge: number | undefined, retryEmptyConcepts: boolean, onCost?: OpenRouterCostReporter): Promise<GeneratedChapterConcepts> {
+async function generateChapterContentWithEmptyConceptRetry(client: OpenAI, model: string, chapterTitle: string, pages: ChapterConceptInputPage[], learnerAge: number | undefined, retryEmptyConcepts: boolean, onCost?: OpenRouterCostReporter, language = 'en'): Promise<GeneratedChapterConcepts> {
   const runs: GeneratedChapterConcepts[] = [];
 
   // Run concept identification multiple independent times for recall. Do not
   // merge/deduplicate the inventories here: repeated concepts are intentional
   // evidence that later Deduplicate Concepts will resolve after Fix Concepts.
   for (let run = 0; run < CONCEPT_IDENTIFICATION_RUNS; run++) {
-    runs.push(await generateSingleChapterIdentificationRunWithEmptyRetry(client, model, chapterTitle, pages, learnerAge, retryEmptyConcepts, onCost));
+    runs.push(await generateSingleChapterIdentificationRunWithEmptyRetry(client, model, chapterTitle, pages, learnerAge, retryEmptyConcepts, onCost, language));
   }
 
   return { concepts: runs.flatMap(({ concepts }) => concepts) };
@@ -441,7 +441,7 @@ async function storeGeneratedChapterConcepts(bookId: number, chapterPages: BookP
   return { conceptsByPage, pages: storedPages };
 }
 
-async function requestChapterBoundaries(client: OpenAI, model: string, prompt: string, totalPages: number, onCost?: OpenRouterCostReporter): Promise<ChapterBoundaryProposal[]> {
+async function requestChapterBoundaries(client: OpenAI, model: string, prompt: string, totalPages: number, onCost?: OpenRouterCostReporter, language = 'en'): Promise<ChapterBoundaryProposal[]> {
   const response = await openRouterRequestGate.run(() => client.chat.completions.create({
     messages: [{ content: prompt, role: 'user' }],
     model,
@@ -455,7 +455,7 @@ async function requestChapterBoundaries(client: OpenAI, model: string, prompt: s
     return [];
   }
 
-  return parseChapterBoundaries(content, totalPages);
+  return parseChapterBoundaries(content, totalPages, language);
 }
 
 async function createPdfPageSliceFactory (file: File): Promise<(startPage: number, endPage: number) => Promise<File>> {

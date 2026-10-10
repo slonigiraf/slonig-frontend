@@ -507,6 +507,9 @@ export const StyledSkills = styled.div`
      Size its outer card to that content instead of stretching across the
      entire Concept panel; narrower screens still use the available width. */
   .abilityCard { max-width: calc(60rem + 2.125rem); }
+  /* Center Ability actions over the parent Ability card border corner (not inside it). */
+  .abilityCard > .contentCardActions { right: 0; top: 0; transform: translate(50%, -50%); }
+  .abilityCard > .contentCardActions + div { padding-right: 0.75rem; }
   .abilityCardSingleExercise { max-width: calc(30rem + 2.125rem); }
   .abilityExerciseCard { background: var(--bg-input); border: 1px solid #dde1eb; border-radius: 0.7rem; box-shadow: 0 1px 2px rgba(24, 39, 75, 0.04); box-sizing: border-box; margin-bottom: 1rem; padding: 0.95rem 1rem 1rem; }
   .abilityExerciseCard:focus { outline: none; }
@@ -539,7 +542,7 @@ export const StyledSkills = styled.div`
     .contentCardActions { right: 0.5rem; top: 0.5rem; }
     /* The Ability uses an exercise grid rather than a title, so only on
        narrow screens reserve space for the floating actions. */
-    .abilityCard > .contentCardActions + div { padding-right: 2.5rem; }
+    .abilityCard > .contentCardActions + div { padding-right: 0.333rem; }
     .chapterNavigation { display: flex; flex-wrap: wrap; min-width: 0; }
     .exercisesChapterNavigation { gap: 0.35rem; }
     .exercisesChapterNavigation .chapterSelectGroup { flex: 1 1 100%; min-width: 0; order: 2; }

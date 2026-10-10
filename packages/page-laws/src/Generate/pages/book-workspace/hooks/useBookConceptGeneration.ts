@@ -126,7 +126,7 @@ export function useBookConceptGeneration ({
 
       const client = createOpenRouterClient(key, currentReaderProcessingSignal());
       const chapterInputs = await getChapterConceptInputs(chapterPages);
-      const generatedConcepts = await generateChapterContentWithEmptyConceptRetry(client, selectedModel, currentConceptChapter.title, chapterInputs, book.age, chapterInputs.length > 0, addConceptsCost);
+      const generatedConcepts = await generateChapterContentWithEmptyConceptRetry(client, selectedModel, currentConceptChapter.title, chapterInputs, book.age, chapterInputs.length > 0, addConceptsCost, book.language);
       const stored = await storeGeneratedChapterConcepts(book.id, chapterPages, generatedConcepts);
       const updatedPages = new Map(pages);
       const references = new Map<string, number>();
@@ -258,7 +258,7 @@ export function useBookConceptGeneration ({
           return {
             chapter,
             chapterPages,
-            generatedConcepts: await generateChapterContentWithEmptyConceptRetry(client, generateAllConceptsModel, chapter.title, chapterInputs, book.age, chapterInputs.length > 0, addConceptsCost),
+            generatedConcepts: await generateChapterContentWithEmptyConceptRetry(client, generateAllConceptsModel, chapter.title, chapterInputs, book.age, chapterInputs.length > 0, addConceptsCost, book.language),
             status: 'fulfilled' as const
           };
         } catch (reason) {
