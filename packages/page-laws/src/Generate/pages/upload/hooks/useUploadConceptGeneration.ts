@@ -208,8 +208,8 @@ export function useUploadConceptGeneration ({ embeddingModel, generateAllConcept
 
     setPendingProcessingAction('concepts');
 
-    resetBookProcessingStagesFrom(selectedBook.id, 'concepts', { onlyMissing: generateOnlyMissingConcepts }).then((updatedBook) => {
-      clearFixConceptsChapterStatuses(selectedBook.id);
+    resetBookProcessingStagesFrom(selectedBook.id, 'concepts', { onlyMissing: generateOnlyMissingConcepts }).then(async (updatedBook) => {
+      await clearFixConceptsChapterStatuses(selectedBook.id);
       if (updatedBook) {
         setBooks((current) => current.map((book) => book.id === updatedBook.id ? updatedBook : book));
       }
@@ -246,7 +246,7 @@ export function useUploadConceptGeneration ({ embeddingModel, generateAllConcept
       const pageByNumber = new Map(pages.map((page) => [page.pageNumber, page]));
       const pageLessConcepts = await getBookConceptsForBookPage(selectedBook.id, 0);
       const chapters = conceptChaptersFromPages(pages);
-      const failedChapterKeys = failedFixConceptChapterKeys(selectedBook.id, chapters);
+      const failedChapterKeys = await failedFixConceptChapterKeys(selectedBook.id, chapters);
       const targetChapters = fixOnlyFailedConcepts
         ? chapters.filter((chapter) => failedChapterKeys.has(fixConceptsChapterKey(chapter)))
         : chapters;

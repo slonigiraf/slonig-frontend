@@ -9,7 +9,7 @@ import { mapConcurrent } from '../../../../common/concurrency.js';
 import { OPENROUTER_CONCURRENCY } from '../../../../openrouter/concurrency.js';
 import type { ConceptChapterNavigationItem } from '../../../book/domain/concepts/conceptRecognition.js';
 import { combineDeduplicateConceptPairs, DEDUPLICATE_CONCEPTS_RUNS, deduplicateConceptCandidatesAcrossChapters, deduplicateConceptCandidatesWithinChapters, type DeduplicateConceptInput, type DeduplicateConceptPair } from '../../../book/domain/concepts/deduplicateConcepts.js';
-import { chapterLevelMissingConcept, combineFixChapterConceptsResults, FIX_CONCEPTS_RUNS, type FixChapterConceptsResult } from '../../../book/domain/concepts/fixConcepts.js';
+import { applyFixChapterConceptsPass, chapterLevelMissingConcept, FIX_CONCEPTS_RUNS, proposedFixChapterConcepts, type FixChapterConceptsDraft } from '../../../book/domain/concepts/fixConcepts.js';
 import { cachedConceptEmbeddingMap, ensureConceptEmbeddingCache } from '../../../book/infrastructure/ai/standardsEmbeddings.js';
 import { fixConceptsChapterKey, loadFixConceptsChapterStatuses, storeFixConceptsChapterStatuses, type FixConceptsChapterStatuses } from '../../../book/infrastructure/storage/fixConceptsProgress.js';
 import { conceptGenerationErrorMessage, createOpenRouterClient, requestDeduplicateConceptPairs, requestMissingChapterConcepts } from '../../../book/application/workspace/bookReaderProcessing.js';
@@ -128,28 +128,29 @@ export function useBookConceptQuality ({
       return;
     }
 
-    const previousStatuses = loadFixConceptsChapterStatuses(book.id);
-    const targetChapters = onlyFailed
-      ? conceptChapters.filter((chapter) => previousStatuses[fixConceptsChapterKey(chapter)] === 'failed')
-      : conceptChapters;
-
-    if (!targetChapters.length) {
-      setError(onlyFailed ? 'There are no failed Fix concepts chapters to retry.' : 'No chapters are available for Fix concepts.');
-      return;
-    }
-
-    if (!book.language || !book.subject || book.age === undefined) {
-      setError('Set the book language, subject, and learner age before running Fix concepts.');
-      return;
-    }
-
-    setError('');
-    setOpenRouterSpent(0);
     setIsFixingConcepts(true);
-    setFixedConceptsChapterCount(0);
-    setFixConceptsTargetChapterCount(targetChapters.length * FIX_CONCEPTS_RUNS);
 
     try {
+      const previousStatuses = await loadFixConceptsChapterStatuses(book.id);
+      const targetChapters = onlyFailed
+        ? conceptChapters.filter((chapter) => previousStatuses[fixConceptsChapterKey(chapter)] === 'failed')
+        : conceptChapters;
+
+      if (!targetChapters.length) {
+        setError(onlyFailed ? 'There are no failed Fix concepts chapters to retry.' : 'No chapters are available for Fix concepts.');
+        return;
+      }
+
+      if (!book.language || !book.subject || book.age === undefined) {
+        setError('Set the book language, subject, and learner age before running Fix concepts.');
+        return;
+      }
+
+      setError('');
+      setOpenRouterSpent(0);
+      setFixedConceptsChapterCount(0);
+      setFixConceptsTargetChapterCount(targetChapters.length * FIX_CONCEPTS_RUNS);
+
       const key = await getSetting(SettingKey.OPENROUTER_TOKEN);
 
       if (!key) {
@@ -159,37 +160,38 @@ export function useBookConceptQuality ({
       const client = createOpenRouterClient(key, currentReaderProcessingSignal());
       const pageLessConcepts = await getBookConceptsForBookPage(book.id, 0);
       const results = await mapConcurrent(targetChapters, OPENROUTER_CONCURRENCY, async (chapter) => {
-        const before = sortConceptsForDisplay([
-          ...(await Promise.all(chapter.pageNumbers.map((chapterPageNumber) => getBookConceptsForBookPage(book.id, chapterPageNumber)))).flat(),
-          ...pageLessConcepts.filter(({ chapterId }) => chapterId !== undefined && chapterId === chapter.chapterId)
-        ]);
-        const chapterMmd = chapter.pageNumbers.map((chapterPageNumber) => `--- page ${chapterPageNumber} ---\n${pages.get(chapterPageNumber)?.pageMMD ?? ''}`).join('\n\n');
-        const fixesByPass: FixChapterConceptsResult[] = [];
-        const passFailures: string[] = [];
+        let before: BookConcept[];
 
-        // Run independent passes against the same unsaved inventory for higher recall.
+        try {
+          before = sortConceptsForDisplay([
+            ...(await Promise.all(chapter.pageNumbers.map((chapterPageNumber) => getBookConceptsForBookPage(book.id, chapterPageNumber)))).flat(),
+            ...pageLessConcepts.filter(({ chapterId }) => chapterId !== undefined && chapterId === chapter.chapterId)
+          ]);
+        } catch (reason) {
+          setFixedConceptsChapterCount((count) => count + FIX_CONCEPTS_RUNS);
+          return { chapter, reason: conceptGenerationErrorMessage(reason), status: 'rejected' as const };
+        }
+
+        const chapterMmd = chapter.pageNumbers.map((chapterPageNumber) => `--- page ${chapterPageNumber} ---\n${pages.get(chapterPageNumber)?.pageMMD ?? ''}`).join('\n\n');
+        let draft: FixChapterConceptsDraft = { inventory: before, removed: [] };
+
+        // Run the two passes in order. The second sees the first pass's
+        // proposed additions and removals; neither pass writes to IndexedDB.
         for (let passIndex = 0; passIndex < FIX_CONCEPTS_RUNS; passIndex++) {
           try {
-            fixesByPass.push(await requestMissingChapterConcepts(client, model, chapter.title, chapterMmd, before, chapter.pageNumbers, book, addFixConceptsCost));
+            const fixes = await requestMissingChapterConcepts(client, model, chapter.title, chapterMmd, draft.inventory, chapter.pageNumbers, book, addFixConceptsCost);
+
+            draft = applyFixChapterConceptsPass(draft, fixes, book.id, chapter.chapterId, book.language);
           } catch (reason) {
-            passFailures.push(`Pass ${passIndex + 1}: ${conceptGenerationErrorMessage(reason)}`);
-          } finally {
-            setFixedConceptsChapterCount((count) => count + 1);
+            // A pass failure means the chapter was not completely processed.
+            setFixedConceptsChapterCount((count) => count + FIX_CONCEPTS_RUNS - passIndex);
+            return { chapter, reason: `Pass ${passIndex + 1}: ${conceptGenerationErrorMessage(reason)}`, status: 'rejected' as const };
           }
+
+          setFixedConceptsChapterCount((count) => count + 1);
         }
 
-        if (!fixesByPass.length) {
-          return { chapter, reason: passFailures.join(' | '), status: 'rejected' as const };
-        }
-
-        const fixes = combineFixChapterConceptsResults(fixesByPass);
-        const removed = fixes.removeConceptIndexes.flatMap((conceptIndex): BookConcept[] => {
-          const concept = before[conceptIndex];
-
-          return concept?.id === undefined ? [] : [concept];
-        });
-
-        return { before, chapter, missing: fixes.concepts, removed, status: 'fulfilled' as const };
+        return { before, chapter, missing: proposedFixChapterConcepts(draft), removed: draft.removed, status: 'fulfilled' as const };
       });
       const successfulChapters = results.flatMap((result): FixConceptsReviewChapter[] => result.status === 'fulfilled'
         ? [{ before: result.before, chapter: result.chapter, missing: result.missing, removed: result.removed }]
@@ -197,6 +199,14 @@ export function useBookConceptQuality ({
       const failedChapters = results.flatMap((result): FixConceptsReview['failedChapters'] => result.status === 'rejected'
         ? [{ chapter: result.chapter, reason: conceptGenerationErrorMessage(result.reason) }]
         : []);
+
+      // Processing failures are persisted immediately; successful chapters
+      // become 'fixed' only after their review is successfully applied.
+      const baseStatuses: FixConceptsChapterStatuses = onlyFailed ? { ...previousStatuses } : {};
+
+      failedChapters.forEach(({ chapter }) => { baseStatuses[fixConceptsChapterKey(chapter)] = 'failed'; });
+      await storeFixConceptsChapterStatuses(book.id, baseStatuses);
+      setFixConceptsChapterStatuses(baseStatuses);
 
       if (!successfulChapters.length) {
         const failureDetails = failedChapters.map(({ chapter, reason }) => `${chapter.title || 'Untitled chapter'}: ${reason}`);
@@ -207,7 +217,7 @@ export function useBookConceptQuality ({
 
       setFixConceptsReviewChapterIndex(0);
       setFixConceptsReview({
-        baseStatuses: onlyFailed ? previousStatuses : {},
+        baseStatuses,
         chapters: successfulChapters,
         failedChapters,
         targetChapterCount: targetChapters.length
@@ -313,7 +323,7 @@ export function useBookConceptQuality ({
         }
       }
 
-      storeFixConceptsChapterStatuses(book.id, nextStatuses);
+      await storeFixConceptsChapterStatuses(book.id, nextStatuses);
       setFixConceptsChapterStatuses(nextStatuses);
       // The reviewed proposal has now been consumed. Close it before any
       // post-save refresh work so a refresh failure cannot cause duplicate

@@ -7,7 +7,7 @@ import type { PDFDocumentProxy } from 'pdfjs-dist';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { type StandardsCatalog, type StoredBookStandards } from '../../book/domain/standards/standards.js';
 import { loadStoredBookStandards } from '../../book/infrastructure/storage/standardsStorage.js';
-import { loadFixConceptsChapterStatuses, type FixConceptsChapterStatuses } from '../../book/infrastructure/storage/fixConceptsProgress.js';
+import { type FixConceptsChapterStatuses } from '../../book/infrastructure/storage/fixConceptsProgress.js';
 import { useBookProcessingRunner } from '../../book/application/pipeline/useBookProcessingRunner.js';
 import { bookProcessingManager } from '../../book/application/pipeline/bookProcessingManager.js';
 import { useTranslation } from '../../../common/translate.js';
@@ -83,7 +83,7 @@ export function useBookReaderController (props: Props) {
   const [concepts, setConcepts] = useState<BookConcept[]>([]);
   const [conceptCountsByChapter, setConceptCountsByChapter] = useState<Map<string, number>>(new Map());
   const [standardsByChapter, setStandardsByChapter] = useState<StoredBookStandards>(() => loadStoredBookStandards(book.id));
-  const [fixConceptsChapterStatuses, setFixConceptsChapterStatuses] = useState<FixConceptsChapterStatuses>(() => loadFixConceptsChapterStatuses(book.id));
+  const [fixConceptsChapterStatuses, setFixConceptsChapterStatuses] = useState<FixConceptsChapterStatuses>({});
   const [fixConceptsReview, setFixConceptsReview] = useState<FixConceptsReview>();
   const [fixConceptsReviewChapterIndex, setFixConceptsReviewChapterIndex] = useState(0);
   const [isApplyingFixConceptsReview, setIsApplyingFixConceptsReview] = useState(false);

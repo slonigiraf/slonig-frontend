@@ -138,6 +138,42 @@ describe('Ability images', (): void => {
     assert.equal(hydrated.q[1].iError, false);
   });
 
+  it('normalizes separate Ability prompt fields into pending Image records', async (): Promise<void> => {
+    const pPrompt = 'Draw a line with an unlabeled point.';
+    const iPrompt = 'Draw the same line with the point correctly labeled.';
+
+    await storeAbility(moduleId, JSON.stringify({
+      h: 'Label the point',
+      i: '',
+      q: [
+        { a: '', h: 'Label the missing position.', p: '', i: '', pPrompt, iPrompt },
+        { a: 'Position two.', h: 'Identify the second position.', p: '', i: '', pPrompt: 'Draw another line.', iPrompt: '' }
+      ],
+      t: 3
+    }));
+    const [stored] = await getAbilities(moduleId);
+    const normalized = JSON.parse(stored.content) as { q: Array<Record<string, unknown>> };
+
+    assert.equal(typeof normalized.q[0].p, 'number');
+    assert.equal(typeof normalized.q[0].i, 'number');
+    assert.equal(normalized.q[1].i, null);
+    assert.equal('pPrompt' in normalized.q[0], false);
+    assert.equal('iPrompt' in normalized.q[0], false);
+
+    const images = await getImages([normalized.q[0].p, normalized.q[0].i] as number[]);
+
+    assert.equal(images.find(({ id }) => id === normalized.q[0].p)?.prompt, pPrompt);
+    assert.equal(images.find(({ id }) => id === normalized.q[0].i)?.prompt, iPrompt);
+    assert.ok(images.every(({ data, type }) => data === null && type === 'prompt'));
+
+    const hydrated = JSON.parse(await hydrateAbilityContent(stored.content)) as { q: Array<Record<string, unknown>> };
+
+    assert.equal(hydrated.q[0].p, '');
+    assert.equal(hydrated.q[0].i, '');
+    assert.equal(hydrated.q[0].pPrompt, pPrompt);
+    assert.equal(hydrated.q[0].iPrompt, iPrompt);
+  });
+
   it('hydrates a new text-only Ability with nullable image references into the runtime string shape', async (): Promise<void> => {
     await storeAbility(moduleId, JSON.stringify({
       h: 'Text-only ability',

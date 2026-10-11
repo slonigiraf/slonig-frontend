@@ -4,7 +4,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { chapterLevelMissingConcept, combineFixChapterConceptsResults, parseFixedConcept, parseMissingChapterConcepts } from './fixConcepts.js';
+import { applyFixChapterConceptsPass, chapterLevelMissingConcept, parseFixedConcept, parseMissingChapterConcepts, proposedFixChapterConcepts } from './fixConcepts.js';
 import { fixChapterConceptsPrompt, fixSingleConceptPrompt } from '../../application/concepts/conceptPrompts.js';
 
 describe('fix concepts', (): void => {
@@ -89,28 +89,29 @@ describe('fix concepts', (): void => {
     ], removeConceptIndexes: [] });
   });
 
-  it('combines two Fix concepts passes without dropping repeated concept proposals', (): void => {
-    assert.deepEqual(combineFixChapterConceptsResults([{
-      concepts: [
-        { title: 'Numerator', description: 'The top number in a fraction.', pageNumber: 4 },
-        { title: 'Denominator', description: 'The bottom number in a fraction.', pageNumber: 5 }
-      ],
-      removeConceptIndexes: [3, 1]
-    }, {
-      concepts: [
-        { title: 'Denominator', description: 'The bottom number in a fraction.', pageNumber: 5 },
-        { title: 'Equivalent fractions', description: 'Fractions can name the same value.', pageNumber: 6 }
-      ],
-      removeConceptIndexes: [1, 4]
-    }]), {
-      concepts: [
-        { title: 'Numerator', description: 'The top number in a fraction.', pageNumber: 4 },
-        { title: 'Denominator', description: 'The bottom number in a fraction.', pageNumber: 5 },
-        { title: 'Denominator', description: 'The bottom number in a fraction.', pageNumber: 5 },
-        { title: 'Equivalent fractions', description: 'Fractions can name the same value.', pageNumber: 6 }
-      ],
-      removeConceptIndexes: [1, 3, 4]
-    });
+  it('feeds the first pass additions and removals into the second pass and resolves indexes against that draft', (): void => {
+    const original = [
+      { id: 1, bookPage: [42, 4] as [number, number], title: 'Broad concept', description: 'Bundled idea' },
+      { id: 2, bookPage: [42, 4] as [number, number], title: 'Keep', description: 'Keep this concept' }
+    ];
+    const first = applyFixChapterConceptsPass({ inventory: original, removed: [] }, {
+      concepts: [{ title: 'New concept', description: 'Initial guess', pageNumber: 4 }],
+      removeConceptIndexes: [0]
+    }, 42, 7);
+
+    assert.deepEqual(first.inventory.map(({ title }) => title), ['Keep', 'New concept']);
+    assert.deepEqual(first.removed, [original[0]]);
+
+    // The second pass removes the unsaved first-pass addition (index 1),
+    // NOT the original concept with id 2 at index 1 in the first inventory.
+    const second = applyFixChapterConceptsPass(first, {
+      concepts: [{ title: 'Correct concept', description: 'Refined second pass', pageNumber: 5 }],
+      removeConceptIndexes: [1]
+    }, 42, 7);
+
+    assert.deepEqual(second.removed, [original[0]]);
+    assert.deepEqual(second.inventory.map(({ title }) => title), ['Keep', 'Correct concept']);
+    assert.deepEqual(proposedFixChapterConcepts(second), [{ title: 'Correct concept', description: 'Refined second pass', pageNumber: 5 }]);
   });
 
   it('accepts a split proposal as one removal plus isolated replacement concepts', (): void => {

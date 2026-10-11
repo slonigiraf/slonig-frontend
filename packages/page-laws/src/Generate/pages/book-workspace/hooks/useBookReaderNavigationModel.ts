@@ -14,7 +14,7 @@ import { loadStandardsCatalogsForBookSubject } from '../../../book/infrastructur
 import { loadStoredBookStandards } from '../../../book/infrastructure/storage/standardsStorage.js';
 import { resolveSharedChapterIndex, type SharedChapterSelection } from '../../../book/domain/chapters/chapterSelection.js';
 import { getSharedChapterSelection, storeSharedChapterSelection, subscribeSharedChapterSelection } from '../../../book/infrastructure/storage/chapterSelectionStorage.js';
-import { clearFixConceptsChapterStatuses, fixConceptsChapterKey, storeFixConceptsChapterStatuses, type FixConceptsChapterStatuses } from '../../../book/infrastructure/storage/fixConceptsProgress.js';
+import { clearFixConceptsChapterStatuses, fixConceptsChapterKey, loadFixConceptsChapterStatuses, storeFixConceptsChapterStatuses, type FixConceptsChapterStatuses } from '../../../book/infrastructure/storage/fixConceptsProgress.js';
 import { conceptEmbeddingDistanceMatrix, conceptsForNavigationChapter, conceptAbilityModuleId, getBookConceptInventory } from '../../../book/application/workspace/bookReaderWorkspace.js';
 import { readerMaximizedSessionKey, readerPaneSessionKey } from '../../../book/infrastructure/storage/bookReaderSession.js';
 import { type ConceptEmbeddingHeatmapEntry, type ReaderEntityCounts, type ReaderPane } from '../../../shared/types/bookWorkspace.js';
@@ -105,21 +105,34 @@ export function useBookReaderNavigationModel ({
     };
   }, [book.id, conceptChapters, pages]);
   useEffect(() => {
-    if (!isBookProcessingStageComplete(book, 'concepts')) {
-      setFixConceptsChapterStatuses(clearFixConceptsChapterStatuses(book.id));
-      return;
-    }
+    let active = true;
 
-    // Existing books may already have a completed Fix concepts stage from
-    // before per-chapter progress was recorded. Treat that persisted stage as
-    // authoritative and backfill chapter checkmarks.
-    if (isBookProcessingStageComplete(book, 'fixConcepts') && conceptChapters.length) {
-      const completedStatuses = Object.fromEntries(conceptChapters.map((chapter) => [fixConceptsChapterKey(chapter), 'fixed' as const]));
+    const syncStatuses = async (): Promise<void> => {
+      if (!isBookProcessingStageComplete(book, 'concepts')) {
+        const cleared = await clearFixConceptsChapterStatuses(book.id);
 
-      storeFixConceptsChapterStatuses(book.id, completedStatuses);
-      setFixConceptsChapterStatuses(completedStatuses);
-    }
-  }, [book, conceptChapters]);
+        if (active) setFixConceptsChapterStatuses(cleared);
+        return;
+      }
+
+      // Completed stages from older books are authoritative; otherwise load
+      // the persisted per-chapter results after this book is selected.
+      if (isBookProcessingStageComplete(book, 'fixConcepts') && conceptChapters.length) {
+        const completedStatuses = Object.fromEntries(conceptChapters.map((chapter) => [fixConceptsChapterKey(chapter), 'fixed' as const]));
+
+        await storeFixConceptsChapterStatuses(book.id, completedStatuses);
+        if (active) setFixConceptsChapterStatuses(completedStatuses);
+      } else {
+        const statuses = await loadFixConceptsChapterStatuses(book.id);
+
+        if (active) setFixConceptsChapterStatuses(statuses);
+      }
+    };
+
+    syncStatuses().catch(() => { if (active) setFixConceptsChapterStatuses({}); });
+
+    return () => { active = false; };
+  }, [book.id, book.completedStages, conceptChapters, setFixConceptsChapterStatuses]);
   const loadConceptCountsByChapter = useCallback(async (targetChapters: ConceptChapterNavigationItem[]): Promise<Map<string, number>> => {
     const inventory = await getBookConceptInventory(book.id, pages.keys());
 

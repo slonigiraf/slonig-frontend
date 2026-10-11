@@ -129,6 +129,7 @@ export class SlonigDB extends Dexie {
   mathpixPdfJobs!: Table<MathpixPdfJob, [number, number, number]>;
   tikzSvgCache!: Table<TikzSvgCacheEntry, [string, string]>;
   bookProcessingRuns!: Table<BookProcessingRun, number>;
+  fixConceptsChapterStatuses!: Table<{ bookId: number; statuses: Record<string, 'fixed' | 'failed'> }, number>;
 
   constructor(name = 'slonig') {
     super(name);
@@ -720,6 +721,8 @@ export class SlonigDB extends Dexie {
         }
       });
     });
+    // Store Fix concepts review outcomes per book in IndexedDB.
+    this.version(103).stores({ fixConceptsChapterStatuses: '&bookId' });
 
   }
 }

@@ -214,7 +214,7 @@ export function useUploadedBookLibrary (setError: Dispatch<SetStateAction<string
       await removePdf(selectedBook.opfsName);
       await deleteBook(selectedBook.id);
       bookProcessingManager.forget(selectedBook.id);
-      clearFixConceptsChapterStatuses(selectedBook.id);
+      await clearFixConceptsChapterStatuses(selectedBook.id);
       clearBookStageTimes(selectedBook.id);
       clearBookExternalCalls(selectedBook.id);
 

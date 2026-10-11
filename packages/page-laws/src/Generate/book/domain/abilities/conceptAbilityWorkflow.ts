@@ -27,8 +27,8 @@ ${learnerAge === undefined ? '' : `Learner age: ${learnerAge}`}
 Concept title: ${concept.title}
 Concept description: ${concept.description}
 
-Return only JSON: {"abilities":[{"h":"Concept title","i":"","t":3,"q":[{"h":"Concrete task one","a":"Correct answer one","p":"","i":""},{"h":"Concrete task two","a":"Correct answer two","p":"","i":""}]}]}
-For the direct Concept workflow, apply the explicit visual input/output rules above: q[].p and q[].i are empty unless a required visual exists, in which case they contain full standalone generation specifications (never image bytes/URLs). Check each of the two tasks separately. Never disclose a question-visual answer in its task text.`;
+Return only JSON: {"abilities":[{"h":"Concept title","i":"","t":3,"q":[{"h":"Concrete task one","a":"Correct answer one","p":"","i":"","pPrompt":"","iPrompt":""},{"h":"Concrete task two","a":"Correct answer two","p":"","i":"","pPrompt":"","iPrompt":""}]}]}
+For the direct Concept workflow, q[].p and q[].i are image data fields and MUST BOTH be "" at initial creation. Specify required visuals exclusively in q[].pPrompt (question image description) and q[].iPrompt (solution image description); use "" for unused prompts. When a solution image completely answers the task, q[].a MUST be "" and q[].iPrompt must contain the COMPLETE standalone image-generation specification, with no written answer text. Example image-only q entry: {"h":"Draw the completed figure.","a":"","p":"","i":"","pPrompt":"","iPrompt":"Draw a clean completed figure with all correct labels and geometry..."}. Check each of the two tasks separately. Never disclose a question-visual answer in its task text.`;
 }
 
 /** Generate a complete practice Ability directly from a persisted Concept. */
@@ -43,9 +43,9 @@ export async function generateConceptAbility (
 
   const prompt = conceptAbilityGenerationPrompt(language, chapterTitle, concept, learnerAge);
 
-  const abilities = await runJson(prompt, (json) => parseGeneratedAbilities(json, 1, { fixedTitle: concept.title }), {
+  const abilities = await runJson(prompt, (json) => parseGeneratedAbilities(json, 1, { fixedTitle: concept.title, visualPromptsOnly: true }), {
     maxOutputTokens: 3_200,
-    repairContext: `Return exactly one Ability with h equal to ${JSON.stringify(concept.title)} and two concrete, correctly solved practice tasks.`,
+    repairContext: `Return exactly this JSON shape: {"abilities":[{"h":${JSON.stringify(concept.title)},"i":"","t":3,"q":[{"h":"complete nonempty learner question","a":"correct written answer OR empty string for an image-only solution","p":"","i":"","pPrompt":"question image prompt or empty string","iPrompt":"solution image prompt or empty string"},{"h":"second distinct nonempty learner question","a":"correct written answer OR empty string for an image-only solution","p":"","i":"","pPrompt":"question image prompt or empty string","iPrompt":"solution image prompt or empty string"}]}]}. Every exercise must have nonempty h, image-data fields p:"" and i:"", and both prompt fields pPrompt and iPrompt as strings ("" if unused). EITHER a must contain a nonempty textual answer OR iPrompt must contain a complete standalone solution-image prompt. For an image-only answer keep a:"" and put the entire image prompt ONLY in iPrompt. Do not put prompts in p or i. Never omit the question or either exercise.`, 
     validationCycles: 2
   });
 

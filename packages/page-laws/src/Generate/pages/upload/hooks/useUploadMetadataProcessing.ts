@@ -202,8 +202,8 @@ export function useUploadMetadataProcessing ({ generateAllConceptsModel, readerF
 
     setPendingProcessingAction('chapters');
 
-    resetBookProcessingStagesFrom(selectedBook.id, 'chapters').then((updatedBook) => {
-      clearFixConceptsChapterStatuses(selectedBook.id);
+    resetBookProcessingStagesFrom(selectedBook.id, 'chapters').then(async (updatedBook) => {
+      await clearFixConceptsChapterStatuses(selectedBook.id);
       if (updatedBook) {
         setBooks((current) => current.map((book) => book.id === updatedBook.id ? updatedBook : book));
       }

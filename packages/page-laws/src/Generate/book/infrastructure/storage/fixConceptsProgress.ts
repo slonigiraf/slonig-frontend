@@ -1,20 +1,14 @@
 // Copyright 2021-2026 @polkadot/app-laws authors & contributors
 // SPDX-License-Identifier: Apache-2.0
 
+import { deleteBookFixConceptsChapterStatuses, getBookFixConceptsChapterStatuses, putBookFixConceptsChapterStatuses } from '@slonigiraf/db';
 import type { ConceptChapterNavigationItem } from '../../domain/concepts/conceptRecognition.js';
 
 export type FixConceptsChapterStatus = 'failed' | 'fixed';
 export type FixConceptsChapterStatuses = Record<string, FixConceptsChapterStatus>;
 
-const STORAGE_PREFIX = 'knowledge-fix-concepts-progress:';
-const memoryStatuses = new Map<number, FixConceptsChapterStatuses>();
-
 export function fixConceptsChapterKey ({ chapterId, pageNumbers, title }: ConceptChapterNavigationItem): string {
   return `${chapterId ?? 'chapter'}:${title.trim()}:${pageNumbers.join(',')}`;
-}
-
-function storageKey (bookId: number): string {
-  return `${STORAGE_PREFIX}${bookId}`;
 }
 
 function validStatuses (value: unknown): FixConceptsChapterStatuses {
@@ -26,51 +20,22 @@ function validStatuses (value: unknown): FixConceptsChapterStatuses {
     .filter((entry): entry is [string, FixConceptsChapterStatus] => entry[1] === 'fixed' || entry[1] === 'failed'));
 }
 
-export function loadFixConceptsChapterStatuses (bookId: number): FixConceptsChapterStatuses {
-  try {
-    const stored = localStorage.getItem(storageKey(bookId));
-
-    if (stored) {
-      const parsed = validStatuses(JSON.parse(stored));
-
-      memoryStatuses.set(bookId, parsed);
-      return { ...parsed };
-    }
-  } catch {
-    // Keep the in-memory fallback usable when localStorage is unavailable.
-  }
-
-  return { ...(memoryStatuses.get(bookId) ?? {}) };
+export async function loadFixConceptsChapterStatuses (bookId: number): Promise<FixConceptsChapterStatuses> {
+  return validStatuses(await getBookFixConceptsChapterStatuses(bookId));
 }
 
-export function storeFixConceptsChapterStatuses (bookId: number, statuses: FixConceptsChapterStatuses): void {
-  const normalized = validStatuses(statuses);
-
-  memoryStatuses.set(bookId, normalized);
-
-  try {
-    localStorage.setItem(storageKey(bookId), JSON.stringify(normalized));
-  } catch {
-    // In-memory state still supports retrying within the current app session.
-  }
+export async function storeFixConceptsChapterStatuses (bookId: number, statuses: FixConceptsChapterStatuses): Promise<void> {
+  await putBookFixConceptsChapterStatuses(bookId, validStatuses(statuses));
 }
 
-export function clearFixConceptsChapterStatuses (bookId: number): FixConceptsChapterStatuses {
-  const cleared: FixConceptsChapterStatuses = {};
+export async function clearFixConceptsChapterStatuses (bookId: number): Promise<FixConceptsChapterStatuses> {
+  await deleteBookFixConceptsChapterStatuses(bookId);
 
-  memoryStatuses.set(bookId, cleared);
-
-  try {
-    localStorage.removeItem(storageKey(bookId));
-  } catch {
-    // Ignore storage restrictions.
-  }
-
-  return cleared;
+  return {};
 }
 
-export function failedFixConceptChapterKeys (bookId: number, chapters: ConceptChapterNavigationItem[]): Set<string> {
-  const statuses = loadFixConceptsChapterStatuses(bookId);
+export async function failedFixConceptChapterKeys (bookId: number, chapters: ConceptChapterNavigationItem[]): Promise<Set<string>> {
+  const statuses = await loadFixConceptsChapterStatuses(bookId);
 
   return new Set(chapters
     .map(fixConceptsChapterKey)

@@ -123,35 +123,62 @@ function parseResponse (content: string): unknown {
 }
 
 function parseAbilityValue (template: unknown): GeneratedAbility {
+  const shapeError = 'Each Ability must have a name and exactly two exercises with nonempty questions and a text answer or solution image.';
+
   if (
     !isRecord(template) ||
     !isNonEmptyString(template.h) ||
     typeof template.i !== 'string' ||
     template.t !== 3 ||
     !Array.isArray(template.q) ||
-    template.q.length !== 2 ||
-    !template.q.every((exercise: unknown) => isRecord(exercise) && isNonEmptyString(exercise.h) && isNonEmptyString(exercise.a) && typeof exercise.p === 'string' && typeof exercise.i === 'string')
+    template.q.length !== 2
   ) {
-    throw new Error('Each Ability must have a name and exactly two exercises with nonempty questions and answers.');
+    throw new Error(shapeError);
   }
+
+  const q = template.q.map((exercise: unknown, index: number): GeneratedAbilityExercise => {
+    if (!isRecord(exercise) || !isNonEmptyString(exercise.h)) {
+      throw new Error(`${shapeError} Exercise ${index + 1} needs a nonempty question (h).`);
+    }
+
+    // Images are stored separately. Before TikZ has been generated, a hydrated
+    // image-only answer has i="" but a nonempty iPrompt. Do not reject that
+    // legitimate intermediate state or it cannot reach the Images stage.
+    const hasSolutionVisual = isNonEmptyString(exercise.i) || isNonEmptyString(exercise.iPrompt);
+    const hasAnswer = isNonEmptyString(exercise.a);
+    const hasEmptyAnswer = exercise.a === null || exercise.a === undefined || (typeof exercise.a === 'string' && !exercise.a.trim());
+    const imageOnly = !hasAnswer && hasEmptyAnswer && hasSolutionVisual;
+
+    if (!hasAnswer && !imageOnly) {
+      throw new Error(`${shapeError} Exercise ${index + 1} needs a text answer (a) or a solution image prompt (i/iPrompt).`);
+    }
+
+    // For a purely visual answer, a model may omit the empty a/p/i fields
+    // (provided that iPrompt supplies the solution when i is omitted).
+    // Continue requiring the normal complete schema for text answers.
+    if ((typeof exercise.p !== 'string' && !(imageOnly && (exercise.p === undefined || exercise.p === null))) ||
+      (typeof exercise.i !== 'string' && !(imageOnly && (exercise.i === undefined || exercise.i === null) && isNonEmptyString(exercise.iPrompt))) ||
+      (exercise.iPrompt !== undefined && typeof exercise.iPrompt !== 'string') ||
+      (exercise.pPrompt !== undefined && typeof exercise.pPrompt !== 'string')) {
+      throw new Error(`${shapeError} Exercise ${index + 1} has invalid visual fields.`);
+    }
+
+    return {
+      a: typeof exercise.a === 'string' ? exercise.a.trim() : '',
+      h: exercise.h.trim(),
+      i: typeof exercise.i === 'string' ? exercise.i : '',
+      ...(typeof exercise.iError === 'boolean' ? { iError: exercise.iError } : {}),
+      ...(typeof exercise.iPrompt === 'string' ? { iPrompt: exercise.iPrompt } : {}),
+      p: typeof exercise.p === 'string' ? exercise.p : '',
+      ...(typeof exercise.pError === 'boolean' ? { pError: exercise.pError } : {}),
+      ...(typeof exercise.pPrompt === 'string' ? { pPrompt: exercise.pPrompt } : {})
+    };
+  });
 
   return {
     h: template.h.trim(),
     i: template.i,
-    q: template.q.map((exercise) => {
-      const value = exercise as Record<string, unknown>;
-
-      return {
-        a: String(value.a).trim(),
-        h: String(value.h).trim(),
-        i: String(value.i),
-        ...(typeof value.iError === 'boolean' ? { iError: value.iError } : {}),
-        ...(typeof value.iPrompt === 'string' ? { iPrompt: value.iPrompt } : {}),
-        p: String(value.p),
-        ...(typeof value.pError === 'boolean' ? { pError: value.pError } : {}),
-        ...(typeof value.pPrompt === 'string' ? { pPrompt: value.pPrompt } : {})
-      };
-    }),
+    q,
     t: 3
   };
 }
@@ -228,7 +255,7 @@ function parseGeneratedAbilityValue (value: unknown, fixedTitle?: string): Gener
   return template;
 }
 
-export function parseGeneratedAbilities (content: string, expectedCount?: number, options?: { allowIdenticalQuestionText?: boolean; fixedTitle?: string }): GeneratedAbility[] {
+export function parseGeneratedAbilities (content: string, expectedCount?: number, options?: { allowIdenticalQuestionText?: boolean; fixedTitle?: string; visualPromptsOnly?: boolean }): GeneratedAbility[] {
   const parsed = parseResponse(content);
   const templates: unknown = Array.isArray(parsed) ? parsed : isRecord(parsed) ? parsed.abilities ?? parsed.templates : undefined;
 
@@ -240,8 +267,32 @@ export function parseGeneratedAbilities (content: string, expectedCount?: number
     throw new Error(`OpenRouter returned ${templates.length} Abilities; expected ${expectedCount}.`);
   }
 
-  // Validate the entire response before callers persist any of its templates.
-  return templates.map((template) => parseGeneratedAbilityValue(template, options?.fixedTitle));
+  // New Concept -> Ability generation must never overload p/i with prompt text.
+  // Keep the general/stored Ability parser backward-compatible with older rows
+  // whose visuals may already contain TikZ source or legacy prompt descriptions.
+  return templates.map((template, abilityIndex) => {
+    if (options?.visualPromptsOnly) {
+      if (!isRecord(template) || !Array.isArray(template.q)) {
+        throw new Error(`Ability ${abilityIndex + 1} must contain two exercises.`);
+      }
+
+      for (const [exerciseIndex, value] of template.q.entries()) {
+        if (!isRecord(value)) {
+          throw new Error(`Ability ${abilityIndex + 1}, exercise ${exerciseIndex + 1} must be an object.`);
+        }
+
+        if (value.p !== '' || value.i !== '') {
+          throw new Error(`Ability ${abilityIndex + 1}, exercise ${exerciseIndex + 1}: p and i are image data fields and must be empty during generation; put image descriptions in pPrompt and iPrompt.`);
+        }
+
+        if (typeof value.pPrompt !== 'string' || typeof value.iPrompt !== 'string') {
+          throw new Error(`Ability ${abilityIndex + 1}, exercise ${exerciseIndex + 1}: pPrompt and iPrompt are required strings (empty when unused).`);
+        }
+      }
+    }
+
+    return parseGeneratedAbilityValue(template, options?.fixedTitle);
+  });
 }
 
 

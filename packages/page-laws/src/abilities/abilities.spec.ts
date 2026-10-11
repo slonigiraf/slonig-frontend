@@ -32,6 +32,85 @@ describe('generated abilities', (): void => {
     assert.deepEqual(Object.keys(parsed.q[0]).sort(), ['a', 'h', 'i', 'p']);
   });
 
+  it('accepts image-only answers but rejects exercises with no text answer or solution image', (): void => {
+    const imageOnly = createSkill();
+
+    imageOnly.q[0].a = '';
+    imageOnly.q[0].i = 'Draw the completed number line from zero to ten, marking the solved result.';
+    assert.deepEqual(parseGeneratedAbilities(JSON.stringify([imageOnly]), 1)[0].q[0], imageOnly.q[0]);
+    assert.deepEqual(parseStoredAbility(JSON.stringify(imageOnly)).q[0], imageOnly.q[0]);
+
+    imageOnly.q[0].i = '';
+    assert.throws(() => parseGeneratedAbilities(JSON.stringify([imageOnly]), 1), /text answer or solution image/);
+  });
+
+  it('accepts image-only answers while their image exists only as a persisted prompt', (): void => {
+    const imageOnly = createSkill();
+
+    imageOnly.q[0].a = '';
+    imageOnly.q[0].i = '';
+    imageOnly.q[0].iPrompt = 'A correct, completely labeled solution diagram for exercise one.';
+
+    assert.deepEqual(parseGeneratedAbilities(JSON.stringify([imageOnly]), 1)[0].q[0], imageOnly.q[0]);
+    // Hydrating a not-yet-generated Image id returns i="" and iPrompt with
+    // the preserved image prompt. The Ability must stay valid at this stage.
+    assert.deepEqual(parseStoredAbility(JSON.stringify(imageOnly)).q[0], imageOnly.q[0]);
+
+    imageOnly.q[0].iPrompt = '';
+    assert.throws(() => parseStoredAbility(JSON.stringify(imageOnly)), /Exercise 1.*text answer.*solution image prompt/);
+  });
+
+  it('normalizes omitted blank fields for a model-produced image-only solution', (): void => {
+    const modelOutput = {
+      abilities: [{
+        h: 'Draw a correct number line',
+        i: '',
+        q: [
+          { h: 'Mark the correct position on the line.', iPrompt: 'Draw the correct completed number line.' },
+          { h: 'Mark a different position on the line.', a: 'The point is at 5.', p: '', i: '' }
+        ],
+        t: 3
+      }]
+    };
+    const [ability] = parseGeneratedAbilities(JSON.stringify(modelOutput), 1);
+
+    assert.deepEqual(ability.q[0], { a: '', h: modelOutput.abilities[0].q[0].h, i: '', iPrompt: modelOutput.abilities[0].q[0].iPrompt, p: '' });
+    assert.deepEqual(ability.q[1], { a: 'The point is at 5.', h: modelOutput.abilities[0].q[1].h, i: '', p: '' });
+    assert.deepEqual(parseStoredAbility(JSON.stringify(ability)), ability);
+
+    // Some structured model responses use null rather than an empty string.
+    const nullableImageOnly = JSON.parse(JSON.stringify(modelOutput)) as typeof modelOutput;
+    (nullableImageOnly.abilities[0].q[0] as Record<string, unknown>).a = null;
+    (nullableImageOnly.abilities[0].q[0] as Record<string, unknown>).i = null;
+    (nullableImageOnly.abilities[0].q[0] as Record<string, unknown>).p = null;
+    assert.equal(parseGeneratedAbilities(JSON.stringify(nullableImageOnly), 1)[0].q[0].a, '');
+
+    modelOutput.abilities[0].q[0].iPrompt = '';
+    assert.throws(() => parseGeneratedAbilities(JSON.stringify(modelOutput), 1), /Exercise 1.*solution image prompt/);
+  });
+
+  it('enforces separate image prompts for new generation without rejecting legacy stored visual data', (): void => {
+    const generated = createSkill();
+
+    generated.q[0] = { ...generated.q[0], pPrompt: 'Starting diagram', iPrompt: '' };
+    generated.q[1] = { ...generated.q[1], a: '', pPrompt: 'Unfinished figure', iPrompt: 'Completed figure' };
+
+    const options = { visualPromptsOnly: true };
+    const [parsed] = parseGeneratedAbilities(JSON.stringify([generated]), 1, options);
+
+    assert.deepEqual(parsed, generated);
+    assert.deepEqual(Object.keys(parsed.q[0]).sort(), ['a', 'h', 'i', 'iPrompt', 'p', 'pPrompt']);
+
+    const legacy = JSON.parse(JSON.stringify(generated)) as GeneratedAbility;
+
+    legacy.q[0].p = 'Older prompt in p';
+    assert.throws(() => parseGeneratedAbilities(JSON.stringify([legacy]), 1, options), /image data fields and must be empty/);
+    assert.equal(parseStoredAbility(JSON.stringify(legacy)).q[0].p, 'Older prompt in p');
+
+    generated.q[0].pPrompt = undefined;
+    assert.throws(() => parseGeneratedAbilities(JSON.stringify([generated]), 1, options), /pPrompt and iPrompt are required strings/);
+  });
+
   it('persists explicit TikZ compile state with the visual and clears it only when the source changes', (): void => {
     const original = createSkill().q[0];
     const failed = withAbilityVisualError({ ...original, p: '\\begin{tikzpicture}bad\\end{tikzpicture}' }, 'p', true);
@@ -544,7 +623,7 @@ describe('generated abilities', (): void => {
       templates.forEach((template) => {
         assert.deepEqual(Object.keys(template).sort(), ['h', 'i', 'q', 't']);
         assert.equal(template.q.length, 2);
-        template.q.forEach((exercise) => assert.deepEqual(Object.keys(exercise).sort(), ['a', 'h', 'i', 'p']));
+        template.q.forEach((exercise) => assert.deepEqual(Object.keys(exercise).sort(), ['a', 'h', 'i', 'iPrompt', 'p', 'pPrompt']));
       });
     });
   }

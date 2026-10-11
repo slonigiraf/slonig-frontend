@@ -24,13 +24,6 @@ export interface FixedConcept {
   title: string;
 }
 
-export function combineFixChapterConceptsResults (results: FixChapterConceptsResult[]): FixChapterConceptsResult {
-  return {
-    concepts: results.flatMap(({ concepts }) => concepts),
-    removeConceptIndexes: Array.from(new Set(results.flatMap(({ removeConceptIndexes }) => removeConceptIndexes))).sort((a, b) => a - b)
-  };
-}
-
 export function parseFixedConcept (content: string, language = 'en'): FixedConcept {
   const json = content.replace(/^```json\s*|\s*```$/gi, '').trim();
   let parsed: Partial<FixedConcept>;
@@ -104,4 +97,33 @@ export function parseMissingChapterConcepts (content: string, existingConcepts: 
   ))).sort((a, b) => a - b);
 
   return { concepts, removeConceptIndexes };
+}
+
+/** An unsaved inventory, incorporating each completed Fix concepts pass. */
+export interface FixChapterConceptsDraft {
+  inventory: BookConcept[];
+  removed: BookConcept[];
+}
+
+export function applyFixChapterConceptsPass (
+  draft: FixChapterConceptsDraft,
+  fixes: FixChapterConceptsResult,
+  bookId: number,
+  chapterId: BookConcept['chapterId'],
+  language = 'en'
+): FixChapterConceptsDraft {
+  // Removal indexes refer to the inventory supplied to THIS pass, not the
+  // original persisted inventory. Unsaved additions may also be removed.
+  const indexesToRemove = new Set(fixes.removeConceptIndexes);
+  const removedInPass = draft.inventory.filter((_, index) => indexesToRemove.has(index) && _.id !== undefined);
+  const retained = draft.inventory.filter((_, index) => !indexesToRemove.has(index));
+  const added = fixes.concepts.map((concept): BookConcept => chapterLevelMissingConcept(bookId, chapterId, concept, 0, language));
+
+  return { inventory: [...retained, ...added], removed: [...draft.removed, ...removedInPass] };
+}
+
+export function proposedFixChapterConcepts (draft: FixChapterConceptsDraft): MissingChapterConcept[] {
+  return draft.inventory.flatMap(({ bookPage, description, id, title }): MissingChapterConcept[] => id === undefined
+    ? [{ description, pageNumber: bookPage[1], title }]
+    : []);
 }

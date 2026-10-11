@@ -569,7 +569,7 @@ export async function getBookByContentHash(contentHash: string): Promise<Book | 
 }
 
 export async function deleteBook(id: number): Promise<void> {
-    await db.transaction('rw', db.books, db.bookPages, db.bookChapters, db.bookConcepts, db.conceptEmbeddings, db.skills, db.exerciseTemplates, db.abilities, db.images, db.mathpixPdfJobs, db.bookProcessingRuns, async () => {
+    await db.transaction('rw', db.books, db.bookPages, db.bookChapters, db.bookConcepts, db.conceptEmbeddings, db.skills, db.exerciseTemplates, db.abilities, db.images, db.mathpixPdfJobs, db.bookProcessingRuns, db.fixConceptsChapterStatuses, async () => {
         const pageKeys = await db.bookPages.where('bookId').equals(id).primaryKeys();
         const chapterIds = (await db.bookChapters.where('bookId').equals(id).primaryKeys()) as number[];
         const skillIds = (await Promise.all(chapterIds.map((chapterId) => db.skills.where('chapterId').equals(chapterId).primaryKeys()))).flat() as number[];
@@ -595,6 +595,7 @@ export async function deleteBook(id: number): Promise<void> {
         await db.conceptEmbeddings.where('bookId').equals(id).delete();
         await db.mathpixPdfJobs.where('bookId').equals(id).delete();
         await db.bookProcessingRuns.delete(id);
+        await db.fixConceptsChapterStatuses.delete(id);
     });
 }
 
@@ -3248,4 +3249,19 @@ export type Badge = Letter | Insurance | LetterTemplate;
 export type Recommendation = Letter | Insurance | Reimbursement;
 export function isInsurance(badge: Badge): badge is Insurance {
     return (badge as Insurance).employer !== undefined;
+}
+
+/** Persistent Fix concepts review outcomes, keyed by book in IndexedDB. */
+export type BookFixConceptsChapterStatuses = Record<string, 'fixed' | 'failed'>;
+
+export async function getBookFixConceptsChapterStatuses(bookId: number): Promise<BookFixConceptsChapterStatuses> {
+    return (await db.fixConceptsChapterStatuses.get(bookId))?.statuses ?? {};
+}
+
+export async function putBookFixConceptsChapterStatuses(bookId: number, statuses: BookFixConceptsChapterStatuses): Promise<void> {
+    await db.fixConceptsChapterStatuses.put({ bookId, statuses });
+}
+
+export async function deleteBookFixConceptsChapterStatuses(bookId: number): Promise<void> {
+    await db.fixConceptsChapterStatuses.delete(bookId);
 }
