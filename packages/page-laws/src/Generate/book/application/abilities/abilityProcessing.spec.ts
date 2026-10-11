@@ -6,7 +6,7 @@ import { describe, it } from 'node:test';
 
 import type OpenAI from 'openai';
 
-import { abilityRepairInput, answerTikzRequestPrompt, exerciseNeedsCompletedFigure, requestAbilityRepairResult, tikzRequestPrompt, type StoredAbility } from './abilityProcessing.js';
+import { abilityRepairInput, answerTikzRequestPrompt, exerciseNeedsCompletedFigure, requestAbilityRepairResult, tikzCompileRepairPrompt, tikzDetectedProblemsRepairPrompt, tikzFixReviewPrompt, tikzRequestPrompt, type ImageFixTarget, type StoredAbility } from './abilityProcessing.js';
 
 describe('Ability repair source evidence', (): void => {
   it('sends the linked Concept directly with no Exercise or embedding pre-check', (): void => {
@@ -132,6 +132,25 @@ describe('separate question and answer figure generation prompts', (): void => {
     assert.match(prompt, /preserve its original objects, coordinates, scales, line styles/);
     assert.match(prompt, /Correct answer: At x=1.5/);
     assert.match(prompt, /Mark the midpoint on the segment/);
+  });
+
+  it('prefers native TikZ styling in question/answer generation and all image-fix prompts', (): void => {
+    const stylingRule = 'Avoid LaTeX text-formatting macros (`\\underline`, `\\textbf`, `\\textit`, `\\textcolor`, `\\sout`, etc.). Use native TikZ node styles for fonts, sizes, and colors; draw underlines, strikethroughs, highlights, and borders geometrically. Preserve whitespace, avoid unsupported commands and package dependencies, and use separate named nodes when necessary. Prioritize correct rendering over code brevity.';
+    const record: StoredAbility = { ability, content: JSON.stringify(ability), id: 'ability-geometry', moduleId: 'book-1-concept-3' };
+    const target: ImageFixTarget = { ability, exerciseIndex: 0, field: 'p', imageId: 1, originalTikz: questionTikz, prompt: 'A segment', record };
+    const preRender = { compiled: true, diagnostics: [], renderedSvg: '<svg/>', texInput: questionTikz };
+    const review = { hasErrors: true, errors: ['Label overlap'], tikz: questionTikz };
+    const prompts = [
+      tikzRequestPrompt('en', ability, 0, 'A segment'),
+      answerTikzRequestPrompt('en', ability, 0, 'Show midpoint'),
+      tikzFixReviewPrompt('en', target, preRender),
+      tikzCompileRepairPrompt('en', target, review, preRender),
+      tikzDetectedProblemsRepairPrompt('en', target, review, preRender)
+    ];
+
+    for (const prompt of prompts) {
+      assert.ok(prompt.includes(stylingRule), 'Every image and fix-image prompt must include the TikZ styling rule.');
+    }
   });
 
   it('recognizes diagram-completion tasks but not ordinary word problems', (): void => {

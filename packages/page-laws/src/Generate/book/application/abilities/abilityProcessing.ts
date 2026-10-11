@@ -10,7 +10,7 @@ import OpenAI from 'openai';
 
 import { FIX_ABILITIES_REQUEST_PROMPT, JSON_VALIDATION_PROMPT } from '../../infrastructure/ai/prompts/abilities.js';
 import { parseAbilityRepairResult } from '../../../../abilities/abilities.js';
-import { LEARNER_AGE_PROMPT, MATH_DISPLAY_REQUIREMENTS_PROMPT } from '../../infrastructure/ai/prompts/shared.js';
+import { LEARNER_AGE_PROMPT, MATH_DISPLAY_REQUIREMENTS_PROMPT, TIKZ_NATIVE_STYLING_PROMPT } from '../../infrastructure/ai/prompts/shared.js';
 import { openRouterRequestGate } from '../../../../openrouter/concurrency.js';
 import { reportOpenRouterCost } from '../../../../openrouter/cost.js';
 
@@ -289,6 +289,7 @@ export function tikzRequestPrompt (language: string, ability: GeneratedAbility, 
 
 Rules:
 ${MATH_DISPLAY_REQUIREMENTS_PROMPT}
+${TIKZ_NATIVE_STYLING_PROMPT}
 - Return ONLY one \\begin{tikzpicture}...\\end{tikzpicture} block. No markdown fences, prose, documentclass, packages, or external files.
 - Use only standard TikZ constructs and common built-in libraries where possible. Keep the drawing browser-renderable by TikZ Editor using standard supported TikZ constructs.
 - Preserve the exact mathematical/semantic information in the visual description. Do not add hints or facts that would reveal an answer in a question visual.
@@ -311,6 +312,7 @@ export function answerTikzRequestPrompt (language: string, ability: GeneratedAbi
   return `Generate a learner-facing TikZ ANSWER image for the following task.
 
 ${MATH_DISPLAY_REQUIREMENTS_PROMPT}
+${TIKZ_NATIVE_STYLING_PROMPT}
 - Return ONLY one \\begin{tikzpicture}...\\end{tikzpicture} block, without markdown or commentary.
 - Use browser-renderable, standard TikZ; no external packages, files, raster images, URLs or SVG.
 - The answer image must show the correct completed result and respect the problem statement.
@@ -380,6 +382,7 @@ export function tikzFixReviewPrompt (language: string, target: ImageFixTarget, p
   return `Strictly review this learner-facing TikZ ${purpose}. The goal is not merely valid code: the rendered diagram must accurately realize the ORIGINAL VISUAL PROMPT for this concrete Ability exercise and must be clean and readable.
 
 ${MATH_DISPLAY_REQUIREMENTS_PROMPT}
+${TIKZ_NATIVE_STYLING_PROMPT}
 
 During review or repair, slash-form mathematical fractions are errors and must be corrected. During review or repair, any number line that violates any of these requirements is an error and must be corrected.
 
@@ -422,6 +425,7 @@ export function tikzCompileRepairPrompt (language: string, target: ImageFixTarge
   return `The proposed TikZ correction still failed the application's real TikZ Editor pre-render. Repair the TikZ so it renders in TikZ Editor AND still satisfies the original visual specification. Keep all valid semantic/layout corrections already made.
 
 ${MATH_DISPLAY_REQUIREMENTS_PROMPT}
+${TIKZ_NATIVE_STYLING_PROMPT}
 
 During review or repair, slash-form mathematical fractions are errors and must be corrected. During review or repair, any number line that violates any of these requirements is an error and must be corrected.
 
@@ -449,6 +453,7 @@ export function tikzDetectedProblemsRepairPrompt (language: string, target: Imag
   return `You identified real problems in this TikZ visual but returned the original TikZ unchanged. Apply the required corrections now. The corrected TikZ must render in TikZ Editor, match the original visual prompt and concrete exercise, and resolve every listed layout/semantic problem.
 
 ${MATH_DISPLAY_REQUIREMENTS_PROMPT}
+${TIKZ_NATIVE_STYLING_PROMPT}
 
 During review or repair, slash-form mathematical fractions are errors and must be corrected. During review or repair, any number line that violates any of these requirements is an error and must be corrected.
 
