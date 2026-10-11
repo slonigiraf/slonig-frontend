@@ -84,6 +84,20 @@ describe('chapter concept recognition', (): void => {
     assert.equal(result.concepts[0].title, 'The main ideas in DNA');
   });
 
+  it('rejects unsupported HTML tags in generated Concept titles or descriptions', (): void => {
+    for (const field of ['title', 'description'] as const) {
+      const concept = { description: 'A single useful fact.', pageNumber: 1, title: 'A concept', [field]: '<strong>bad</strong>' };
+
+      assert.throws(() => parseGeneratedChapterConcepts(JSON.stringify({ concepts: [concept] }), new Set([1])), /unsupported HTML tag/);
+    }
+
+    const supported = parseGeneratedChapterConcepts(JSON.stringify({ concepts: [{
+      title: 'Using <code>for</code> loops', description: 'The expression <kx>x < 3</kx> is a comparison.', pageNumber: 1
+    }] }), new Set([1]));
+
+    assert.equal(supported.concepts[0].title, 'Using <code>for</code> loops');
+  });
+
   it('rejects a concept that points outside the supplied chapter pages', (): void => {
     assert.throws(() => parseGeneratedChapterConcepts(JSON.stringify({ concepts: [
       { description: 'Bad reference', pageNumber: 99, title: 'Concept' }
@@ -96,6 +110,7 @@ describe('chapter concept recognition', (): void => {
     ], 11);
 
     assert.match(prompt, /complete supplied chapter/i);
+    assert.match(prompt, /ONLY permitted HTML-like markup is <kx>/);
     assert.match(prompt, /smallest useful knowledge unit/i);
     assert.match(prompt, /minimal independently teachable/i);
     assert.match(prompt, /prefer producing several small concepts/i);

@@ -1,6 +1,7 @@
 // Copyright 2021-2026 @polkadot/app-laws authors & contributors
 // SPDX-License-Identifier: Apache-2.0
 
+import { assertSupportedLearnerTextMarkup } from '../Generate/book/domain/learnerTextMarkup.js';
 import { formatSentenceCaseTitle } from '../Generate/book/domain/naming/sentenceCase.js';
 
 export interface GeneratedAbilityExercise {
@@ -217,7 +218,12 @@ export function validateGeneratedAbilityText (ability: GeneratedAbility, validat
     throw new Error('Ability title is too verbose.');
   }
 
-  for (const exercise of ability.q) {
+  assertSupportedLearnerTextMarkup(ability.h, 'Ability title');
+
+  for (const [index, exercise] of ability.q.entries()) {
+    assertSupportedLearnerTextMarkup(exercise.h, `Ability exercise ${index + 1} question`);
+    assertSupportedLearnerTextMarkup(exercise.a, `Ability exercise ${index + 1} answer`);
+
     if (isForbiddenAbilityTaskTitle(exercise.h)) {
       throw new Error('Ability task titles must be meaningful learner-facing tasks, not the placeholders "Task 1" or "Task 2".');
     }

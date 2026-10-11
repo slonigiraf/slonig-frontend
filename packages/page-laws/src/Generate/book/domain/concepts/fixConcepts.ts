@@ -3,6 +3,7 @@
 
 import type { BookConcept } from '@slonigiraf/db';
 
+import { assertSupportedLearnerTextMarkup } from '../learnerTextMarkup.js';
 import { formatSentenceCaseTitle } from '../naming/sentenceCase.js';
 
 export const FIX_CONCEPTS_RUNS = 2;
@@ -37,6 +38,9 @@ export function parseFixedConcept (content: string, language = 'en'): FixedConce
   if (typeof parsed.title !== 'string' || typeof parsed.description !== 'string' || !parsed.title.trim() || !parsed.description.trim()) {
     throw new Error('OpenRouter returned invalid single Concept repair data.');
   }
+
+  assertSupportedLearnerTextMarkup(parsed.title, 'Concept title');
+  assertSupportedLearnerTextMarkup(parsed.description, 'Concept description');
 
   return { description: parsed.description.trim(), title: formatSentenceCaseTitle(parsed.title, language) };
 }
@@ -88,6 +92,9 @@ export function parseMissingChapterConcepts (content: string, existingConcepts: 
     if (!trimmedTitle || !trimmedDescription) {
       return [];
     }
+
+    assertSupportedLearnerTextMarkup(trimmedTitle, 'Fix concepts title');
+    assertSupportedLearnerTextMarkup(trimmedDescription, 'Fix concepts description');
 
     return [{ description: trimmedDescription, pageNumber, title: formatSentenceCaseTitle(trimmedTitle, language) }];
   });

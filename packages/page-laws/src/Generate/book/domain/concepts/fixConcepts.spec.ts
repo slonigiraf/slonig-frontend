@@ -20,6 +20,8 @@ describe('fix concepts', (): void => {
 
     assert.match(prompt, /same narrowly teachable concept/);
     assert.match(prompt, /Fractions/);
+    assert.match(prompt, /ONLY permitted HTML-like markup is <kx>/);
+    assert.match(prompt, /Treat unsupported HTML tags in the current title or description as errors/);
     assert.deepEqual(parseFixedConcept('{"title":"Denominator","description":"The bottom number shows how many equal parts make the whole."}'), {
       description: 'The bottom number shows how many equal parts make the whole.',
       title: 'Denominator'
@@ -66,6 +68,8 @@ describe('fix concepts', (): void => {
     assert.match(prompt, /normal removals plus additions/);
     assert.match(prompt, /Duplicate review IS part of Fix Concepts/i);
     assert.match(prompt, /LOWEST conceptIndex/i);
+    assert.match(prompt, /ONLY permitted HTML-like markup is <kx>/);
+    assert.match(prompt, /propose its conceptIndex for removal AND a corrected replacement concept/);
     assert.match(prompt, /later Deduplicate Concepts stage/i);
     assert.match(prompt, /removeConceptIndexes/);
     assert.match(prompt, /conceptIndex/);
@@ -151,6 +155,16 @@ describe('fix concepts', (): void => {
 
   it('accepts older Fix concepts responses without removals', (): void => {
     assert.deepEqual(parseMissingChapterConcepts('{"concepts":[]}'), { concepts: [], removeConceptIndexes: [] });
+  });
+
+  it('rejects unsupported HTML tags in single and chapter Fix concepts responses', (): void => {
+    assert.throws(() => parseFixedConcept(JSON.stringify({ title: 'Title', description: '<p>description</p>' })), /unsupported HTML tag/);
+    assert.throws(() => parseMissingChapterConcepts(JSON.stringify({
+      concepts: [{ title: '<b>Bad</b>', description: 'Meaning', pageNumber: 1 }]
+    }), [], new Set([1])), /unsupported HTML tag/);
+    const supported = parseFixedConcept(JSON.stringify({ title: 'Using <code>for</code> loops', description: 'Compare <kx>x < 3</kx>.' }));
+
+    assert.equal(supported.title, 'Using <code>for</code> loops');
   });
 
   it('rejects malformed response shapes', (): void => {

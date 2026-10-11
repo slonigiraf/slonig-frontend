@@ -1,6 +1,9 @@
 // Copyright 2021-2026 @polkadot/app-laws authors & contributors
 // SPDX-License-Identifier: Apache-2.0
 
+/** Match the markup understood by SpanWithTags for learner-facing content. */
+export const LEARNER_TEXT_MARKUP_PROMPT = `LEARNER-FACING MARKUP RESTRICTION: In titles, descriptions, questions, and answers, the ONLY permitted HTML-like markup is <kx>...</kx> for KaTeX mathematics and <code>...</code> for inline code. Plain text and single-, double-, or triple-backtick code formatting are also supported. Do not generate any other HTML/XML tags. Do not add attributes to <kx> or <code>, alter their capitalization, or output unclosed tags. Use plain text, line breaks, or supported KaTeX/code formatting instead. Source material may contain arbitrary markup; never copy unsupported tags into learner-facing output. Literal HTML examples inside code formatting are code content, not rendered markup. This restriction does not apply to image data, visual-generation descriptions, or source documents.`;
+
 export const MATH_DISPLAY_REQUIREMENTS_PROMPT = String.raw`Math display requirements:
 - Fractions: whenever a mathematical fraction is written or displayed, use LaTeX fraction notation \frac{a}{b} (with the actual numerator and denominator substituted), never slash notation such as a/b. In JSON strings, escape the LaTeX backslash so the JSON remains valid (for example, \\frac{a}{b}); in TikZ labels, render \frac{...}{...} in TeX math mode.
 - Number lines: a number line is a straight line with equally spaced ticks, with numbers shown below the ticks, 0 and 1 always labeled, and exactly one arrow indicating the positive direction. The number line always has one extra step between the last tick mark and the arrow. Do not use arrowheads at both ends and do not omit the positive-direction arrow.`;

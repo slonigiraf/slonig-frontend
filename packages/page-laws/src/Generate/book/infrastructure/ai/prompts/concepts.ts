@@ -1,11 +1,15 @@
 // Copyright 2021-2026 @polkadot/app-laws authors & contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import { MATH_DISPLAY_REQUIREMENTS_PROMPT } from './shared.js';
+import { LEARNER_TEXT_MARKUP_PROMPT, MATH_DISPLAY_REQUIREMENTS_PROMPT } from './shared.js';
 
 export const BOOK_CHAPTER_EXTRACTION_PROMPT = `Read the complete supplied chapter as one unit and extract only the distinct concepts that are intentionally introduced or explained as new anywhere in this chapter. Chapter assignment is already known; do not identify, infer, or return a different chapter or section.
 
 ${MATH_DISPLAY_REQUIREMENTS_PROMPT}
+
+${LEARNER_TEXT_MARKUP_PROMPT}
+
+Apply this markup restriction to every generated concept title and description. Do not copy unsupported source MMD/HTML tags.
 
 Use the smallest useful knowledge unit as the unit of extraction. Each concept object must contain exactly one minimal independently teachable fact, definition, relationship, rule, property, operation, procedure, interpretation, or distinction. Prefer producing several small concepts over one broad concept whenever the source supports the smaller concepts. When uncertain whether one candidate contains one idea or several, split it.
 

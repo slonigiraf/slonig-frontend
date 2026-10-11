@@ -1,6 +1,7 @@
 // Copyright 2021-2026 @polkadot/app-laws authors & contributors
 // SPDX-License-Identifier: Apache-2.0
 
+import { assertSupportedLearnerTextMarkup } from '../learnerTextMarkup.js';
 import { formatSentenceCaseTitle } from '../naming/sentenceCase.js';
 
 export const CONCEPT_IDENTIFICATION_RUNS = 2;
@@ -65,6 +66,11 @@ export function parseGeneratedChapterConcepts (content: string, allowedPageNumbe
   if (!Array.isArray(parsed.concepts) || parsed.concepts.some(({ description, pageNumber, title }) => typeof title !== 'string' || typeof description !== 'string' || !Number.isSafeInteger(pageNumber) || !allowedPageNumbers.has(pageNumber))) {
     throw new Error('OpenRouter returned invalid chapter concept data.');
   }
+
+  parsed.concepts.forEach(({ description, title }, index): void => {
+    assertSupportedLearnerTextMarkup(title, `Concept ${index + 1} title`);
+    assertSupportedLearnerTextMarkup(description, `Concept ${index + 1} description`);
+  });
 
   return mergeGeneratedChapterConcepts([{ concepts: parsed.concepts
     .map(({ description, pageNumber, title }) => ({ description: description.trim(), pageNumber, title: formatSentenceCaseTitle(title, language) }))

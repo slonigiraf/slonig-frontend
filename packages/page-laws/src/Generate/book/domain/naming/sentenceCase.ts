@@ -15,8 +15,8 @@ export function formatSentenceCaseTitle (value: string, language = 'en'): string
   }
   let firstWord = true;
 
-  return title.replace(/<kx>[\s\S]*?<\/kx>|[\p{L}][\p{L}\p{N}’'-]*/giu, (word) => {
-    if (/^<kx>/i.test(word)) {
+  return title.replace(/<kx>[\s\S]*?<\/kx>|<code>[\s\S]*?<\/code>|```(?:[a-zA-Z0-9_-]+)?[ \t]*\n[\s\S]*?```|``(?:(?!``)[^\n])+``|`[^`\n]+`|[\p{L}][\p{L}\p{N}’'-]*/giu, (word) => {
+    if (word.startsWith('<kx>') || word.startsWith('<code>') || word.startsWith('`')) {
       return word;
     }
 

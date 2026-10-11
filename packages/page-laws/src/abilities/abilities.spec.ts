@@ -8,7 +8,7 @@ import type { GeneratedAbility } from './abilities.js';
 import { strict as assert } from 'node:assert';
 
 import { parseAbilityRepairResult, parseAbilityRepairReviews, parseGeneratedAbilities, parseStoredAbility, prepareAbilityForPublishing, withAbilityVisualError, withAbilityVisualSource } from './abilities.js';
-import { FIX_ABILITIES_PROMPT, SKILL_LIST_PROMPT, SOURCES_TO_SKILLS_PROMPT } from '../Generate/book/infrastructure/ai/prompts/abilities.js';
+import { ABILITY_GENERATION_INSTRUCTIONS_PROMPT, FIX_ABILITIES_PROMPT, SKILL_LIST_PROMPT, SOURCES_TO_SKILLS_PROMPT } from '../Generate/book/infrastructure/ai/prompts/abilities.js';
 
 function createSkill (): GeneratedAbility {
   return {
@@ -23,6 +23,40 @@ function createSkill (): GeneratedAbility {
 }
 
 describe('generated abilities', (): void => {
+  it('requires supported markup in both Ability generation and Fix abilities prompts', (): void => {
+    for (const prompt of [ABILITY_GENERATION_INSTRUCTIONS_PROMPT, FIX_ABILITIES_PROMPT]) {
+      assert.match(prompt, /ONLY permitted HTML-like markup is <kx>/);
+      assert.match(prompt, /<code>\.\.\.<\/code>/);
+      assert.match(prompt, /Do not generate any other HTML\/XML tags/);
+    }
+    assert.match(FIX_ABILITIES_PROMPT, /Treat unsupported HTML tags in Ability\.h, q\[\]\.h, or q\[\]\.a as formatting errors/);
+  });
+
+  it('rejects unsupported HTML tags in generated questions, answers and titles without validating image prompts', (): void => {
+    const original = createSkill();
+    const withTag = (field: 'h' | 'a', value: string): GeneratedAbility => ({
+      ...original,
+      q: [{ ...original.q[0], [field]: value }, original.q[1]]
+    });
+
+    assert.throws(() => parseGeneratedAbilities(JSON.stringify([withTag('h', 'Convert <b>two</b> km.')])), /unsupported HTML tag/);
+    assert.throws(() => parseGeneratedAbilities(JSON.stringify([withTag('a', '<br>')])), /unsupported HTML tag/);
+    assert.throws(() => parseGeneratedAbilities(JSON.stringify([{ ...original, h: '<strong>Bad title</strong>' }])), /unsupported HTML tag/);
+    assert.deepEqual(parseGeneratedAbilities(JSON.stringify([{ ...original, q: [
+      { ...original.q[0], pPrompt: 'Draw <circle> and label it' }, original.q[1]
+    ] }]))[0].q[0].pPrompt, 'Draw <circle> and label it');
+    assert.deepEqual(parseStoredAbility(JSON.stringify(withTag('a', '<b>Legacy</b>'))).q[0].a, '<b>Legacy</b>');
+  });
+
+  it('rejects unsupported markup in Fix abilities corrections', (): void => {
+    const candidate = createSkill();
+
+    candidate.q[0].a = '<i>incorrect</i>';
+    assert.throws(() => parseAbilityRepairReviews(JSON.stringify({ reviews: [{
+      ability: candidate, errors: ['Unsupported tag'], hasErrors: true, index: 0
+    }] }), [createSkill()]), /unsupported HTML tag/);
+  });
+
   it('preserves the original skill and exercise fields without adding metadata', (): void => {
     const skill = createSkill();
     const [parsed] = parseGeneratedAbilities(JSON.stringify([skill]), 1);
