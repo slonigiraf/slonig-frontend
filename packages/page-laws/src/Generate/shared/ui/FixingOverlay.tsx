@@ -5,10 +5,10 @@ import React from 'react';
 import { Spinner, styled } from '@polkadot/react-components';
 
 /** Covers only the item currently being repaired, without hiding its contents. */
-export default function FixingOverlay (): React.ReactElement {
-  return <Overlay aria-label='Fixing with AI' role='status'>
+export default function FixingOverlay ({ label = 'Fixing with AI' }: { label?: string }): React.ReactElement {
+  return <Overlay aria-label={label} role='status'>
     <Spinner noLabel variant='mini' />
-    <span className='visuallyHidden'>Fixing with AI…</span>
+    <span className='visuallyHidden'>{label}…</span>
   </Overlay>;
 }
 

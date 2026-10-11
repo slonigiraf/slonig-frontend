@@ -23,6 +23,7 @@ interface SkillsContentViewProps {
   currentMissingAbilityIndexes: number[];
   deleteConceptAndAbilities: (conceptId: number) => Promise<void>;
   fixSingleAbility: (record: StoredAbility, stage: ConceptRedoStage) => Promise<void>;
+  splitSingleAbility: (record: StoredAbility) => Promise<void>;
   isBusy: boolean;
   focusConceptAbility: (exerciseIndex: number) => void;
   failedVisualCountsByChapter: number[];
@@ -36,7 +37,7 @@ interface SkillsContentViewProps {
   tikzIssuesByImageId: Record<number, string[]>;
 }
 
-export default function SkillsContentView ({ abilitiesOutputRef, bookId, chapterContentOutputRef, chapterIndex, chapters, changeChapter, current, currentMissingAbilityIndexes, deleteConceptAndAbilities, fixSingleAbility, focusConceptAbility, failedVisualCountsByChapter, isBusy, missingAbilityCountsByChapter, onError, openChapterEditor, pipelineOnly, refresh, refreshContent, tikzIssuesByImageId, view }: SkillsContentViewProps): React.ReactElement {
+export default function SkillsContentView ({ abilitiesOutputRef, bookId, chapterContentOutputRef, chapterIndex, chapters, changeChapter, current, currentMissingAbilityIndexes, deleteConceptAndAbilities, fixSingleAbility, splitSingleAbility, focusConceptAbility, failedVisualCountsByChapter, isBusy, missingAbilityCountsByChapter, onError, openChapterEditor, pipelineOnly, refresh, refreshContent, tikzIssuesByImageId, view }: SkillsContentViewProps): React.ReactElement {
   const abilityGroups = current
     ? groupAbilitiesByConcept(current.concepts, current.abilities, (id) => conceptAbilityModuleId(bookId, id))
     : undefined;
@@ -146,13 +147,13 @@ export default function SkillsContentView ({ abilitiesOutputRef, bookId, chapter
               {concept.description && <p><SpanWithTags content={concept.description} /></p>}
               <div className='matchedAbilities'>
                 {abilities.length
-                  ? abilities.map((record) => <AbilityCard isBusy={isBusy} key={record.id} onDeleted={refreshContent} onError={onError} onFix={fixSingleAbility} record={record} visualIssues={visualIssuesFor(record)} />)
+                  ? abilities.map((record) => <AbilityCard isBusy={isBusy} key={record.id} onDeleted={refreshContent} onError={onError} onFix={fixSingleAbility} onSplit={splitSingleAbility} record={record} visualIssues={visualIssuesFor(record)} />)
                   : <p className='noAbility'>No Ability generated for this Concept.</p>}
               </div>
             </section>)}
             {!!abilityGroups?.unmatched.length && <section className='unmatchedAbilities' tabIndex={-1}>
               <h4>Unmatched Abilities</h4>
-              {abilityGroups.unmatched.map((record) => <AbilityCard isBusy={isBusy} key={record.id} onDeleted={refreshContent} onError={onError} onFix={fixSingleAbility} record={record} visualIssues={visualIssuesFor(record)} />)}
+              {abilityGroups.unmatched.map((record) => <AbilityCard isBusy={isBusy} key={record.id} onDeleted={refreshContent} onError={onError} onFix={fixSingleAbility} onSplit={splitSingleAbility} record={record} visualIssues={visualIssuesFor(record)} />)}
             </section>}
           </div>
         )}

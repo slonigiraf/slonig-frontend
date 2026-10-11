@@ -188,11 +188,12 @@ function cloneAbility (ability: GeneratedAbility): GeneratedAbility {
   return { ...ability, q: ability.q.map((exercise) => ({ ...exercise })) };
 }
 
-export function AbilityCard ({ isBusy = false, onDeleted, onError, onFix, record, visualIssues }: { isBusy?: boolean; onDeleted: () => void; onError: (message: string) => void; onFix: (record: StoredAbility, stage: ConceptRedoStage) => Promise<void>; record: StoredAbility; visualIssues?: Record<string, string[]> }): React.ReactElement {
+export function AbilityCard ({ isBusy = false, onDeleted, onError, onFix, onSplit, record, visualIssues }: { isBusy?: boolean; onDeleted: () => void; onError: (message: string) => void; onFix: (record: StoredAbility, stage: ConceptRedoStage) => Promise<void>; onSplit: (record: StoredAbility) => Promise<void>; record: StoredAbility; visualIssues?: Record<string, string[]> }): React.ReactElement {
   const [isRedoDialogOpen, setIsRedoDialogOpen] = useState(false);
   const [redoStart, setRedoStart] = useState<ConceptRedoStage>('exercises');
   const [isEditing, setIsEditing] = useState(false);
   const [isFixing, setIsFixing] = useState(false);
+  const [isSplitting, setIsSplitting] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [draft, setDraft] = useState<GeneratedAbility | null>(() => record.ability ? cloneAbility(record.ability) : null);
   const [rawDraft, setRawDraft] = useState(record.content);
@@ -297,13 +298,24 @@ export function AbilityCard ({ isBusy = false, onDeleted, onError, onFix, record
       .finally(() => setIsFixing(false));
   }, [onError, onFix, record, redoStart]);
 
-  return <article aria-busy={isFixing} className={`contentCard abilityCard${record.ability?.q.length === 1 ? ' abilityCardSingleExercise' : ''}`} tabIndex={-1}>
+  const split = useCallback((): void => {
+    setIsSplitting(true);
+    onSplit(record)
+      .catch((error) => onError(error instanceof Error ? error.message : 'Unable to split this Concept with AI.'))
+      .finally(() => setIsSplitting(false));
+  }, [onError, onSplit, record]);
+
+  const isProcessing = isFixing || isSplitting;
+  const hasLinkedConcept = /-concept-\d+$/.test(record.moduleId);
+
+  return <article aria-busy={isProcessing} className={`contentCard abilityCard${record.ability?.q.length === 1 ? ' abilityCardSingleExercise' : ''}`} tabIndex={-1}>
     <div className='contentCardActions'>
       <ItemActionsMenu
         actions={[
-          { label: isFixing ? 'Regenerating…' : 'Fix with AI', isDisabled: isBusy || isFixing || isSaving, onClick: () => setIsRedoDialogOpen(true) },
-          { label: 'Edit', isDisabled: isBusy || isFixing, onClick: openEdit },
-          { label: 'Delete', isDestructive: true, isDisabled: isBusy || isFixing || isSaving, onClick: remove }
+          { label: isFixing ? 'Regenerating…' : 'Fix with AI', isDisabled: isBusy || isProcessing || isSaving, onClick: () => setIsRedoDialogOpen(true) },
+          { label: isSplitting ? 'Splitting…' : 'Split', isDisabled: !hasLinkedConcept || isBusy || isProcessing || isSaving || isEditing, onClick: split },
+          { label: 'Edit', isDisabled: isBusy || isProcessing, onClick: openEdit },
+          { label: 'Delete', isDestructive: true, isDisabled: isBusy || isProcessing || isSaving, onClick: remove }
         ]}
         label='Ability'
       />
@@ -323,7 +335,7 @@ export function AbilityCard ({ isBusy = false, onDeleted, onError, onFix, record
         <strong>Invalid Ability JSON</strong>
         <p>This record can be repaired with Fix abilities.</p>
       </>}
-    {isFixing && <FixingOverlay />}
+    {isProcessing && <FixingOverlay label={isSplitting ? 'Splitting Concept with AI' : 'Fixing with AI'} />}
     {isRedoDialogOpen && <Modal
       header='Redo this Concept with AI'
       onClose={() => setIsRedoDialogOpen(false)}
