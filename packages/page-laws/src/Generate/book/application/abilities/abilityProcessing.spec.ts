@@ -49,6 +49,110 @@ describe('Ability no-op repair recovery', (): void => {
   };
   const response = (value: unknown) => ({ choices: [{ finish_reason: 'stop', message: { content: JSON.stringify(value) } }] });
 
+  it('flags long existing text and retries when the audit omits mandatory brevity repairs', async (): Promise<void> => {
+    const record = createRecord('long-question');
+    const longQuestion = Array.from({ length: 24 }, (_, index) => `word${index}`).join(' ');
+
+    record.ability!.q[0].h = longQuestion;
+    const input = abilityRepairInput('en', [record]) as { brevityIssues: Array<{ exerciseIndex: number; field: string; index: number; maxWords: number }> };
+
+    assert.deepEqual(input.brevityIssues.map(({ exerciseIndex, field, index, maxWords }) => ({ exerciseIndex, field, index, maxWords })), [
+      { exerciseIndex: 0, field: 'h', index: 0, maxWords: 21 }
+    ]);
+
+    const repaired = createAbility();
+    const prompts: string[] = [];
+    let calls = 0;
+    const client = { chat: { completions: { create: async (request: { messages: Array<{ content: string }> }) => {
+      prompts.push(request.messages[1].content);
+      calls++;
+
+      return response(calls === 1
+        ? { duplicatePairs: [], reviews: [] }
+        : { duplicatePairs: [], reviews: [{ index: 0, hasErrors: true, errors: ['Question too long'], ability: repaired }] });
+    } } } } as unknown as OpenAI;
+    const result = await requestAbilityRepairResult(client, 'test-model', 'system', input, [record]);
+
+    assert.equal(calls, 2);
+    assert.equal(result.reviews[0].ability?.q[0].h, repaired.q[0].h);
+    assert.equal(result.unresolvedReviews, undefined);
+    assert.match(prompts[1], /Mandatory brevity repair missing/);
+  });
+
+  it('keeps a verbose Ability without unresolved errors when shortening retries fail', async (): Promise<void> => {
+    const record = createRecord('long-question');
+
+    record.ability!.q[0].h = Array.from({ length: 24 }, () => 'word').join(' ');
+    const client = { chat: { completions: { create: async () => response({ duplicatePairs: [], reviews: [] }) } } } as unknown as OpenAI;
+    const result = await requestAbilityRepairResult(client, 'test-model', 'system', abilityRepairInput('en', [record]), [record]);
+
+    assert.equal(result.reviews.length, 0);
+    assert.equal(result.unresolvedReviews, undefined); // Not a stage-blocking error.
+    assert.equal(record.ability!.q[0].h.split(' ').length, 24); // Persisted text is untouched.
+  });
+
+  it('rejects still-overlong repair proposals and keeps the original after retries', async (): Promise<void> => {
+    const record = createRecord('long-question');
+    const before = JSON.stringify(record.ability);
+
+    record.ability!.q[0].h = Array.from({ length: 26 }, (_, index) => `token${index}`).join(' ');
+    const original = JSON.stringify(record.ability);
+    const attempted = JSON.parse(original) as NonNullable<StoredAbility['ability']>;
+
+    attempted.q[0].h = Array.from({ length: 23 }, (_, index) => `short${index}`).join(' ');
+    let calls = 0;
+    const client = { chat: { completions: { create: async () => {
+      calls++;
+
+      return response({ duplicatePairs: [], reviews: [{ index: 0, hasErrors: true, errors: ['Too verbose'], ability: attempted }] });
+    } } } } as unknown as OpenAI;
+    const result = await requestAbilityRepairResult(client, 'test-model', 'system', abilityRepairInput('en', [record]), [record]);
+
+    assert.ok(calls > 1);
+    assert.equal(result.reviews.length, 0); // Proposed replacement fails the brevity gate.
+    assert.equal(result.unresolvedReviews, undefined);
+    assert.equal(JSON.stringify(record.ability), original);
+    assert.notEqual(before, original);
+  });
+
+  it('treats a no-op brevity diagnosis as nonblocking after retries', async (): Promise<void> => {
+    const record = createRecord('long-question');
+
+    record.ability!.q[0].h = Array.from({ length: 24 }, () => 'word').join(' ');
+    const client = { chat: { completions: { create: async () => response({ duplicatePairs: [], reviews: [{
+      index: 0, hasErrors: true, errors: ['Question is too verbose'], ability: record.ability
+    }] }) } } } as unknown as OpenAI;
+    const result = await requestAbilityRepairResult(client, 'test-model', 'system', abilityRepairInput('en', [record]), [record]);
+
+    assert.deepEqual(result.reviews, []);
+    assert.equal(result.unresolvedReviews, undefined);
+  });
+
+  it('preserves successful chapter fixes when another Ability cannot be shortened', async (): Promise<void> => {
+    const batch = [createRecord('verbose'), createRecord('correctable')];
+
+    batch[0].ability!.q[0].a = Array.from({ length: 28 }, () => 'explanation').join(' ');
+    const repaired = createAbility();
+
+    repaired.q[1].a = '<kx>4\times 2 = 8</kx>';
+    const initial = { duplicatePairs: [], reviews: [{
+      index: 1, hasErrors: true, errors: ['Missing calculation'], ability: repaired
+    }] };
+    let calls = 0;
+    const client = { chat: { completions: { create: async () => {
+      calls++;
+
+      return response(calls === 1 ? initial : { duplicatePairs: [], reviews: [] });
+    } } } } as unknown as OpenAI;
+    const result = await requestAbilityRepairResult(client, 'test-model', 'system', abilityRepairInput('en', batch), batch);
+
+    assert.equal(result.unresolvedReviews, undefined);
+    assert.equal(result.reviews.length, 1);
+    assert.equal(result.reviews[0].index, 1);
+    assert.equal(result.reviews[0].ability?.q[1].a, repaired.q[1].a);
+    assert.equal(batch[0].ability!.q[0].a.split(' ').length, 28);
+  });
+
   it('retries only unchanged Abilities and retains other correct repairs', async (): Promise<void> => {
     const batch = [createRecord('first'), createRecord('second')];
     const visualOnly = { ...createAbility(), q: createAbility().q.map((question) => ({ ...question, p: 'AI cannot overwrite this image', pPrompt: 'AI cannot replace original metadata' })) };

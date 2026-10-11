@@ -4,7 +4,7 @@
 import type { BookConcept } from '@slonigiraf/db';
 import type { GeneratedAbility } from '../../../../abilities/abilities.js';
 
-import { parseGeneratedAbilities } from '../../../../abilities/abilities.js';
+import { abilityBrevityIssues, parseGeneratedAbilities, validateGeneratedAbilityText } from '../../../../abilities/abilities.js';
 import type { AbilityWorkflowJsonRunner } from './abilityWorkflow.js';
 import { ABILITY_GENERATION_INSTRUCTIONS_PROMPT, CONCEPT_ABILITY_EXERCISE_QUALITY_PROMPT } from '../../infrastructure/ai/prompts/abilities.js';
 
@@ -37,17 +37,43 @@ export async function generateConceptAbility (
   chapterTitle: string,
   concept: BookConcept,
   runJson: AbilityWorkflowJsonRunner,
-  learnerAge?: number
+  learnerAge?: number,
+  signal?: AbortSignal
 ): Promise<GeneratedAbility> {
   if (concept.id === undefined) throw new Error('A saved Concept id is required to generate an Ability.');
 
   const prompt = conceptAbilityGenerationPrompt(language, chapterTitle, concept, learnerAge);
 
-  const abilities = await runJson(prompt, (json) => parseGeneratedAbilities(json, 1, { fixedTitle: concept.title, visualPromptsOnly: true }), {
-    maxOutputTokens: 3_200,
-    repairContext: `Return exactly this JSON shape: {"abilities":[{"h":${JSON.stringify(concept.title)},"i":"","t":3,"q":[{"h":"complete nonempty learner question","a":"correct written answer OR empty string for an image-only solution","p":"","i":"","pPrompt":"question image prompt or empty string","iPrompt":"solution image prompt or empty string"},{"h":"second distinct nonempty learner question","a":"correct written answer OR empty string for an image-only solution","p":"","i":"","pPrompt":"question image prompt or empty string","iPrompt":"solution image prompt or empty string"}]}]}. Every exercise must have nonempty h, image-data fields p:"" and i:"", and both prompt fields pPrompt and iPrompt as strings ("" if unused). EITHER a must contain a nonempty textual answer OR iPrompt must contain a complete standalone solution-image prompt. For an image-only answer keep a:"" and put the entire image prompt ONLY in iPrompt. Do not put prompts in p or i. Never omit the question or either exercise.`, 
-    validationCycles: 2
-  });
+  let verboseFallback: GeneratedAbility | undefined;
 
-  return abilities[0];
+  try {
+    const abilities = await runJson(prompt, (json) => {
+      // Capture only structurally sound, well-marked-up Abilities. The strict
+      // check below still asks the AI to shorten them within its retry budget.
+      const candidates = parseGeneratedAbilities(json, 1, { allowVerboseText: true, fixedTitle: concept.title, visualPromptsOnly: true });
+      const candidate = candidates[0];
+
+      if (abilityBrevityIssues(candidate).length) {
+        verboseFallback = candidate;
+      }
+
+      validateGeneratedAbilityText(candidate, false);
+
+      return candidates;
+    }, {
+      maxOutputTokens: 3_200,
+      repairContext: `Return exactly this JSON shape: {"abilities":[{"h":${JSON.stringify(concept.title)},"i":"","t":3,"q":[{"h":"complete nonempty learner question","a":"correct written answer OR empty string for an image-only solution","p":"","i":"","pPrompt":"question image prompt or empty string","iPrompt":"solution image prompt or empty string"},{"h":"second distinct nonempty learner question","a":"correct written answer OR empty string for an image-only solution","p":"","i":"","pPrompt":"question image prompt or empty string","iPrompt":"solution image prompt or empty string"}]}]}. Every exercise must have nonempty h, image-data fields p:"" and i:"", and both prompt fields pPrompt and iPrompt as strings ("" if unused). EITHER a must contain a nonempty textual answer OR iPrompt must contain a complete standalone solution-image prompt. For an image-only answer keep a:"" and put the entire image prompt ONLY in iPrompt. Do not put prompts in p or i. Never omit the question or either exercise.`, 
+      validationCycles: 2
+    });
+
+    return abilities[0];
+  } catch (error) {
+    // Reaching the brevity limit must not discard a usable Ability or hold up
+    // a stage checkpoint. A genuine cancellation is never treated as success.
+    if (signal?.aborted || (error instanceof Error && error.name === 'AbortError') || !verboseFallback) {
+      throw error;
+    }
+
+    return verboseFallback;
+  }
 }

@@ -9,7 +9,7 @@ import type { OpenRouterCostReporter } from '../../../../openrouter/cost.js';
 import OpenAI from 'openai';
 
 import { FIX_ABILITIES_REQUEST_PROMPT, JSON_VALIDATION_PROMPT } from '../../infrastructure/ai/prompts/abilities.js';
-import { parseAbilityRepairResult } from '../../../../abilities/abilities.js';
+import { abilityBrevityIssues, parseAbilityRepairResult } from '../../../../abilities/abilities.js';
 import { LEARNER_AGE_PROMPT, MATH_DISPLAY_REQUIREMENTS_PROMPT, TIKZ_NATIVE_STYLING_PROMPT } from '../../infrastructure/ai/prompts/shared.js';
 import { openRouterRequestGate } from '../../../../openrouter/concurrency.js';
 import { reportOpenRouterCost } from '../../../../openrouter/cost.js';
@@ -163,6 +163,11 @@ export function abilityRepairInput (
         ...(sourceConcept ? { sourceConcept: { title: sourceConcept.title, description: sourceConcept.description } } : {})
       };
     }),
+    // These are precomputed text issues to attempt to correct. Failure to
+    // shorten after retry leaves the persisted Ability unchanged.
+    brevityIssues: batch.flatMap(({ ability }, index) => ability
+      ? abilityBrevityIssues(ability).map((issue) => ({ index, ...issue }))
+      : []),
     bookLanguage: language,
     ...(learnerAge === undefined ? {} : { learnerAge }),
     ...(chapterTitle ? { chapterTitle } : {})
@@ -172,8 +177,8 @@ export function abilityRepairInput (
 /**
  * Review a whole chapter so duplicates can be found, then retry only the
  * specific Abilities for which the model diagnosed errors but supplied no
- * persistable correction. A stubborn no-op does not discard valid chapter
- * fixes or silently count as repaired: it is reported to the caller.
+ * persistable correction. Exhausted brevity-only retries keep the existing
+ * Ability unchanged without blocking the Fix abilities stage.
  */
 export async function requestAbilityRepairResult (
   client: OpenAI,
@@ -188,22 +193,60 @@ export async function requestAbilityRepairResult (
   const ids = batch.map(({ id }) => id);
   const initial = await requestValidatedJson(
     client, model, systemPrompt, FIX_ABILITIES_REQUEST_PROMPT(input),
-    (content) => parseAbilityRepairResult(content, originals, ids, { collectUnchangedRepairs: true }),
+    (content) => parseAbilityRepairResult(content, originals, ids, { allowVerboseText: true, collectUnchangedRepairs: true }),
     true, onCost, undefined, undefined, 2, signal
   );
-  const unresolved = initial.unresolvedReviews ?? [];
+  const flagged = (input as { brevityIssues?: Array<{ index: number }> }).brevityIssues ?? [];
+  const deletedIds = new Set(initial.duplicatePairs.map(({ deletedAbilityId }) => deletedAbilityId));
+  // An overlong proposed correction is not persistable. Do not accidentally
+  // replace a better existing Ability with a still-overlong rewrite.
+  const overlongIndexes = new Set(initial.reviews
+    .filter(({ ability }) => ability && abilityBrevityIssues(ability).length > 0)
+    .map(({ index }) => index));
+  const safeInitialReviews = initial.reviews.filter(({ index }) => !overlongIndexes.has(index));
+  const correctedIndexes = new Set(safeInitialReviews
+    .filter(({ ability, hasErrors }) => hasErrors && ability)
+    .map(({ index }) => index));
+  // A model can report a no-op as an error even though the only issue is
+  // length. After exhausting retries, that must not be a blocking finding.
+  // Keep genuine content/visual diagnoses unresolved, as before.
+  const semanticUnresolved = (initial.unresolvedReviews ?? []).flatMap(({ errors, index }) => {
+    const contentErrors = errors.filter((error) => !/\b(brevity|verbose|verbosity|word count|word limit|too long|too lengthy|too many words|overlong|shorten|concise|length limit)\b/i.test(error));
+
+    return contentErrors.length ? [{ errors: contentErrors, index }] : [];
+  });
+  const safeInitial = { ...initial, reviews: safeInitialReviews, unresolvedReviews: semanticUnresolved.length ? semanticUnresolved : undefined };
+  const unresolvedByIndex = new Map(semanticUnresolved.map((item) => [item.index, item]));
+
+  // Retry missed or still-overlong brevity corrections even if the model
+  // initially claimed that the existing record was fine.
+  for (const index of new Set([...flagged.map(({ index }) => index), ...overlongIndexes])) {
+    if (!deletedIds.has(batch[index].id) && !correctedIndexes.has(index)) {
+      const previous = unresolvedByIndex.get(index);
+
+      unresolvedByIndex.set(index, {
+        errors: [...(previous?.errors ?? []), 'Mandatory brevity repair missing: shorten q[].h and/or q[].a while preserving the full task.'],
+        index
+      });
+    }
+  }
+
+  const unresolved = Array.from(unresolvedByIndex.values()).sort((a, b) => a.index - b.index);
 
   if (!unresolved.length) {
-    return initial;
+    return safeInitial;
   }
 
   const inputRecords = (input as { abilities: Array<Record<string, unknown>> }).abilities;
   const retryBatch = unresolved.map(({ index }) => batch[index]);
   const retryInput = {
     ...(input as Record<string, unknown>),
-    abilities: unresolved.map(({ index }, newIndex) => ({ ...inputRecords[index], index: newIndex }))
+    abilities: unresolved.map(({ index }, newIndex) => ({ ...inputRecords[index], index: newIndex })),
+    brevityIssues: retryBatch.flatMap(({ ability }, index) => ability
+      ? abilityBrevityIssues(ability).map((issue) => ({ index, ...issue }))
+      : [])
   };
-  const retryPrompt = `Your previous Fix abilities review identified the following concrete errors but failed to make an effective, persistable correction:
+  const retryPrompt = `Your previous Fix abilities review either omitted mandatory brevity repairs or identified the following errors without an effective, persistable correction:
 ${JSON.stringify(unresolved)}
 
 REPAIR TASK, NOT ANOTHER AUDIT: Return hasErrors:true and a COMPLETE corrected Ability for EVERY supplied input index. Fix the specific listed errors in h, q[].h, or q[].a. Root i and existing image fields q[].p, q[].i, q[].pPrompt, and q[].iPrompt are read-only, so editing only those fields is NOT a correction. Keep the target concept, difficulty, mathematical structure, and essential spatial relationships. Return only JSON with reviews and an empty duplicatePairs array; duplicate detection already ran.
@@ -224,10 +267,12 @@ ${FIX_ABILITIES_REQUEST_PROMPT(retryInput)}`;
       },
       true, onCost, Math.min(8_000, Math.max(2_400, retryBatch.length * 900)), undefined, 2, signal
     );
+    const retriedIndexes = new Set(unresolved.map(({ index }) => index));
+
     return {
       duplicatePairs: initial.duplicatePairs,
       reviews: [
-        ...initial.reviews,
+        ...safeInitialReviews.filter(({ index }) => !retriedIndexes.has(index)),
         ...fixed.reviews.map((review) => ({ ...review, index: unresolved[review.index].index }))
       ].sort((a, b) => a.index - b.index)
     };
@@ -236,7 +281,9 @@ ${FIX_ABILITIES_REQUEST_PROMPT(retryInput)}`;
       throw error;
     }
 
-    return initial;
+    // Brevity is best-effort. Preserve the original record and report only
+    // actual, pre-existing non-brevity diagnoses as unresolved.
+    return safeInitial;
   }
 }
 

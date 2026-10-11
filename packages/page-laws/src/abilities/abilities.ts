@@ -191,8 +191,37 @@ export function parseStoredAbility (content: string): GeneratedAbility {
 }
 
 
+/** Preferred learner-facing limits; visual specifications and copied Concept titles are exempt. */
+export const ABILITY_QUESTION_MAX_WORDS = 21;
+export const ABILITY_ANSWER_MAX_WORDS = 25;
+const ABILITY_QUESTION_MAX_CHARACTERS = 180;
+const ABILITY_ANSWER_MAX_CHARACTERS = 200;
+
 function wordCount (value: string): number {
   return value.trim().split(/\s+/).filter(Boolean).length;
+}
+
+export interface AbilityBrevityIssue {
+  characters: number;
+  exerciseIndex: number;
+  field: 'h' | 'a';
+  maxCharacters: number;
+  maxWords: number;
+  words: number;
+}
+
+/** Identify overlong existing Ability text before asking the AI to repair it. */
+export function abilityBrevityIssues (ability: GeneratedAbility): AbilityBrevityIssue[] {
+  return ability.q.flatMap((exercise, exerciseIndex) => (['h', 'a'] as const).flatMap((field) => {
+    const value = exercise[field];
+    const words = wordCount(value);
+    const maxWords = field === 'h' ? ABILITY_QUESTION_MAX_WORDS : ABILITY_ANSWER_MAX_WORDS;
+    const maxCharacters = field === 'h' ? ABILITY_QUESTION_MAX_CHARACTERS : ABILITY_ANSWER_MAX_CHARACTERS;
+
+    return words > maxWords || value.length > maxCharacters
+      ? [{ characters: value.length, exerciseIndex, field, maxCharacters, maxWords, words }]
+      : [];
+  }));
 }
 
 function isSuccinct (value: string, maxWords: number, maxCharacters: number): boolean {
@@ -209,10 +238,10 @@ function hasForbiddenAbilityTaskTitle (ability: GeneratedAbility): boolean {
   return ability.q.some(({ h }) => isForbiddenAbilityTaskTitle(h));
 }
 
-export function validateGeneratedAbilityText (ability: GeneratedAbility, validateTitleLength = true): void {
+export function validateGeneratedAbilityText (ability: GeneratedAbility, validateTitleLength = true, enforceBrevity = true): void {
   // Learner-facing Abilities are intentionally much smaller than source-book
-  // exercises. Keep this as a parser gate so later repair/regeneration stages
-  // cannot silently reintroduce tutorial prose. Concept titles are sourced
+  // exercises. Strict brevity validation requests a model retry, while the
+  // tolerant fallback still enforces structure, markup and task titles. Concept titles are sourced
   // verbatim rather than generated, so they must not be shortened here.
   if (validateTitleLength && !isSuccinct(ability.h, 12, 90)) {
     throw new Error('Ability title is too verbose.');
@@ -228,17 +257,17 @@ export function validateGeneratedAbilityText (ability: GeneratedAbility, validat
       throw new Error('Ability task titles must be meaningful learner-facing tasks, not the placeholders "Task 1" or "Task 2".');
     }
 
-    if (!isSuccinct(exercise.h, 32, 220)) {
-      throw new Error('Ability task is too verbose.');
+    if (enforceBrevity && !isSuccinct(exercise.h, ABILITY_QUESTION_MAX_WORDS, ABILITY_QUESTION_MAX_CHARACTERS)) {
+      throw new Error(`Ability exercise ${index + 1} question is too verbose (maximum ${ABILITY_QUESTION_MAX_WORDS} words / ${ABILITY_QUESTION_MAX_CHARACTERS} characters). Shorten without dropping essential task data or changing the method.`);
     }
 
-    if (!isSuccinct(exercise.a, 38, 260)) {
-      throw new Error('Ability answer is too verbose.');
+    if (enforceBrevity && !isSuccinct(exercise.a, ABILITY_ANSWER_MAX_WORDS, ABILITY_ANSWER_MAX_CHARACTERS)) {
+      throw new Error(`Ability exercise ${index + 1} answer is too verbose (maximum ${ABILITY_ANSWER_MAX_WORDS} words / ${ABILITY_ANSWER_MAX_CHARACTERS} characters). Keep the result and essential reasoning.`);
     }
   }
 }
 
-function parseGeneratedAbilityValue (value: unknown, fixedTitle?: string): GeneratedAbility {
+function parseGeneratedAbilityValue (value: unknown, fixedTitle?: string, allowVerboseText = false): GeneratedAbility {
   // Inject the linked source Concept title before schema validation;
   // ignore any title a model might return despite the requested JSON shape.
   const template = parseAbilityValue(fixedTitle !== undefined && isRecord(value) ? { ...value, h: fixedTitle } : value);
@@ -256,12 +285,12 @@ function parseGeneratedAbilityValue (value: unknown, fixedTitle?: string): Gener
   // audit prompts still require distinct inputs, and Fix abilities can repair a
   // duplicate pair afterwards. Keeping this parser structural prevents one
   // imperfect pair from discarding every Ability for the source Exercise.
-  validateGeneratedAbilityText(template, fixedTitle === undefined);
+  validateGeneratedAbilityText(template, fixedTitle === undefined, !allowVerboseText);
 
   return template;
 }
 
-export function parseGeneratedAbilities (content: string, expectedCount?: number, options?: { allowIdenticalQuestionText?: boolean; fixedTitle?: string; visualPromptsOnly?: boolean }): GeneratedAbility[] {
+export function parseGeneratedAbilities (content: string, expectedCount?: number, options?: { allowIdenticalQuestionText?: boolean; allowVerboseText?: boolean; fixedTitle?: string; visualPromptsOnly?: boolean }): GeneratedAbility[] {
   const parsed = parseResponse(content);
   const templates: unknown = Array.isArray(parsed) ? parsed : isRecord(parsed) ? parsed.abilities ?? parsed.templates : undefined;
 
@@ -297,7 +326,7 @@ export function parseGeneratedAbilities (content: string, expectedCount?: number
       }
     }
 
-    return parseGeneratedAbilityValue(template, options?.fixedTitle);
+    return parseGeneratedAbilityValue(template, options?.fixedTitle, options?.allowVerboseText);
   });
 }
 
@@ -311,7 +340,7 @@ function abilitySignature (ability: GeneratedAbility): string {
   });
 }
 
-export function parseAbilityRepairResult (content: string, originals: Array<GeneratedAbility | null>, originalIds: string[], options: { collectUnchangedRepairs?: boolean } = {}): AbilityRepairResult {
+export function parseAbilityRepairResult (content: string, originals: Array<GeneratedAbility | null>, originalIds: string[], options: { allowVerboseText?: boolean; collectUnchangedRepairs?: boolean } = {}): AbilityRepairResult {
   if (originalIds.length !== originals.length || new Set(originalIds).size !== originalIds.length) {
     throw new Error('Ability repair input IDs do not match the supplied Abilities.');
   }
@@ -413,7 +442,7 @@ export function parseAbilityRepairResult (content: string, originals: Array<Gene
     // which can turn a real title-only correction into an apparent no-op.
     const parsedAbility = parseAbilityValue(value.ability);
 
-    validateGeneratedAbilityText(parsedAbility, false);
+    validateGeneratedAbilityText(parsedAbility, false, !options.allowVerboseText);
     const mergedAbility = original === null
       ? parsedAbility
       : {

@@ -44,6 +44,76 @@ describe('Exercise quality rules carried into direct Concept -> Ability workflow
     assert.doesNotMatch(sentPrompt, /SOURCE EXERCISE:/);
   });
 
+  it('keeps a structurally valid verbose Ability after failed shortening retries', async (): Promise<void> => {
+    const concept = { id: 23, title: 'Convert units', description: 'Convert lengths between units.' } as BookConcept;
+    const verboseQuestion = Array.from({ length: 24 }, (_, index) => `word${index}`).join(' ');
+    const verbose = {
+      h: concept.title, i: '', t: 3,
+      q: [
+        { h: verboseQuestion, a: '500 m', p: '', i: '', pPrompt: '', iPrompt: '' },
+        { h: 'Convert the next unit.', a: '1000 m', p: '', i: '', pPrompt: '', iPrompt: '' }
+      ]
+    };
+    let attempts = 0;
+    const runner: AbilityWorkflowJsonRunner = async (_prompt, parse) => {
+      for (let attempt = 0; attempt < 3; attempt++) {
+        attempts++;
+
+        assert.throws(() => parse(JSON.stringify({ abilities: [verbose] })), /too verbose/i);
+      }
+
+      throw new Error('AI output remained invalid after local validation/repair');
+    };
+    const retained = await generateConceptAbility('en', 'Units', concept, runner);
+
+    assert.equal(attempts, 3);
+    assert.equal(retained.q[0].h, verboseQuestion);
+    assert.equal(retained.h, concept.title);
+  });
+
+  it('also retains a valid Ability whose answer stays over the limit', async (): Promise<void> => {
+    const concept = { id: 25, title: 'Explain the result', description: 'Answer and explain.' } as BookConcept;
+    const verboseAnswer = Array.from({ length: 28 }, () => 'explanation').join(' ');
+    const verbose = {
+      h: concept.title, i: '', t: 3,
+      q: [
+        { h: 'Find the answer.', a: verboseAnswer, p: '', i: '', pPrompt: '', iPrompt: '' },
+        { h: 'Find another answer.', a: 'A result', p: '', i: '', pPrompt: '', iPrompt: '' }
+      ]
+    };
+    const runner: AbilityWorkflowJsonRunner = async (_prompt, parse) => {
+      assert.throws(() => parse(JSON.stringify({ abilities: [verbose] })), /too verbose/);
+      throw new Error('AI output remained invalid after local validation/repair');
+    };
+
+    const retained = await generateConceptAbility('en', 'Results', concept, runner);
+
+    assert.equal(retained.q[0].a, verboseAnswer);
+  });
+
+  it('does not fall back to an invalid Ability or swallow cancellation', async (): Promise<void> => {
+    const concept = { id: 24, title: 'Convert units', description: 'Convert lengths between units.' } as BookConcept;
+    const invalidRunner: AbilityWorkflowJsonRunner = async (_prompt, parse) => parse(JSON.stringify({ abilities: [{ h: concept.title, q: [] }] }));
+
+    await assert.rejects(generateConceptAbility('en', 'Units', concept, invalidRunner));
+
+    const signal = new AbortController();
+    const verbose = {
+      h: concept.title, i: '', t: 3,
+      q: [
+        { h: Array.from({ length: 24 }, () => 'word').join(' '), a: '500 m', p: '', i: '', pPrompt: '', iPrompt: '' },
+        { h: 'Convert the next unit.', a: '1000 m', p: '', i: '', pPrompt: '', iPrompt: '' }
+      ]
+    };
+    const canceledRunner: AbilityWorkflowJsonRunner = async (_prompt, parse) => {
+      assert.throws(() => parse(JSON.stringify({ abilities: [verbose] })), /too verbose/i);
+      signal.abort();
+      throw new Error('Processing aborted.');
+    };
+
+    await assert.rejects(generateConceptAbility('en', 'Units', concept, canceledRunner, undefined, signal.signal), /aborted/);
+  });
+
   it('supports two image-only answers without generating redundant written solutions', async (): Promise<void> => {
     const concept = { id: 8, title: 'Complete number lines', description: 'Complete a number line with the missing point.' } as BookConcept;
     const runner: AbilityWorkflowJsonRunner = async (_prompt, parse) => parse(JSON.stringify({ abilities: [{

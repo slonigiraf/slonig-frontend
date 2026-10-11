@@ -759,7 +759,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
             prompt, parse, true, addAbilitiesCost, options?.maxOutputTokens,
             options?.repairContext, options?.validationCycles ?? 1, signal
           );
-          const ability = await generateConceptAbility(language, chapterRow.chapter.title, concept, runJson, book.age);
+          const ability = await generateConceptAbility(language, chapterRow.chapter.title, concept, runJson, book.age, signal);
           if (signal.aborted) throw new Error('Concept regeneration was cancelled.');
           await replaceAbilities(conceptAbilityModuleId(book.id, conceptId), [JSON.stringify(ability)]);
         }
@@ -968,7 +968,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
             options?.maxOutputTokens, options?.repairContext, options?.validationCycles ?? 1, signal
           );
           try {
-            const ability = await generateConceptAbility(language, chapterTitle, concept, runJson, book.age);
+            const ability = await generateConceptAbility(language, chapterTitle, concept, runJson, book.age, signal);
             generated.set(concept.id as number, ability);
             pending.delete(concept.id as number);
             setProgress(generated.size);
@@ -1088,6 +1088,20 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
         unresolved.delete(id);
       });
 
+      // A completed review with no persistable changes is still successful.
+      // In particular, exhausted brevity-only retries leave existing Abilities
+      // untouched and must not require a manual Apply click to checkpoint the
+      // Fix abilities stage (including during Fast Forward).
+      if (!replacements.size && !duplicatePairs.size && !unresolved.size) {
+        await completeStage(FIX_ABILITIES_STAGE);
+        setNotice(`Fix abilities completed: ${allAbilities.length} checked; all Abilities retained unchanged.`);
+        refresh();
+        onContentChange?.();
+        onAction?.('preExercisesExercises');
+
+        return;
+      }
+
       setFixReview({
         checked: allAbilities.length,
         duplicatePairs: Array.from(duplicatePairs.values(), (pair) => {
@@ -1118,7 +1132,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
     } finally {
       endProgress();
     }
-  }, [addFixAbilitiesCost, allAbilities.length, beginProgress, book.age, endProgress, chapterContent, conceptsById, createClient, language, effectiveModel]);
+  }, [addFixAbilitiesCost, allAbilities.length, beginProgress, book.age, endProgress, chapterContent, completeStage, conceptsById, createClient, language, effectiveModel, onAction, onContentChange, refresh]);
 
   const closeFixReview = useCallback((): void => {
     setFixReview(null);

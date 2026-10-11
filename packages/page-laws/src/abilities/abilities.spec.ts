@@ -577,6 +577,24 @@ describe('generated abilities', (): void => {
     }] }), [original]), /too verbose/i);
   });
 
+  it('enforces the tighter 21-word question and 25-word answer budgets', (): void => {
+    const ability = createSkill();
+
+    ability.q[0].h = Array.from({ length: 22 }, () => 'word').join(' ');
+    assert.throws(() => parseGeneratedAbilities(JSON.stringify([ability])), /maximum 21 words/i);
+
+    ability.q[0].h = Array.from({ length: 21 }, () => 'word').join(' ');
+    ability.q[0].a = Array.from({ length: 26 }, () => 'word').join(' ');
+    assert.throws(() => parseGeneratedAbilities(JSON.stringify([ability])), /maximum 25 words/i);
+
+    ability.q[0].a = Array.from({ length: 25 }, () => 'word').join(' ');
+    assert.equal(parseGeneratedAbilities(JSON.stringify([ability]))[0].q[0].a, ability.q[0].a);
+
+    // Detailed diagram descriptions must not be shortened by text-length gates.
+    ability.q[0].pPrompt = Array.from({ length: 100 }, () => 'visual').join(' ');
+    assert.equal(parseGeneratedAbilities(JSON.stringify([ability]))[0].q[0].pPrompt, ability.q[0].pPrompt);
+  });
+
   it('rejects Task 1/Task 2 placeholders during generation and requires Fix abilities to replace them', (): void => {
     for (const placeholder of ['Task 1', ' task   2 ']) {
       const generated = createSkill();
