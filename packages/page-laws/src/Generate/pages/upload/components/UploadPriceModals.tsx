@@ -30,11 +30,12 @@ interface FastForwardPricePopupProps {
   canSkipRefineChapters: boolean;
   onClose: () => void;
   onRun: () => void;
+  onSkip: () => void;
   onSkipRefineChaptersChange: (value: boolean) => void;
   skipRefineChapters: boolean;
 }
 
-export function FastForwardPricePopup ({ canSkipRefineChapters, estimate, onClose, onRun, onSkipRefineChaptersChange, skipRefineChapters }: FastForwardPricePopupProps): React.ReactElement {
+export function FastForwardPricePopup ({ canSkipRefineChapters, estimate, onClose, onRun, onSkip, onSkipRefineChaptersChange, skipRefineChapters }: FastForwardPricePopupProps): React.ReactElement {
   const { t } = useTranslation();
   const skip = canSkipRefineChapters && skipRefineChapters;
   const remainingStages = Math.max(0, (estimate?.remainingStages ?? 0) - (skip ? 1 : 0));
@@ -47,10 +48,12 @@ export function FastForwardPricePopup ({ canSkipRefineChapters, estimate, onClos
       isRunDisabled={!estimate || estimate.remainingStages === 0}
       onClose={onClose}
       onRun={onRun}
+      onSkip={onSkip}
       runLabel={t('Run')}
     >
       <PriceContent>
         <p className='priceIntro'>{t('Run every remaining processing stage automatically, one by one. Publishing to blockchain is not included.')}</p>
+        <p>{t('Skip bypasses only the selected starting stage without marking it successful. If Fast Forward stopped there, it resumes at the next stage.')}</p>
         {canSkipRefineChapters && <Toggle
           label={t('Skip Refine chapters (mark the stage done without running it)')}
           onChange={onSkipRefineChaptersChange}

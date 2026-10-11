@@ -3,7 +3,7 @@
 
 import type { Book } from '@slonigiraf/db';
 import type { PDFDocumentProxy } from 'pdfjs-dist';
-import { getBookPages, isBookProcessingStageComplete, resetBookProcessingStagesFrom, updateBookFieldsAndStages } from '@slonigiraf/db';
+import { getBookPages, isBookProcessingStageSatisfied, resetBookProcessingStagesFrom, updateBookFieldsAndStages } from '@slonigiraf/db';
 import type { Dispatch, SetStateAction } from 'react';
 import { useCallback, useEffect, useState } from 'react';
 
@@ -96,7 +96,7 @@ export function useUploadMetadataProcessing ({ generateAllConceptsModel, readerF
   }, [requestProcessing, selectedBook, setBooks, setError, setPendingProcessingAction, t]);
 
   const onShowLanguage = useCallback((): void => {
-    if (!selectedBook || !isBookProcessingStageComplete(selectedBook, 'recognize')) {
+    if (!selectedBook || !isBookProcessingStageSatisfied(selectedBook, 'recognize')) {
       return;
     }
 
@@ -105,7 +105,7 @@ export function useUploadMetadataProcessing ({ generateAllConceptsModel, readerF
   }, [requestProcessing, selectedBook, setError]);
 
   const onShowSubject = useCallback((): void => {
-    if (!selectedBook || !isBookProcessingStageComplete(selectedBook, 'recognize')) {
+    if (!selectedBook || !isBookProcessingStageSatisfied(selectedBook, 'recognize')) {
       return;
     }
 
@@ -119,7 +119,7 @@ export function useUploadMetadataProcessing ({ generateAllConceptsModel, readerF
   }, [requestProcessing, selectedBook, setError, t]);
 
   const onShowAge = useCallback((): void => {
-    if (!selectedBook || !isBookProcessingStageComplete(selectedBook, 'recognize')) {
+    if (!selectedBook || !isBookProcessingStageSatisfied(selectedBook, 'recognize')) {
       return;
     }
 

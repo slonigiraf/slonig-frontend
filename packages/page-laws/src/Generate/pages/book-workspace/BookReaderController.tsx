@@ -5,7 +5,6 @@ import type { BookChapter, BookConcept, BookPage, BookProcessingStageKey } from 
 import { completeBookProcessingStage, isBookProcessingStageComplete, withCompletedBookProcessingStage } from '@slonigiraf/db';
 import type { PDFDocumentProxy } from 'pdfjs-dist';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { DEFAULT_PROCESSING_MODEL } from '../../book/application/config.js';
 import { type StandardsCatalog, type StoredBookStandards } from '../../book/domain/standards/standards.js';
 import { loadStoredBookStandards } from '../../book/infrastructure/storage/standardsStorage.js';
 import { loadFixConceptsChapterStatuses, type FixConceptsChapterStatuses } from '../../book/infrastructure/storage/fixConceptsProgress.js';
@@ -39,6 +38,7 @@ export function useBookReaderController (props: Props) {
     file,
     fixOnlyFailedConcepts,
     generateAllConceptsModel,
+    conceptImageDetail,
     generateOnlyMissingConcepts,
     generateOnlyMissingStandards,
     isPriceDisabled = false,
@@ -122,9 +122,7 @@ export function useBookReaderController (props: Props) {
       ? 'Saving chapter assignments'
       : 'Identifying chapters from page text';
   const [isGeneratingAllConcepts, setIsGeneratingAllConcepts] = useState(false);
-  const [isGeneratingChapterConcepts, setIsGeneratingChapterConcepts] = useState(false);
   const [isMaximized, setIsMaximized] = useState(() => getSessionReaderMaximized(book.id));
-  const [isPageGenerationConfirmationOpen, setIsPageGenerationConfirmationOpen] = useState(false);
   const [openRouterSpent, setOpenRouterSpent] = useState(0);
   const [hasRecognitionBeenAttempted, setHasRecognitionBeenAttempted] = useState(() => getSessionRecognitionAttempted(book.id));
   const [revealedPanes, setRevealedPanes] = useState<Set<ReaderPane>>(new Set());
@@ -133,7 +131,6 @@ export function useBookReaderController (props: Props) {
   const [pages, setPages] = useState<Map<number, BookPage>>(new Map());
   const [pdf, setPdf] = useState<PDFDocumentProxy>();
   const [renderedPageHeight, setRenderedPageHeight] = useState<number>();
-  const [selectedModel, setSelectedModel] = useState(DEFAULT_PROCESSING_MODEL);
   const [autoRunProgress, setAutoRunProgress] = useState<AutoRunProgress>();
   const [autoRunProcessing, setAutoRunProcessing] = useState<ProcessingStatus>();
   const [selectedPipelineKey, setSelectedPipelineKey] = useState('');
@@ -189,7 +186,6 @@ export function useBookReaderController (props: Props) {
     isMaximized,
     pages,
     pendingStandardsChapterFocusRef,
-    selectedModel,
     setActivePane,
     setConceptChapterIndex,
     setConceptCountsByChapter,
@@ -403,6 +399,7 @@ export function useBookReaderController (props: Props) {
     embeddingModel,
     fixConceptsReview,
     generateAllConceptsModel,
+    conceptImageDetail,
     generateOnlyMissingConcepts,
     isApplyingDeduplicateConceptsReview,
     isApplyingFixConceptsReview,
@@ -425,7 +422,6 @@ export function useBookReaderController (props: Props) {
     refreshConceptCounts,
     refreshEntityCounts,
     revealPane,
-    selectedModel,
     setConceptEmbeddingsRefreshToken,
     setConceptFirstPageByKey,
     setConcepts,
@@ -446,8 +442,6 @@ export function useBookReaderController (props: Props) {
     setIsEmbeddingConcepts,
     setIsFixingConcepts,
     setIsGeneratingAllConcepts,
-    setIsGeneratingChapterConcepts,
-    setIsPageGenerationConfirmationOpen,
     setIsRefiningChapters,
     setIsSortingConcepts,
     setOpenRouterSpent,
@@ -605,8 +599,11 @@ export function useBookReaderController (props: Props) {
     chapterIdentificationLabel,
     conceptChapterCount: conceptChapters.length,
     confirmedProcessingStage,
-    currentConceptChapterTitle: currentConceptChapter?.title,
     fixConceptsTargetChapterCount,
+    hasFixConceptsReview: Boolean(fixConceptsReview),
+    hasDeduplicateConceptsReview: Boolean(deduplicateConceptsReview),
+    isApplyingDeduplicateConceptsReview,
+    isApplyingFixConceptsReview,
     fixedConceptsChapterCount,
     generatedConceptsChapterCount,
     identifiedChapterPageCount,
@@ -618,7 +615,6 @@ export function useBookReaderController (props: Props) {
     isEmbeddingConcepts,
     isFixingConcepts,
     isGeneratingAllConcepts,
-    isGeneratingChapterConcepts,
     isIdentifyingChapters,
     isRecognizingAll,
     isRefiningChapters,
@@ -644,7 +640,6 @@ export function useBookReaderController (props: Props) {
     setIsRecognizingAll(false);
     setIsIdentifyingChapters(false);
     setIsGeneratingAllConcepts(false);
-    setIsGeneratingChapterConcepts(false);
     setIsFixingConcepts(false);
     setIsDeduplicatingConcepts(false);
     setIsSortingConcepts(false);
@@ -666,6 +661,7 @@ export function useBookReaderController (props: Props) {
     file,
     fixOnlyFailedConcepts,
     generateAllConceptsModel,
+    conceptImageDetail,
     generateOnlyMissingConcepts,
     isPriceDisabled,
     onAbortFastForward,
@@ -774,12 +770,8 @@ export function useBookReaderController (props: Props) {
     chapterIdentificationLabel,
     isGeneratingAllConcepts,
     setIsGeneratingAllConcepts,
-    isGeneratingChapterConcepts,
-    setIsGeneratingChapterConcepts,
     isMaximized,
     setIsMaximized,
-    isPageGenerationConfirmationOpen,
-    setIsPageGenerationConfirmationOpen,
     openRouterSpent,
     setOpenRouterSpent,
     hasRecognitionBeenAttempted,
@@ -796,8 +788,6 @@ export function useBookReaderController (props: Props) {
     setPdf,
     renderedPageHeight,
     setRenderedPageHeight,
-    selectedModel,
-    setSelectedModel,
     autoRunProgress,
     setAutoRunProgress,
     autoRunProcessing,

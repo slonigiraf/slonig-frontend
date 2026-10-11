@@ -1,7 +1,7 @@
 // Copyright 2021-2026 @polkadot/app-laws authors & contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import type { Book, BookConcept, BookPage, BookProcessingStageKey, BookStageSpendKey } from '@slonigiraf/db';
+import type { Book, BookConcept, BookPage, BookProcessingStageKey } from '@slonigiraf/db';
 import { getBookPages, getSetting, SettingKey } from '@slonigiraf/db';
 import type { Dispatch, SetStateAction } from 'react';
 import { useCallback } from 'react';
@@ -10,17 +10,16 @@ import { OPENROUTER_CONCURRENCY } from '../../../../openrouter/concurrency.js';
 import { areAllBookPagesConceptsProcessed, countUnprocessedBookPages } from '../../../book/application/processing/bookProcessing.js';
 import { conceptChaptersFromPages, type ConceptChapterNavigationItem } from '../../../book/domain/concepts/conceptRecognition.js';
 import { standardsChapterKey } from '../../../book/domain/standards/standards.js';
-import { conceptGenerationErrorMessage, createOpenRouterClient, generateChapterContentWithEmptyConceptRetry, getChapterConceptInputs, storeGeneratedChapterConcepts } from '../../../book/application/workspace/bookReaderProcessing.js';
+import { type ConceptImageDetail, conceptGenerationErrorMessage, createOpenRouterClient, generateChapterContentWithEmptyConceptRetry, getChapterConceptInputs, storeGeneratedChapterConcepts } from '../../../book/application/workspace/bookReaderProcessing.js';
 import { analysisPageNumbers, conceptReferenceKey } from '../../../book/application/workspace/bookReaderWorkspace.js';
 import { type ReaderPane } from '../../../shared/types/bookWorkspace.js';
 interface UseBookConceptGenerationOptions {
   addConceptsCost: (costUsd: number) => void;
   book: Book;
   completeStage: (stage: BookProcessingStageKey) => Promise<void>;
-  conceptChapters: ConceptChapterNavigationItem[];
-  currentConceptChapter?: ConceptChapterNavigationItem;
   currentReaderProcessingSignal: () => AbortSignal;
   generateAllConceptsModel: string;
+  conceptImageDetail: ConceptImageDetail;
   generateOnlyMissingConcepts: boolean;
   isGeneratingAllConcepts: boolean;
   isIdentifyingChapters: boolean;
@@ -33,15 +32,11 @@ interface UseBookConceptGenerationOptions {
   refreshConceptCounts: () => Promise<void>;
   refreshEntityCounts: () => Promise<void>;
   revealPane: (pane: ReaderPane) => void;
-  selectedModel: string;
   setConceptFirstPageByKey: Dispatch<SetStateAction<Map<string, number>>>;
   setConcepts: Dispatch<SetStateAction<BookConcept[]>>;
-  setConfirmedProcessingStage: Dispatch<SetStateAction<BookStageSpendKey | undefined>>;
   setError: Dispatch<SetStateAction<string>>;
   setGeneratedConceptsChapterCount: Dispatch<SetStateAction<number>>;
   setIsGeneratingAllConcepts: Dispatch<SetStateAction<boolean>>;
-  setIsGeneratingChapterConcepts: Dispatch<SetStateAction<boolean>>;
-  setIsPageGenerationConfirmationOpen: Dispatch<SetStateAction<boolean>>;
   setOpenRouterSpent: Dispatch<SetStateAction<number>>;
   setPages: Dispatch<SetStateAction<Map<number, BookPage>>>;
   setProcessingPage: Dispatch<SetStateAction<number | undefined>>;
@@ -53,10 +48,9 @@ export function useBookConceptGeneration ({
   addConceptsCost,
   book,
   completeStage,
-  conceptChapters,
-  currentConceptChapter,
   currentReaderProcessingSignal,
   generateAllConceptsModel,
+  conceptImageDetail,
   generateOnlyMissingConcepts,
   isGeneratingAllConcepts,
   isIdentifyingChapters,
@@ -69,100 +63,17 @@ export function useBookConceptGeneration ({
   refreshConceptCounts,
   refreshEntityCounts,
   revealPane,
-  selectedModel,
   setConceptFirstPageByKey,
   setConcepts,
-  setConfirmedProcessingStage,
   setError,
   setGeneratedConceptsChapterCount,
   setIsGeneratingAllConcepts,
-  setIsGeneratingChapterConcepts,
-  setIsPageGenerationConfirmationOpen,
   setOpenRouterSpent,
   setPages,
   setProcessingPage,
   setSkillsRefreshToken,
   totalPages
 }: UseBookConceptGenerationOptions) {
-  const generateConcepts = useCallback(async (): Promise<void> => {
-    const storedPage = pages.get(pageNumber);
-
-    if (!storedPage || processingPage !== undefined || isGeneratingAllConcepts || isRecognizingAll || isIdentifyingChapters) {
-      return;
-    }
-
-    if (!currentConceptChapter) {
-      setError('Assign this page to a chapter before generating concepts.');
-      return;
-    }
-
-    if (book.age === undefined) {
-      setError('Set the learner age before generating concepts.');
-      return;
-    }
-
-    const chapterPages = currentConceptChapter.pageNumbers.flatMap((chapterPageNumber) => {
-      const page = pages.get(chapterPageNumber);
-
-      return page ? [page] : [];
-    });
-
-    if (chapterPages.length !== currentConceptChapter.pageNumbers.length) {
-      setError('Recognize every page in this chapter before generating concepts.');
-      return;
-    }
-
-    setError('');
-    setOpenRouterSpent(0);
-    setIsGeneratingChapterConcepts(true);
-    setProcessingPage(pageNumber);
-
-    try {
-      const key = await getSetting(SettingKey.OPENROUTER_TOKEN);
-
-      if (!key) {
-        throw new Error('No OpenRouter token found. Add it in Settings.');
-      }
-
-      const client = createOpenRouterClient(key, currentReaderProcessingSignal());
-      const chapterInputs = await getChapterConceptInputs(chapterPages);
-      const generatedConcepts = await generateChapterContentWithEmptyConceptRetry(client, selectedModel, currentConceptChapter.title, chapterInputs, book.age, chapterInputs.length > 0, addConceptsCost, book.language);
-      const stored = await storeGeneratedChapterConcepts(book.id, chapterPages, generatedConcepts);
-      const updatedPages = new Map(pages);
-      const references = new Map<string, number>();
-      const storedConcepts: BookConcept[] = [];
-
-      stored.pages.forEach((page) => updatedPages.set(page.pageNumber, page));
-      stored.conceptsByPage.forEach((pageConcepts, conceptPageNumber) => pageConcepts.forEach((concept) => {
-        storedConcepts.push(concept);
-        references.set(conceptReferenceKey(concept), conceptPageNumber);
-      }));
-
-      setPages(updatedPages);
-      setConcepts(storedConcepts);
-      setConceptFirstPageByKey(references);
-      await Promise.all([refreshEntityCounts(), refreshConceptCounts()]);
-
-      if (areAllBookPagesConceptsProcessed(totalPages, Array.from(updatedPages.values()), analysisPageNumbers(Array.from(updatedPages.values())))) {
-        await completeStage('concepts');
-        revealPane('textConcepts');
-      }
-    } catch (generationError) {
-      setError(generationError instanceof Error ? generationError.message : 'Unable to generate concepts for this chapter.');
-    } finally {
-      setIsGeneratingChapterConcepts(false);
-      setProcessingPage(undefined);
-    }
-  }, [currentReaderProcessingSignal, addConceptsCost, completeStage, book.age, book.id, currentConceptChapter, isGeneratingAllConcepts, isIdentifyingChapters, isRecognizingAll, pageNumber, pages, processingPage, refreshConceptCounts, refreshEntityCounts, revealPane, selectedModel, totalPages]);
-  const closePageGenerationConfirmation = useCallback((): void => setIsPageGenerationConfirmationOpen(false), []);
-  const confirmPageGeneration = useCallback((): void => {
-    setIsPageGenerationConfirmationOpen(false);
-    setConfirmedProcessingStage('concepts');
-    generateConcepts()
-      .catch(console.error)
-      .finally(() => setConfirmedProcessingStage((current) => current === 'concepts' ? undefined : current));
-  }, [generateConcepts]);
-
   const generateAllConcepts = useCallback(async (): Promise<void> => {
     if (!totalPages || processingPage !== undefined || isGeneratingAllConcepts || isRecognizingAll || isIdentifyingChapters) {
       return;
@@ -253,7 +164,7 @@ export function useBookConceptGeneration ({
     try {
       const generationResults = await mapConcurrent(chapterTasks, OPENROUTER_CONCURRENCY, async ({ chapter, pages: chapterPages }) => {
         try {
-          const chapterInputs = await getChapterConceptInputs(chapterPages);
+          const chapterInputs = await getChapterConceptInputs(chapterPages, conceptImageDetail);
 
           return {
             chapter,
@@ -309,9 +220,8 @@ export function useBookConceptGeneration ({
       await Promise.all([refreshEntityCounts(), refreshConceptCounts()]);
       setSkillsRefreshToken((value) => value + 1);
 
-      // Keep successful chapter results and let the pipeline continue even if
-      // individual chapters failed. Chapters with no stored concepts remain
-      // eligible for the "missing concepts only" rerun from the Concepts popup.
+      // Keep successful chapter results and let the pipeline continue to Fix concepts
+      // even if individual chapters failed. Manual reruns remain available.
       const successfulConceptTasks = chapterTasks.length - failedConceptTasks;
 
       if (successfulConceptTasks > 0) {
@@ -334,13 +244,10 @@ export function useBookConceptGeneration ({
       setIsGeneratingAllConcepts(false);
       onProcessingComplete();
     }
-  }, [currentReaderProcessingSignal, addConceptsCost, completeStage, book.age, book.id, conceptChapters, generateAllConceptsModel, generateOnlyMissingConcepts, isGeneratingAllConcepts, isIdentifyingChapters, isRecognizingAll, loadConceptCountsByChapter, onProcessingComplete, pageNumber, pages, processingPage, refreshConceptCounts, refreshEntityCounts, revealPane, totalPages]);
+  }, [currentReaderProcessingSignal, addConceptsCost, completeStage, book.age, book.id, conceptImageDetail, generateAllConceptsModel, generateOnlyMissingConcepts, isGeneratingAllConcepts, isIdentifyingChapters, isRecognizingAll, loadConceptCountsByChapter, onProcessingComplete, pageNumber, pages, processingPage, refreshConceptCounts, refreshEntityCounts, revealPane, totalPages]);
 
 
   return {
-    generateConcepts,
-    closePageGenerationConfirmation,
-    confirmPageGeneration,
     generateAllConcepts
   };
 }

@@ -375,8 +375,9 @@ export const StyledSkills = styled.div`
     width: 100%;
   }
 
-  .pipelineStageColumn { display: grid; gap: 0.35rem; min-width: 0; }
-  .pipelineSkipButton.ui--Button { justify-self: start; margin: 0; max-width: 100%; white-space: normal; }
+  /* Stage skip now lives beside Run in the price popup, so the stage selector
+     stays aligned with Fast Forward and Statistics. */
+  .pipelineStageColumn { align-items: center; display: flex; gap: 0.5rem; min-width: 0; }
 
   /* Keep the run button visually attached to the same Dropdown component used
      elsewhere in the app. This means the opened menu inherits the app's normal
@@ -389,6 +390,7 @@ export const StyledSkills = styled.div`
     height: var(--pipeline-control-height);
     min-height: var(--pipeline-control-height);
     min-width: 0;
+    flex: 1 1 auto;
     width: 100%;
   }
 
@@ -513,10 +515,15 @@ export const StyledSkills = styled.div`
     margin-left: 0 !important;
     margin-right: 0.25rem !important;
   }
-  @media only screen and (max-width: 650px) {
+  @media only screen and (max-width: 850px) {
     .pipeline { grid-template-columns: minmax(0, 1fr); }
     .pipelineControls { flex-wrap: wrap; min-width: 0; padding-left: 0; white-space: normal; }
     .pipelineFastForwardButton { margin-left: 0 !important; }
+  }
+
+  @media only screen and (max-width: 470px) {
+    .pipelineStageColumn { align-items: stretch; flex-wrap: wrap; }
+    .pipelineStageColumn > span { flex: 0 0 100%; }
   }
   .modelSelect { min-width: 11rem; }
   .chapterNavigation { align-items: center; display: grid; gap: 0.5rem; grid-template-columns: auto minmax(14rem, 1fr) auto minmax(8rem, 1fr) auto auto; margin-bottom: 1rem; }

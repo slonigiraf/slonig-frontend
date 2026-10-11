@@ -26,7 +26,7 @@ import { EXAMPLE_MODULE_KNOWLEDGE_CID, EXAMPLE_SKILL_KNOWLEDGE_ID } from "@sloni
 import { LearnRequest } from "./db/LearnRequest.js";
 import { ScheduledEvent, ScheduledEventType } from "./db/ScheduledEvent.js";
 import Dexie, { type Table } from "dexie";
-import { BOOK_PROCESSING_STAGES, getBookCompletedStages, withBookProcessingStagesResetFrom, withCompletedBookProcessingStage } from './db/Book.js';
+import { BOOK_PROCESSING_STAGES, getBookCompletedStages, withBookProcessingStagesResetFrom, withBypassedBookProcessingStage, withCompletedBookProcessingStage } from './db/Book.js';
 import type { Book, BookProcessingStageKey, BookStageSpend, BookStageSpendKey, BookSubject } from './db/Book.js';
 import type { BookPage, MathpixHeading } from './db/BookPage.js';
 import type { BookConcept } from './db/BookConcept.js';
@@ -44,7 +44,7 @@ import type { BookProcessingRun } from './db/BookProcessingRun.js';
 import { readTikzSvgCache, writeTikzSvgCache } from './db/TikzSvgCache.js';
 import { shouldExportDatabaseRow } from './backup.js';
 
-export { BOOK_PROCESSING_STAGES, getBookCompletedStages, isBookProcessingStageComplete, withBookProcessingStagesResetFrom, withCompletedBookProcessingStage } from './db/Book.js';
+export { BOOK_PROCESSING_STAGES, getBookCompletedStages, isBookProcessingStageComplete, isBookProcessingStageSatisfied, withBookProcessingStagesResetFrom, withBypassedBookProcessingStage, withCompletedBookProcessingStage } from './db/Book.js';
 export type { LearnRequest, TutorAction, CanceledInsurance, Reexamination, LetterTemplate, CanceledLetter, Reimbursement, Letter, Insurance, Lesson, Pseudonym, Setting, Signer, UsageRight, Agreement, Ability, AbilityExercise, AbilityValue, Image, Book, BookProcessingStageKey, BookStageSpend, BookStageSpendKey, BookSubject, BookPage, MathpixHeading, BookChapter, BookConcept, Skill, ExerciseTemplate, AiTutorStudentMessage, StandardEmbedding, ConceptEmbedding, MathpixPdfJob };
 export type { BookProcessingRun } from './db/BookProcessingRun.js';
 
@@ -261,7 +261,7 @@ export async function createBook(book: Omit<Book, 'id'>): Promise<number> {
  * helpers for completedStages so an old UI snapshot cannot replace unrelated
  * state written by another component in the meantime.
  */
-export async function updateBookFields(id: number, changes: Partial<Omit<Book, 'completedStages' | 'id'>>): Promise<Book | undefined> {
+export async function updateBookFields(id: number, changes: Partial<Omit<Book, 'completedStages' | 'bypassedStages' | 'id'>>): Promise<Book | undefined> {
     return db.transaction('rw', db.books, async () => {
         const storedBook = await db.books.get(id);
 
@@ -394,7 +394,7 @@ async function clearBookEntitiesAfterProcessingStage(bookId: number, stage: Book
 
 export async function updateBookFieldsAndStages(
     id: number,
-    changes: Partial<Omit<Book, 'completedStages' | 'fixConceptsAttempts' | 'id' | 'stageSpend'>>,
+    changes: Partial<Omit<Book, 'completedStages' | 'bypassedStages' | 'fixConceptsAttempts' | 'id' | 'stageSpend'>>,
     options: { complete?: BookProcessingStageKey[]; resetFrom?: BookProcessingStageKey; onlyMissing?: boolean; uncomplete?: BookProcessingStageKey[] } = {}
 ): Promise<Book | undefined> {
     return db.transaction('rw', db.books, db.bookPages, db.bookChapters, db.bookConcepts, db.conceptEmbeddings, db.skills, db.exerciseTemplates, db.abilities, db.images, db.mathpixPdfJobs, async () => {
@@ -424,7 +424,7 @@ export async function updateBookFieldsAndStages(
             updated = withCompletedBookProcessingStage(updated, stage);
         }
 
-        await db.books.update(id, { ...changes, completedStages: updated.completedStages });
+        await db.books.update(id, { ...changes, completedStages: updated.completedStages, bypassedStages: updated.bypassedStages });
 
         return getBook(id);
     });
@@ -466,8 +466,22 @@ export async function completeBookProcessingStage(id: number, stage: BookProcess
 
         const updated = withCompletedBookProcessingStage({ ...book, completedStages: getBookCompletedStages(book) }, stage);
 
-        await db.books.update(id, { completedStages: updated.completedStages });
+        await db.books.update(id, { completedStages: updated.completedStages, bypassedStages: updated.bypassedStages });
 
+        return getBook(id);
+    });
+}
+
+/** Explicit acknowledgement of a failed stage, NOT a success checkpoint.
+ * It permits later stages to work with any partial output that exists. */
+export async function bypassBookProcessingStage(id: number, stage: BookProcessingStageKey): Promise<Book | undefined> {
+    return db.transaction('rw', db.books, async () => {
+        const book = await db.books.get(id);
+
+        if (!book) return undefined;
+        const updated = withBypassedBookProcessingStage(book, stage);
+
+        await db.books.update(id, { bypassedStages: updated.bypassedStages });
         return getBook(id);
     });
 }
@@ -499,7 +513,7 @@ export async function resetBookProcessingStagesFrom(id: number, stage: BookProce
         await clearBookEntitiesAfterProcessingStage(id, stage, options.onlyMissing);
         const updated = withBookProcessingStagesResetFrom({ ...book, completedStages: getBookCompletedStages(book) }, stage);
 
-        await db.books.update(id, { completedStages: updated.completedStages });
+        await db.books.update(id, { completedStages: updated.completedStages, bypassedStages: updated.bypassedStages });
 
         return getBook(id);
     });

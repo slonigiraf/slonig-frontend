@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { Book, BookPage } from '@slonigiraf/db';
-import { completeBookProcessingStage, getBookConceptsForBookPage, getBookPages, getConceptEmbeddings, getSetting, isBookProcessingStageComplete, resetBookProcessingStagesFrom, SettingKey } from '@slonigiraf/db';
+import { completeBookProcessingStage, getBookConceptsForBookPage, getBookPages, getConceptEmbeddings, getSetting, isBookProcessingStageSatisfied, resetBookProcessingStagesFrom, SettingKey } from '@slonigiraf/db';
 import type { Dispatch, SetStateAction } from 'react';
 import { useCallback, useEffect, useState } from 'react';
 
@@ -69,7 +69,7 @@ export function useUploadConceptOrganization ({ embeddingModel, generateAllConce
       return;
     }
 
-    if (!isBookProcessingStageComplete(selectedBook, 'embeddings')) {
+    if (!isBookProcessingStageSatisfied(selectedBook, 'embeddings')) {
       setError(t('Run Embedings before Deduplicate concepts.'));
       return;
     }
@@ -303,7 +303,7 @@ export function useUploadConceptOrganization ({ embeddingModel, generateAllConce
   // Skipping leaves the chapter/concept data untouched, but commits the stage
   // so the Exercises stage is unlocked just as after a successful refinement.
   const skipRefineChapters = useCallback(async (): Promise<void> => {
-    if (!selectedBook || !isBookProcessingStageComplete(selectedBook, 'sortConcepts')) {
+    if (!selectedBook || !isBookProcessingStageSatisfied(selectedBook, 'sortConcepts')) {
       throw new Error('Sort concepts must be completed before skipping Refine chapters.');
     }
 

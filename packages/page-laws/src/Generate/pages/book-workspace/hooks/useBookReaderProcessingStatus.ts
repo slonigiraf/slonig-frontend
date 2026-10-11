@@ -16,11 +16,14 @@ interface UseBookReaderProcessingStatusOptions {
   chapterIdentificationLabel: string;
   conceptChapterCount: number;
   confirmedProcessingStage?: BookStageSpendKey;
-  currentConceptChapterTitle?: string;
   fixConceptsTargetChapterCount: number;
+  hasFixConceptsReview: boolean;
+  hasDeduplicateConceptsReview: boolean;
+  isApplyingDeduplicateConceptsReview: boolean;
   fixedConceptsChapterCount: number;
   generatedConceptsChapterCount: number;
   identifiedChapterPageCount: number;
+  isApplyingFixConceptsReview: boolean;
   isAssigningStandards: boolean;
   isDeduplicatingConcepts: boolean;
   isDetectingBookAge: boolean;
@@ -29,7 +32,6 @@ interface UseBookReaderProcessingStatusOptions {
   isEmbeddingConcepts: boolean;
   isFixingConcepts: boolean;
   isGeneratingAllConcepts: boolean;
-  isGeneratingChapterConcepts: boolean;
   isIdentifyingChapters: boolean;
   isRecognizingAll: boolean;
   isRefiningChapters: boolean;
@@ -52,11 +54,14 @@ export function useBookReaderProcessingStatus ({
   chapterIdentificationLabel,
   conceptChapterCount,
   confirmedProcessingStage,
-  currentConceptChapterTitle,
   fixConceptsTargetChapterCount,
+  hasFixConceptsReview,
+  hasDeduplicateConceptsReview,
+  isApplyingDeduplicateConceptsReview,
   fixedConceptsChapterCount,
   generatedConceptsChapterCount,
   identifiedChapterPageCount,
+  isApplyingFixConceptsReview,
   isAssigningStandards,
   isDeduplicatingConcepts,
   isDetectingBookAge,
@@ -65,7 +70,6 @@ export function useBookReaderProcessingStatus ({
   isEmbeddingConcepts,
   isFixingConcepts,
   isGeneratingAllConcepts,
-  isGeneratingChapterConcepts,
   isIdentifyingChapters,
   isRecognizingAll,
   isRefiningChapters,
@@ -82,22 +86,33 @@ export function useBookReaderProcessingStatus ({
 }: UseBookReaderProcessingStatusOptions) {
   const { t } = useTranslation();
   const [lastReaderProcessing, setLastReaderProcessing] = useState<ProcessingStatus>();
-  const processingTotal = isDetectingBookLanguage || isDetectingBookSubject || isDetectingBookAge || processingPage !== undefined || isEmbeddingConcepts || pendingProcessingAction === 'embeddings' || isDeduplicatingConcepts || pendingProcessingAction === 'deduplicateConcepts'
+  // Extraction is only the first part of Fix concepts. In Fast Forward the
+  // generated review is applied automatically, and the stage is not finished
+  // until those changes have been saved and its DB checkpoint is committed.
+  // Keep the reader busy across that handoff so Fast Forward cannot mistake
+  // the interval between AI extraction and review application for a failure.
+  const isFixConceptsProcessing = isFixingConcepts || (autoRunAll && (hasFixConceptsReview || isApplyingFixConceptsReview));
+  // Deduplicate concepts is a two-step operation: extraction produces a review,
+  // then the review is automatically applied and committed in Fast Forward.
+  // Its checkpoint is not written until that second step finishes. Keep the
+  // reader busy throughout so the manager never treats the handoff as failure.
+  const isDeduplicateConceptsProcessing = isDeduplicatingConcepts || (autoRunAll && (hasDeduplicateConceptsReview || isApplyingDeduplicateConceptsReview));
+  const processingTotal = isDetectingBookLanguage || isDetectingBookSubject || isDetectingBookAge || processingPage !== undefined || isEmbeddingConcepts || pendingProcessingAction === 'embeddings' || isDeduplicateConceptsProcessing || pendingProcessingAction === 'deduplicateConcepts'
     ? 1
-    : isFixingConcepts || pendingProcessingAction === 'fixConcepts'
+    : isFixConceptsProcessing || pendingProcessingAction === 'fixConcepts'
       ? Math.max(1, fixConceptsTargetChapterCount || conceptChapterCount)
       : isAssigningStandards
         ? Math.max(1, standardsTargetChapterCount || conceptChapterCount)
       : isGeneratingAllConcepts || pendingProcessingAction === 'concepts' || isSortingConcepts || pendingProcessingAction === 'sortConcepts' || isRefiningChapters || pendingProcessingAction === 'refineChapters' || pendingProcessingAction === 'standards'
         ? Math.max(1, conceptChapterCount)
         : Math.max(1, totalPages);
-  const processingValue = isDetectingBookLanguage || isDetectingBookSubject || isDetectingBookAge || processingPage !== undefined || isEmbeddingConcepts || pendingProcessingAction === 'embeddings' || isDeduplicatingConcepts || pendingProcessingAction === 'deduplicateConcepts'
+  const processingValue = isDetectingBookLanguage || isDetectingBookSubject || isDetectingBookAge || processingPage !== undefined || isEmbeddingConcepts || pendingProcessingAction === 'embeddings' || isDeduplicateConceptsProcessing || pendingProcessingAction === 'deduplicateConcepts'
     ? 0
     : isRecognizingAll || pendingProcessingAction === 'recognize'
       ? recognizedPageCount
       : isIdentifyingChapters || pendingProcessingAction === 'chapters'
         ? identifiedChapterPageCount
-        : isFixingConcepts || pendingProcessingAction === 'fixConcepts'
+        : isFixConceptsProcessing || pendingProcessingAction === 'fixConcepts'
           ? fixedConceptsChapterCount
           : isSortingConcepts || pendingProcessingAction === 'sortConcepts'
             ? sortedConceptsChapterCount
@@ -106,9 +121,7 @@ export function useBookReaderProcessingStatus ({
               : isAssigningStandards || pendingProcessingAction === 'standards'
                 ? standardsAssignedChapterCount
                   : generatedConceptsChapterCount;
-  const processingLabel = isGeneratingChapterConcepts
-    ? t('Processing chapter {{chapter}}', { replace: { chapter: currentConceptChapterTitle || '' } })
-    : processingPage !== undefined
+  const processingLabel = processingPage !== undefined
       ? t('Processing page {{page}}', { replace: { page: processingPage } })
       : isDetectingBookLanguage
         ? t('Detecting book language')
@@ -120,11 +133,11 @@ export function useBookReaderProcessingStatus ({
               ? t('Recognizing pages')
               : isIdentifyingChapters || pendingProcessingAction === 'chapters'
                 ? t(chapterIdentificationLabel)
-                : isFixingConcepts || pendingProcessingAction === 'fixConcepts'
-                  ? t('Finding missing chapter concepts')
+                : isFixConceptsProcessing || pendingProcessingAction === 'fixConcepts'
+                  ? t('Fix concepts')
                   : isEmbeddingConcepts || pendingProcessingAction === 'embeddings'
                     ? t('Calculating concept Embedings')
-                    : isDeduplicatingConcepts || pendingProcessingAction === 'deduplicateConcepts'
+                    : isDeduplicateConceptsProcessing || pendingProcessingAction === 'deduplicateConcepts'
                       ? t('Finding duplicate concepts across the book')
                       : isSortingConcepts || pendingProcessingAction === 'sortConcepts'
                         ? t('Sorting concepts by ZPD')
@@ -135,9 +148,7 @@ export function useBookReaderProcessingStatus ({
                             : t('Extracting concepts by chapter');
 
   const readerProcessingStage: BookStageSpendKey | undefined = confirmedProcessingStage
-    ?? (isGeneratingChapterConcepts
-      ? 'concepts'
-      : isDetectingBookLanguage
+    ?? (isDetectingBookLanguage
         ? 'language'
         : isDetectingBookSubject
           ? 'subject'
@@ -149,11 +160,11 @@ export function useBookReaderProcessingStatus ({
                 ? 'chapters'
                 : isGeneratingAllConcepts
                   ? 'concepts'
-                  : isFixingConcepts
+                  : isFixConceptsProcessing
                     ? 'fixConcepts'
                     : isEmbeddingConcepts
                       ? 'embeddings'
-                      : isDeduplicatingConcepts
+                      : isDeduplicateConceptsProcessing
                         ? 'deduplicateConcepts'
                         : isSortingConcepts
                           ? 'sortConcepts'
@@ -174,9 +185,9 @@ export function useBookReaderProcessingStatus ({
     isRecognizingAll ||
     isIdentifyingChapters ||
     isGeneratingAllConcepts ||
-    isFixingConcepts ||
+    isFixConceptsProcessing ||
     isEmbeddingConcepts ||
-    isDeduplicatingConcepts ||
+    isDeduplicateConceptsProcessing ||
     isSortingConcepts ||
     isRefiningChapters ||
     isAssigningStandards

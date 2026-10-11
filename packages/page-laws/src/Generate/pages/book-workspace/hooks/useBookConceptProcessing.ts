@@ -3,6 +3,7 @@
 
 import type { Book, BookConcept, BookPage, BookProcessingStageKey, BookStageSpendKey } from '@slonigiraf/db';
 import type { Dispatch, SetStateAction } from 'react';
+import type { ConceptImageDetail } from '../../../book/application/workspace/bookReaderProcessing.js';
 import type { ConceptChapterNavigationItem } from '../../../book/domain/concepts/conceptRecognition.js';
 import type { DeduplicateConceptInput } from '../../../book/domain/concepts/deduplicateConcepts.js';
 import type { FixConceptsChapterStatuses } from '../../../book/infrastructure/storage/fixConceptsProgress.js';
@@ -34,6 +35,7 @@ interface UseBookConceptProcessingOptions {
   embeddingModel: string;
   fixConceptsReview?: FixConceptsReview;
   generateAllConceptsModel: string;
+  conceptImageDetail: ConceptImageDetail;
   generateOnlyMissingConcepts: boolean;
   isApplyingDeduplicateConceptsReview: boolean;
   isApplyingFixConceptsReview: boolean;
@@ -56,7 +58,6 @@ interface UseBookConceptProcessingOptions {
   refreshConceptCounts: () => Promise<void>;
   refreshEntityCounts: () => Promise<void>;
   revealPane: (pane: ReaderPane) => void;
-  selectedModel: string;
   setConceptEmbeddingsRefreshToken: Dispatch<SetStateAction<number>>;
   setConceptFirstPageByKey: Dispatch<SetStateAction<Map<string, number>>>;
   setConcepts: Dispatch<SetStateAction<BookConcept[]>>;
@@ -77,8 +78,6 @@ interface UseBookConceptProcessingOptions {
   setIsEmbeddingConcepts: Dispatch<SetStateAction<boolean>>;
   setIsFixingConcepts: Dispatch<SetStateAction<boolean>>;
   setIsGeneratingAllConcepts: Dispatch<SetStateAction<boolean>>;
-  setIsGeneratingChapterConcepts: Dispatch<SetStateAction<boolean>>;
-  setIsPageGenerationConfirmationOpen: Dispatch<SetStateAction<boolean>>;
   setIsRefiningChapters: Dispatch<SetStateAction<boolean>>;
   setIsSortingConcepts: Dispatch<SetStateAction<boolean>>;
   setOpenRouterSpent: Dispatch<SetStateAction<number>>;
@@ -107,6 +106,7 @@ export function useBookConceptProcessing ({
   embeddingModel,
   fixConceptsReview,
   generateAllConceptsModel,
+  conceptImageDetail,
   generateOnlyMissingConcepts,
   isApplyingDeduplicateConceptsReview,
   isApplyingFixConceptsReview,
@@ -129,7 +129,6 @@ export function useBookConceptProcessing ({
   refreshConceptCounts,
   refreshEntityCounts,
   revealPane,
-  selectedModel,
   setConceptEmbeddingsRefreshToken,
   setConceptFirstPageByKey,
   setConcepts,
@@ -150,8 +149,6 @@ export function useBookConceptProcessing ({
   setIsEmbeddingConcepts,
   setIsFixingConcepts,
   setIsGeneratingAllConcepts,
-  setIsGeneratingChapterConcepts,
-  setIsPageGenerationConfirmationOpen,
   setIsRefiningChapters,
   setIsSortingConcepts,
   setOpenRouterSpent,
@@ -166,10 +163,9 @@ export function useBookConceptProcessing ({
     addConceptsCost,
     book,
     completeStage,
-    conceptChapters,
-    currentConceptChapter,
     currentReaderProcessingSignal,
     generateAllConceptsModel,
+    conceptImageDetail,
     generateOnlyMissingConcepts,
     isGeneratingAllConcepts,
     isIdentifyingChapters,
@@ -182,15 +178,11 @@ export function useBookConceptProcessing ({
     refreshConceptCounts,
     refreshEntityCounts,
     revealPane,
-    selectedModel,
     setConceptFirstPageByKey,
     setConcepts,
-    setConfirmedProcessingStage,
     setError,
     setGeneratedConceptsChapterCount,
     setIsGeneratingAllConcepts,
-    setIsGeneratingChapterConcepts,
-    setIsPageGenerationConfirmationOpen,
     setOpenRouterSpent,
     setPages,
     setProcessingPage,

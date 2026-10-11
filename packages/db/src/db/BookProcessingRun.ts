@@ -12,7 +12,12 @@ export interface BookProcessingRun {
   stages: BookProcessingStageKey[];
   startStage: BookProcessingStageKey;
   currentStage?: BookProcessingStageKey;
+  /** Confirmed success checkpoints. Never includes failed/bypassed stages. */
   completed: BookProcessingStageKey[];
+  /** Unsuccessful attempts persisted by stable stage key, not cursor position. */
+  failedStages?: Partial<Record<BookProcessingStageKey, string>>;
+  /** Explicitly accepted failures to advance this run (not successes). */
+  bypassedStages?: BookProcessingStageKey[];
   triggeredStage?: BookProcessingStageKey;
   startedStage: boolean;
   retryCounts: Partial<Record<BookProcessingStageKey, number>>;

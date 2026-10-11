@@ -164,7 +164,6 @@ export function useUploadProcessing ({ isBusy, readerFile, refreshBooks, selecte
       onRecognize: metadata.onRecognize,
       onRefineChapters: conceptOrganization.onRefineChapters,
       onSkipRefineChapters: conceptOrganization.skipRefineChapters,
-      onRetryMissingConcepts: conceptGeneration.onRetryMissingConcepts,
       onShowAge: metadata.onShowAge,
       onShowLanguage: metadata.onShowLanguage,
       onShowSubject: metadata.onShowSubject,

@@ -5,6 +5,8 @@ import React from 'react';
 
 import { Button, Modal } from '@polkadot/react-components';
 
+import { useTranslation } from '../../../common/translate.js';
+
 interface StageRunPricePopupProps {
   children: React.ReactNode;
   header: string;
@@ -16,6 +18,8 @@ interface StageRunPricePopupProps {
 }
 
 export default function StageRunPricePopup ({ children, header, isRunDisabled = false, onClose, onRun, onSkip, runLabel = 'Run' }: StageRunPricePopupProps): React.ReactElement {
+  const { t } = useTranslation();
+
   return <Modal
     header={header}
     onClose={onClose}
@@ -26,7 +30,7 @@ export default function StageRunPricePopup ({ children, header, isRunDisabled = 
       <Button.Group>
         {onSkip && <Button
           icon='step-forward'
-          label='Skip (mark done)'
+          label={t('Skip')}
           onClick={onSkip}
         />}
         <Button

@@ -1,8 +1,8 @@
 // Copyright 2021-2026 @polkadot/app-laws authors & contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import type { BookProcessingRun, BookProcessingStageKey } from '@slonigiraf/db';
-import { getBookProcessingRun, putBookProcessingRun } from '@slonigiraf/db';
+import type { Book, BookProcessingRun, BookProcessingStageKey } from '@slonigiraf/db';
+import { bypassBookProcessingStage, getBook, getBookProcessingRun, isBookProcessingStageComplete, putBookProcessingRun } from '@slonigiraf/db';
 
 import type { PipelineAction } from '../../../shared/types/processing.js';
 import type { BookProcessingRunnerState } from './bookProcessingCommand.js';
@@ -19,9 +19,14 @@ export interface FastForwardFrame {
   actions: readonly PipelineAction[];
   busy: boolean;
   contentReady: boolean;
+  /** The current UI book snapshot's real successes and explicit bypasses. */
+  satisfiedStages?: readonly BookProcessingStageKey[];
+  /** Persisted successes only; bypasses must never satisfy this field. */
+  successfulStages?: readonly BookProcessingStageKey[];
   hasReview: boolean;
   error: string;
   onComplete: () => void;
+  onBookCheckpoint?: (book: Book) => void;
   onError: (message: string) => void;
 }
 
@@ -44,6 +49,7 @@ export class BookProcessingManager {
   private skillsAborts = new Map<number, () => void>();
   private restoration = new Map<number, Promise<void>>();
   private nextId = 0;
+  private verifyingStages = new Map<number, string>();
 
   getSnapshot = (bookId: number): BookProcessingRun | undefined => this.runs.get(bookId);
 
@@ -116,6 +122,8 @@ export class BookProcessingManager {
       startStage: stages[0],
       currentStage: stages[0],
       completed: [],
+      failedStages: {},
+      bypassedStages: [],
       startedStage: false,
       retryCounts: {},
       skipRefineChapters,
@@ -147,7 +155,43 @@ export class BookProcessingManager {
     const run = this.runs.get(bookId);
 
     if (run?.status !== 'running') return;
-    this.publish({ ...run, status: 'failed', error, updatedAt: Date.now() });
+    this.publish({ ...run, status: 'failed', error, failedStages: run.currentStage ? { ...run.failedStages, [run.currentStage]: error } : run.failedStages, updatedAt: Date.now() });
+  }
+
+  /** A failure is never a success checkpoint. Only an explicit user action
+   * acknowledges the failed stage and permits a run to move past it. */
+  async continueAfterFailure (bookId: number): Promise<Book | undefined> {
+    const run = this.runs.get(bookId);
+    const stage = run?.currentStage ?? run?.triggeredStage ?? run?.stages.find((key) => !run.completed.includes(key) && !(run.bypassedStages ?? []).includes(key));
+
+    if (!run || run.mode !== 'fastForward' || run.status !== 'failed' || !stage) return undefined;
+    const updatedBook = await bypassBookProcessingStage(bookId, stage);
+
+    if (!updatedBook) throw new Error('Book no longer exists.');
+    // A different run may have started while the DB transaction was pending.
+    if (this.runs.get(bookId)?.id !== run.id || this.runs.get(bookId)?.status !== 'failed') return updatedBook;
+    // Old builds could falsely report a failed stage after its DB checkpoint
+    // was committed. Reconcile it as a real success, not as a failed bypass.
+    const alreadyComplete = isBookProcessingStageComplete(updatedBook, stage);
+    const completed = alreadyComplete ? [...new Set([...run.completed, stage])] : run.completed;
+    const bypassedStages = alreadyComplete ? (run.bypassedStages ?? []) : [...new Set([...(run.bypassedStages ?? []), stage])];
+    const failedStages = { ...run.failedStages };
+
+    if (alreadyComplete) delete failedStages[stage];
+    else failedStages[stage] = failedStages[stage] ?? run.error ?? 'Stage failed';
+    this.publish({ ...run,
+      completed,
+      failedStages,
+      bypassedStages,
+      triggeredStage: undefined,
+      startedStage: false,
+      currentStage: run.stages.find((key) => !completed.includes(key) && !bypassedStages.includes(key)),
+      error: undefined,
+      status: 'running',
+      updatedAt: Date.now()
+    });
+
+    return updatedBook;
   }
 
   cancel (bookId: number): void {
@@ -175,6 +219,7 @@ export class BookProcessingManager {
     this.controllers.delete(bookId);
     this.readers.delete(bookId);
     this.runs.delete(bookId);
+    this.verifyingStages.delete(bookId);
     this.listeners.get(bookId)?.forEach((notify) => notify());
   }
 
@@ -226,10 +271,27 @@ export class BookProcessingManager {
 
     if (!queue.length) this.commands.delete(bookId);
     this.executing.add(bookId);
+    const run = this.runs.get(bookId);
+
+    // React might never paint busy=true for an immediately rejected command.
+    // The command runner, not a render, is proof that the work actually began.
+    // Language/subject/age only *open* their metadata dialog here and are not
+    // considered started until their real extraction begins.
+    if (run?.mode === 'fastForward' && run.status === 'running' && run.triggeredStage === action &&
+      !['language', 'subject', 'age'].includes(action) && !run.startedStage) {
+      this.publish({ ...run, startedStage: true, updatedAt: Date.now() });
+    }
     // Capture the old executor: it remains alive until its awaited operation
     // finishes even if React unmounts during the request.
     void Promise.resolve().then(() => reader.execute(action)).catch(console.error).finally(() => {
       this.executing.delete(bookId);
+      const current = this.runs.get(bookId);
+
+      // Re-check the real Book checkpoint after a command that never rendered
+      // busy=true. Also wake up the manager after a remount between frames.
+      if (current?.mode === 'fastForward' && current.status === 'running' && current.triggeredStage === action) {
+        this.publish({ ...current, updatedAt: Date.now() });
+      }
       this.pulse(bookId);
     });
   }
@@ -239,11 +301,57 @@ export class BookProcessingManager {
    * observable stage readiness and provides stage adapters; all sequencing,
    * retries, completion bookkeeping and deduplication live here.
    */
+  private verifyFinishedStage (bookId: number, run: BookProcessingRun, action: PipelineAction, frame: FastForwardFrame): void {
+    const stage = run.triggeredStage;
+
+    if (!stage || this.verifyingStages.has(bookId)) return;
+    this.verifyingStages.set(bookId, `${run.id}:${stage}`);
+    // The UI snapshot may lag the persisted checkpoint by a render. Check the
+    // authoritative Book before declaring failure or resending a paid request.
+    void getBook(bookId).then((book) => {
+      const latest = this.runs.get(bookId);
+
+      if (!latest || latest.id !== run.id || latest.status !== 'running' || latest.triggeredStage !== stage) return;
+      if (book && isBookProcessingStageComplete(book, stage)) {
+        this.publish({ ...latest,
+          completed: [...new Set([...latest.completed, stage])],
+          triggeredStage: undefined,
+          startedStage: false,
+          currentStage: undefined,
+          updatedAt: Date.now()
+        });
+        frame.onBookCheckpoint?.(book);
+        return;
+      }
+      if (stage !== 'abilities' && action.onRetryMissing) {
+        const retries = latest.retryCounts[stage] ?? 0;
+
+        if (action.isResultComplete === undefined) return;
+        if (!action.isResultComplete && retries < 2) {
+          this.publish({ ...latest, retryCounts: { ...latest.retryCounts, [stage]: retries + 1 }, startedStage: false, updatedAt: Date.now() });
+          action.onRetryMissing();
+          return;
+        }
+      }
+      const message = `Fast Forward stopped at ${action.label}: processing finished but the stage is still incomplete. The database has no success checkpoint. Open this stage’s price confirmation and choose Run to retry or Skip to bypass it.`;
+
+      this.fail(bookId, message);
+      frame.onError(message);
+    }).catch((reason: unknown) => {
+      const message = reason instanceof Error ? reason.message : 'Could not verify stage completion.';
+
+      this.fail(bookId, message);
+      frame.onError(message);
+    }).finally(() => {
+      if (this.verifyingStages.get(bookId) === `${run.id}:${stage}`) this.verifyingStages.delete(bookId);
+    });
+  }
+
   stepFastForward (bookId: number, frame: FastForwardFrame): void {
     let run = this.runs.get(bookId);
 
     if (!run || run.mode !== 'fastForward' || run.status !== 'running') return;
-    if (frame.error && run.triggeredStage && !frame.busy) {
+    if (frame.error && run.triggeredStage && !frame.busy && !this.executing.has(bookId)) {
       this.fail(bookId, frame.error);
       frame.onError(frame.error);
       return;
@@ -259,9 +367,10 @@ export class BookProcessingManager {
       if (!run.startedStage) save({ startedStage: true });
       return;
     }
+    if (run.triggeredStage && this.executing.has(bookId)) return;
 
     for (let scan = 0; scan <= run.stages.length; scan++) {
-      const key = run.stages.find((stage) => !run!.completed.includes(stage));
+      const key = run.stages.find((stage) => !run!.completed.includes(stage) && !(run!.bypassedStages ?? []).includes(stage));
 
       if (!key) {
         this.complete(bookId);
@@ -271,10 +380,17 @@ export class BookProcessingManager {
       const action = frame.actions.find(({ key: actionKey }) => actionKey === key);
 
       if (!action) {
-        save({ completed: [...run.completed, key], currentStage: undefined });
-        continue;
+        const message = `Fast Forward cannot run ${key}: no stage handler is registered.`;
+
+        save({ currentStage: key });
+        this.fail(bookId, message);
+        frame.onError(message);
+        return;
       }
       const triggered = run.triggeredStage === key;
+      // The UI can briefly retain an old isDone flag after a reset. In the
+      // app, require agreement with the Book's durable success checkpoint.
+      const succeeded = action.isDone && (frame.successfulStages?.includes(key) ?? true);
       const retry = (): boolean => {
         const retries = run!.retryCounts[key] ?? 0;
 
@@ -291,7 +407,7 @@ export class BookProcessingManager {
       };
 
       if (!triggered) {
-        if (run.skipRefineChapters && key === 'refineChapters' && !action.isDone) {
+        if (run.skipRefineChapters && key === 'refineChapters' && !succeeded) {
           if (action.isDisabled || !action.onSkip) return;
           // Prevent duplicate async skip requests while its IDB writes settle.
           save({ triggeredStage: key, startedStage: false, currentStage: key });
@@ -303,7 +419,7 @@ export class BookProcessingManager {
           });
           return;
         }
-        if (action.isDone) {
+        if (succeeded) {
           if (key !== 'abilities' && action.onRetryMissing) {
             if (action.isResultComplete === undefined) return;
             if (!action.isResultComplete && retry()) return;
@@ -311,7 +427,21 @@ export class BookProcessingManager {
           save({ completed: [...run.completed, key], currentStage: undefined });
           continue;
         }
-        if (action.isDisabled) return;
+        if (action.isDisabled) {
+          // Give React a render to consume the new Book checkpoint/bypass.
+          // Once it has, a still-disabled stage lacks required input. Report a
+          // failure instead of remaining at the previous stage indefinitely.
+          const settled = [...run.completed, ...(run.bypassedStages ?? [])];
+
+          if (settled.length && settled.every((stage) => frame.satisfiedStages?.includes(stage))) {
+            const message = `Fast Forward cannot start ${action.label}: this stage's prerequisites or required source content are unavailable after the previous stage. Resolve the missing input or continue explicitly.`;
+
+            save({ currentStage: key });
+            this.fail(bookId, message);
+            frame.onError(message);
+          }
+          return;
+        }
         save({ triggeredStage: key, startedStage: false, currentStage: key });
         action.onClick();
         return;
@@ -321,7 +451,7 @@ export class BookProcessingManager {
         // Some very short stages (and the IDB-only chapter skip) can persist
         // completion before React ever renders busy=true. The database stage
         // checkpoint is enough to advance without resubmitting the paid job.
-        if (action.isDone) {
+        if (succeeded) {
           if (key !== 'abilities' && action.onRetryMissing) {
             if (action.isResultComplete === undefined) return;
             if (!action.isResultComplete && retry()) return;
@@ -331,19 +461,10 @@ export class BookProcessingManager {
         }
         return;
       }
-      if (key !== 'abilities' && action.onRetryMissing) {
-        if (action.isResultComplete === undefined) return;
-        if (!action.isResultComplete && retry()) return;
-      } else if (!action.isDone) {
-        // The worker has stopped and no review is pending, but this stage did
-        // not earn its completion checkpoint (for example, an Ability review
-        // contained corrections the model could not resolve). Waiting here
-        // forever leaves Fast Forward showing 100% for this stage and 0/N
-        // overall. Never silently mark an incomplete stage done.
-        const message = `Fast Forward stopped at ${action.label}: processing finished but the stage is still incomplete. Check unresolved results and run this stage again after addressing them.`;
-
-        this.fail(bookId, message);
-        frame.onError(message);
+      if (!succeeded) {
+        // Do not infer failure from a stale React snapshot: the persisted Book
+        // is the single source of truth for successful stage completion.
+        this.verifyFinishedStage(bookId, run, action, frame);
         return;
       }
       save({ completed: [...run.completed, key], triggeredStage: undefined, startedStage: false, currentStage: undefined });

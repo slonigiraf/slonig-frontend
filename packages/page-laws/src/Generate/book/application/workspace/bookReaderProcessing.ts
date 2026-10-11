@@ -13,7 +13,7 @@ import { conceptBelongsToChapter, parseRefinedChapterGroups, refineChapterPrompt
 import { reportOpenRouterCost, type OpenRouterCostReporter } from '../../../../openrouter/cost.js';
 import { BOOK_CHAPTER_EXTRACTION_REQUEST_PROMPT } from '../../infrastructure/ai/prompts/concepts.js';
 import { extractMathpixHeadingsFromLines, parseChapterBoundaries, type ChapterBoundaryProposal } from '../../domain/chapters/chapterSegmentation.js';
-import { CONCEPT_IDENTIFICATION_RUNS, parseGeneratedChapterConcepts, type ConceptChapterNavigationItem, type GeneratedChapterConcepts } from '../../domain/concepts/conceptRecognition.js';
+import { CONCEPT_IDENTIFICATION_RUNS, mergeGeneratedChapterConcepts, parseGeneratedChapterConcepts, type ConceptChapterNavigationItem, type GeneratedChapterConcepts } from '../../domain/concepts/conceptRecognition.js';
 import { deduplicateConceptsPrompt, parseDeduplicateConceptPairs, type DeduplicateConceptCandidatePair, type DeduplicateConceptInput, type DeduplicateConceptPair } from '../../domain/concepts/deduplicateConcepts.js';
 import { mergeStandardsMatches, parseStandardsMatches, STANDARDS_MATCH_RUNS, standardsCandidatesFromEmbeddings, standardsConceptInputs, standardsMatchingPrompt, type CurriculumStandard, type StandardsCatalog } from '../../domain/standards/standards.js';
 import { type MathpixPdfRecognitionResult } from '../../infrastructure/pdf/mathpixPdf.js';
@@ -257,16 +257,12 @@ async function generateSingleChapterIdentificationRunWithEmptyRetry(client: Open
 }
 
 async function generateChapterContentWithEmptyConceptRetry(client: OpenAI, model: string, chapterTitle: string, pages: ChapterConceptInputPage[], learnerAge: number | undefined, retryEmptyConcepts: boolean, onCost?: OpenRouterCostReporter, language = 'en'): Promise<GeneratedChapterConcepts> {
-  const runs: GeneratedChapterConcepts[] = [];
+  // Independent extraction passes share no intermediate output and can run
+  // concurrently. Reconcile their results once, before anything is stored.
+  const runs = await Promise.all(Array.from({ length: CONCEPT_IDENTIFICATION_RUNS }, () =>
+    generateSingleChapterIdentificationRunWithEmptyRetry(client, model, chapterTitle, pages, learnerAge, retryEmptyConcepts, onCost, language)));
 
-  // Run concept identification multiple independent times for recall. Do not
-  // merge/deduplicate the inventories here: repeated concepts are intentional
-  // evidence that later Deduplicate Concepts will resolve after Fix Concepts.
-  for (let run = 0; run < CONCEPT_IDENTIFICATION_RUNS; run++) {
-    runs.push(await generateSingleChapterIdentificationRunWithEmptyRetry(client, model, chapterTitle, pages, learnerAge, retryEmptyConcepts, onCost, language));
-  }
-
-  return { concepts: runs.flatMap(({ concepts }) => concepts) };
+  return mergeGeneratedChapterConcepts(runs);
 }
 
 function abortError (): DOMException {
@@ -314,8 +310,10 @@ function createOpenRouterClient (apiKey: string, signal?: AbortSignal): OpenAI {
   });
 }
 
+export type ConceptImageDetail = 'low' | 'auto' | 'high';
+
 interface MMDZipInput {
-  images: Array<{ image_url: { detail: 'low'; url: string }; name: string; type: 'image_url' }>;
+  images: Array<{ image_url: { detail: ConceptImageDetail; url: string }; name: string; type: 'image_url' }>;
   text: string;
 }
 
@@ -330,7 +328,7 @@ function bytesToBase64(bytes: Uint8Array): string {
   return window.btoa(binary);
 }
 
-async function extractMMDZipInput(blob: Blob): Promise<MMDZipInput> {
+async function extractMMDZipInput(blob: Blob, imageDetail: ConceptImageDetail = 'auto'): Promise<MMDZipInput> {
   const entries = unzipSync(new Uint8Array(await blob.arrayBuffer()));
   const textEntries: string[] = [];
   const images: MMDZipInput['images'] = [];
@@ -348,11 +346,7 @@ async function extractMMDZipInput(blob: Blob): Promise<MMDZipInput> {
 
     if (imageType) {
       images.push({
-        // Mathpix text is the primary concept signal. Images supplement diagrams
-        // and other visual-only information, so low-detail vision is sufficient
-        // here and greatly reduces the risk that chapter-wide requests exhaust
-        // the model's context window with high-resolution image tokens.
-        image_url: { detail: 'low', url: `data:${imageType};base64,${bytesToBase64(bytes)}` },
+        image_url: { detail: imageDetail, url: `data:${imageType};base64,${bytesToBase64(bytes)}` },
         name,
         type: 'image_url'
       });
@@ -367,12 +361,12 @@ async function extractMMDZipInput(blob: Blob): Promise<MMDZipInput> {
   return { images, text: textEntries.join('\n\n') };
 }
 
-async function getPageConceptInput(page: BookPage): Promise<MMDZipInput | undefined> {
+async function getPageConceptInput(page: BookPage, imageDetail: ConceptImageDetail = 'auto'): Promise<MMDZipInput | undefined> {
   const recognizedText = page.pageMMD?.trim() ?? '';
 
   if (page.pageMMDZip) {
     try {
-      const zipInput = await extractMMDZipInput(page.pageMMDZip);
+      const zipInput = await extractMMDZipInput(page.pageMMDZip, imageDetail);
 
       // Mathpix can return readable pageMMD while the ZIP itself contains no
       // text entry. Keep any ZIP images, but fall back to the recognized MMD
@@ -394,9 +388,9 @@ async function getPageConceptInput(page: BookPage): Promise<MMDZipInput | undefi
   return recognizedText ? { images: [], text: recognizedText } : undefined;
 }
 
-async function getChapterConceptInputs(chapterPages: BookPage[]): Promise<ChapterConceptInputPage[]> {
+async function getChapterConceptInputs(chapterPages: BookPage[], imageDetail: ConceptImageDetail = 'auto'): Promise<ChapterConceptInputPage[]> {
   const inputs = await Promise.all(chapterPages.map(async (page) => {
-    const input = await getPageConceptInput(page);
+    const input = await getPageConceptInput(page, imageDetail);
 
     return input ? { input, pageNumber: page.pageNumber } : undefined;
   }));
@@ -412,7 +406,7 @@ interface StoredChapterConcepts {
 async function storeGeneratedChapterConcepts(bookId: number, chapterPages: BookPage[], generatedConcepts: GeneratedChapterConcepts): Promise<StoredChapterConcepts> {
   const conceptsByPageInput = new Map<number, Array<{ description: string; title: string }>>();
 
-  generatedConcepts.concepts.forEach(({ description, pageNumber, title }) => {
+  mergeGeneratedChapterConcepts([generatedConcepts]).concepts.forEach(({ description, pageNumber, title }) => {
     const pageConcepts = conceptsByPageInput.get(pageNumber) ?? [];
 
     pageConcepts.push({ description, title });

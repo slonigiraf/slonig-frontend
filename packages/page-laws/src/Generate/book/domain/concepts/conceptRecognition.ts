@@ -15,6 +15,26 @@ export interface GeneratedChapterConcepts {
   concepts: GeneratedChapterConcept[];
 }
 
+/** Merge all extraction passes before persistence, keeping the first introduction of each title. */
+export function mergeGeneratedChapterConcepts (runs: GeneratedChapterConcepts[]): GeneratedChapterConcepts {
+  const seenTitles = new Set<string>();
+  const concepts = runs.flatMap(({ concepts }) => concepts)
+    .sort((a, b) => a.pageNumber - b.pageNumber)
+    .filter(({ title }) => {
+      const key = normalizeConceptTitle(title);
+
+      if (!key || seenTitles.has(key)) {
+        return false;
+      }
+
+      seenTitles.add(key);
+
+      return true;
+    });
+
+  return { concepts };
+}
+
 export interface ChapterPageIdentity {
   chapter: string;
   excludedFromAnalysis?: boolean;
@@ -46,24 +66,9 @@ export function parseGeneratedChapterConcepts (content: string, allowedPageNumbe
     throw new Error('OpenRouter returned invalid chapter concept data.');
   }
 
-  const seenTitles = new Set<string>();
-  const concepts = parsed.concepts
+  return mergeGeneratedChapterConcepts([{ concepts: parsed.concepts
     .map(({ description, pageNumber, title }) => ({ description: description.trim(), pageNumber, title: formatSentenceCaseTitle(title, language) }))
-    .filter(({ title }) => title)
-    .sort((a, b) => a.pageNumber - b.pageNumber)
-    .filter(({ title }) => {
-      const key = normalizeConceptTitle(title);
-
-      if (!key || seenTitles.has(key)) {
-        return false;
-      }
-
-      seenTitles.add(key);
-
-      return true;
-    });
-
-  return { concepts };
+    .filter(({ title }) => title) }]);
 }
 
 export function conceptChaptersFromPages (bookPages: ChapterPageIdentity[]): ConceptChapterNavigationItem[] {

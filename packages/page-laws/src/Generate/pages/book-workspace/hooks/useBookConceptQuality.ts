@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { Book, BookConcept, BookPage, BookProcessingStageKey } from '@slonigiraf/db';
-import { completeBookProcessingStage, createBookConcept, getBookConceptsForBookPage, getSetting, incrementBookFixConceptsAttempts, isBookProcessingStageComplete, SettingKey, withCompletedBookProcessingStage } from '@slonigiraf/db';
+import { completeBookProcessingStage, createBookConcept, getBookConceptsForBookPage, getSetting, incrementBookFixConceptsAttempts, isBookProcessingStageSatisfied, SettingKey, withCompletedBookProcessingStage } from '@slonigiraf/db';
 import type { Dispatch, SetStateAction } from 'react';
 import { useCallback, useEffect } from 'react';
 import { mapConcurrent } from '../../../../common/concurrency.js';
@@ -362,7 +362,7 @@ export function useBookConceptQuality ({
       return;
     }
 
-    if (!isBookProcessingStageComplete(book, 'fixConcepts')) {
+    if (!isBookProcessingStageSatisfied(book, 'fixConcepts')) {
       setError('Complete Fix concepts before calculating Embedings.');
       return;
     }
@@ -402,7 +402,7 @@ export function useBookConceptQuality ({
       return;
     }
 
-    if (!isBookProcessingStageComplete(book, 'embeddings')) {
+    if (!isBookProcessingStageSatisfied(book, 'embeddings')) {
       setError('Run Embedings before Deduplicate concepts.');
       return;
     }

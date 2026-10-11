@@ -46,6 +46,8 @@ export interface Book {
    * not renumber or reinterpret existing completion data.
    */
   completedStages?: BookProcessingStageKey[];
+  /** Explicitly acknowledged unsuccessful stages. A bypass is NOT a success. */
+  bypassedStages?: BookProcessingStageKey[];
   stageSpend?: BookStageSpend;
   contentHash: string;
   name: string;
@@ -65,6 +67,20 @@ export function isBookProcessingStageComplete (book: Pick<Book, 'completedStages
   return getBookCompletedStages(book).includes(stage);
 }
 
+/** A failed stage may be bypassed explicitly to use any partial outputs downstream. */
+export function isBookProcessingStageSatisfied (book: Pick<Book, 'completedStages' | 'bypassedStages'>, stage: BookProcessingStageKey): boolean {
+  return isBookProcessingStageComplete(book, stage) || (book.bypassedStages ?? []).includes(stage);
+}
+
+export function withBypassedBookProcessingStage (book: Book, stage: BookProcessingStageKey): Book {
+  if (isBookProcessingStageComplete(book, stage)) return book;
+  const bypassed = new Set(book.bypassedStages ?? []);
+
+  bypassed.add(stage);
+
+  return { ...book, bypassedStages: BOOK_PROCESSING_STAGES.filter((candidate) => bypassed.has(candidate)) };
+}
+
 export function withCompletedBookProcessingStage (book: Book, stage: BookProcessingStageKey): Book {
   const completed = new Set(getBookCompletedStages(book));
 
@@ -72,7 +88,8 @@ export function withCompletedBookProcessingStage (book: Book, stage: BookProcess
 
   return {
     ...book,
-    completedStages: BOOK_PROCESSING_STAGES.filter((candidate) => completed.has(candidate))
+    completedStages: BOOK_PROCESSING_STAGES.filter((candidate) => completed.has(candidate)),
+    bypassedStages: (book.bypassedStages ?? []).filter((candidate) => candidate !== stage)
   };
 }
 
@@ -89,6 +106,7 @@ export function withBookProcessingStagesResetFrom (book: Book, stage: BookProces
 
   return {
     ...book,
-    completedStages: BOOK_PROCESSING_STAGES.filter((candidate) => completed.has(candidate))
+    completedStages: BOOK_PROCESSING_STAGES.filter((candidate) => completed.has(candidate)),
+    bypassedStages: (book.bypassedStages ?? []).filter((candidate) => BOOK_PROCESSING_STAGES.indexOf(candidate) < stageIndex)
   };
 }

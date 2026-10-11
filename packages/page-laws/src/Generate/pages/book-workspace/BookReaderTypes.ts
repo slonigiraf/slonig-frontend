@@ -5,6 +5,7 @@ import type { Book, BookConcept } from '@slonigiraf/db';
 
 import type { MissingChapterConcept } from '../../book/domain/concepts/fixConcepts.js';
 import type { ConceptChapterNavigationItem } from '../../book/domain/concepts/conceptRecognition.js';
+import type { ConceptImageDetail } from '../../book/application/workspace/bookReaderProcessing.js';
 import type { PendingBookProcessingAction } from '../../book/application/pipeline/bookPipeline.js';
 import type { FixConceptsChapterStatuses } from '../../book/infrastructure/storage/fixConceptsProgress.js';
 import type { PipelineAction } from '../../shared/types/processing.js';
@@ -18,6 +19,7 @@ export interface Props {
   embeddingModel: string;
   fixOnlyFailedConcepts: boolean;
   generateAllConceptsModel: string;
+  conceptImageDetail: ConceptImageDetail;
   generateOnlyMissingConcepts: boolean;
   generateOnlyMissingStandards: boolean;
   isPriceDisabled?: boolean;

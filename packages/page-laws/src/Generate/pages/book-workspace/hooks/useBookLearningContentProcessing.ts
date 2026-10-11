@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { Book, BookPage, BookProcessingStageKey } from '@slonigiraf/db';
-import { getSetting, isBookProcessingStageComplete, SettingKey } from '@slonigiraf/db';
+import { getSetting, isBookProcessingStageSatisfied, SettingKey } from '@slonigiraf/db';
 import type { Dispatch, SetStateAction } from 'react';
 import { useCallback } from 'react';
 import { mapConcurrent } from '../../../../common/concurrency.js';
@@ -63,12 +63,12 @@ export function useBookLearningContentProcessing ({
       return;
     }
 
-    if (!isBookProcessingStageComplete(book, 'fixImages')) {
+    if (!isBookProcessingStageSatisfied(book, 'fixImages')) {
       setError('Complete Fix images before identifying Standards.');
       return;
     }
 
-    if (!isBookProcessingStageComplete(book, 'embeddings')) {
+    if (!isBookProcessingStageSatisfied(book, 'embeddings')) {
       setError('Complete Embedings before identifying Standards.');
       return;
     }

@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
 import { BOOK_CHAPTER_EXTRACTION_REQUEST_PROMPT } from '../../infrastructure/ai/prompts/concepts.js';
-import { CONCEPT_IDENTIFICATION_RUNS, conceptChaptersFromPages, parseGeneratedChapterConcepts } from './conceptRecognition.js';
+import { CONCEPT_IDENTIFICATION_RUNS, conceptChaptersFromPages, mergeGeneratedChapterConcepts, parseGeneratedChapterConcepts } from './conceptRecognition.js';
 
 describe('chapter concept recognition', (): void => {
   it('runs concept identification twice', (): void => {
@@ -55,6 +55,26 @@ describe('chapter concept recognition', (): void => {
     assert.deepEqual(result.concepts, [
       { description: 'First introduction', pageNumber: 6, title: 'Linear equation' },
       { description: 'Another concept', pageNumber: 7, title: 'Slope' }
+    ]);
+  });
+
+  it('merges duplicate titles across both identification passes and keeps the earliest page', (): void => {
+    const merged = mergeGeneratedChapterConcepts([
+      { concepts: [
+        { description: 'Later first-pass version', pageNumber: 8, title: '  Linear   equations ' },
+        { description: 'First pass tie-break', pageNumber: 4, title: 'Slope' }
+      ] },
+      { concepts: [
+        { description: 'Earlier second-pass version', pageNumber: 2, title: 'linear equations' },
+        { description: 'Second pass tie', pageNumber: 4, title: 'slope' },
+        { description: 'Unique second-pass skill', pageNumber: 5, title: 'Intercept' }
+      ] }
+    ]);
+
+    assert.deepEqual(merged.concepts, [
+      { description: 'Earlier second-pass version', pageNumber: 2, title: 'linear equations' },
+      { description: 'First pass tie-break', pageNumber: 4, title: 'Slope' },
+      { description: 'Unique second-pass skill', pageNumber: 5, title: 'Intercept' }
     ]);
   });
 

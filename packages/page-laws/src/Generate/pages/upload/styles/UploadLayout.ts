@@ -15,7 +15,16 @@ export const UploadLayout = styled.section`
     align-items: center;
     display: grid;
     gap: 0.5rem;
-    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-columns: max-content minmax(0, 1fr) auto;
+  }
+
+  /* Keep the Upload action and book selector aligned with Delete. */
+  .bookToolbarActions {
+    align-items: center;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    min-width: 0;
   }
 
   .bookToolbarPrimary .ui--Button {
@@ -46,8 +55,21 @@ export const UploadLayout = styled.section`
     margin: 0.75rem 0 0;
   }
 
-  @media only screen and (max-width: 700px) {
+  /* On narrower screens give the actions their own row instead of squeezing
+     the book selector or moving Delete into an implicit grid row. */
+  @media only screen and (max-width: 1100px) {
     .bookToolbarPrimary {
+      grid-template-columns: minmax(0, 1fr) auto;
+    }
+
+    .bookToolbarActions {
+      grid-column: 1 / -1;
+    }
+  }
+
+  @media only screen and (max-width: 700px) {
+    .bookToolbarPrimary,
+    .bookToolbarActions {
       gap: 0.35rem;
     }
 

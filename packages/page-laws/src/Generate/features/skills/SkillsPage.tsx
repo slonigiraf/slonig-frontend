@@ -16,13 +16,15 @@ import { shouldSkipStoredTikzCompile } from '../../../Edit/tikzValidation.js';
 import { rasterizeTikzSvg } from '../../book/application/abilities/tikzRaster.js';
 import { parseStoredAbility } from '../../../abilities/abilities.js';
 import { bookProcessingManager } from '../../book/application/pipeline/bookProcessingManager.js';
+import { skipBookStage } from '../../book/application/pipeline/skipBookStage.js';
+import { nextUnresolvedStage } from '../../book/application/pipeline/bookStageNavigation.js';
 import { useBookProcessingRun } from '../../book/application/pipeline/useBookProcessingRun.js';
 import { bookLanguageLabel } from '../../book/domain/metadata/bookLanguage.js';
 import { conceptRedoStagesFrom, type ConceptRedoStage } from './conceptRedoStages.js';
 import { addBookExternalCall } from '../../book/infrastructure/storage/bookExternalCalls.js';
 import { estimateAiInput } from '../../book/application/pricing/aiEstimate.js';
 import { DEFAULT_PROCESSING_MODEL } from '../../book/application/config.js';
-import { CONCEPT_ABILITY_WORKFLOW_SYSTEM_PROMPT, REPAIR_SYSTEM_PROMPT, SKILLS_GENERATION_SYSTEM_PROMPT, SOURCES_TO_SKILLS_REQUEST_PROMPT } from '../../book/infrastructure/ai/prompts/abilities.js';
+import { CONCEPT_ABILITY_WORKFLOW_SYSTEM_PROMPT, FIX_ABILITIES_REQUEST_PROMPT, REPAIR_SYSTEM_PROMPT, SKILLS_GENERATION_SYSTEM_PROMPT, SOURCES_TO_SKILLS_REQUEST_PROMPT } from '../../book/infrastructure/ai/prompts/abilities.js';
 import { conceptAbilityGenerationPrompt, generateConceptAbility } from '../../book/domain/abilities/conceptAbilityWorkflow.js';
 import { mapConcurrent } from '../../../common/concurrency.js';
 import { OPENROUTER_CONCURRENCY } from '../../../openrouter/concurrency.js';
@@ -305,6 +307,12 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
   const [loadedContentSnapshotKey, setLoadedContentSnapshotKey] = useState('');
   const processingRun = useBookProcessingRun(book.id);
   const autoRunStageKeys = processingRun?.mode === 'fastForward' ? processingRun.stages : [];
+  const previousRunStatusRef = useRef(processingRun?.status);
+
+  useEffect(() => {
+    if (previousRunStatusRef.current === 'failed' && processingRun?.status === 'running') setError('');
+    previousRunStatusRef.current = processingRun?.status;
+  }, [processingRun?.status]);
   const processingAbortControllerRef = useRef<AbortController | null>(null);
   const abilitiesOutputRef = useRef<HTMLDivElement>(null);
   const chapterContentOutputRef = useRef<HTMLDivElement>(null);
@@ -560,6 +568,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
   // A prior render-only checkpoint (including a stale UI book snapshot) is not
   // proof that the current book images passed PNG-based visual inspection.
   const stageDone = useCallback((stage: BookProcessingStageKey): boolean => effectiveCompletedStages.includes(stage), [effectiveCompletedStages]);
+  const stageReady = useCallback((stage: BookProcessingStageKey): boolean => stageDone(stage) || Boolean(book.bypassedStages?.includes(stage)), [book.bypassedStages, stageDone]);
   const hasAbilities = allAbilities.length > 0;
 
   const completeStage = useCallback(async (stage: BookProcessingStageKey, invalidateDownstream = false): Promise<void> => {
@@ -1402,6 +1411,18 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
     setGenerateOnlyMissingImages(false);
     setFixOnlyFailedTikz(false);
   }, []);
+  const skipStage = useCallback((): void => {
+    const stage: BookProcessingStageKey | undefined = aiAction === 'fix' ? 'fixAbilities'
+      : aiAction === 'abilities' || aiAction === 'images' || aiAction === 'fixImages' ? aiAction
+        : undefined;
+
+    if (!stage) return;
+    void skipBookStage(book.id, stage).then((updated) => {
+      onBookChange?.(updated);
+      closeConfirmation();
+      setError('');
+    }).catch((reason: unknown) => setError(reason instanceof Error ? reason.message : 'Unable to skip this stage.'));
+  }, [aiAction, book.id, closeConfirmation, onBookChange]);
 
   const pipelineActions = useMemo<PipelineAction[]>(() => [
     ...(pipelinePrefix ?? []).map((action) => action.key === 'concepts'
@@ -1411,21 +1432,21 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
       key: 'abilities',
       label: 'Abilities',
       isDone: stageDone(ABILITIES_STAGE),
-      isDisabled: isBusy || !hasBookLanguage || !hasBookSubject || !stageDone('refineChapters') || !allConcepts.length,
+      isDisabled: isBusy || !hasBookLanguage || !hasBookSubject || !stageReady('refineChapters') || !allConcepts.length,
       onClick: openAbilityGeneration
     },
     {
       key: 'fixAbilities',
       label: 'Fix abilities',
       isDone: stageDone(FIX_ABILITIES_STAGE),
-      isDisabled: isBusy || !hasBookLanguage || !hasBookSubject || !stageDone(ABILITIES_STAGE) || !hasAbilities,
+      isDisabled: isBusy || !hasBookLanguage || !hasBookSubject || !stageReady(ABILITIES_STAGE) || !hasAbilities,
       onClick: openAbilityFix
     },
     {
       key: 'images',
       label: 'Images',
       isDone: stageDone(IMAGES_STAGE),
-      isDisabled: isBusy || !hasBookLanguage || !hasBookSubject || !stageDone(FIX_ABILITIES_STAGE) || !hasAbilities,
+      isDisabled: isBusy || !hasBookLanguage || !hasBookSubject || !stageReady(FIX_ABILITIES_STAGE) || !hasAbilities,
       isResultComplete: missingImageGenerationTargets.length === 0,
       onClick: openImages,
       onRetryMissing: retryMissingImages
@@ -1434,36 +1455,42 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
       key: 'fixImages',
       label: bookVisualQaStatus === 'failed' ? 'Fix images (issues flagged)' : 'Fix images',
       isDone: stageDone(FIX_IMAGES_STAGE),
-      isDisabled: isBusy || !hasBookLanguage || !hasBookSubject || !stageDone(IMAGES_STAGE) || !hasAbilities,
+      isDisabled: isBusy || !hasBookLanguage || !hasBookSubject || !stageReady(IMAGES_STAGE) || !hasAbilities,
       onClick: openImageFix
     },
     ...(pipelineSuffix ?? [])
-  ], [chapterContent, conceptsMissingAbilities.length, hasAbilities, hasBookLanguage, hasBookSubject, isBusy, missingImageGenerationTargets.length, openAbilityFix, openAbilityGeneration, openImageFix, openImages, pipelinePrefix, pipelineSuffix, retryMissingImages, stageDone, bookVisualQaStatus]);
-  const visiblePipelineActions = useMemo(() => {
-    const firstIncompleteIndex = pipelineActions.findIndex(({ isDone }) => !isDone);
-
-    // A stage is only selectable once every stage before it is complete. Keep
-    // completed stages available for re-runs, plus exactly the next stage.
-    return firstIncompleteIndex === -1
-      ? pipelineActions
-      : pipelineActions.slice(0, firstIncompleteIndex + 1);
-  }, [pipelineActions]);
+  ], [chapterContent, conceptsMissingAbilities.length, hasAbilities, hasBookLanguage, hasBookSubject, isBusy, missingImageGenerationTargets.length, openAbilityFix, openAbilityGeneration, openImageFix, openImages, pipelinePrefix, pipelineSuffix, retryMissingImages, stageDone, stageReady, bookVisualQaStatus]);
+  // Stage navigation is not a success checkpoint. Keep the full pipeline
+  // selectable even after a failure; each action still checks its prerequisites.
+  const visiblePipelineActions = pipelineActions;
+  const nextPendingAction = useCallback((): PipelineAction | undefined => nextUnresolvedStage(pipelineActions, book.bypassedStages)
+    ?? pipelineActions[pipelineActions.length - 1], [book.bypassedStages, pipelineActions]);
   const [selectedPipelineKey, setSelectedPipelineKey] = useState('');
   const previousPipelineDoneRef = useRef<Map<string, boolean>>(new Map());
+  const previousPipelineBypassRef = useRef<Set<string>>(new Set());
   const pipelineBookIdRef = useRef(book.id);
+
+  // During Fast Forward the persisted run cursor, not the earliest failed
+  // stage, owns the displayed selection. Manual navigation is unaffected.
+  useEffect(() => {
+    if (autoRunAll && processingRun?.mode === 'fastForward' && processingRun.currentStage && processingRun.currentStage !== selectedPipelineKey) {
+      setSelectedPipelineKey(processingRun.currentStage);
+    }
+  }, [autoRunAll, processingRun?.currentStage, processingRun?.mode, selectedPipelineKey]);
 
   useEffect(() => {
     if (!visiblePipelineActions.length) {
       setSelectedPipelineKey('');
       previousPipelineDoneRef.current = new Map();
+      previousPipelineBypassRef.current = new Set();
       return;
     }
 
     if (pipelineBookIdRef.current !== book.id) {
       pipelineBookIdRef.current = book.id;
       previousPipelineDoneRef.current = new Map(pipelineActions.map(({ isDone, key }) => [key, isDone] as const));
-      const next = visiblePipelineActions.find(({ isDone }) => !isDone)
-        ?? visiblePipelineActions[visiblePipelineActions.length - 1];
+      previousPipelineBypassRef.current = new Set(book.bypassedStages ?? []);
+      const next = nextPendingAction();
 
       setSelectedPipelineKey(next?.key ?? '');
       return;
@@ -1472,19 +1499,22 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
     const previousDone = previousPipelineDoneRef.current;
     const currentAction = visiblePipelineActions.find(({ key }) => key === selectedPipelineKey);
     const previousCurrentAction = pipelineActions.find(({ key }) => key === selectedPipelineKey);
+    const justBypassed = !previousPipelineBypassRef.current.has(selectedPipelineKey) && (book.bypassedStages ?? []).includes(selectedPipelineKey);
     const justCompleted = previousCurrentAction
       && previousDone.get(previousCurrentAction.key) === false
       && previousCurrentAction.isDone;
 
-    if (!currentAction || justCompleted) {
-      const next = visiblePipelineActions.find(({ isDone }) => !isDone)
-        ?? visiblePipelineActions[visiblePipelineActions.length - 1];
+    if (!currentAction) {
+      setSelectedPipelineKey(nextPendingAction()?.key ?? '');
+    } else if (justCompleted || (justBypassed && !autoRunAll)) {
+      const next = nextUnresolvedStage(pipelineActions, book.bypassedStages, selectedPipelineKey);
 
-      setSelectedPipelineKey(next?.key ?? '');
+      if (next) setSelectedPipelineKey(next.key);
     }
 
     previousPipelineDoneRef.current = new Map(pipelineActions.map(({ isDone, key }) => [key, isDone] as const));
-  }, [book.id, pipelineActions, selectedPipelineKey, visiblePipelineActions]);
+    previousPipelineBypassRef.current = new Set(book.bypassedStages ?? []);
+  }, [autoRunAll, book.bypassedStages, book.id, nextPendingAction, pipelineActions, selectedPipelineKey, visiblePipelineActions]);
 
   const selectedPipelineAction = visiblePipelineActions.find(({ key }) => key === selectedPipelineKey);
 
@@ -1502,18 +1532,21 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
       actions: pipelineActions,
       busy: isBusy || externalAutoRunBusy,
       contentReady: isContentSnapshotCurrent,
+      satisfiedStages: [...new Set([...(book.completedStages ?? []), ...(book.bypassedStages ?? [])])],
+      successfulStages: book.completedStages ?? [],
       hasReview: Boolean(aiAction || fixReview || imageFixReview),
       error,
       onComplete: () => onAutoRunComplete?.(),
+      onBookCheckpoint: (savedBook) => onBookChange(savedBook),
       onError: (message) => {
         setError(message);
         onAbortAutoRun?.();
       }
     });
-  }, [aiAction, autoRunAll, book.id, error, externalAutoRunBusy, fixReview, imageFixReview, isBusy, isContentSnapshotCurrent, onAbortAutoRun, onAutoRunComplete, pipelineActions, processingRun]);
+  }, [aiAction, autoRunAll, book.id, error, externalAutoRunBusy, fixReview, imageFixReview, isBusy, isContentSnapshotCurrent, onAbortAutoRun, onAutoRunComplete, onBookChange, pipelineActions, processingRun]);
 
   const autoRunCompletedCount = autoRunStageKeys.reduce((count, key) => {
-    if (processingRun?.completed.includes(key)) return count + 1;
+    if (processingRun?.completed.includes(key) || processingRun?.bypassedStages?.includes(key)) return count + 1;
     const action = pipelineActions.find(({ key: actionKey }) => actionKey === key);
 
     return count + (action?.isDone && (!action.onRetryMissing || action.isResultComplete !== false) ? 1 : 0);
@@ -1595,6 +1628,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
       autoRunStageCount={autoRunStageKeys.length}
       closeConfirmation={closeConfirmation}
       confirm={confirm}
+      skipStage={skipStage}
       error={error}
       estimate={estimate}
       conceptsMissingAbilitiesCount={conceptsMissingAbilities.length}
@@ -1618,6 +1652,8 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
       setSelectedPipelineKey={setSelectedPipelineKey}
       showPipeline={showPipeline}
       visiblePipelineActions={visiblePipelineActions}
+      bypassedStageKeys={book.bypassedStages ?? []}
+      failedStageKeys={Object.keys(processingRun?.failedStages ?? {})}
     />
     <SkillsContentView
       abilitiesOutputRef={abilitiesOutputRef}

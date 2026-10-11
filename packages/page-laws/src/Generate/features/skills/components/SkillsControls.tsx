@@ -4,7 +4,7 @@
 import React from 'react';
 import type { AiAction, PipelineAction } from '../SkillsTypes.js';
 
-import { Button, Dropdown, Toggle } from '@polkadot/react-components';
+import { Dropdown, Toggle } from '@polkadot/react-components';
 
 import OpenRouterModelSelector from '../../../../openrouter/components/ModelSelector.js';
 import { AiPriceEstimate } from '../../../shared/ui/PriceEstimate.js';
@@ -22,6 +22,7 @@ interface SkillsControlsProps {
   autoRunStageCount: number;
   closeConfirmation: () => void;
   confirm: () => void;
+  skipStage: () => void;
   error: string;
   estimate: React.ComponentProps<typeof AiPriceEstimate>['estimate'];
   conceptsMissingAbilitiesCount: number;
@@ -45,15 +46,18 @@ interface SkillsControlsProps {
   setSelectedPipelineKey: (value: string) => void;
   showPipeline: boolean;
   visiblePipelineActions: PipelineAction[];
+  bypassedStageKeys: readonly string[];
+  failedStageKeys: readonly string[];
 }
 
-export default function SkillsControls ({ abilitiesMissingImagesCount, failedTikzCount, fixOnlyFailedTikz, abortProcessing, aiAction, autoRunAll, autoRunCompletedCount, autoRunStageCount, closeConfirmation, confirm, error, estimate, conceptsMissingAbilitiesCount, generateOnlyMissingAbilities, generateOnlyMissingImages, isBusy, notice, openRouterSpent, pipelineControls, progress, progressLabel, progressTotal, runSelectedPipelineAction, selectedModel, selectedPipelineAction, selectedPipelineKey, setGenerateOnlyMissingAbilities, setGenerateOnlyMissingImages, setFixOnlyFailedTikz, setSelectedModel, setSelectedPipelineKey, showPipeline, visiblePipelineActions }: SkillsControlsProps): React.ReactElement {
+export default function SkillsControls ({ abilitiesMissingImagesCount, failedTikzCount, fixOnlyFailedTikz, abortProcessing, aiAction, autoRunAll, autoRunCompletedCount, autoRunStageCount, closeConfirmation, confirm, skipStage, error, estimate, conceptsMissingAbilitiesCount, generateOnlyMissingAbilities, generateOnlyMissingImages, isBusy, notice, openRouterSpent, pipelineControls, progress, progressLabel, progressTotal, runSelectedPipelineAction, selectedModel, selectedPipelineAction, selectedPipelineKey, setGenerateOnlyMissingAbilities, setGenerateOnlyMissingImages, setFixOnlyFailedTikz, setSelectedModel, setSelectedPipelineKey, showPipeline, visiblePipelineActions, bypassedStageKeys, failedStageKeys }: SkillsControlsProps): React.ReactElement {
   return <>
   {aiAction && !autoRunAll && (
     <StageRunPricePopup
       header='Confirm AI processing'
       onClose={closeConfirmation}
       onRun={confirm}
+      onSkip={aiAction === 'skills' ? undefined : skipStage}
     >
       <AiPriceEstimate estimate={estimate} />
       {aiAction === 'abilities' && <Toggle
@@ -94,37 +98,30 @@ export default function SkillsControls ({ abilitiesMissingImagesCount, failedTik
   )}
   {showPipeline && <div className='pipeline'>
     <div className='pipelineStageColumn'>
-    <div className='pipelineRunGroup'>
-      <button
-        aria-label='Run selected stage'
-        className='pipelineRunButton'
-        disabled={autoRunAll || !selectedPipelineAction || selectedPipelineAction.isDisabled}
-        onClick={runSelectedPipelineAction}
-        type='button'
-      >
-        <span aria-hidden='true'>▶</span>
-      </button>
-      <Dropdown
-        className='pipelineStageDropdown'
-        isDisabled={autoRunAll || isBusy || !visiblePipelineActions.length}
-        isFull
-        withLabel={false}
-        onChange={setSelectedPipelineKey}
-        options={visiblePipelineActions.map(({ isDone, key, label }) => ({
-          key,
-          text: `${isDone ? '✓ ' : ''}${label}`,
-          value: key
-        }))}
-        value={selectedPipelineKey}
-      />
-    </div>
-    {selectedPipelineAction?.onSkip && !selectedPipelineAction.isDone && !autoRunAll && <Button
-      className='pipelineSkipButton'
-      icon='step-forward'
-      isDisabled={isBusy || selectedPipelineAction.isDisabled}
-      label='Skip Refine chapters (mark done)'
-      onClick={() => { void selectedPipelineAction.onSkip?.().catch(() => undefined); }}
-    />}
+      <div className='pipelineRunGroup'>
+        <button
+          aria-label='Run selected stage'
+          className='pipelineRunButton'
+          disabled={autoRunAll || !selectedPipelineAction || selectedPipelineAction.isDisabled}
+          onClick={runSelectedPipelineAction}
+          type='button'
+        >
+          <span aria-hidden='true'>▶</span>
+        </button>
+        <Dropdown
+          className='pipelineStageDropdown'
+          isDisabled={autoRunAll || isBusy || !visiblePipelineActions.length}
+          isFull
+          withLabel={false}
+          onChange={setSelectedPipelineKey}
+          options={visiblePipelineActions.map(({ isDone, key, label }) => ({
+            key,
+            text: `${isDone ? '✓ ' : bypassedStageKeys.includes(key) ? '↷ ' : failedStageKeys.includes(key) ? '⚠ ' : ''}${label}`,
+            value: key
+          }))}
+          value={selectedPipelineKey}
+        />
+      </div>
     </div>
     {pipelineControls && <div className='pipelineControls'>{pipelineControls}</div>}
   </div>}

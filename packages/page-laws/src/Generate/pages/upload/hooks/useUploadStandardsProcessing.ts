@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { Book } from '@slonigiraf/db';
-import { getBookConceptsForBookPage, getBookPages, getConceptEmbeddings, getStandardEmbeddings, isBookProcessingStageComplete, resetBookProcessingStagesFrom } from '@slonigiraf/db';
+import { getBookConceptsForBookPage, getBookPages, getConceptEmbeddings, getStandardEmbeddings, isBookProcessingStageSatisfied, resetBookProcessingStagesFrom } from '@slonigiraf/db';
 import type { Dispatch, SetStateAction } from 'react';
 import { useCallback, useEffect, useState } from 'react';
 
@@ -60,7 +60,7 @@ export function useUploadStandardsProcessing ({ embeddingModel, requestProcessin
       return;
     }
 
-    if (!isBookProcessingStageComplete(selectedBook, 'embeddings')) {
+    if (!isBookProcessingStageSatisfied(selectedBook, 'embeddings')) {
       setError(t('Complete Embedings before identifying Standards.'));
       return;
     }

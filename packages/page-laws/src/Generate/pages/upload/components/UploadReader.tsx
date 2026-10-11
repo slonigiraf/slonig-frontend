@@ -35,6 +35,7 @@ export function UploadReader ({ book, file, isBusy, processing }: UploadReaderPr
       key={book.id}
       file={file}
       generateAllConceptsModel={processing.generateAllConceptsModel}
+      conceptImageDetail={processing.conceptGeneration.conceptImageDetail}
       standardsModel={processing.standardsModel}
       generateOnlyMissingConcepts={processing.conceptGeneration.generateOnlyMissingConcepts}
       generateOnlyMissingStandards={processing.standardsProcessing.generateOnlyMissingStandards}

@@ -2,11 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { Book } from '@slonigiraf/db';
-import { getBookConceptsForBookPage, getBookPages, getConceptEmbeddings, getSetting, isBookProcessingStageComplete, resetBookProcessingStagesFrom, SettingKey } from '@slonigiraf/db';
+import { getBookConceptsForBookPage, getBookPages, getConceptEmbeddings, getSetting, isBookProcessingStageSatisfied, resetBookProcessingStagesFrom, SettingKey } from '@slonigiraf/db';
 import type { Dispatch, SetStateAction } from 'react';
 import { useCallback, useEffect, useState } from 'react';
 
 import type { AiInputEstimate } from '../../../book/application/pricing/aiEstimate.js';
+import type { ConceptImageDetail } from '../../../book/application/workspace/bookReaderProcessing.js';
 import type { BookReaderCommandAction, PendingBookProcessingAction } from '../../../book/application/pipeline/bookPipeline.js';
 
 import { estimateAiInput } from '../../../book/application/pricing/aiEstimate.js';
@@ -34,6 +35,7 @@ export function useUploadConceptGeneration ({ embeddingModel, generateAllConcept
   const { t } = useTranslation();
   const [generateConceptsEstimate, setGenerateConceptsEstimate] = useState<AiInputEstimate | string>();
   const [generateOnlyMissingConcepts, setGenerateOnlyMissingConcepts] = useState(false);
+  const [conceptImageDetail, setConceptImageDetail] = useState<ConceptImageDetail>('auto');
   const [hasChaptersMissingConcepts, setHasChaptersMissingConcepts] = useState(false);
   const [fixConceptsEstimate, setFixConceptsEstimate] = useState<AiInputEstimate | string>();
   const [embeddingsEstimate, setEmbeddingsEstimate] = useState<AiInputEstimate | string>();
@@ -63,26 +65,11 @@ export function useUploadConceptGeneration ({ embeddingModel, generateAllConcept
     }
 
     setGenerateConceptsEstimate(undefined);
+    setConceptImageDetail('auto');
     setGenerateOnlyMissingConcepts(false);
     setHasChaptersMissingConcepts(false);
     setIsGenerateConceptsConfirmationOpen(true);
   }, [selectedBook, t, requestProcessing, setBooks, setEmbeddingModel, setError, setPendingProcessingAction]);
-
-  const onRetryMissingConcepts = useCallback((): void => {
-    if (!selectedBook) {
-      return;
-    }
-
-    if (selectedBook.age === undefined) {
-      setError(t('Book learner age has not been set yet. Open the Age step, then detect it from text or enter it manually.'));
-      return;
-    }
-
-    setGenerateConceptsEstimate(undefined);
-    setGenerateOnlyMissingConcepts(true);
-    setHasChaptersMissingConcepts(true);
-    setIsGenerateConceptsConfirmationOpen(true);
-  }, [selectedBook, requestProcessing, setBooks, setEmbeddingModel, setError, setPendingProcessingAction]);
 
   useEffect(() => {
     if (!isGenerateConceptsConfirmationOpen || !selectedBook) {
@@ -320,7 +307,7 @@ export function useUploadConceptGeneration ({ embeddingModel, generateAllConcept
       return;
     }
 
-    if (!isBookProcessingStageComplete(selectedBook, 'fixConcepts')) {
+    if (!isBookProcessingStageSatisfied(selectedBook, 'fixConcepts')) {
       setError(t('Complete Fix concepts before calculating Embedings.'));
       return;
     }
@@ -407,6 +394,7 @@ export function useUploadConceptGeneration ({ embeddingModel, generateAllConcept
     fixOnlyFailedConcepts,
     generateConceptsEstimate,
     generateOnlyMissingConcepts,
+    conceptImageDetail,
     hasChaptersMissingConcepts,
     hasFailedFixConceptChapters,
     isEmbeddingsConfirmationOpen,
@@ -415,8 +403,8 @@ export function useUploadConceptGeneration ({ embeddingModel, generateAllConcept
     onEmbeddings,
     onFixConcepts,
     onGenerateConcepts,
-    onRetryMissingConcepts,
     setFixOnlyFailedConcepts,
-    setGenerateOnlyMissingConcepts
+    setGenerateOnlyMissingConcepts,
+    setConceptImageDetail
   };
 }

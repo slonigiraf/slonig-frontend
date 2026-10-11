@@ -4,7 +4,7 @@
 import type { Book } from '@slonigiraf/db';
 import React from 'react';
 
-import { Toggle } from '@polkadot/react-components';
+import { Dropdown, Toggle } from '@polkadot/react-components';
 
 import type { UploadProcessing } from '../hooks/useUploadProcessing.js';
 
@@ -28,6 +28,11 @@ export function UploadStageDialogs ({ processing, selectedBook }: UploadStageDia
   const isFastForwardRunning = pricing.isFastForwardRunning;
   const startIndex = BOOK_PRICE_STAGES.findIndex(({ key }) => key === pricing.fastForwardStartKey);
   const refineIndex = BOOK_PRICE_STAGES.findIndex(({ key }) => key === 'refineChapters');
+  const skipStage = (stage: Parameters<typeof pricing.skipStageFromConfirmation>[0], close: () => void): void => {
+    void pricing.skipStageFromConfirmation(stage).then((skipped) => {
+      if (skipped) close();
+    });
+  };
 
   return <>
     {pricing.isFastForwardConfirmationOpen && <FastForwardPricePopup
@@ -35,6 +40,9 @@ export function UploadStageDialogs ({ processing, selectedBook }: UploadStageDia
       estimate={pricing.fastForwardEstimate}
       onClose={pricing.closeFastForwardConfirmation}
       onRun={pricing.confirmFastForward}
+      onSkip={() => {
+        if (pricing.fastForwardStartKey) skipStage(pricing.fastForwardStartKey as Parameters<typeof pricing.skipStageFromConfirmation>[0], pricing.closeFastForwardConfirmation);
+      }}
       onSkipRefineChaptersChange={pricing.setSkipRefineChaptersInFastForward}
       skipRefineChapters={pricing.skipRefineChaptersInFastForward}
     />}
@@ -48,6 +56,7 @@ export function UploadStageDialogs ({ processing, selectedBook }: UploadStageDia
       header={t('Recognize pages')}
       onClose={metadata.closeRecognizeConfirmation}
       onRun={metadata.confirmRecognize}
+      onSkip={() => skipStage('recognize', metadata.closeRecognizeConfirmation)}
       runLabel={t('Run')}
     >
       <p>{t('Recognize every page in this book?')}</p>
@@ -63,6 +72,7 @@ export function UploadStageDialogs ({ processing, selectedBook }: UploadStageDia
       header={t('Identify chapters')}
       onClose={metadata.closeIdentifyChaptersConfirmation}
       onRun={metadata.confirmIdentifyChapters}
+      onSkip={() => skipStage('chapters', metadata.closeIdentifyChaptersConfirmation)}
       runLabel={t('Run')}
     >
       <p>{t('Use PDF bookmarks as chapter boundaries when available. Otherwise identify chapters from recognized page text.')}</p>
@@ -84,6 +94,7 @@ export function UploadStageDialogs ({ processing, selectedBook }: UploadStageDia
       header={t('Generate concepts')}
       onClose={conceptGeneration.closeGenerateConceptsConfirmation}
       onRun={conceptGeneration.confirmGenerateConcepts}
+      onSkip={() => skipStage('concepts', conceptGeneration.closeGenerateConceptsConfirmation)}
       runLabel={t('Run')}
     >
       <p>{t('Generate concepts chapter-by-chapter for this book? Each concept will be stored on the page where it is first introduced.')}</p>
@@ -92,6 +103,17 @@ export function UploadStageDialogs ({ processing, selectedBook }: UploadStageDia
         label={t('Only for chapters missing concepts')}
         onChange={conceptGeneration.setGenerateOnlyMissingConcepts}
         value={conceptGeneration.generateOnlyMissingConcepts}
+      />
+      <Dropdown
+        label={t('Image processing detail')}
+        className='batchModelSelect'
+        onChange={(value: string) => conceptGeneration.setConceptImageDetail(value as 'low' | 'auto' | 'high')}
+        options={[
+          { text: t('Low'), value: 'low' },
+          { text: t('Auto'), value: 'auto' },
+          { text: t('High'), value: 'high' }
+        ]}
+        value={conceptGeneration.conceptImageDetail}
       />
       <AiPriceEstimate estimate={conceptGeneration.generateConceptsEstimate} />
       <OpenRouterModelSelector
@@ -107,6 +129,7 @@ export function UploadStageDialogs ({ processing, selectedBook }: UploadStageDia
       header={t('Fix concepts')}
       onClose={conceptGeneration.closeFixConceptsConfirmation}
       onRun={conceptGeneration.confirmFixConcepts}
+      onSkip={() => skipStage('fixConcepts', conceptGeneration.closeFixConceptsConfirmation)}
       runLabel={t('Run')}
     >
       <p>{t('Review each chapter’s source text and current concept list twice using the book topic, language, and learner age, then combine both proposal sets before showing the review. Fix concepts can propose strongly implied missing concepts, flag existing concepts that clearly do not belong, split bundled concepts into isolated skills, and deduplicate clear repeated/paraphrased concepts inside the chapter by proposing duplicate copies for deletion. You can add or remove concepts in the review before anything is saved.')}</p>
@@ -129,6 +152,7 @@ export function UploadStageDialogs ({ processing, selectedBook }: UploadStageDia
       header={t('Embedings')}
       onClose={conceptGeneration.closeEmbeddingsConfirmation}
       onRun={conceptGeneration.confirmEmbeddings}
+      onSkip={() => skipStage('embeddings', conceptGeneration.closeEmbeddingsConfirmation)}
       runLabel={t('Run')}
     >
       <p>{t('Calculate and cache embeddings for every current concept after Fix concepts. These vectors are used to shortlist likely duplicates before AI confirmation and are reused later when matching standards.')}</p>
@@ -144,6 +168,7 @@ export function UploadStageDialogs ({ processing, selectedBook }: UploadStageDia
       header={t('Deduplicate concepts')}
       onClose={conceptOrganization.closeDeduplicateConceptsConfirmation}
       onRun={conceptOrganization.confirmDeduplicateConcepts}
+      onSkip={() => skipStage('deduplicateConcepts', conceptOrganization.closeDeduplicateConceptsConfirmation)}
       runLabel={t('Run')}
     >
       <p>{t('Run the embedding-assisted duplicate review twice before showing proposals. Each run uses the cached concept Embedings to generate a small set of semantically close deletion candidates, then sends only those candidates to the selected AI model for confirmation. The two result sets are combined before review. Nothing is deleted until you review the confirmed duplicate groups. For every confirmed duplicate group, the concept with the lowest chapter id is kept; ties inside the same chapter are broken by the lowest concept id, and every other concept in the group is proposed for deletion.')}</p>
@@ -160,6 +185,7 @@ export function UploadStageDialogs ({ processing, selectedBook }: UploadStageDia
       header={t('Sort concepts')}
       onClose={conceptOrganization.closeSortConceptsConfirmation}
       onRun={conceptOrganization.confirmSortConcepts}
+      onSkip={() => skipStage('sortConcepts', conceptOrganization.closeSortConceptsConfirmation)}
       runLabel={t('Run')}
     >
       <p>{t('Sort each original chapter independently into a Zone of Proximal Development progression for the configured learner age. Concepts from different chapters are never included in the same sorting request or saved in the same reorder operation. Only the relative order inside each chapter may change; chapter boundaries stay fixed.')}</p>
@@ -176,7 +202,7 @@ export function UploadStageDialogs ({ processing, selectedBook }: UploadStageDia
       header={t('Refine chapters')}
       onClose={conceptOrganization.closeRefineChaptersConfirmation}
       onRun={conceptOrganization.confirmRefineChapters}
-      onSkip={() => { void conceptOrganization.skipRefineChapters().catch(() => undefined); }}
+      onSkip={() => skipStage('refineChapters', conceptOrganization.closeRefineChaptersConfirmation)}
       runLabel={t('Run')}
     >
       <p>{t('Process each original chapter independently, clustering only the concepts that already belong to that chapter. Concepts from different original chapters are never placed in the same clustering request and can never be reordered together. Within each original chapter, Refine chapters may cut the already-sorted concept sequence into one, two, or three contiguous thematic groups, targeting roughly 7–10 concepts per resulting chapter when the themes support it.')}</p>
@@ -194,6 +220,7 @@ export function UploadStageDialogs ({ processing, selectedBook }: UploadStageDia
       isRunDisabled={standardsProcessing.generateOnlyMissingStandards && standardsProcessing.standardsChapterCounts?.missing === 0}
       onClose={standardsProcessing.closeStandardsConfirmation}
       onRun={standardsProcessing.confirmAssignStandards}
+      onSkip={() => skipStage('standards', standardsProcessing.closeStandardsConfirmation)}
       runLabel={t('Run')}
     >
       <p>{t('Match chapter standards from extracted concepts. The embedding model selected in Embedings is used to shortlist candidates, then the AI model matches them in three runs (two must agree).')}</p>

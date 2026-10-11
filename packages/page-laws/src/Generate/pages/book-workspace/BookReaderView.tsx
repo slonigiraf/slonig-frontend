@@ -20,6 +20,7 @@ import Skills, { SkillsCourse } from '../../features/skills/index.js';
 import { AiPriceEstimate } from '../../shared/ui/PriceEstimate.js';
 import ProcessingPopup from '../../shared/ui/ProcessingPopup.js';
 import StageRunPricePopup from '../../shared/ui/StageRunPricePopup.js';
+import { skipBookStage } from '../../book/application/pipeline/skipBookStage.js';
 
 import { StyledReader } from './BookReader.styles.js';
 import { ChapterTitleEditor, ConceptForm, ConceptItem, FixConceptsReviewContent } from './components/index.js';
@@ -51,7 +52,6 @@ export function BookReaderView ({ controller }: Props): React.ReactElement {
     canvasRef,
     changeConceptChapter,
     changeStandardsChapter,
-    chapterGenerationEstimate,
     chapterIdentificationLabel,
     chapterTitleDraft,
     chapters,
@@ -60,7 +60,6 @@ export function BookReaderView ({ controller }: Props): React.ReactElement {
     closeConceptInsertion,
     closeLanguageDetectionConfirmation,
     closeMathpixKeyPrompt,
-    closePageGenerationConfirmation,
     closeSubjectDetectionConfirmation,
     conceptChapterIndex,
     conceptChapters,
@@ -70,7 +69,6 @@ export function BookReaderView ({ controller }: Props): React.ReactElement {
     conceptsOutputRef,
     confirmAgeDetection,
     confirmLanguageDetection,
-    confirmPageGeneration,
     confirmSubjectDetection,
     currentBookPage,
     currentChapter,
@@ -116,13 +114,11 @@ export function BookReaderView ({ controller }: Props): React.ReactElement {
     isEmbeddingHeatmapLoading,
     isFixingConcepts,
     isGeneratingAllConcepts,
-    isGeneratingChapterConcepts,
     isIdentifyingChapters,
     isLanguageDetectionConfirmationOpen,
     isMathpixKeyPromptOpen,
     isMaximized,
     isMmdConversionComplete,
-    isPageGenerationConfirmationOpen,
     isPriceDisabled,
     isRecognizingAll,
     isRefiningChapters,
@@ -174,7 +170,6 @@ export function BookReaderView ({ controller }: Props): React.ReactElement {
     selectedAgeModel,
     selectedChapterIds,
     selectedLanguageModel,
-    selectedModel,
     selectedPipelineKey,
     selectedSubjectModel,
     setActivePane,
@@ -196,7 +191,6 @@ export function BookReaderView ({ controller }: Props): React.ReactElement {
     setPageInput,
     setSelectedAgeModel,
     setSelectedLanguageModel,
-    setSelectedModel,
     setSelectedPipelineKey,
     setSelectedSubjectModel,
     showUnrecognizedPages,
@@ -466,9 +460,7 @@ export function BookReaderView ({ controller }: Props): React.ReactElement {
         ? `Sorting concepts by ZPD… ${sortedConceptsChapterCount}/${conceptChapters.length}`
       : isRefiningChapters
         ? `Refining chapters by theme… ${refinedChaptersChapterCount}/${conceptChapters.length}`
-      : isGeneratingChapterConcepts
-        ? 'Extracting and saving concepts for this chapter…'
-        : 'Concepts';
+      : 'Concepts';
   const conceptsPane = (): React.ReactNode => {
     return <div className='tabPanel conceptsPanel'>
       <div className='detailsHeader'>
@@ -816,6 +808,14 @@ export function BookReaderView ({ controller }: Props): React.ReactElement {
     {concept.description && <p><SpanWithTags content={concept.description} /></p>}
   </div>;
 
+  const skipStage = (stage: 'language' | 'subject' | 'age', close: () => void): void => {
+    void skipBookStage(book.id, stage).then((updated) => {
+      onBookChange(updated);
+      close();
+      setError('');
+    }).catch((reason: unknown) => setError(reason instanceof Error ? reason.message : 'Unable to skip this stage.'));
+  };
+
   return (
     <StyledReader className={`bookReader${isMaximized ? ' isMaximized' : ''}`}>
       {editingChapter && <ChapterTitleEditor
@@ -975,6 +975,7 @@ export function BookReaderView ({ controller }: Props): React.ReactElement {
         header='Detect book language'
         onClose={closeLanguageDetectionConfirmation}
         onRun={confirmLanguageDetection}
+        onSkip={() => skipStage('language', closeLanguageDetectionConfirmation)}
       >
         <p>Detect the primary language? You can change the result manually afterward.</p>
         <AiPriceEstimate estimate={languageDetectionEstimate} />
@@ -988,6 +989,7 @@ export function BookReaderView ({ controller }: Props): React.ReactElement {
         header='Detect book subject'
         onClose={closeSubjectDetectionConfirmation}
         onRun={confirmSubjectDetection}
+        onSkip={() => skipStage('subject', closeSubjectDetectionConfirmation)}
       >
         <p>{automaticBookSubjectForLanguage(book.language)
           ? 'This book is not in English, so its subject will be set to na automatically. You can change the stored subject manually afterward.'
@@ -1003,6 +1005,7 @@ export function BookReaderView ({ controller }: Props): React.ReactElement {
         header='Detect learner age'
         onClose={closeAgeDetectionConfirmation}
         onRun={confirmAgeDetection}
+        onSkip={() => skipStage('age', closeAgeDetectionConfirmation)}
       >
         <p>Detect one typical learner age? The result can be changed manually afterward.</p>
         <AiPriceEstimate estimate={ageDetectionEstimate} />
@@ -1010,21 +1013,6 @@ export function BookReaderView ({ controller }: Props): React.ReactElement {
           className='modelSelect'
           onChange={setSelectedAgeModel}
           value={selectedAgeModel}
-        />
-      </StageRunPricePopup>}
-      {isPageGenerationConfirmationOpen && <StageRunPricePopup
-        header='Generate concepts'
-        onClose={closePageGenerationConfirmation}
-        onRun={confirmPageGeneration}
-      >
-        <AiPriceEstimate estimate={chapterGenerationEstimate} />
-        <p>This sends the whole chapter to the AI in one request, deduplicates concepts across its pages, and saves each concept on the page where it was first introduced. Exercises in the book are ignored; Abilities are generated directly from Concepts.</p>
-        <OpenRouterModelSelector
-          className='modelSelect'
-          isDisabled={processingPage !== undefined || isGeneratingAllConcepts || isIdentifyingChapters || isRecognizingAll}
-          onChange={setSelectedModel}
-          requiredInputModalities={['image']}
-          value={selectedModel}
         />
       </StageRunPricePopup>}
       {processingPopupStatus && <ProcessingPopup

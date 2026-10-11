@@ -5,7 +5,6 @@ import type { Book, BookConcept, BookPage } from '@slonigiraf/db';
 import { getAbilities, getBookConceptsForBookPage, getBookPages, isBookProcessingStageComplete } from '@slonigiraf/db';
 import type { Dispatch, MutableRefObject, SetStateAction } from 'react';
 import { useCallback, useEffect, useMemo } from 'react';
-import { estimateAiInput } from '../../../book/application/pricing/aiEstimate.js';
 import { conceptBelongsToChapter } from '../../../book/domain/chapters/refineChapters.js';
 import { conceptChaptersFromPages, type ConceptChapterNavigationItem } from '../../../book/domain/concepts/conceptRecognition.js';
 import { conceptDeduplicationInput, type DeduplicateConceptInput } from '../../../book/domain/concepts/deduplicateConcepts.js';
@@ -31,7 +30,6 @@ interface UseBookReaderNavigationModelOptions {
   isMaximized: boolean;
   pages: Map<number, BookPage>;
   pendingStandardsChapterFocusRef: MutableRefObject<boolean>;
-  selectedModel: string;
   setActivePane: Dispatch<SetStateAction<ReaderPane>>;
   setConceptChapterIndex: Dispatch<SetStateAction<number>>;
   setConceptCountsByChapter: Dispatch<SetStateAction<Map<string, number>>>;
@@ -62,7 +60,6 @@ export function useBookReaderNavigationModel ({
   isMaximized,
   pages,
   pendingStandardsChapterFocusRef,
-  selectedModel,
   setActivePane,
   setConceptChapterIndex,
   setConceptCountsByChapter,
@@ -197,14 +194,6 @@ export function useBookReaderNavigationModel ({
   }, [embeddingByConceptId, embeddingConceptInventory]);
   const embeddingHeatmapEntries = embeddingHeatmapMode === 'chapter' ? embeddingChapterEntries : embeddingBookEntries;
   const embeddingHeatmapDistances = useMemo(() => conceptEmbeddingDistanceMatrix(embeddingHeatmapEntries), [embeddingHeatmapEntries]);
-  const chapterGenerationEstimate = useMemo(() => {
-    const chapterText = currentConceptChapter?.pageNumbers.map((chapterPageNumber) => `--- page ${chapterPageNumber} ---\n${pages.get(chapterPageNumber)?.pageMMD ?? ''}`).join('\n\n') ?? '';
-    const estimatedRequest = chapterText.padEnd(chapterText.length + 2_000);
-
-    // Empty concept responses can be retried once with the same whole-chapter
-    // input, so show the conservative two-request estimate.
-    return estimateAiInput(selectedModel, [estimatedRequest, estimatedRequest], 4_800);
-  }, [currentConceptChapter, pages, selectedModel]);
   const refreshEntityCounts = useCallback(async (): Promise<void> => {
     const storedPages = await getBookPages(book.id);
     const concepts = (await Promise.all(storedPages.map(({ pageNumber }) => getBookConceptsForBookPage(book.id, pageNumber)))).flat();
@@ -387,7 +376,6 @@ export function useBookReaderNavigationModel ({
 
   return {
     changeStandardsChapter,
-    chapterGenerationEstimate,
     conceptChapters,
     currentConceptChapter,
     currentStandardsChapter,

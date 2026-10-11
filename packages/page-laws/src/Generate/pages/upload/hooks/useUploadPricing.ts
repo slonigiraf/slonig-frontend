@@ -3,7 +3,7 @@
 
 import type { Book, BookProcessingStageKey } from '@slonigiraf/db';
 import type { PDFDocumentProxy } from 'pdfjs-dist';
-import { getBook, resetBookProcessingStagesFrom } from '@slonigiraf/db';
+import { bypassBookProcessingStage, getBook, resetBookProcessingStagesFrom } from '@slonigiraf/db';
 import type { Dispatch, SetStateAction } from 'react';
 import { useCallback, useEffect, useState } from 'react';
 
@@ -17,6 +17,7 @@ import { DEFAULT_PROCESSING_MODEL, DEFAULT_STANDARDS_MODEL, MATHPIX_PDF_PAGE_PRI
 import { STANDARDS_MATCH_RUNS } from '../../../book/domain/standards/standards.js';
 import { BOOK_PRICE_STAGES } from '../../../book/application/pipeline/bookPipeline.js';
 import { bookProcessingManager } from '../../../book/application/pipeline/bookProcessingManager.js';
+import { skipBookStage } from '../../../book/application/pipeline/skipBookStage.js';
 import { useBookProcessingRun } from '../../../book/application/pipeline/useBookProcessingRun.js';
 import { loadBookExternalCalls } from '../../../book/infrastructure/storage/bookExternalCalls.js';
 import { loadBookStageTimes } from '../../../book/infrastructure/storage/bookStageTime.js';
@@ -92,9 +93,22 @@ export function useUploadPricing ({ embeddingModel, readerFile, refreshBooks, se
   }, []);
 
   const onFastForward = useCallback((startKey: string): void => {
-    if (!selectedBook || !readerFile || isFastForwardRunning) {
+    if (!selectedBook || isFastForwardRunning) {
       return;
     }
+
+    // The same Fast Forward button resumes an interrupted run. Preserve its
+    // persisted cursor, completed stages and model settings instead of opening
+    // a new price estimate and resetting the selected pipeline stage.
+    if (isFastForwardPaused) {
+      // The interrupted request may have been accepted by its paid provider.
+      if (window.confirm(t('Resume Fast Forward? An interrupted stage may be charged again.'))) {
+        bookProcessingManager.resume(selectedBook.id);
+      }
+      return;
+    }
+
+    if (!readerFile) return;
 
     const requestedStartIndex = BOOK_PRICE_STAGES.findIndex(({ key }) => key === startKey);
 
@@ -168,7 +182,7 @@ export function useUploadPricing ({ embeddingModel, readerFile, refreshBooks, se
     calculate()
       .catch(() => setError(t('Unable to estimate the fast-forward processing cost.')))
       .finally(() => document?.destroy().catch(console.error));
-  }, [embeddingModel, isFastForwardRunning, readerFile, selectedBook, setError, t]);
+  }, [embeddingModel, isFastForwardPaused, isFastForwardRunning, readerFile, selectedBook, setError, t]);
 
   const closeFastForwardConfirmation = useCallback((): void => {
     setIsFastForwardConfirmationOpen(false);
@@ -181,6 +195,15 @@ export function useUploadPricing ({ embeddingModel, readerFile, refreshBooks, se
     }
 
     try {
+      // Choosing a later stage after a recorded failure explicitly acknowledges
+      // the previous failure. Do not turn it into a successful checkpoint.
+      const failedKey = processingRun?.status === 'failed' ? (processingRun.currentStage ?? processingRun.triggeredStage ?? processingRun.stages.find((key) => !processingRun.completed.includes(key) && !processingRun.bypassedStages?.includes(key))) : undefined;
+      const failedIndex = failedKey ? BOOK_PRICE_STAGES.findIndex(({ key }) => key === failedKey) : -1;
+      const startIndex = BOOK_PRICE_STAGES.findIndex(({ key }) => key === fastForwardStartKey);
+
+      if (failedKey && (processingRun?.failedStages?.[failedKey] || processingRun?.error) && failedIndex >= 0 && startIndex > failedIndex) {
+        await bypassBookProcessingStage(selectedBook.id, failedKey);
+      }
       const resetBook = await resetBookProcessingStagesFrom(selectedBook.id, fastForwardStartKey as BookProcessingStageKey);
 
       if (resetBook) {
@@ -199,20 +222,27 @@ export function useUploadPricing ({ embeddingModel, readerFile, refreshBooks, se
     } catch {
       setError(t('Unable to prepare the selected stage for fast-forward processing.'));
     }
-  }, [embeddingModel, fastForwardEstimate, fastForwardStartKey, selectedBook, setBooks, setError, setGenerateAllConceptsModel, setStandardsModel, skipRefineChaptersInFastForward, t]);
+  }, [embeddingModel, fastForwardEstimate, fastForwardStartKey, processingRun, selectedBook, setBooks, setError, setGenerateAllConceptsModel, setStandardsModel, skipRefineChaptersInFastForward, t]);
 
   const abortFastForward = useCallback((): void => {
     if (selectedBook) bookProcessingManager.cancel(selectedBook.id);
   }, [selectedBook?.id]);
 
-  const resumeFastForward = useCallback((): void => {
-    if (!selectedBook || !isFastForwardPaused) return;
-    // The previous request could have been accepted by its paid provider before
-    // this browser closed; never retry an interrupted stage silently.
-    if (window.confirm(t('Resume Fast Forward? An interrupted stage may be charged again.'))) {
-      bookProcessingManager.resume(selectedBook.id);
+  // Skip is offered in the stage's price confirmation, next to Run, not as
+  // a persistent toolbar action. A bypass is never a success checkpoint.
+  const skipStageFromConfirmation = useCallback(async (stage: BookProcessingStageKey): Promise<boolean> => {
+    if (!selectedBook || isFastForwardRunning) return false;
+
+    try {
+      const updated = await skipBookStage(selectedBook.id, stage);
+      setBooks((books) => books.map((book) => book.id === updated.id ? updated : book));
+      setError('');
+      return true;
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : t('Unable to skip this stage.'));
+      return false;
     }
-  }, [isFastForwardPaused, selectedBook?.id, t]);
+  }, [isFastForwardRunning, selectedBook?.id, setBooks, setError, t]);
 
   const onFastForwardComplete = useCallback((): void => {
     if (selectedBook) bookProcessingManager.complete(selectedBook.id);
@@ -223,13 +253,12 @@ export function useUploadPricing ({ embeddingModel, readerFile, refreshBooks, se
 
   return {
     abortFastForward,
+    skipStageFromConfirmation,
     closeFastForwardConfirmation,
     closePrice,
     confirmFastForward,
     fastForwardEstimate,
     fastForwardStartKey: isFastForwardRunning ? processingRun.startStage : fastForwardStartKey,
-    isFastForwardPaused,
-    resumeFastForward,
     skipRefineChaptersInFastForward: isFastForwardRunning ? processingRun.skipRefineChapters : skipRefineChaptersInFastForward,
     setSkipRefineChaptersInFastForward,
     isFastForwardConfirmationOpen,
