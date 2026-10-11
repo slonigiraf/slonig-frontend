@@ -315,8 +315,12 @@ async function clearBookEntitiesAfterProcessingStage(bookId: number, stage: Book
     const clearConcepts = clears('concepts');
     const clearEmbeddings = clears('embeddings');
     const clearAbilities = clears('abilities');
-    const clearImages = clears('images') && !clearAbilities;
-    const clearImageReviews = stage === 'fixImages' && !onlyMissing;
+    const clearQuestionImages = stage === 'images' && !onlyMissing && !clearAbilities;
+    const clearAnswerImages = stage === 'answerImages' && !onlyMissing && !clearAbilities;
+    const clearQuestionReviews = stage === 'fixImages' && !onlyMissing && !clearAbilities;
+    const clearAnswerReviews = stage === 'fixAnswerImages' && !onlyMissing && !clearAbilities;
+    const clearImages = clearQuestionImages || clearAnswerImages;
+    const clearImageReviews = clearQuestionReviews || clearAnswerReviews;
 
     if (!clearRecognition && !clearChapters && !clearConcepts && !clearEmbeddings && !clearAbilities && !clearImages && !clearImageReviews) {
         return;
@@ -339,11 +343,11 @@ async function clearBookEntitiesAfterProcessingStage(bookId: number, stage: Book
         await Promise.all(chapterIds.map((chapterId) => db.skills.where('chapterId').equals(chapterId).delete()));
         await deleteUnreferencedAbilityImages(imageIds);
     } else if (clearImages || clearImageReviews) {
-        // Image rows have foreign keys inside Ability JSON. Keep their IDs and
-        // semantic prompts, but discard the selected Images stage's generated
-        // TikZ and all review results so a full run can regenerate them.
+        // A question-stage rerun may not touch answer images (and vice versa).
+        // Keep foreign keys and semantic prompts for the selected side only.
         const abilities = await db.abilities.filter(({ moduleId }) => moduleId.startsWith(`book-${bookId}-`)).toArray() as Ability[];
-        const ids = Array.from(new Set(abilities.flatMap(({ content }) => abilityImageIds(content))));
+        const field = clearQuestionImages || clearQuestionReviews ? 'p' : 'i';
+        const ids = Array.from(new Set(abilities.flatMap(({ content }) => abilityImageIdsForField(content, field))));
         const images = await db.images.bulkGet(ids);
 
         await Promise.all(images.flatMap((image) => !image ? [] : [db.images.put({
@@ -1626,6 +1630,18 @@ function parseAbilityJson(content: string): { parsed: unknown; root: AbilityJson
     return { parsed, root: root as AbilityJsonRoot };
 }
 
+function abilityImageIdsForField(content: string, field: 'p' | 'i'): number[] {
+    const value = parseAbilityJson(content);
+
+    if (!value) return [];
+
+    return Array.from(new Set(value.root.q.flatMap((exercise) => {
+        const id = exercise && typeof exercise === 'object' ? (exercise as Record<string, unknown>)[field] : undefined;
+
+        return typeof id === 'number' && Number.isSafeInteger(id) && id > 0 ? [id] : [];
+    })));
+}
+
 function abilityImageIds(content: string): number[] {
     const value = parseAbilityJson(content);
 
@@ -1782,6 +1798,34 @@ export async function hydrateAbilityContent(content: string): Promise<string> {
     return JSON.stringify(value.parsed);
 }
 
+/** Create an answer image foreign key only when an exercise needs a visual solution.
+ * Unlike replacing the entire Ability, this does not touch its question image. */
+export async function ensureAbilityAnswerImage(abilityId: string, exerciseIndex: number, prompt: string): Promise<number> {
+    return db.transaction('rw', db.abilities, db.images, async () => {
+        const ability = await db.abilities.get(abilityId);
+        const parsed = ability && parseAbilityJson(ability.content);
+        const exercise = parsed?.root.q[exerciseIndex];
+
+        if (!ability || !parsed || !exercise || typeof exercise !== 'object') {
+            throw new Error('Cannot attach an answer image to a missing Ability exercise.');
+        }
+
+        const row = exercise as Record<string, unknown>;
+        const existingId = row.i;
+
+        if (typeof existingId === 'number' && existingId > 0) {
+            if (!await db.images.get(existingId)) throw new Error('Answer image reference is missing.');
+            return existingId;
+        }
+
+        const id = await db.images.add({ type: 'prompt', prompt, data: null, valid: undefined } as Image);
+
+        row.i = id;
+        await db.abilities.update(abilityId, { content: JSON.stringify(parsed.parsed) });
+        return id;
+    });
+}
+
 export async function getImage(id: number): Promise<Image | undefined> {
     return db.images.get(id);
 }
@@ -1852,21 +1896,31 @@ export async function putImage(image: Image, expectedSource?: string | null): Pr
         const next = normalizedImageForStorage(image, previous);
         const result = await db.images.put(next);
 
-        // A source edit or a newly failed review invalidates earlier QA work;
-        // a subsequent Fix Images run may still complete with flagged issues.
+        // An answer Image edit invalidates only answer-image QA. A question
+        // Image edit invalidates question QA and dependent answer generation,
+        // but an answer edit must NEVER revoke the approved question stage.
         if (previous?.data !== next.data || (previous !== undefined && isTikzImageQaPassed(previous) && !isTikzImageQaPassed(next))) {
             const linked = await db.abilities.toArray();
-            const bookIds = new Set(linked
-                .filter(({ content }) => abilityImageIds(content).includes(image.id))
-                .map(({ moduleId }) => /^book-(\d+)-(?:concept|exercise|skill)-/.exec(moduleId))
-                .filter((match): match is RegExpExecArray => Boolean(match))
-                .map((match) => Number(match[1])));
+            const invalidationByBook = new Map<number, BookProcessingStageKey>();
 
-            for (const bookId of bookIds) {
+            for (const { content, moduleId } of linked) {
+                const match = /^book-(\d+)-(?:concept|exercise|skill)-/.exec(moduleId);
+                if (!match) continue;
+                const field = abilityImageIdsForField(content, 'p').includes(image.id) ? 'p'
+                    : abilityImageIdsForField(content, 'i').includes(image.id) ? 'i' : undefined;
+                if (!field) continue;
+
+                const bookId = Number(match[1]);
+                if (field === 'p' || !invalidationByBook.has(bookId)) {
+                    invalidationByBook.set(bookId, field === 'p' ? 'fixImages' : 'fixAnswerImages');
+                }
+            }
+
+            for (const [bookId, stage] of invalidationByBook) {
                 const book = await db.books.get(bookId);
 
                 if (book) {
-                    const updated = withBookProcessingStagesResetFrom(book, 'fixImages');
+                    const updated = withBookProcessingStagesResetFrom(book, stage);
                     await db.books.update(bookId, { completedStages: updated.completedStages });
                 }
             }

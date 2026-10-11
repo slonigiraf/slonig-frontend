@@ -129,7 +129,7 @@ export function createProcessingToolbars (
         key: 'standards',
         label: label('standards'),
         isDone: done('standards'),
-        isDisabled: blocked || !stage('fixImages') || !stage('embeddings') || !book.language || !book.subject,
+        isDisabled: blocked || !stage('fixAnswerImages') || !stage('embeddings') || !book.language || !book.subject,
         onClick: handlers.onAssignStandards
       }
     ]

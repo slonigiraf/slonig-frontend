@@ -66,13 +66,13 @@ export default function SkillsControls ({ abilitiesMissingImagesCount, failedTik
         onChange={setGenerateOnlyMissingAbilities}
         value={generateOnlyMissingAbilities}
       />}
-      {aiAction === 'images' && <Toggle
+      {(aiAction === 'images' || aiAction === 'answerImages') && <Toggle
         isDisabled={!abilitiesMissingImagesCount}
-        label='Only for Abilities missing Images'
+        label={`Only for Abilities missing ${aiAction === 'images' ? 'question' : 'answer'} images`}
         onChange={setGenerateOnlyMissingImages}
         value={generateOnlyMissingImages}
       />}
-      {aiAction === 'fixImages' && <Toggle
+      {(aiAction === 'fixImages' || aiAction === 'fixAnswerImages') && <Toggle
         isDisabled={!failedTikzCount}
         label={`Only retry Abilities with failed TikZ visuals (${failedTikzCount})`}
         onChange={setFixOnlyFailedTikz}

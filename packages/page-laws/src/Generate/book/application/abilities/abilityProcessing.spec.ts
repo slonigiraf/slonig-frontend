@@ -6,7 +6,7 @@ import { describe, it } from 'node:test';
 
 import type OpenAI from 'openai';
 
-import { abilityRepairInput, requestAbilityRepairResult, type StoredAbility } from './abilityProcessing.js';
+import { abilityRepairInput, answerTikzRequestPrompt, exerciseNeedsCompletedFigure, requestAbilityRepairResult, tikzRequestPrompt, type StoredAbility } from './abilityProcessing.js';
 
 describe('Ability repair source evidence', (): void => {
   it('sends the linked Concept directly with no Exercise or embedding pre-check', (): void => {
@@ -104,5 +104,38 @@ describe('Ability no-op repair recovery', (): void => {
     assert.equal(result.reviews.length, 1);
     assert.equal(result.reviews[0].index, 1);
     assert.deepEqual(result.unresolvedReviews, [{ errors: ['A wrong visual'], index: 0 }]);
+  });
+});
+
+
+describe('separate question and answer figure generation prompts', (): void => {
+  const questionTikz = '\\begin{tikzpicture}\\draw (0,0)--(3,0);\\end{tikzpicture}';
+  const ability = {
+    h: 'Geometry', i: '', t: 3,
+    q: [
+      { h: 'Mark the midpoint on the segment.', a: 'At x=1.5', p: questionTikz, i: '', iPrompt: 'Show the midpoint' },
+      { h: 'Find the length.', a: '3', p: '', i: '' }
+    ]
+  };
+
+  it('omits solution text from question image generation', (): void => {
+    const prompt = tikzRequestPrompt('en', ability, 0, 'Segment from (0,0) to (3,0)');
+
+    assert.doesNotMatch(prompt, /Answer: At x=1.5/);
+    assert.match(prompt, /must NOT show the final solution/);
+  });
+
+  it('reuses question TikZ as the geometry authority when generating an answer', (): void => {
+    const prompt = answerTikzRequestPrompt('en', ability, 0, 'Show midpoint');
+
+    assert.ok(prompt.includes(questionTikz));
+    assert.match(prompt, /preserve its original objects, coordinates, scales, line styles/);
+    assert.match(prompt, /Correct answer: At x=1.5/);
+    assert.match(prompt, /Mark the midpoint on the segment/);
+  });
+
+  it('recognizes diagram-completion tasks but not ordinary word problems', (): void => {
+    assert.equal(exerciseNeedsCompletedFigure('Shade the left half of the diagram.'), true);
+    assert.equal(exerciseNeedsCompletedFigure('How many apples?'), false);
   });
 });

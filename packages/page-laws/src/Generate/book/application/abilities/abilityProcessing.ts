@@ -299,8 +299,42 @@ ${MATH_DISPLAY_REQUIREMENTS_PROMPT}
 
 Ability: ${ability.h}
 Question: ${exercise.h}
-Answer: ${exercise.a}
+${field === 'p' ? 'The diagram must NOT show the final solution or answer.' : `Answer: ${exercise.a}`}
 Visual description: ${visualPrompt}`;
+}
+
+/** Answer diagrams use the reviewed question source as the coordinate/geometry authority. */
+export function answerTikzRequestPrompt (language: string, ability: GeneratedAbility, exerciseIndex: number, visualPrompt: string, learnerAge?: number): string {
+  const exercise = ability.q[exerciseIndex];
+  const questionTikz = isTikzSource(exercise.p) ? exercise.p.trim() : '';
+
+  return `Generate a learner-facing TikZ ANSWER image for the following task.
+
+${MATH_DISPLAY_REQUIREMENTS_PROMPT}
+- Return ONLY one \\begin{tikzpicture}...\\end{tikzpicture} block, without markdown or commentary.
+- Use browser-renderable, standard TikZ; no external packages, files, raster images, URLs or SVG.
+- The answer image must show the correct completed result and respect the problem statement.
+- CRITICAL: If the question asks to DRAW, ADD, MARK, SHADE, LABEL, CONNECT, COMPLETE, ROTATE, TRANSFORM or otherwise MODIFY its figure, start from the QUESTION TIKZ SOURCE below and preserve its original objects, coordinates, scales, line styles, axes, labels, geometry and reference points. Add or modify ONLY the answer-specific markings. Do not redraw the question figure independently or shift existing objects. This keeps question and answer figures synchronized.
+- If no visual modification is requested, use the question figure as a consistent reference whenever useful, without adding unrelated diagram content.
+- Preserve the original diagram's styling and proportions; make new markings legible and distinguishable.
+- Keep labels concise, in ${language}. ${LEARNER_AGE_PROMPT(learnerAge)}
+
+Ability: ${ability.h}
+Task text: ${exercise.h}
+Correct answer: ${exercise.a}
+Answer visual description: ${visualPrompt || 'Show the completed figure required by the task.'}
+Question TikZ source (if available; preserve this figure when adding the answer):
+${questionTikz || '(no question figure)'}`;
+}
+
+function isTikzSource (value: string): boolean {
+  return /\\begin\s*\{tikzpicture\}/.test(value);
+}
+
+/** A task requiring an annotation to its supplied figure needs an answer image,
+ * even when an older Ability forgot to create iPrompt. */
+export function exerciseNeedsCompletedFigure (question: string): boolean {
+  return /\b(draw|sketch|plot|shade|mark|label|connect|complete|finish|add|highlight|circle|trace|annotate|extend|construct|reflect|rotate|translate|colour|color|fill in|indicate|bisect)\b/i.test(question);
 }
 
 export function parseTikzAiReview (content: string): TikzAiReview {
@@ -355,6 +389,7 @@ You MUST inspect all of these classes of failure:
 - Wrong values, labels, geometry, axes, markings, regions, arrows, ordering, or missing required objects.
 - For a question visual, accidental answer leakage or solved-state markings that the learner should infer.
 - For a solution visual, missing or incorrect final answer/result.
+- For a solution visual that completes or modifies the question figure, changes to the original question figure's coordinates, geometry, line styles, labels, axis scale, reference objects or proportions are an ERROR. Reuse the question TikZ source, preserving its original marks while adding only the required answer annotations.
 - Visual mess: overlapping text, labels printed on top of unrelated labels/objects, clipped text, illegible density, lines/arrows passing through labels, badly placed annotations, ambiguous association between labels and objects, or excessive unused/competing content.
 - Poor composition that makes the intended educational relationship hard to read.
 
@@ -372,6 +407,7 @@ Exercise: ${exercise.h}
 Correct answer: ${exercise.a}
 Visual role: ${purpose}
 Original visual prompt: ${target.prompt || '(No stored visual prompt is available; use the exercise and answer as the semantic source.)'}
+${target.field === 'i' ? `Question TikZ source (must stay synchronized with the answer diagram):\n${isTikzSource(exercise.p) ? exercise.p : '(none)'}` : 'Question figure: must not reveal the answer.'}
 
 ORIGINAL TIKZ:
 ${target.originalTikz}
@@ -400,6 +436,7 @@ Ability: ${target.ability.h}
 Exercise: ${exercise.h}
 Correct answer: ${exercise.a}
 Original visual prompt: ${target.prompt || '(missing)'}
+${target.field === 'i' ? `Original question TikZ to preserve: ${isTikzSource(exercise.p) ? exercise.p : '(none)'}` : ''}
 Original TikZ: ${target.originalTikz}
 Previously detected problems: ${JSON.stringify(review.errors)}
 Rejected proposed TikZ: ${review.tikz}

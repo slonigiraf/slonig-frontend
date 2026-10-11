@@ -7,15 +7,19 @@ import { strict as assert } from 'node:assert';
 
 import {
   createBook,
+  completeBookProcessingStage,
   createBookConcept,
   createImage,
+  ensureAbilityAnswerImage,
   deleteBook,
   getAbilities,
+  getBook,
   getBookChapters,
   getBookConceptsForBookPage,
   getBookPages,
   getConceptEmbeddings,
   getImage,
+  putImage,
   getSkillsForChapter,
   putBookPage,
   putConceptEmbeddings,
@@ -165,6 +169,89 @@ describe('book stage entity invalidation', (): void => {
       assert.equal(image?.data, null);
       assert.equal(image?.prompt, 'A number line');
       assert.equal((await getAbilities(`book-${seeded.bookId}-concept-${seeded.conceptId}`)).length, 1);
+    } finally {
+      await deleteBook(seeded.bookId);
+    }
+  });
+
+  it('resets question and answer images independently across all four image stages', async (): Promise<void> => {
+    const seeded = await seedLearningArtifacts('split-images');
+    const tikz = '\\begin{tikzpicture}\\draw (0,0)--(1,0);\\end{tikzpicture}';
+    const questionId = await createImage({ type: 'tikz', prompt: 'A horizontal segment', data: tikz, valid: true });
+    const answerId = await createImage({ type: 'tikz', prompt: 'Mark the endpoint', data: tikz, valid: true });
+
+    try {
+      await storeAbility(seeded.abilityModuleId, JSON.stringify({
+        h: 'Mark endpoint', i: '', q: [{ a: 'Right endpoint', h: 'Mark the endpoint.', p: questionId, i: answerId }], t: 3
+      }));
+
+      await resetBookProcessingStagesFrom(seeded.bookId, 'images');
+      assert.equal((await getImage(questionId))?.data, null);
+      assert.equal((await getImage(answerId))?.data, tikz, 'question image generation must preserve the answer');
+
+      const question = await getImage(questionId);
+      assert.ok(question);
+      await putImage({ ...question, type: 'tikz', data: tikz });
+      await resetBookProcessingStagesFrom(seeded.bookId, 'fixImages');
+      assert.equal((await getImage(questionId))?.data, tikz, 'question QA must not delete question TikZ');
+      assert.equal((await getImage(answerId))?.data, tikz, 'question QA must not reset answer TikZ');
+
+      await resetBookProcessingStagesFrom(seeded.bookId, 'answerImages');
+      assert.equal((await getImage(questionId))?.data, tikz, 'answer generation must preserve the question');
+      assert.equal((await getImage(answerId))?.data, null);
+
+      const answer = await getImage(answerId);
+      assert.ok(answer);
+      await putImage({ ...answer, type: 'tikz', data: tikz });
+      await resetBookProcessingStagesFrom(seeded.bookId, 'fixAnswerImages');
+      assert.equal((await getImage(questionId))?.data, tikz, 'answer QA must preserve question TikZ');
+      assert.equal((await getImage(answerId))?.data, tikz, 'answer QA must preserve answer TikZ');
+    } finally {
+      await deleteBook(seeded.bookId);
+    }
+  });
+
+  it('does not reopen Fix question images when an answer image is edited', async (): Promise<void> => {
+    const seeded = await seedLearningArtifacts('answer-invalidation');
+    const questionId = await createImage({ type: 'tikz', prompt: 'A line', data: '\\begin{tikzpicture}\\end{tikzpicture}', valid: undefined });
+    const answerId = await createImage({ type: 'prompt', prompt: 'Mark the point', data: null, valid: undefined });
+
+    try {
+      await storeAbility(seeded.abilityModuleId, JSON.stringify({
+        h: 'Mark a point', i: '', q: [{ a: 'Point', h: 'Mark it.', p: questionId, i: answerId }], t: 3
+      }));
+      await completeBookProcessingStage(seeded.bookId, 'fixImages');
+      await completeBookProcessingStage(seeded.bookId, 'answerImages');
+      const image = await getImage(answerId);
+      assert.ok(image);
+      await putImage({ ...image, type: 'tikz', data: '\\begin{tikzpicture}\\fill (0,0) circle (1pt);\\end{tikzpicture}' });
+      const book = await getBook(seeded.bookId);
+
+      assert.equal(book?.completedStages?.includes('fixImages'), true);
+      assert.equal(book?.completedStages?.includes('answerImages'), true);
+      assert.equal(book?.completedStages?.includes('fixAnswerImages'), false);
+    } finally {
+      await deleteBook(seeded.bookId);
+    }
+  });
+
+  it('creates an answer Image reference without changing the question Image reference', async (): Promise<void> => {
+    const seeded = await seedLearningArtifacts('new-answer-image');
+
+    try {
+      const questionId = await createImage({ type: 'tikz', prompt: 'A line', data: '\\begin{tikzpicture}\\end{tikzpicture}', valid: undefined });
+      const abilityId = await storeAbility(seeded.abilityModuleId, JSON.stringify({
+        h: 'Complete the line', i: '', q: [{ a: 'Extended line', h: 'Extend the line.', p: questionId, i: null }], t: 3
+      }));
+      const answerId = await ensureAbilityAnswerImage(abilityId, 0, 'Show the extended line');
+      const stored = (await getAbilities(seeded.abilityModuleId)).find(({ id }) => id === abilityId);
+      assert.ok(stored);
+      const question = (JSON.parse(stored.content) as { q: Array<{ i: number; p: number }> }).q[0];
+
+      assert.equal(question.p, questionId);
+      assert.equal(question.i, answerId);
+      assert.equal((await getImage(answerId))?.prompt, 'Show the extended line');
+      assert.equal(await ensureAbilityAnswerImage(abilityId, 0, 'Other prompt'), answerId);
     } finally {
       await deleteBook(seeded.bookId);
     }

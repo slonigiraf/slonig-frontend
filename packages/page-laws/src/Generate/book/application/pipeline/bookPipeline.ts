@@ -22,8 +22,10 @@ const BOOK_PIPELINE_STAGE_LABELS: Record<BookProcessingStageKey, string> = {
   refineChapters: 'Refine chapters',
   abilities: 'Abilities',
   fixAbilities: 'Fix abilities',
-  images: 'Images',
-  fixImages: 'Fix images',
+  images: 'Question Images',
+  fixImages: 'Fix question images',
+  answerImages: 'Answer images',
+  fixAnswerImages: 'Fix answer images',
   standards: 'Standards'
 };
 

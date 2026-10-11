@@ -43,6 +43,15 @@ describe('named book processing stages', (): void => {
     assert.deepEqual(resetEmbeddings.completedStages, ['recognize', 'language', 'subject', 'age', 'chapters', 'concepts', 'fixConcepts']);
   });
 
+  it('orders question generation and QA before answer generation and QA', (): void => {
+    assert.deepEqual(BOOK_PROCESSING_STAGES.slice(13), ['images', 'fixImages', 'answerImages', 'fixAnswerImages', 'standards']);
+
+    const completedStages: Book['completedStages'] = ['images', 'fixImages', 'answerImages', 'fixAnswerImages', 'standards'];
+    const reset = withBookProcessingStagesResetFrom(book({ completedStages }), 'answerImages');
+
+    assert.deepEqual(reset.completedStages, ['images', 'fixImages']);
+  });
+
   it('ignores unknown historical identifiers and does not infer stages from book metadata', (): void => {
     const completed = getBookCompletedStages(book({ age: 10, language: 'en', subject: 'en-math' }));
 

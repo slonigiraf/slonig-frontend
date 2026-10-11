@@ -21,10 +21,11 @@ interface SkillsReviewModalsProps {
   closeImageFixReview: () => void;
   fixReview: FixReviewResult | null;
   imageFixReview: ImageFixReviewResult | null;
+  imageFixReviewStage: 'fixImages' | 'fixAnswerImages';
   isBusy: boolean;
 }
 
-export default function SkillsReviewModals ({ applyAbilityFixReview, applyImageFixReview, autoRunAll, closeFixReview, closeImageFixReview, fixReview, imageFixReview, isBusy }: SkillsReviewModalsProps): React.ReactElement {
+export default function SkillsReviewModals ({ applyAbilityFixReview, applyImageFixReview, autoRunAll, closeFixReview, closeImageFixReview, fixReview, imageFixReview, imageFixReviewStage, isBusy }: SkillsReviewModalsProps): React.ReactElement {
   return <>
   {fixReview && !autoRunAll && (
     <Modal
@@ -37,7 +38,7 @@ export default function SkillsReviewModals ({ applyAbilityFixReview, applyImageF
           <div className='fixResultsReviewIntro'>
             <p><strong>No Ability changes have been saved yet.</strong></p>
             <p>Checked {fixReview.checked} Abilities. Proposed {fixReview.items.length} correction{fixReview.items.length === 1 ? '' : 's'} and {fixReview.duplicatePairs.length} duplicate deletion{fixReview.duplicatePairs.length === 1 ? '' : 's'}. A duplicate deletion also removes its linked Concept.</p>
-            {fixReview.unresolved.length > 0 && <p><strong>{fixReview.unresolved.length} unresolved {fixReview.unresolved.length === 1 ? 'Ability' : 'Abilities'}:</strong> the AI reported errors but did not produce a valid change. These records will remain unchanged. The valid corrections can still be applied and the stage completed. Visual-only issues belong in Fix images.</p>}
+            {fixReview.unresolved.length > 0 && <p><strong>{fixReview.unresolved.length} unresolved {fixReview.unresolved.length === 1 ? 'Ability' : 'Abilities'}:</strong> the AI reported errors but did not produce a valid change. These records will remain unchanged. The valid corrections can still be applied and the stage completed. Visual-only issues belong in Fix question images or Fix answer images.</p>}
           </div>
           {(fixReview.items.length > 0 || fixReview.duplicatePairs.length > 0 || fixReview.unresolved.length > 0) && <div className='fixResultsReviewComparison'>
             {fixReview.items.map(({ ability, errors, conceptTitle, record, recordId }, index) => <article
@@ -119,7 +120,7 @@ export default function SkillsReviewModals ({ applyAbilityFixReview, applyImageF
   )}
   {imageFixReview && !autoRunAll && (
     <Modal
-      header='Fix images results'
+      header={imageFixReviewStage === 'fixImages' ? 'Fix question images results' : 'Fix answer images results'}
       onClose={closeImageFixReview}
       size='large'
     >

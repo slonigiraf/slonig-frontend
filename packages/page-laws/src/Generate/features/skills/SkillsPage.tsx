@@ -6,7 +6,7 @@ import type { GeneratedAbility } from '../../../abilities/abilities.js';
 import type { AbilityWorkflowJsonRunner } from '../../book/domain/abilities/abilityWorkflow.js';
 import type { AiAction, ChapterContent, DuplicateAbilityReview, FixedImageReview, FixReviewResult, ImageFixReviewResult, UnresolvedImageReview, PipelineAction, SkillSource, SkillsProps, SkillsView } from './SkillsTypes.js';
 
-import { addBookStageSpend, completeBookProcessingStage, deleteAbilities, deleteAbility, deleteBookConcept, getAbilities, getBookChapters, getBookCompletedStages, getBookConceptsForBookPage, getBookPages, getSetting, getSkillsForChapter, getImage, getBookVisualQaSummary, hydrateAbilityContent, isBookProcessingStageSatisfied, putImage, setTikzImageQaState, tikzSourceVersion, replaceAbilities, replaceSkillsForChapter, resetBookProcessingStagesFrom, SettingKey, storeAbility } from '@slonigiraf/db';
+import { addBookStageSpend, completeBookProcessingStage, ensureAbilityAnswerImage, deleteAbilities, deleteAbility, deleteBookConcept, getAbilities, getBookChapters, getBookCompletedStages, getBookConceptsForBookPage, getBookPages, getSetting, getSkillsForChapter, getImage, getBookVisualQaSummary, hydrateAbilityContent, isBookProcessingStageSatisfied, putImage, setTikzImageQaState, tikzSourceVersion, replaceAbilities, replaceSkillsForChapter, resetBookProcessingStagesFrom, SettingKey, storeAbility } from '@slonigiraf/db';
 import OpenAI from 'openai';
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 
@@ -34,7 +34,7 @@ import { abilityWithDirectConceptTitle } from '../../book/domain/concepts/concep
 import { sortAbilitiesForDisplay } from '../../book/domain/concepts/learningOrder.js';
 import { resolveSharedChapterIndex } from '../../book/domain/chapters/chapterSelection.js';
 import { getSharedChapterSelection, storeSharedChapterSelection, subscribeSharedChapterSelection } from '../../book/infrastructure/storage/chapterSelectionStorage.js';
-import { abilityModuleId, abilityRepairInput, cleanTikzResponse, conceptAbilityModuleId, parseGeneratedSkills, parseTikzAiReview, requestAbilityRepairResult, requestChatContent, requestChatContentWithTruncationRetry, requestValidatedJson, storedAbilityImageId, tikzCompileRepairPrompt, tikzDetectedProblemsRepairPrompt, tikzFixReviewPrompt, tikzRequestPrompt, type ImageFixTarget, type StoredAbility, type TikzAiReview } from '../../book/application/abilities/abilityProcessing.js';
+import { abilityModuleId, abilityRepairInput, answerTikzRequestPrompt, exerciseNeedsCompletedFigure, cleanTikzResponse, conceptAbilityModuleId, parseGeneratedSkills, parseTikzAiReview, requestAbilityRepairResult, requestChatContent, requestChatContentWithTruncationRetry, requestValidatedJson, storedAbilityImageId, tikzCompileRepairPrompt, tikzDetectedProblemsRepairPrompt, tikzFixReviewPrompt, tikzRequestPrompt, type ImageFixTarget, type StoredAbility, type TikzAiReview } from '../../book/application/abilities/abilityProcessing.js';
 import { ChapterTitleEditor } from './components/SkillsComponents.js';
 import SkillsContentView from './components/SkillsContentView.js';
 import SkillsControls from './components/SkillsControls.js';
@@ -65,7 +65,7 @@ async function preRenderStoredTikz (imageId: number, value: string, forceCompile
 
   // Image.valid belongs to the exact data currently stored in the row. Normal
   // previews may suppress a deterministic unchanged failure, while an explicit
-  // Fix images review force-retries it so legacy/transient false flags can heal.
+  // Image QA force-retries it so legacy/transient false flags can heal.
   if (!forceCompile && shouldSkipStoredTikzCompile(image.data, image.valid, value)) {
     return skippedInvalidTikzPreRender();
   }
@@ -103,7 +103,9 @@ async function reviewConceptImage (target: ImageFixTarget, client: OpenAI, model
     const content = await requestChatContent(
       client, model,
       'You regenerate educational diagrams as compact, browser-renderable TikZ. Return only one TikZ picture block.',
-      tikzRequestPrompt(language, target.ability, target.exerciseIndex, target.field, visualPrompt, age),
+      target.field === 'i'
+        ? answerTikzRequestPrompt(language, target.ability, target.exerciseIndex, visualPrompt, age)
+        : tikzRequestPrompt(language, target.ability, target.exerciseIndex, target.field, visualPrompt, age),
       false, onCost, 4_000, signal
     );
     const proposal = cleanTikzResponse(content);
@@ -262,6 +264,8 @@ const ABILITIES_STAGE: BookProcessingStageKey = 'abilities';
 const FIX_ABILITIES_STAGE: BookProcessingStageKey = 'fixAbilities';
 const IMAGES_STAGE: BookProcessingStageKey = 'images';
 const FIX_IMAGES_STAGE: BookProcessingStageKey = 'fixImages';
+const ANSWER_IMAGES_STAGE: BookProcessingStageKey = 'answerImages';
+const FIX_ANSWER_IMAGES_STAGE: BookProcessingStageKey = 'fixAnswerImages';
 const TIKZ_RENDER_CONCURRENCY = 4;
 const TIKZ_REVIEW_MAX_OUTPUT_TOKENS = 6_000;
 const MAX_TIKZ_VISUAL_REVIEW_ATTEMPTS = 3;
@@ -289,6 +293,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
   const [error, setError] = useState('');
   const [fixReview, setFixReview] = useState<FixReviewResult | null>(null);
   const [imageFixReview, setImageFixReview] = useState<ImageFixReviewResult | null>(null);
+  const [imageFixReviewStage, setImageFixReviewStage] = useState<'fixImages' | 'fixAnswerImages'>('fixImages');
   const [generateOnlyMissingAbilities, setGenerateOnlyMissingAbilities] = useState(false);
   const [generateOnlyMissingImages, setGenerateOnlyMissingImages] = useState(false);
   const [fixOnlyFailedTikz, setFixOnlyFailedTikz] = useState(false);
@@ -339,6 +344,8 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
   const addFixAbilitiesCost = useCallback((costUsd: number): void => addStageCost('fixAbilities', costUsd), [addStageCost]);
   const addImagesCost = useCallback((costUsd: number): void => addStageCost('images', costUsd), [addStageCost]);
   const addFixImagesCost = useCallback((costUsd: number): void => addStageCost('fixImages', costUsd), [addStageCost]);
+  const addAnswerImagesCost = useCallback((costUsd: number): void => addStageCost('answerImages', costUsd), [addStageCost]);
+  const addFixAnswerImagesCost = useCallback((costUsd: number): void => addStageCost('fixAnswerImages', costUsd), [addStageCost]);
   const changeChapter = useCallback((index: number): void => {
     const nextIndex = Math.max(0, Math.min(index, Math.max(0, chapterContent.length - 1)));
     const chapter = chapterContent[nextIndex]?.chapter;
@@ -479,19 +486,37 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
   }, [conceptsMissingAbilities.length, generateOnlyMissingAbilities]);
   const conceptsById = useMemo(() => new Map(chapterContent.flatMap(({ concepts }) => concepts.flatMap((concept) => concept.id === undefined ? [] : [[concept.id, concept] as const]))), [chapterContent]);
   const imageGenerationTargets = useMemo(() => allAbilities.flatMap((record) => record.ability
-    ? record.ability.q.flatMap((exercise, exerciseIndex) => (['p', 'i'] as const).flatMap((field) => {
+    ? record.ability.q.flatMap((exercise, exerciseIndex) => (['p'] as const).flatMap((field) => {
       const value = exercise[field].trim();
       const promptField = field === 'p' ? 'pPrompt' : 'iPrompt';
       const storedPrompt = exercise[promptField]?.trim() ?? '';
       // Prompt-only Image rows hydrate with an empty visual value because
       // Image.data is null until generation. Always source generation from the
       // semantic prompt when it exists; keep the old fallback for legacy input.
-      const visualPrompt = storedPrompt || (!isTikzCode(value) ? value : '');
+      const visualPrompt = storedPrompt || (isTikzCode(value) ? `Recreate the original question visual, preserving its meaning and layout: ${value}` : value);
       const imageId = storedAbilityImageId(record, exerciseIndex, field);
 
       return visualPrompt && imageId !== undefined ? [{ exerciseIndex, field, imageId, record, visualPrompt }] : [];
     }))
     : []), [allAbilities]);
+  const answerImageGenerationTargets = useMemo(() => allAbilities.flatMap((record) => record.ability
+    ? record.ability.q.flatMap((exercise, exerciseIndex) => {
+      const questionTikz = isTikzCode(exercise.p);
+      const existingAnswer = exercise.i.trim();
+      const visualPrompt = exercise.iPrompt?.trim() || (!isTikzCode(existingAnswer) ? existingAnswer : '');
+      // Some legacy tasks ask learners to complete a diagram but have no
+      // explicit answer-image prompt. Create the answer reference in that case.
+      const needsFigure = questionTikz && exerciseNeedsCompletedFigure(exercise.h);
+
+      if (!visualPrompt && !needsFigure && !isTikzCode(existingAnswer)) return [];
+
+      return [{ exerciseIndex, imageId: storedAbilityImageId(record, exerciseIndex, 'i'), record,
+        visualPrompt: visualPrompt || 'Show the correctly completed version of the question figure.' }];
+    })
+    : []), [allAbilities]);
+  const missingAnswerImageGenerationTargets = useMemo(() => answerImageGenerationTargets.filter(({ exerciseIndex, record }) =>
+    !isTikzCode(record.ability?.q[exerciseIndex]?.i ?? '')), [answerImageGenerationTargets]);
+  const answerImageGenerationTargetsForRun = generateOnlyMissingImages ? missingAnswerImageGenerationTargets : answerImageGenerationTargets;
   const missingImageGenerationTargets = useMemo(() => imageGenerationTargets.filter(({ exerciseIndex, field, record }) => {
     const value = record.ability?.q[exerciseIndex]?.[field] ?? '';
 
@@ -500,10 +525,13 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
   const abilitiesMissingImages = useMemo(() => new Set(missingImageGenerationTargets.map(({ record }) => record.id)), [missingImageGenerationTargets]);
   const imageGenerationTargetsForRun = generateOnlyMissingImages ? missingImageGenerationTargets : imageGenerationTargets;
   useEffect(() => {
-    if (!abilitiesMissingImages.size && generateOnlyMissingImages) {
+    if (generateOnlyMissingImages && (
+      (aiAction === 'images' && !abilitiesMissingImages.size) ||
+      (aiAction === 'answerImages' && !missingAnswerImageGenerationTargets.length)
+    )) {
       setGenerateOnlyMissingImages(false);
     }
-  }, [abilitiesMissingImages, generateOnlyMissingImages]);
+  }, [abilitiesMissingImages.size, aiAction, generateOnlyMissingImages, missingAnswerImageGenerationTargets.length]);
   const imageFixTargets = useMemo<ImageFixTarget[]>(() => allAbilities.flatMap((record) => record.ability
     ? record.ability.q.flatMap((exercise, exerciseIndex) => (['p', 'i'] as const).flatMap((field) => {
       const value = exercise[field];
@@ -537,14 +565,18 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
 
     return () => { active = false; };
   }, [imageFixTargets, contentSnapshotKey]);
+  const questionImageFixTargets = useMemo(() => imageFixTargets.filter(({ field }) => field === 'p'), [imageFixTargets]);
+  const answerImageFixTargets = useMemo(() => imageFixTargets.filter(({ field }) => field === 'i'), [imageFixTargets]);
   const failedTikzTargets = useMemo(() => imageFixTargets.filter(({ imageId }) => Boolean(tikzIssuesByImageId[imageId]?.length)), [imageFixTargets, tikzIssuesByImageId]);
-  const failedTikzAbilityCount = useMemo(() => new Set(failedTikzTargets.map(({ record }) => record.id)).size, [failedTikzTargets]);
+  const failedTikzAbilityCount = useMemo(() => new Set(failedTikzTargets.filter(({ field }) => field === 'p').map(({ record }) => record.id)).size, [failedTikzTargets]);
+  const failedAnswerTikzAbilityCount = useMemo(() => new Set(failedTikzTargets.filter(({ field }) => field === 'i').map(({ record }) => record.id)).size, [failedTikzTargets]);
   const failedVisualCountsByChapter = useMemo(() => {
     const failedAbilityIds = new Set(failedTikzTargets.map(({ record }) => record.id));
 
     return chapterContent.map(({ abilities }) => abilities.filter(({ id }) => failedAbilityIds.has(id)).length);
   }, [chapterContent, failedTikzTargets]);
-  const imageFixTargetsForRun = fixOnlyFailedTikz && !autoRunAll ? failedTikzTargets : imageFixTargets;
+  const questionImageFixTargetsForRun = fixOnlyFailedTikz && !autoRunAll ? questionImageFixTargets.filter(({ imageId }) => Boolean(tikzIssuesByImageId[imageId]?.length)) : questionImageFixTargets;
+  const answerImageFixTargetsForRun = fixOnlyFailedTikz && !autoRunAll ? answerImageFixTargets.filter(({ imageId }) => Boolean(tikzIssuesByImageId[imageId]?.length)) : answerImageFixTargets;
   const skillSources = useMemo<SkillSource[]>(() => chapterContent.flatMap(({ chapter, concepts }) => chapter.id === undefined ? [] : concepts.flatMap(({ description, id, title }) => id === undefined ? [] : [{ chapterId: chapter.id as number, chapterTitle: chapter.title, description, sourceId: id, sourceType: 'concept' as const, title }])), [chapterContent]);
   useEffect(() => {
     setEffectiveCompletedStages(getBookCompletedStages(book));
@@ -619,16 +651,22 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
         : []);
     }
 
-    if (aiAction === 'fixImages') {
+    if (aiAction === 'answerImages') {
+      return answerImageGenerationTargetsForRun.flatMap(({ exerciseIndex, record, visualPrompt }) => record.ability
+        ? [answerTikzRequestPrompt(language, record.ability, exerciseIndex, visualPrompt, book.age)]
+        : []);
+    }
+
+    if (aiAction === 'fixImages' || aiAction === 'fixAnswerImages') {
       const pendingPreRender: TikzPreRenderResult = { compiled: true, diagnostics: [], renderedSvg: '', texInput: '' };
 
-      return imageFixTargetsForRun.map((target) => tikzFixReviewPrompt(language, target, pendingPreRender, book.age));
+      return (aiAction === 'fixImages' ? questionImageFixTargetsForRun : answerImageFixTargetsForRun).map((target) => tikzFixReviewPrompt(language, target, pendingPreRender, book.age));
     }
 
     return [];
-  }, [abilityModuleIds, aiAction, book.age, book.id, chapterContent, conceptsById, generateOnlyMissingAbilities, imageFixTargetsForRun, imageGenerationTargetsForRun, language, skillSources]);
+  }, [abilityModuleIds, aiAction, answerImageFixTargetsForRun, answerImageGenerationTargetsForRun, book.age, book.id, chapterContent, conceptsById, generateOnlyMissingAbilities, questionImageFixTargetsForRun, imageGenerationTargetsForRun, language, skillSources]);
   const maxChapterAbilityCount = Math.max(1, ...chapterContent.map(({ abilities }) => abilities.length));
-  const generationOutputTokens = aiAction === 'abilities' ? 3_200 : aiAction === 'fix' ? maxChapterAbilityCount * 700 : aiAction === 'images' ? 2_400 : aiAction === 'fixImages' ? TIKZ_REVIEW_MAX_OUTPUT_TOKENS : aiAction === 'skills' ? BATCH_SIZE * 180 : 300;
+  const generationOutputTokens = aiAction === 'abilities' ? 3_200 : aiAction === 'fix' ? maxChapterAbilityCount * 700 : aiAction === 'images' || aiAction === 'answerImages' ? 2_400 : aiAction === 'fixImages' || aiAction === 'fixAnswerImages' ? TIKZ_REVIEW_MAX_OUTPUT_TOKENS : aiAction === 'skills' ? BATCH_SIZE * 180 : 300;
   const validationInputs = requestInputs;
   const outputTokens = generationOutputTokens;
   const estimate = estimateAiInput(effectiveModel, validationInputs, outputTokens);
@@ -760,7 +798,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
           const records = await readAbilities();
 
           if (!records.length || records.some(({ ability }) => !ability)) throw new Error('No valid Ability exists for this Concept. Start from Create Ability.');
-          const targets = records.flatMap((row) => (row.ability as GeneratedAbility).q.flatMap((exercise, exerciseIndex) => (['p', 'i'] as const).flatMap((field) => {
+          const targets = records.flatMap((row) => (row.ability as GeneratedAbility).q.flatMap((exercise, exerciseIndex) => (['p'] as const).flatMap((field) => {
             const imageId = storedAbilityImageId(row, exerciseIndex, field);
             const promptField = field === 'p' ? 'pPrompt' : 'iPrompt';
             const visualPrompt = exercise[promptField]?.trim() || (!isTikzCode(exercise[field]) ? exercise[field].trim() : '');
@@ -784,10 +822,33 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
           });
         }
 
-        if (stage === 'fixImages') {
+        if (stage === 'answerImages') {
+          const records = await readAbilities();
+          if (!records.length || records.some(({ ability }) => !ability)) throw new Error('No valid Ability exists for this Concept.');
+          await mapConcurrent(records.flatMap((row) => row.ability
+            ? row.ability.q.flatMap((exercise, exerciseIndex) => {
+              const prompt = exercise.iPrompt?.trim() || (!isTikzCode(exercise.i) ? exercise.i.trim() : '');
+              return prompt || (isTikzCode(exercise.p) && exerciseNeedsCompletedFigure(exercise.h)) || isTikzCode(exercise.i)
+                ? [{ row, exerciseIndex, visualPrompt: prompt || 'Show the correctly completed version of the question figure.' }] : [];
+            }) : []), OPENROUTER_CONCURRENCY, async ({ row, exerciseIndex, visualPrompt }) => {
+            const ability = row.ability as GeneratedAbility;
+            const tikz = cleanTikzResponse(await requestChatContentWithTruncationRetry(
+              client, effectiveModel, 'Create a synchronized answer TikZ figure. Return only a TikZ picture.',
+              answerTikzRequestPrompt(language, ability, exerciseIndex, visualPrompt, book.age),
+              false, addAnswerImagesCost, 2_400, signal
+            ));
+            if (signal.aborted) throw new Error('Concept regeneration was cancelled.');
+            const imageId = await ensureAbilityAnswerImage(row.id, exerciseIndex, visualPrompt);
+            const image = await getImage(imageId);
+            if (!image) throw new Error(`Answer image ${imageId} not found.`);
+            await putImage({ ...image, data: tikz, prompt: visualPrompt, type: 'tikz', valid: undefined });
+          });
+        }
+
+        if (stage === 'fixImages' || stage === 'fixAnswerImages') {
           const records = await readAbilities();
           const targets: ImageFixTarget[] = records.flatMap((row) => row.ability
-            ? row.ability.q.flatMap((exercise, exerciseIndex) => (['p', 'i'] as const).flatMap((field) => {
+            ? row.ability.q.flatMap((exercise, exerciseIndex) => ([stage === 'fixImages' ? 'p' : 'i'] as const).flatMap((field) => {
               const imageId = storedAbilityImageId(row, exerciseIndex, field);
               const tikz = exercise[field];
               const promptField = field === 'p' ? 'pPrompt' : 'iPrompt';
@@ -795,13 +856,13 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
               return imageId !== undefined && isTikzCode(tikz) ? [{ ability: row.ability as GeneratedAbility, exerciseIndex, field, imageId, originalTikz: tikz, prompt: exercise[promptField]?.trim() ?? '', record: row }] : [];
             }))
             : []);
-          if (records.some((row) => row.ability?.q.some((exercise, index) => (['p', 'i'] as const).some((field) => {
+          if (records.some((row) => row.ability?.q.some((exercise, index) => ([stage === 'fixImages' ? 'p' : 'i'] as const).some((field) => {
             const promptField = field === 'p' ? 'pPrompt' : 'iPrompt';
 
             return exercise[promptField]?.trim() && (!isTikzCode(exercise[field]) || storedAbilityImageId(row, index, field) === undefined);
-          })))) throw new Error('Some visuals have not been generated yet. Start from Generate Images.');
+          })))) throw new Error('Some visuals have not been generated yet. Run the corresponding image-generation stage first.');
           await mapConcurrent(targets, TIKZ_RENDER_CONCURRENCY, async (target) => {
-            const review = await reviewConceptImage(target, client, effectiveModel, language, book.age, addFixImagesCost, signal);
+            const review = await reviewConceptImage(target, client, effectiveModel, language, book.age, (stage === 'fixImages' ? addFixImagesCost : addFixAnswerImagesCost), signal);
 
             if (signal.aborted) throw new Error('Concept regeneration was cancelled.');
             if (review.unresolved) {
@@ -822,7 +883,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
         setProgress(stageIndex + 1);
       }
 
-      setNotice(`Regenerated Concept “${concept.title}” from ${start} through Fix Images. Other Concepts were not changed.`);
+      setNotice(`Regenerated Concept “${concept.title}” from ${start} through Fix answer images. Other Concepts were not changed.`);
     } finally {
       try {
         refreshContent();
@@ -830,7 +891,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
         endProgress();
       }
     }
-  }, [addAbilitiesCost, addFixAbilitiesCost, addFixImagesCost, addImagesCost, addStageCost, beginProgress, book.age, book.id, book.subject, chapterContent, conceptsById, createClient, effectiveModel, endProgress, language, refreshContent]);
+  }, [addAbilitiesCost, addFixAbilitiesCost, addFixAnswerImagesCost, addFixImagesCost, addAnswerImagesCost, addImagesCost, addStageCost, beginProgress, book.age, book.id, book.subject, chapterContent, conceptsById, createClient, effectiveModel, endProgress, language, refreshContent]);
 
   const generateSkills = useCallback(async (): Promise<void> => {
     const signal = beginProgress('Generating Skills', skillSources.length);
@@ -1151,12 +1212,12 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
   }, []);
   const completeImagesStage = useCallback(async (): Promise<void> => {
     const targets = imageGenerationTargetsForRun;
-    const signal = beginProgress('Converting visual prompts to TikZ', targets.length, 'images');
+    const signal = beginProgress('Generating question image TikZ', targets.length, 'images');
     let completed = 0;
 
     try {
       if (generateOnlyMissingImages && !targets.length) {
-        throw new Error('No Abilities are missing Images.');
+        throw new Error('No Abilities are missing question images.');
       }
 
       if (!generateOnlyMissingImages) {
@@ -1165,7 +1226,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
 
       if (!targets.length) {
         await completeStage(IMAGES_STAGE, true);
-        setNotice('Images complete. There were no visual prompts requiring TikZ conversion or regeneration.');
+        setNotice('Question Images complete: no question visuals need generation.');
         return;
       }
 
@@ -1199,7 +1260,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
       });
 
       await completeStage(IMAGES_STAGE, true);
-      setNotice(`Images complete: converted ${targets.length} visual prompt${targets.length === 1 ? '' : 's'} to TikZ${generateOnlyMissingImages ? ` for ${abilitiesMissingImages.size} ${abilitiesMissingImages.size === 1 ? 'Ability' : 'Abilities'} with missing Images` : ''}.`);
+      setNotice(`Question Images complete: converted ${targets.length} visual prompt${targets.length === 1 ? '' : 's'} to TikZ${generateOnlyMissingImages ? ` for ${abilitiesMissingImages.size} ${abilitiesMissingImages.size === 1 ? 'Ability' : 'Abilities'} with missing question images` : ''}.`);
       refreshContent();
       onAction?.('preExercisesExercises');
     } catch (caught) {
@@ -1216,19 +1277,71 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
       endProgress();
     }
   }, [abilitiesMissingImages.size, addImagesCost, beginProgress, book.age, endProgress, completeStage, createClient, effectiveModel, generateOnlyMissingImages, imageGenerationTargetsForRun, language, onAction, refreshContent]);
-  const fixImages = useCallback(async (): Promise<void> => {
-    const targets = imageFixTargetsForRun;
-    const signal = beginProgress('Reviewing TikZ visuals', targets.length, 'fixImages');
+  const completeAnswerImagesStage = useCallback(async (): Promise<void> => {
+    const targets = answerImageGenerationTargetsForRun;
+    const signal = beginProgress('Generating answer image TikZ', targets.length, 'answerImages');
+    let completed = 0;
+
+    try {
+      if (generateOnlyMissingImages && !targets.length) throw new Error('No Abilities are missing answer images.');
+      if (!generateOnlyMissingImages) await resetBookProcessingStagesFrom(book.id, 'answerImages');
+
+      if (targets.length) {
+        const client = await createClient();
+
+        await mapConcurrent(targets, OPENROUTER_CONCURRENCY, async ({ exerciseIndex, record, visualPrompt }) => {
+          if (!record.ability) return;
+          // The question source is included in the prompt so an answer can
+          // modify the same figure instead of inventing different geometry.
+          const tikz = cleanTikzResponse(await requestChatContentWithTruncationRetry(
+            client, effectiveModel,
+            'Generate a precise TikZ solution diagram, modifying the supplied question TikZ wherever the task requires it.',
+            answerTikzRequestPrompt(language, record.ability, exerciseIndex, visualPrompt, book.age),
+            false, addAnswerImagesCost, 2_400, signal
+          ));
+          if (signal.aborted) throw new DOMException('Answer image generation cancelled.', 'AbortError');
+          const sourceId = storedAbilityImageId(record, exerciseIndex, 'p');
+          const currentQuestion = sourceId === undefined ? undefined : await getImage(sourceId);
+          if (sourceId !== undefined && currentQuestion?.data !== record.ability.q[exerciseIndex].p) {
+            throw new Error('Question TikZ changed during answer generation; rerun Answer images to keep the figures synchronized.');
+          }
+          const imageId = await ensureAbilityAnswerImage(record.id, exerciseIndex, visualPrompt);
+          const image = await getImage(imageId);
+
+          if (!image) throw new Error(`Answer image ${imageId} was not found.`);
+          await putImage({ ...image, data: tikz, type: 'tikz', prompt: visualPrompt, valid: undefined });
+          completed++;
+          setProgress(completed);
+        });
+      }
+
+      await completeStage(ANSWER_IMAGES_STAGE, true);
+      setNotice(`Answer images complete: generated ${completed} synchronized answer diagram${completed === 1 ? '' : 's'}.`);
+      refreshContent();
+      onAction?.('preExercisesExercises');
+    } catch (caught) {
+      if (completed) refreshContent();
+      if (!signal.aborted) setError(caught instanceof Error ? caught.message : 'Unable to generate answer images.');
+    } finally {
+      endProgress();
+    }
+  }, [addAnswerImagesCost, answerImageGenerationTargetsForRun, beginProgress, book.age, book.id, completeStage, createClient, effectiveModel, endProgress, generateOnlyMissingImages, language, onAction, refreshContent]);
+  const fixImages = useCallback(async (stage: 'fixImages' | 'fixAnswerImages'): Promise<void> => {
+    const targets = stage === 'fixImages' ? questionImageFixTargetsForRun : answerImageFixTargetsForRun;
+    const stageName = stage === 'fixImages' ? 'Fix question images' : 'Fix answer images';
+    const signal = beginProgress(`Reviewing ${stageName} TikZ`, targets.length, stage);
+    const reportCost = stage === 'fixImages' ? addFixImagesCost : addFixAnswerImagesCost;
 
     try {
       if (!targets.length) {
         if (autoRunAll) {
-          await completeStage(FIX_IMAGES_STAGE);
-          setNotice('Fix images finished: no TikZ visuals needed review.');
+          await completeStage(stage);
+          setNotice(`${stageName} finished: no TikZ visuals needed review.`);
           refreshContent();
         } else {
+          setImageFixReviewStage(stage);
           setImageFixReview({ checked: 0, renderFailures: 0, items: [], unresolved: [] });
-          setNotice('There are no TikZ visuals matching this Fix images run.');
+          setNotice(`There are no TikZ visuals matching this ${stageName} run.`);
         }
         return;
       }
@@ -1236,7 +1349,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
       const client = await createClient();
       let completed = 0;
       const reviewTargets = async (batch: ImageFixTarget[]) => mapConcurrent(batch, TIKZ_RENDER_CONCURRENCY, async (target) => {
-        const review = await reviewConceptImage(target, client, effectiveModel, language, book.age, addFixImagesCost, signal);
+        const review = await reviewConceptImage(target, client, effectiveModel, language, book.age, reportCost, signal);
 
         completed += 1;
         setProgress(completed);
@@ -1249,10 +1362,11 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
       let unresolved = reviewResults.flatMap(({ unresolved }) => unresolved ? [unresolved] : []);
 
       if (!autoRunAll) {
+        setImageFixReviewStage(stage);
         setImageFixReview({ checked: targets.length, renderFailures, items, unresolved });
         const cleanUnchanged = Math.max(0, targets.length - items.length - unresolved.length);
 
-        setNotice(`Fix images QA: ${items.length} PNG-reviewed correction${items.length === 1 ? '' : 's'}, ${cleanUnchanged} approved unchanged, ${unresolved.length} flagged for later retry. No proposed source changes have been applied.`);
+        setNotice(`${stageName} QA: ${items.length} PNG-reviewed correction${items.length === 1 ? '' : 's'}, ${cleanUnchanged} approved unchanged, ${unresolved.length} flagged for later retry. No proposed source changes have been applied.`);
         // Display the freshly persisted failures even before the review popup is closed.
         refreshContent();
         return;
@@ -1278,7 +1392,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
 
       await applyApproved(items);
 
-      // Immediately after normal Fix images, run one focused pass using ONLY
+      // Immediately after the active image QA stage, run one focused pass using ONLY
       // images that failed. Do not waste AI calls on visuals already approved.
       if (unresolved.length) {
         const failedIds = new Set(unresolved.map(({ imageId }) => imageId));
@@ -1294,8 +1408,8 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
 
       // QA failures are warnings, not a stage failure. Flagged Image rows
       // remain visible and Fast Forward can proceed with later stages.
-      await completeStage(FIX_IMAGES_STAGE, changed > 0);
-      setNotice(`Fix images finished: ${changed} approved correction${changed === 1 ? '' : 's'} applied; ${unresolved.length} visual${unresolved.length === 1 ? '' : 's'} still flagged for manual review. Fast Forward will continue.`);
+      await completeStage(stage, changed > 0);
+      setNotice(`${stageName} finished: ${changed} approved correction${changed === 1 ? '' : 's'} applied; ${unresolved.length} visual${unresolved.length === 1 ? '' : 's'} still flagged for manual review. Fast Forward will continue.`);
       refreshContent();
       onAction?.('preExercisesExercises');
     } catch (caught) {
@@ -1306,7 +1420,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
     } finally {
       endProgress();
     }
-  }, [addFixImagesCost, autoRunAll, beginProgress, book.age, completeStage, createClient, effectiveModel, endProgress, imageFixTargetsForRun, language, onAction, refreshContent]);
+  }, [addFixAnswerImagesCost, addFixImagesCost, answerImageFixTargetsForRun, autoRunAll, beginProgress, book.age, completeStage, createClient, effectiveModel, endProgress, questionImageFixTargetsForRun, language, onAction, refreshContent]);
 
   const closeImageFixReview = useCallback((): void => {
     setImageFixReview(null);
@@ -1346,30 +1460,42 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
 
       const hasChanges = imageFixReview.items.length > 0;
 
-      if (hasChanges || !stageDone(FIX_IMAGES_STAGE)) {
-        await completeStage(FIX_IMAGES_STAGE, hasChanges);
+      if (hasChanges || !stageDone(imageFixReviewStage)) {
+        await completeStage(imageFixReviewStage, hasChanges);
       }
 
       const fixed = imageFixReview.items.length;
       const failed = imageFixReview.unresolved.length;
 
       setImageFixReview(null);
-      setNotice(`Fix images completed: ${fixed} approved TikZ correction${fixed === 1 ? '' : 's'} applied; ${failed} visual${failed === 1 ? '' : 's'} still flagged for retry in Abilities. Processing can continue.`);
+      setNotice(`${imageFixReviewStage === 'fixImages' ? 'Fix question images' : 'Fix answer images'} completed: ${fixed} approved TikZ correction${fixed === 1 ? '' : 's'} applied; ${failed} visual${failed === 1 ? '' : 's'} still flagged for retry in Abilities. Processing can continue.`);
       refreshContent();
       onAction?.('preExercisesExercises');
     } catch (caught) {
       setImageFixReview(null);
       refreshContent();
-      setError(caught instanceof Error ? caught.message : 'Unable to apply Fix images changes.');
+      setError(caught instanceof Error ? caught.message : 'Unable to apply image QA changes.');
     } finally {
       setIsBusy(false);
     }
-  }, [imageFixReview, onAction, refreshContent, completeStage, stageDone]);
+  }, [imageFixReview, imageFixReviewStage, onAction, refreshContent, completeStage, stageDone]);
 
   const openImageFix = useCallback((): void => {
-    setFixOnlyFailedTikz(failedTikzTargets.length > 0);
+    setFixOnlyFailedTikz(failedTikzTargets.some(({ field }) => field === 'p'));
     setAiAction('fixImages');
   }, [failedTikzTargets.length]);
+  const openAnswerImages = useCallback((): void => {
+    setGenerateOnlyMissingImages(missingAnswerImageGenerationTargets.length > 0 && missingAnswerImageGenerationTargets.length < answerImageGenerationTargets.length);
+    setAiAction('answerImages');
+  }, [answerImageGenerationTargets.length, missingAnswerImageGenerationTargets.length]);
+  const retryMissingAnswerImages = useCallback((): void => {
+    setGenerateOnlyMissingImages(true);
+    setAiAction('answerImages');
+  }, []);
+  const openAnswerImageFix = useCallback((): void => {
+    setFixOnlyFailedTikz(failedTikzTargets.some(({ field }) => field === 'i'));
+    setAiAction('fixAnswerImages');
+  }, [failedTikzTargets]);
   const confirm = useCallback((): void => {
     if (aiAction === 'skills') {
       generateSkills().catch(console.error);
@@ -1387,10 +1513,14 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
       completeImagesStage().catch(console.error);
     }
 
-    if (aiAction === 'fixImages') {
-      fixImages().catch(console.error);
+    if (aiAction === 'answerImages') {
+      completeAnswerImagesStage().catch(console.error);
     }
-  }, [aiAction, completeImagesStage, fixAbilities, fixImages, generateAbilities, generateSkills]);
+
+    if (aiAction === 'fixImages' || aiAction === 'fixAnswerImages') {
+      fixImages(aiAction).catch(console.error);
+    }
+  }, [aiAction, completeAnswerImagesStage, completeImagesStage, fixAbilities, fixImages, generateAbilities, generateSkills]);
 
   useEffect((): void => {
     if (autoRunAll && aiAction && !isBusy) {
@@ -1417,7 +1547,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
   }, []);
   const skipStage = useCallback((): void => {
     const stage: BookProcessingStageKey | undefined = aiAction === 'fix' ? 'fixAbilities'
-      : aiAction === 'abilities' || aiAction === 'images' || aiAction === 'fixImages' ? aiAction
+      : aiAction === 'abilities' || aiAction === 'images' || aiAction === 'fixImages' || aiAction === 'answerImages' || aiAction === 'fixAnswerImages' ? aiAction
         : undefined;
 
     if (!stage) return;
@@ -1448,7 +1578,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
     },
     {
       key: 'images',
-      label: 'Images',
+      label: 'Question Images',
       isDone: stageDone(IMAGES_STAGE),
       isDisabled: isBusy || !hasBookLanguage || !hasBookSubject || !stageReady(FIX_ABILITIES_STAGE) || !hasAbilities,
       isResultComplete: missingImageGenerationTargets.length === 0,
@@ -1457,13 +1587,29 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
     },
     {
       key: 'fixImages',
-      label: bookVisualQaStatus === 'failed' ? 'Fix images (issues flagged)' : 'Fix images',
+      label: bookVisualQaStatus === 'failed' && failedTikzTargets.some(({ field }) => field === 'p') ? 'Fix question images (issues flagged)' : 'Fix question images',
       isDone: stageDone(FIX_IMAGES_STAGE),
       isDisabled: isBusy || !hasBookLanguage || !hasBookSubject || !stageReady(IMAGES_STAGE) || !hasAbilities,
       onClick: openImageFix
     },
+    {
+      key: 'answerImages',
+      label: 'Answer images',
+      isDone: stageDone(ANSWER_IMAGES_STAGE),
+      isDisabled: isBusy || !hasBookLanguage || !hasBookSubject || !stageReady(FIX_IMAGES_STAGE) || !hasAbilities,
+      isResultComplete: missingAnswerImageGenerationTargets.length === 0,
+      onClick: openAnswerImages,
+      onRetryMissing: retryMissingAnswerImages
+    },
+    {
+      key: 'fixAnswerImages',
+      label: failedTikzTargets.some(({ field }) => field === 'i') ? 'Fix answer images (issues flagged)' : 'Fix answer images',
+      isDone: stageDone(FIX_ANSWER_IMAGES_STAGE),
+      isDisabled: isBusy || !hasBookLanguage || !hasBookSubject || !stageReady(ANSWER_IMAGES_STAGE) || !hasAbilities,
+      onClick: openAnswerImageFix
+    },
     ...(pipelineSuffix ?? [])
-  ], [chapterContent, conceptsMissingAbilities.length, hasAbilities, hasBookLanguage, hasBookSubject, isBusy, missingImageGenerationTargets.length, openAbilityFix, openAbilityGeneration, openImageFix, openImages, pipelinePrefix, pipelineSuffix, retryMissingImages, stageDone, stageReady, bookVisualQaStatus]);
+  ], [chapterContent, conceptsMissingAbilities.length, failedTikzTargets, hasAbilities, hasBookLanguage, hasBookSubject, isBusy, missingAnswerImageGenerationTargets.length, missingImageGenerationTargets.length, openAbilityFix, openAbilityGeneration, openAnswerImageFix, openAnswerImages, openImageFix, openImages, pipelinePrefix, pipelineSuffix, retryMissingAnswerImages, retryMissingImages, stageDone, stageReady, bookVisualQaStatus]);
   // Stage navigation is not a success checkpoint. Keep the full pipeline
   // selectable even after a failure; each action still checks its prerequisites.
   const visiblePipelineActions = pipelineActions;
@@ -1619,11 +1765,12 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
       closeImageFixReview={closeImageFixReview}
       fixReview={fixReview}
       imageFixReview={imageFixReview}
+      imageFixReviewStage={imageFixReviewStage}
       isBusy={isBusy}
     />
     <SkillsControls
-      abilitiesMissingImagesCount={abilitiesMissingImages.size}
-      failedTikzCount={failedTikzAbilityCount}
+      abilitiesMissingImagesCount={aiAction === 'answerImages' ? new Set(missingAnswerImageGenerationTargets.map(({ record }) => record.id)).size : abilitiesMissingImages.size}
+      failedTikzCount={aiAction === 'fixAnswerImages' ? failedAnswerTikzAbilityCount : failedTikzAbilityCount}
       fixOnlyFailedTikz={fixOnlyFailedTikz}
       abortProcessing={abortProcessing}
       aiAction={aiAction}

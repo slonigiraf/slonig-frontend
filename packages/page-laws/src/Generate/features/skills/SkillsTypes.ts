@@ -108,4 +108,4 @@ export interface SkillSource {
   title: string;
 }
 
-export type AiAction = 'abilities' | 'fix' | 'fixImages' | 'images' | 'skills';
+export type AiAction = 'abilities' | 'fix' | 'fixImages' | 'images' | 'answerImages' | 'fixAnswerImages' | 'skills';

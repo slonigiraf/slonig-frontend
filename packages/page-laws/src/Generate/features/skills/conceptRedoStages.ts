@@ -5,8 +5,10 @@
 export const CONCEPT_REDO_STAGES = [
   { key: 'abilities', label: 'Create Ability' },
   { key: 'fixAbilities', label: 'Fix Ability' },
-  { key: 'images', label: 'Generate Images' },
-  { key: 'fixImages', label: 'Fix Images' }
+  { key: 'images', label: 'Question Images' },
+  { key: 'fixImages', label: 'Fix question images' },
+  { key: 'answerImages', label: 'Answer images' },
+  { key: 'fixAnswerImages', label: 'Fix answer images' }
 ] as const;
 
 export type ConceptRedoStage = typeof CONCEPT_REDO_STAGES[number]['key'];

@@ -322,7 +322,7 @@ export function useBookReaderNavigationModel ({
   }, [activePane, book]);
 
   useEffect(() => {
-    if (activePane === 'standards' && !isBookProcessingStageComplete(book, 'fixImages')) {
+    if (activePane === 'standards' && !isBookProcessingStageComplete(book, 'fixAnswerImages')) {
       setActivePane(isBookProcessingStageComplete(book, 'abilities')
         ? 'preExercisesExercises'
         : isBookProcessingStageComplete(book, 'concepts') ? 'textConcepts' : 'text');

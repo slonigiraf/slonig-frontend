@@ -63,8 +63,8 @@ export function useBookLearningContentProcessing ({
       return;
     }
 
-    if (!isBookProcessingStageSatisfied(book, 'fixImages')) {
-      setError('Complete Fix images before identifying Standards.');
+    if (!isBookProcessingStageSatisfied(book, 'fixAnswerImages')) {
+      setError('Complete Fix answer images before identifying Standards.');
       return;
     }
 

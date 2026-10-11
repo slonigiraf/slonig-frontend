@@ -17,6 +17,8 @@ export const BOOK_PROCESSING_STAGES = [
   'fixAbilities',
   'images',
   'fixImages',
+  'answerImages',
+  'fixAnswerImages',
   'standards'
 ] as const;
 

@@ -277,10 +277,10 @@ describe('generated abilities', (): void => {
     assert.deepEqual(pinned.sort(), [ability.q[0].i, ability.q[0].p].sort());
   });
 
-  it('tells the repair model which fields are writable and routes visual-only faults to Fix images', (): void => {
+  it('tells the repair model which fields are writable and routes visual-only faults to the appropriate image QA stage', (): void => {
     assert.match(FIX_ABILITIES_PROMPT, /IMPORTANT FIX-ABILITIES WRITE CONTRACT/);
     assert.match(FIX_ABILITIES_PROMPT, /q\[\]\.pPrompt and q\[\]\.iPrompt are image metadata/);
-    assert.match(FIX_ABILITIES_PROMPT, /Fix images stage handles it/);
+    assert.match(FIX_ABILITIES_PROMPT, /Fix question images or Fix answer images stage handles it/);
     assert.match(FIX_ABILITIES_PROMPT, /MUST actually correct at least one writable learner-facing field/);
   });
 

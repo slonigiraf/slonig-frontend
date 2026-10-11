@@ -689,6 +689,37 @@ export class SlonigDB extends Dexie {
     // Drop the retired standalone Exercise object store on upgrade. Direct
     // Concept-linked Abilities remain intact in the abilities store.
     this.version(101).stores({ exercises: null });
+    // Answer-image generation and QA are new stages after question-image QA.
+    // Historical Standards approvals cannot cover diagrams that were never
+    // generated/reviewed by the new answer stages.
+    this.version(102).stores({}).upgrade(async (transaction: Transaction) => {
+      const books = transaction.table<Book, number>('books');
+      const runs = transaction.table<BookProcessingRun, number>('bookProcessingRuns');
+
+      await forEachMigrationBatch(books, async (rows) => {
+        for (const book of rows) {
+          if (book.completedStages?.includes('standards') && !book.completedStages.includes('fixAnswerImages')) {
+            const reset = withBookProcessingStagesResetFrom(book, 'answerImages');
+            await books.update(book.id, { completedStages: reset.completedStages, bypassedStages: reset.bypassedStages });
+          }
+        }
+      });
+      await forEachMigrationBatch(runs, async (rows) => {
+        for (const run of rows) {
+          if (run.completed.includes('standards') && !run.completed.includes('fixAnswerImages')) {
+            await runs.update(run.bookId, {
+              completed: run.completed.filter((stage) => stage !== 'standards'),
+              status: 'failed',
+              currentStage: undefined,
+              triggeredStage: undefined,
+              startedStage: false,
+              error: 'Answer images and Fix answer images must run before Standards. Restart Fast Forward.',
+              updatedAt: Date.now()
+            });
+          }
+        }
+      });
+    });
 
   }
 }
