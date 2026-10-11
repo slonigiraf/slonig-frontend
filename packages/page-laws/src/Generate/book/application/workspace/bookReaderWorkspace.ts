@@ -1,15 +1,13 @@
 // Copyright 2021-2026 @polkadot/app-laws authors & contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import type { BookConcept, BookPage, Exercise } from '@slonigiraf/db';
-import { deleteAbilities, deleteBookConcept, deleteExercise, getBookConceptsForBookPage, getExercisesForBookPage } from '@slonigiraf/db';
+import type { BookConcept, BookPage } from '@slonigiraf/db';
+import { deleteAbilities, deleteBookConcept, getBookConceptsForBookPage } from '@slonigiraf/db';
 
 import { conceptBelongsToChapter } from '../../domain/chapters/refineChapters.js';
 import type { ConceptChapterNavigationItem } from '../../domain/concepts/conceptRecognition.js';
-import { sortExercisesForDisplay } from '../../domain/concepts/learningOrder.js';
 import { embeddingCosineDistance } from '../../domain/standards/standards.js';
-import { stripMarkdownImageReferences } from '../../infrastructure/pdf/bookImageRefs.js';
-import type { ConceptEmbeddingHeatmapEntry, ExerciseChapterNavigationItem } from '../../../shared/types/bookWorkspace.js';
+import type { ConceptEmbeddingHeatmapEntry } from '../../../shared/types/bookWorkspace.js';
 
 export function conceptDisplayOrder (concept: BookConcept): number | undefined {
   return Number.isFinite(concept.displayOrder) ? concept.displayOrder : undefined;
@@ -63,39 +61,6 @@ export function analysisPageNumbers (pages: BookPage[]): number[] {
   return pages.flatMap(({ excludedFromAnalysis, pageNumber }) => excludedFromAnalysis ? [] : [pageNumber]);
 }
 
-export function singleExerciseRepairInput (language: string, exercise: Exercise, chapterTitle: string, learnerAge?: number): unknown {
-  return {
-    bookLanguage: language,
-    ...(learnerAge === undefined ? {} : { learnerAge }),
-    exercises: [{
-      conceptId: exercise.conceptId,
-      exercise: {
-        description: stripMarkdownImageReferences(exercise.description),
-        imageDescription: exercise.imageDescription ?? '',
-        solution: exercise.solution ?? '',
-        solutionImageDescription: exercise.solutionImageDescription ?? '',
-        title: exercise.title
-      },
-      id: exercise.id,
-      index: 0
-    }],
-    chapterTitle
-  };
-}
-
-export function exerciseForPageReplacement ({ conceptId, description, displayOrder, imageDescription, solution, solutionImageDescription, source, title }: Exercise): Omit<Exercise, 'bookPage' | 'id'> {
-  return {
-    conceptId,
-    displayOrder,
-    description: stripMarkdownImageReferences(description),
-    imageDescription,
-    solution,
-    solutionImageDescription,
-    source,
-    title
-  };
-}
-
 export function conceptEmbeddingDistanceMatrix (entries: ConceptEmbeddingHeatmapEntry[]): Array<Array<number | undefined>> {
   const matrix = Array.from({ length: entries.length }, () => Array<number | undefined>(entries.length));
 
@@ -113,26 +78,6 @@ export function conceptEmbeddingDistanceMatrix (entries: ConceptEmbeddingHeatmap
   }
 
   return matrix;
-}
-
-export function exerciseChapterNavigationKey ({ id, pageNumbers, title }: ExerciseChapterNavigationItem): string {
-  return `${id ?? title}\n${pageNumbers.join(',')}`;
-}
-
-export function conceptsForExerciseChapter (concepts: BookConcept[], chapter: ExerciseChapterNavigationItem): BookConcept[] {
-  return sortConceptsForDisplay(concepts.filter((concept) => conceptBelongsToChapter(concept, { chapterId: chapter.id, pageNumbers: chapter.pageNumbers })));
-}
-
-export function exercisesForExerciseChapter (
-  pageRows: Array<{ exercises: Exercise[]; pageNumber: number }>,
-  concepts: BookConcept[],
-  chapter: ExerciseChapterNavigationItem
-): Exercise[] {
-  const conceptIds = new Set(concepts.flatMap(({ id }) => id === undefined ? [] : [id]));
-
-  return sortExercisesForDisplay(pageRows.flatMap(({ exercises, pageNumber }) => exercises.filter(({ conceptId }) =>
-    conceptId === undefined ? chapter.pageNumbers.includes(pageNumber) : conceptIds.has(conceptId)
-  )));
 }
 
 export function conceptReferenceKey ({ description, id, title }: Pick<BookConcept, 'description' | 'id' | 'title'>): string {
@@ -158,20 +103,11 @@ export function matchingLiveConcept (displayed: BookConcept, live: BookConcept[]
   return contentMatches.length === 1 ? contentMatches[0] : undefined;
 }
 
-export const exerciseAbilityModuleId = (bookId: number, exerciseId: number): string => `book-${bookId}-exercise-${exerciseId}`;
 export const conceptAbilityModuleId = (bookId: number, conceptId: number): string => `book-${bookId}-concept-${conceptId}`;
 
-export async function deleteConceptAndDependencies (bookId: number, concept: BookConcept, pageNumbers: number[]): Promise<void> {
+export async function deleteConceptAndDependencies (bookId: number, concept: BookConcept, _pageNumbers: number[]): Promise<void> {
   if (concept.id === undefined) {
     throw new Error('Unable to delete a concept without an id.');
-  }
-
-  const exercises = (await Promise.all(pageNumbers.map((conceptPageNumber) => getExercisesForBookPage([bookId, conceptPageNumber])))).flat();
-  const referencedExercises = exercises.filter(({ conceptId, id }) => id !== undefined && conceptId === concept.id);
-
-  for (const exercise of referencedExercises) {
-    await deleteAbilities(exerciseAbilityModuleId(bookId, exercise.id as number));
-    await deleteExercise(exercise.id as number);
   }
 
   await deleteAbilities(conceptAbilityModuleId(bookId, concept.id));

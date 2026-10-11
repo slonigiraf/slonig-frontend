@@ -3,15 +3,13 @@
 
 import type { BookConcept } from '@slonigiraf/db';
 
-export type ReaderPane = 'age' | 'chapters' | 'conceptExercises' | 'conceptsSkills' | 'embeddings' | 'language' | 'subject' | 'pdf' | 'preExercisesExercises' | 'skillsCourse' | 'standards' | 'text' | 'textConcepts';
+export type ReaderPane = 'age' | 'chapters' | 'conceptsSkills' | 'embeddings' | 'language' | 'subject' | 'pdf' | 'preExercisesExercises' | 'skillsCourse' | 'standards' | 'text' | 'textConcepts';
 
 export type RecognitionTarget = 'all' | 'page';
 
 export interface ReaderEntityCounts {
   abilities: number;
-  bookExercises: number;
   concepts: number;
-  exercises: number;
 }
 
 export interface ConceptEmbeddingHeatmapEntry {
@@ -20,8 +18,3 @@ export interface ConceptEmbeddingHeatmapEntry {
   norm: number;
 }
 
-export interface ExerciseChapterNavigationItem {
-  id?: number;
-  pageNumbers: number[];
-  title: string;
-}

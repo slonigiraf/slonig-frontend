@@ -4,7 +4,7 @@
 import { formatChapterTitle } from '../../../book/domain/chapters/chapterTitles.js';
 
 import type { Book, BookChapter, BookPage, BookProcessingStageKey } from '@slonigiraf/db';
-import { assignBookPageChapter, deleteAbilities, deleteBookChapters, getBookChapters, getBookPages, getExercisesForBookPage, getSetting, mergeBookChapterWithPrevious, replaceBookChapterAssignments, SettingKey, splitBookChapterAtPage, updateBookChapterTitle, updateBookFieldsAndStages, withBookProcessingStagesResetFrom, withCompletedBookProcessingStage } from '@slonigiraf/db';
+import { assignBookPageChapter, deleteBookChapters, getBookChapters, getBookPages, getSetting, mergeBookChapterWithPrevious, replaceBookChapterAssignments, SettingKey, splitBookChapterAtPage, updateBookChapterTitle, updateBookFieldsAndStages, withBookProcessingStagesResetFrom, withCompletedBookProcessingStage } from '@slonigiraf/db';
 import type { PDFDocumentProxy } from 'pdfjs-dist';
 import type { Dispatch, SetStateAction } from 'react';
 import { useCallback, useEffect } from 'react';
@@ -13,7 +13,6 @@ import { OPENROUTER_CONCURRENCY } from '../../../../openrouter/concurrency.js';
 import { chapterAssignmentsFromBoundaries, chapterEvidenceWindows, chapterReconciliationPrompt, chapterWindowPrompt, deriveStructuralChapterCandidates, pageChapterEvidence, stabilizeChapterBoundaries } from '../../../book/domain/chapters/chapterSegmentation.js';
 import { extractPdfOutlineChapterBoundaries } from '../../../book/infrastructure/pdf/pdf.js';
 import { createOpenRouterClient, requestChapterBoundaries } from '../../../book/application/workspace/bookReaderProcessing.js';
-import { exerciseAbilityModuleId } from '../../../book/application/workspace/bookReaderWorkspace.js';
 import { type ReaderPane } from '../../../shared/types/bookWorkspace.js';
 interface UseBookChapterActionsOptions {
   addChaptersCost: (costUsd: number) => void;
@@ -173,10 +172,6 @@ export function useBookChapterActions ({
 
     try {
       const selected = new Set(chapterIds);
-      const selectedPageNumbers = Array.from(pages.values()).flatMap(({ chapterId, pageNumber }) => chapterId !== undefined && selected.has(chapterId) ? [pageNumber] : []);
-      const selectedExercises = (await Promise.all(selectedPageNumbers.map((selectedPageNumber) => getExercisesForBookPage([book.id, selectedPageNumber])))).flat();
-
-      await Promise.all(selectedExercises.flatMap(({ id }) => id === undefined ? [] : [deleteAbilities(exerciseAbilityModuleId(book.id, id))]));
       await deleteBookChapters(book.id, chapterIds);
       setSelectedChapterIds(new Set());
       await refreshChapterAssignments();

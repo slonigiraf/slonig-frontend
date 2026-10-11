@@ -69,7 +69,7 @@ export function getSessionReaderPane (bookId: number): ReaderPane {
       return 'text';
     }
 
-    return value === 'text' || value === 'language' || value === 'subject' || value === 'age' || value === 'chapters' || value === 'textConcepts' || value === 'standards' || value === 'embeddings' || value === 'conceptExercises' || value === 'preExercisesExercises' || value === 'skillsCourse' ? value : 'text';
+    return value === 'text' || value === 'language' || value === 'subject' || value === 'age' || value === 'chapters' || value === 'textConcepts' || value === 'standards' || value === 'embeddings' || value === 'preExercisesExercises' || value === 'skillsCourse' ? value : 'text';
   } catch {
     return 'text';
   }

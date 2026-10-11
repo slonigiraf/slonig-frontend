@@ -7,8 +7,8 @@ import type { GeneratedAbility } from './abilities.js';
 
 import { strict as assert } from 'node:assert';
 
-import { parseAbilityRepairResult, parseAbilityRepairReviews, parseGeneratedAbilities, parseGeneratedExerciseAbilities, parseStoredAbility, prepareAbilityForPublishing, withAbilityVisualError, withAbilityVisualSource } from './abilities.js';
-import { EXERCISE_ABILITIES_PROMPT, FIX_ABILITIES_PROMPT, SINGLE_EXERCISE_ABILITY_RECOVERY_PROMPT, SKILL_LIST_PROMPT, SOURCES_TO_SKILLS_PROMPT } from '../Generate/book/infrastructure/ai/prompts/abilities.js';
+import { parseAbilityRepairResult, parseAbilityRepairReviews, parseGeneratedAbilities, parseStoredAbility, prepareAbilityForPublishing, withAbilityVisualError, withAbilityVisualSource } from './abilities.js';
+import { FIX_ABILITIES_PROMPT, SKILL_LIST_PROMPT, SOURCES_TO_SKILLS_PROMPT } from '../Generate/book/infrastructure/ai/prompts/abilities.js';
 
 function createSkill (): GeneratedAbility {
   return {
@@ -20,13 +20,6 @@ function createSkill (): GeneratedAbility {
     ],
     t: 3
   };
-}
-
-function noImagePrompts (): Array<{ changesImage: boolean; i: string; p: string }> {
-  return [
-    { changesImage: false, i: '', p: '' },
-    { changesImage: false, i: '', p: '' }
-  ];
 }
 
 describe('generated abilities', (): void => {
@@ -380,126 +373,6 @@ describe('generated abilities', (): void => {
     ] }), [original, original]));
   });
 
-  it('keeps valid partial Exercise-to-Ability conversions keyed by source Exercise id', (): void => {
-    const first = createSkill();
-    const third = { ...createSkill(), h: 'A third exercise skill' };
-    const parsed = parseGeneratedExerciseAbilities(JSON.stringify({
-      abilities: [
-        { ability: first, exerciseId: 11, imagePrompts: noImagePrompts() },
-        { ability: { ...createSkill(), q: [] }, exerciseId: 12, imagePrompts: noImagePrompts() },
-        { ability: third, exerciseId: 13, imagePrompts: noImagePrompts() }
-      ]
-    }), [11, 12, 13]);
-
-    assert.deepEqual(parsed, [
-      { ability: first, exerciseId: 11, imagePrompts: noImagePrompts() },
-      { ability: third, exerciseId: 13, imagePrompts: noImagePrompts() }
-    ]);
-  });
-
-  it('preserves validated image-generation prompts for Exercise-to-Ability conversion', (): void => {
-    const ability = createSkill();
-    const imagePrompts = [
-      { changesImage: false, i: '', p: 'A number line from 0 to 10 with a point at 4.' },
-      { changesImage: true, i: 'The completed number line with the answer highlighted.', p: 'A number line from 0 to 12 with a point at 7.' }
-    ];
-
-    assert.deepEqual(parseGeneratedExerciseAbilities(JSON.stringify({ abilities: [
-      { ability, exerciseId: 20, imagePrompts }
-    ] }), [20]), [{ ability, exerciseId: 20, imagePrompts }]);
-  });
-
-  it('requires the AI to classify whether each Ability question changes an image', (): void => {
-    const ability = createSkill();
-
-    assert.deepEqual(parseGeneratedExerciseAbilities(JSON.stringify({ abilities: [{
-      ability,
-      exerciseId: 23,
-      imagePrompts: [{ i: '', p: '' }, { i: '', p: '' }]
-    }] }), [23]), []);
-
-    assert.deepEqual(parseGeneratedExerciseAbilities(JSON.stringify({ abilities: [{
-      ability,
-      exerciseId: 23,
-      imagePrompts: [
-        { changesImage: true, i: '', p: 'A triangle with a missing altitude.' },
-        { changesImage: false, i: '', p: 'A triangle to inspect.' }
-      ]
-    }] }), [23])[0]?.imagePrompts, [
-      { changesImage: true, i: '', p: 'A triangle with a missing altitude.' },
-      { changesImage: false, i: '', p: 'A triangle to inspect.' }
-    ]);
-  });
-
-  it('normalizes common schema drift in Exercise-to-Ability conversions', (): void => {
-    assert.deepEqual(parseGeneratedExerciseAbilities(JSON.stringify({ abilities: [{
-      ability: {
-        questions: [
-          { answer: '<kx>2 \\times 1000 = 2000</kx> m.', question: 'Convert <kx>2</kx> km to m.' },
-          { answer: '<kx>5 \\times 1000 = 5000</kx> m.', question: 'Convert <kx>5</kx> km to m.' }
-        ],
-        title: 'Convert whole kilometers to meters',
-        type: '3'
-      },
-      exerciseId: 24,
-      imagePrompts: [{ modifiesImage: false, prompt: '' }, { editsImage: false, prompt: '' }]
-    }] }), [24]), [{
-      ability: createSkill(),
-      exerciseId: 24,
-      imagePrompts: [{ changesImage: false, i: '', p: '' }, { changesImage: false, i: '', p: '' }]
-    }]);
-  });
-
-  it('salvages the first two distinct complete questions from an oversized conversion', (): void => {
-    const parsed = parseGeneratedExerciseAbilities(JSON.stringify({ abilities: [{
-      ability: {
-        h: 'Convert whole kilometers to meters',
-        q: [
-          { a: '<kx>2 \\times 1000 = 2000</kx> m.', h: 'Convert <kx>2</kx> km to m.' },
-          { a: '<kx>2 \\times 1000 = 2000</kx> m.', h: 'Convert <kx>2</kx> km to m.' },
-          { a: '<kx>5 \\times 1000 = 5000</kx> m.', h: 'Convert <kx>5</kx> km to m.' }
-        ]
-      },
-      exerciseId: 25,
-      imagePrompts: noImagePrompts()
-    }] }), [25]);
-
-    assert.deepEqual(parsed, [{ ability: createSkill(), exerciseId: 25, imagePrompts: noImagePrompts() }]);
-  });
-
-  it('rejects positional legacy conversions when visual decisions are required', (): void => {
-    const first = createSkill();
-
-    assert.deepEqual(parseGeneratedExerciseAbilities(JSON.stringify([first]), [21], true), []);
-    assert.equal(parseGeneratedExerciseAbilities(JSON.stringify([{
-      ability: first,
-      exerciseId: 21,
-      imagePrompts: noImagePrompts()
-    }]), [21], true).length, 1);
-  });
-
-  it('accepts positional partial legacy Ability arrays so omitted trailing Exercises can be retried', (): void => {
-    const first = createSkill();
-    const second = { ...createSkill(), h: 'A second exercise skill' };
-
-    assert.deepEqual(parseGeneratedExerciseAbilities(JSON.stringify([first, second]), [21, 22, 23]), [
-      { ability: first, exerciseId: 21 },
-      { ability: second, exerciseId: 22 }
-    ]);
-  });
-
-  it('ignores duplicate and unexpected Exercise ids instead of corrupting pairings', (): void => {
-    const first = createSkill();
-    const duplicate = { ...createSkill(), h: 'Duplicate' };
-    const unexpected = { ...createSkill(), h: 'Unexpected' };
-
-    assert.deepEqual(parseGeneratedExerciseAbilities(JSON.stringify({ abilities: [
-      { exerciseId: 31, ability: first, imagePrompts: noImagePrompts() },
-      { exerciseId: 31, ability: duplicate, imagePrompts: noImagePrompts() },
-      { exerciseId: 99, ability: unexpected, imagePrompts: noImagePrompts() }
-    ] }), [31, 32]), [{ ability: first, exerciseId: 31, imagePrompts: noImagePrompts() }]);
-  });
-
   it('does not discard an otherwise valid Ability solely because its two question texts are identical', (): void => {
     const duplicatedPair = {
       ...createSkill(),
@@ -684,25 +557,10 @@ describe('generated abilities', (): void => {
     assert.match(SKILL_LIST_PROMPT, /Templatability, self-containment/i);
   });
 
-  it('protects mathematical meaning while allowing substantive Ability variations in both legacy paths', (): void => {
-    const prompts = [
-      SKILL_LIST_PROMPT,
-      EXERCISE_ABILITIES_PROMPT('en', 'Geometry', []),
-      SINGLE_EXERCISE_ABILITY_RECOVERY_PROMPT('en', 'Geometry', 1, { description: 'Read a grid' })
-    ];
-
-    for (const prompt of prompts) {
-      assert.match(prompt, /mathematical learning objective/i);
-      assert.match(prompt, /difficulty/i);
-      assert.match(prompt, /formal structure of each representation/i);
-      assert.match(prompt, /row\/column structure/i);
-      assert.match(prompt, /geometric and spatial relationships/i);
-      assert.match(prompt, /visually similar but mathematically incorrect illustrations/i);
-      assert.match(prompt, /Natural-language wording may vary when/i);
-      assert.match(prompt, /cosmetic/i);
-      assert.match(prompt, /actual mathematical arrangement/i);
-      assert.match(prompt, /fixed learning targets/i);
-    }
+  it('requires direct Concept-linked Abilities to preserve learning objectives', (): void => {
+    assert.match(FIX_ABILITIES_PROMPT, /sourceConcept as the PRIMARY authority/i);
+    assert.match(FIX_ABILITIES_PROMPT, /formal structure of mathematical representations/i);
+    assert.match(FIX_ABILITIES_PROMPT, /preserve the Concept's learning objective/i);
   });
 
   it('generates one language-constrained skill per source item', (): void => {
@@ -713,50 +571,21 @@ describe('generated abilities', (): void => {
     assert.match(SOURCES_TO_SKILLS_PROMPT, /"skills"/);
   });
 
-  it('requires the repair stage to detect all error classes and return indexed fixes', (): void => {
+  it('requires the direct Concept Ability repair to detect errors, preserve titles and review duplicates', (): void => {
     assert.match(FIX_ABILITIES_PROMPT, /factual/i);
     assert.match(FIX_ABILITIES_PROMPT, /logical/i);
     assert.match(FIX_ABILITIES_PROMPT, /grammatical/i);
     assert.match(FIX_ABILITIES_PROMPT, /KaTeX/i);
-    assert.match(FIX_ABILITIES_PROMPT, /Every learner-facing numeric literal in Ability h, q\[\]\.h, and q\[\]\.a/i);
-    assert.match(FIX_ABILITIES_PROMPT, /enclosed in <kx>\.\.\.<\/kx>/i);
-    assert.match(FIX_ABILITIES_PROMPT, /learner-facing number outside <kx>\.\.\.<\/kx> as an error/i);
-    assert.match(FIX_ABILITIES_PROMPT, /Digits embedded in alphanumeric identifiers or names are not numeric literals/i);
-    assert.match(FIX_ABILITIES_PROMPT, /TP53, BRCA1, H1N1, p53, and IL-6/i);
-    assert.match(FIX_ABILITIES_PROMPT, /never wrap an embedded digit or the whole identifier/i);
-    assert.match(FIX_ABILITIES_PROMPT, /Do not apply this number-markup rule to semantic visual-description fields/i);
-    assert.match(FIX_ABILITIES_PROMPT, /question image present/i);
-    assert.match(FIX_ABILITIES_PROMPT, /preserve the image dependency/i);
-    assert.match(FIX_ABILITIES_PROMPT, /embeddingValidation/i);
-    assert.match(FIX_ABILITIES_PROMPT, /needsAdditionalCheck/i);
-    assert.match(FIX_ABILITIES_PROMPT, /low cosine similarity is only a hint/i);
-    assert.match(FIX_ABILITIES_PROMPT, /sourceExercise evidence/i);
-    assert.match(FIX_ABILITIES_PROMPT, /hasErrors/i);
-    assert.match(FIX_ABILITIES_PROMPT, /errors/i);
-    assert.match(FIX_ABILITIES_PROMPT, /reviews/i);
-    assert.match(FIX_ABILITIES_PROMPT, /one source Exercise/i);
-    assert.match(FIX_ABILITIES_PROMPT, /Do not split a coherent multi-step Ability/i);
-    assert.match(FIX_ABILITIES_PROMPT, /within 32 words/i);
-    assert.match(FIX_ABILITIES_PROMPT, /partial reviews array/i);
+    assert.match(FIX_ABILITIES_PROMPT, /sourceConcept as the PRIMARY authority/i);
+    assert.match(FIX_ABILITIES_PROMPT, /Copy sourceConcept.title exactly/i);
+    assert.match(FIX_ABILITIES_PROMPT, /Abilities link directly to Concepts/i);
+    assert.match(FIX_ABILITIES_PROMPT, /Never rename Abilities to make titles unique/i);
     assert.match(FIX_ABILITIES_PROMPT, /duplicatePairs/i);
     assert.match(FIX_ABILITIES_PROMPT, /keptAbilityId/i);
     assert.match(FIX_ABILITIES_PROMPT, /deletedAbilityId/i);
-    assert.match(FIX_ABILITIES_PROMPT, /earliest supplied index/i);
-    assert.match(FIX_ABILITIES_PROMPT, /Ability titles \(h\) must be unique within the chapter/i);
-    assert.match(FIX_ABILITIES_PROMPT, /case-insensitively after trimming whitespace/i);
-    assert.match(FIX_ABILITIES_PROMPT, /title on every Ability in that same-title group as an error/i);
-    assert.match(FIX_ABILITIES_PROMPT, /rewrite all of those titles, including the earliest one/i);
-    assert.match(FIX_ABILITIES_PROMPT, /more specific titles that clearly distinguish the Abilities/i);
-    assert.match(FIX_ABILITIES_PROMPT, /Do not keep the shared generic title on one Ability and rename only the later records/i);
-    assert.match(FIX_ABILITIES_PROMPT, /omit correct Abilities/i);
-    assert.match(FIX_ABILITIES_PROMPT, /Task 1/);
-    assert.match(FIX_ABILITIES_PROMPT, /Task 2/);
-    assert.match(FIX_ABILITIES_PROMPT, /q\[\]\.h and its question visual prompt in q\[\]\.pPrompt/i);
-    assert.match(FIX_ABILITIES_PROMPT, /Do not use q\[\]\.p as a fallback or substitute for q\[\]\.pPrompt/i);
-    assert.doesNotMatch(FIX_ABILITIES_PROMPT, /falling back to the semantic q\[\]\.p/i);
-    assert.match(FIX_ABILITIES_PROMPT, /formal structure of mathematical representations/i);
-    assert.match(FIX_ABILITIES_PROMPT, /cosmetic styling for meaningful variation/i);
-    assert.match(FIX_ABILITIES_PROMPT, /spatial arrangements may differ/i);
+    assert.match(FIX_ABILITIES_PROMPT, /Task 1/i);
+    assert.match(FIX_ABILITIES_PROMPT, /Task 2/i);
+    assert.match(FIX_ABILITIES_PROMPT, /Do not use q\[\]\.p as a fallback/i);
     assert.match(FIX_ABILITIES_PROMPT, /combined text-plus-visual task/i);
     assert.match(FIX_ABILITIES_PROMPT, /<kx>/i);
   });

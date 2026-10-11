@@ -23,9 +23,9 @@ import type { Book, BookProcessingStageKey } from './Book.js';
 import type { BookPage } from './BookPage.js';
 import type { BookConcept } from './BookConcept.js';
 import type { BookChapter } from './BookChapter.js';
-import type { Exercise } from './Exercise.js';
 import type { Skill } from './Skill.js';
 import type { ExerciseTemplate } from './ExerciseTemplate.js';
+import type { Exercise } from './Exercise.js';
 import type { AiTutorStudentMessage } from './AiTutorStudentMessage.js';
 import type { StandardEmbedding } from './StandardEmbedding.js';
 import type { ConceptEmbedding } from './ConceptEmbedding.js';
@@ -68,7 +68,7 @@ function migrateOrdinalBookStages (book: LegacyOrdinalBook): BookProcessingStage
   return BOOK_PROCESSING_STAGES.filter((stage) => completed.has(stage));
 }
 
-type LegacyBookSkill = Omit<Skill, 'exerciseIds'> & { bookExerciseIds?: number[] };
+type LegacyBookSkill = Skill & { bookExerciseIds?: number[]; exerciseIds?: number[] };
 type LegacyExerciseTemplate = Omit<ExerciseTemplate, 'skillId'> & { bookSkillId: number };
 type LegacyExerciseWithImages = Exercise & { image?: string; images?: string[] };
 type LegacyExerciseWithAbilityMode = Exercise & { abilityMode?: string };
@@ -121,7 +121,6 @@ export class SlonigDB extends Dexie {
   bookPages!: Table<BookPage, [number, number]>;
   bookConcepts!: Table<BookConcept, number>;
   bookChapters!: Table<BookChapter, number>;
-  exercises!: Table<Exercise, number>;
   skills!: Table<Skill, number>;
   exerciseTemplates!: Table<ExerciseTemplate, number>;
   aiTutorStudentMessages!: Table<AiTutorStudentMessage, string>;
@@ -687,6 +686,9 @@ export class SlonigDB extends Dexie {
         }
       });
     });
+    // Drop the retired standalone Exercise object store on upgrade. Direct
+    // Concept-linked Abilities remain intact in the abilities store.
+    this.version(101).stores({ exercises: null });
 
   }
 }

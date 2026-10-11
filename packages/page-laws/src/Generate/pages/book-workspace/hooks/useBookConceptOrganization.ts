@@ -268,7 +268,7 @@ export function useBookConceptOrganization ({
       let stageBook = book;
 
       if (splits.length) {
-        stageBook = withBookProcessingStagesResetFrom(book, 'exercises');
+        stageBook = withBookProcessingStagesResetFrom(book, 'abilities');
         const expectedMembership = await applyBookChapterRefinements(book.id, splits.map(({ chapter, concepts, groups, splitPages }) => ({
           groups: groups.map(({ conceptIndexes, title }) => ({
             conceptIds: conceptIndexes.map((conceptIndex) => concepts[conceptIndex].id as number),

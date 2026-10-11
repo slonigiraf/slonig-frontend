@@ -1,15 +1,13 @@
 // Copyright 2021-2026 @polkadot/app-laws authors & contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import type { Exercise, Skill } from '@slonigiraf/db';
+import type { Skill } from '@slonigiraf/db';
 import type { AbilityRepairResult, GeneratedAbility } from '../../../../abilities/abilities.js';
 import type { TikzPreRenderResult } from '../../../../Edit/TikzDisplay.js';
-import type { ExerciseAbilityConversion } from '../../domain/abilities/abilityWorkflow.js';
 import type { OpenRouterCostReporter } from '../../../../openrouter/cost.js';
 
 import OpenAI from 'openai';
 
-import { stripMarkdownImageReferences } from '../../infrastructure/pdf/bookImageRefs.js';
 import { FIX_ABILITIES_REQUEST_PROMPT, JSON_VALIDATION_PROMPT } from '../../infrastructure/ai/prompts/abilities.js';
 import { parseAbilityRepairResult } from '../../../../abilities/abilities.js';
 import { LEARNER_AGE_PROMPT, MATH_DISPLAY_REQUIREMENTS_PROMPT } from '../../infrastructure/ai/prompts/shared.js';
@@ -52,7 +50,6 @@ export interface TikzAiReview {
 }
 
 export const abilityModuleId = (bookId: number, skillId: number): string => `book-${bookId}-skill-${skillId}`;
-export const exerciseAbilityModuleId = (bookId: number, exerciseId: number): string => `book-${bookId}-exercise-${exerciseId}`;
 export const conceptAbilityModuleId = (bookId: number, conceptId: number): string => `book-${bookId}-concept-${conceptId}`;
 
 function parseJson (content: string): unknown {
@@ -131,10 +128,6 @@ export function parseGeneratedSkills (content: string, expectedCount: number): A
   }
 
   return skills.map(({ description = '', title = '' }) => ({ description: description.trim(), title: title.trim() }));
-}
-
-function transportExercises (exercises: Exercise[]): unknown[] {
-  return exercises.map(({ description, ...exercise }) => ({ ...exercise, description: stripMarkdownImageReferences(description) }));
 }
 
 export function abilityRepairInput (
@@ -247,34 +240,6 @@ ${FIX_ABILITIES_REQUEST_PROMPT(retryInput)}`;
   }
 }
 
-export function exerciseRepairInput (language: string, batch: Exercise[], chapterTitle?: string, learnerAge?: number, sourceConceptsById?: ReadonlyMap<number, { description: string; title: string }>): unknown {
-  return {
-    bookLanguage: language,
-    ...(learnerAge === undefined ? {} : { learnerAge }),
-    exercises: batch.map(({ conceptId, description, id, imageDescription = '', solution = '', solutionImageDescription = '', title }, index) => ({
-      conceptId,
-      ...(conceptId !== undefined && sourceConceptsById?.has(conceptId) ? { sourceConcept: sourceConceptsById.get(conceptId) } : {}),
-      exercise: { description: stripMarkdownImageReferences(description), imageDescription, solution, solutionImageDescription, title },
-      id,
-      index
-    })),
-    ...(chapterTitle ? { chapterTitle } : {})
-  };
-}
-
-export function exerciseForPageReplacement ({ conceptId, description, displayOrder, imageDescription, solution, solutionImageDescription, source, title }: Exercise): Omit<Exercise, 'bookPage' | 'id'> {
-  return {
-    conceptId,
-    displayOrder,
-    description: stripMarkdownImageReferences(description),
-    imageDescription,
-    solution,
-    solutionImageDescription,
-    source,
-    title
-  };
-}
-
 export function storedAbilityImageId (record: StoredAbility, exerciseIndex: number, field: 'p' | 'i'): number | undefined {
   try {
     const parsed = JSON.parse(record.content) as unknown;
@@ -296,22 +261,6 @@ export function storedAbilityImageId (record: StoredAbility, exerciseIndex: numb
   } catch {
     return undefined;
   }
-}
-
-export function abilityWithImageDescriptions (conversion: ExerciseAbilityConversion): GeneratedAbility {
-  const q = conversion.ability.q.map((exercise, index) => {
-    const prompts = conversion.imagePrompts?.[index];
-
-    return {
-      ...exercise,
-      // Ability stages start with semantic image descriptions. storeAbility
-      // normalizes each description into an Image row referenced by q[].p/q[].i.
-      i: prompts?.i ?? '',
-      p: prompts?.p ?? ''
-    };
-  });
-
-  return { ...conversion.ability, q };
 }
 
 export function cleanTikzResponse (content: string): string {

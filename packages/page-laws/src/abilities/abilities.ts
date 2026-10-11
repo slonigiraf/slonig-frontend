@@ -39,18 +39,6 @@ export function withAbilityVisualError (exercise: GeneratedAbilityExercise, fiel
     : { ...exercise, iError: hasError };
 }
 
-export interface AbilityExerciseImagePrompts {
-  changesImage: boolean;
-  i: string;
-  p: string;
-}
-
-export interface GeneratedExerciseAbility {
-  ability: GeneratedAbility;
-  exerciseId: number;
-  imagePrompts?: [AbilityExerciseImagePrompts, AbilityExerciseImagePrompts];
-}
-
 export interface AbilityRepairReview {
   ability?: GeneratedAbility;
   errors: string[];
@@ -218,13 +206,12 @@ export function validateGeneratedAbilityText (ability: GeneratedAbility, validat
 }
 
 function parseGeneratedAbilityValue (value: unknown, fixedTitle?: string): GeneratedAbility {
-  // The model is not asked for an Ability title during Exercise-to-Ability
-  // conversion. Inject the source Concept title before schema validation;
+  // Inject the linked source Concept title before schema validation;
   // ignore any title a model might return despite the requested JSON shape.
   const template = parseAbilityValue(fixedTitle !== undefined && isRecord(value) ? { ...value, h: fixedTitle } : value);
 
   if (fixedTitle === undefined) {
-    // Retain title formatting for legacy generation paths without a source title.
+    // Retain title formatting for generation without a fixed source title.
     template.h = formatSentenceCaseTitle(template.h);
   } else {
     template.h = fixedTitle;
@@ -429,158 +416,5 @@ export function parseAbilityRepairReviews (content: string, originals: Array<Gen
       : parsed;
 
   return parseAbilityRepairResult(JSON.stringify(normalized), originals, originals.map((_, index) => String(index))).reviews;
-}
-
-function firstString (record: Record<string, unknown>, keys: string[]): string | undefined {
-  for (const key of keys) {
-    const value = record[key];
-
-    if (typeof value === 'string' && value.trim()) {
-      return value.trim();
-    }
-  }
-
-  return undefined;
-}
-
-function normalizeExerciseConversionAbility (value: unknown): unknown {
-  if (!isRecord(value)) {
-    return value;
-  }
-
-  const rawQuestions = Array.isArray(value.q)
-    ? value.q
-    : Array.isArray(value.questions)
-      ? value.questions
-      : Array.isArray(value.exercises)
-        ? value.exercises
-        : undefined;
-
-  if (!rawQuestions) {
-    return value;
-  }
-
-  const normalizedQuestions = rawQuestions.flatMap((question): Array<{ a: string; h: string; i: string; p: string }> => {
-    if (!isRecord(question)) {
-      return [];
-    }
-
-    const h = firstString(question, ['h', 'question', 'prompt', 'text']);
-    const a = firstString(question, ['a', 'answer', 'solution', 'response']);
-
-    return h && a ? [{ a, h, i: '', p: '' }] : [];
-  });
-
-  if (normalizedQuestions.length < 2) {
-    return value;
-  }
-
-  const first = normalizedQuestions[0];
-  const second = normalizedQuestions.slice(1).find(({ h }) => h.replace(/\s+/g, ' ').trim() !== first.h.replace(/\s+/g, ' ').trim()) ?? normalizedQuestions[1];
-  const h = firstString(value, ['h', 'title', 'name', 'skill', 'ability']);
-
-  return {
-    h: h ?? value.h,
-    i: typeof value.i === 'string' ? value.i : '',
-    q: [first, second],
-    t: 3
-  };
-}
-
-function parseAbilityImagePrompts (value: unknown): [AbilityExerciseImagePrompts, AbilityExerciseImagePrompts] | undefined {
-  if (!Array.isArray(value) || value.length !== 2) {
-    return undefined;
-  }
-
-  const prompts = value.map((item): AbilityExerciseImagePrompts | undefined => {
-    if (!isRecord(item)) {
-      return undefined;
-    }
-
-    const p = typeof item.p === 'string' ? item.p : typeof item.prompt === 'string' ? item.prompt : typeof item.question === 'string' ? item.question : '';
-    const i = typeof item.i === 'string' ? item.i : typeof item.answer === 'string' ? item.answer : typeof item.solution === 'string' ? item.solution : '';
-    const changesImage = typeof item.changesImage === 'boolean'
-      ? item.changesImage
-      : typeof item.modifiesImage === 'boolean'
-        ? item.modifiesImage
-        : typeof item.editsImage === 'boolean'
-          ? item.editsImage
-          : undefined;
-
-    if (changesImage === undefined) {
-      return undefined;
-    }
-
-    return { changesImage, i: i.trim(), p: p.trim() };
-  });
-
-  return prompts.every((prompt): prompt is AbilityExerciseImagePrompts => prompt !== undefined)
-    ? prompts as [AbilityExerciseImagePrompts, AbilityExerciseImagePrompts]
-    : undefined;
-}
-
-export function parseGeneratedExerciseAbilities (content: string, expectedExerciseIds: number[], requireImagePrompts = false): GeneratedExerciseAbility[] {
-  const parsed = parseResponse(content);
-  const values: unknown = Array.isArray(parsed)
-    ? parsed
-    : isRecord(parsed)
-      ? parsed.abilities ?? parsed.conversions ?? parsed.templates
-      : undefined;
-
-  if (!Array.isArray(values)) {
-    throw new Error('OpenRouter returned invalid Exercise-to-Ability conversion data.');
-  }
-
-  const expected = new Set(expectedExerciseIds);
-  const used = new Set<number>();
-  const results: GeneratedExerciseAbility[] = [];
-
-  values.forEach((value: unknown, index): void => {
-    let abilityValue = value;
-    let exerciseId = expectedExerciseIds[index];
-    let imagePrompts: [AbilityExerciseImagePrompts, AbilityExerciseImagePrompts] | undefined;
-    const isWrappedConversion = isRecord(value) && ('ability' in value || 'exerciseId' in value || 'sourceExerciseId' in value);
-
-    if (requireImagePrompts && !isWrappedConversion) {
-      return;
-    }
-
-    if (isWrappedConversion) {
-      const candidateId = value.exerciseId ?? value.sourceExerciseId;
-
-      if (typeof candidateId !== 'number' || !Number.isSafeInteger(candidateId)) {
-        return;
-      }
-
-      exerciseId = candidateId;
-      imagePrompts = parseAbilityImagePrompts(value.imagePrompts);
-
-      // Exercise-to-Ability generation uses imagePrompts as a required visual
-      // decision record. Requiring it means the AI must explicitly decide for
-      // every question whether the learner is being asked to change a visual;
-      // otherwise the conversion is retried instead of silently losing a
-      // required worked-solution image.
-      if (!imagePrompts) {
-        return;
-      }
-
-      abilityValue = value.ability ?? { h: value.h, i: value.i, q: value.q, t: value.t };
-    }
-
-    if (exerciseId === undefined || !expected.has(exerciseId) || used.has(exerciseId)) {
-      return;
-    }
-
-    try {
-      const ability = parseGeneratedAbilityValue(normalizeExerciseConversionAbility(abilityValue));
-
-      used.add(exerciseId);
-      results.push({ ability, exerciseId, ...(imagePrompts ? { imagePrompts } : {}) });
-    } catch {
-      // Keep valid conversions from a partial response and retry this Exercise later.
-    }
-  });
-
-  return results;
 }
 

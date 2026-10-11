@@ -2,8 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { formatChapterTitle } from '../../../book/domain/chapters/chapterTitles.js';
-import type { ExerciseEditableFields } from '../../../shared/types/exercise.js';
-import type { BookChapter, Exercise, Skill } from '@slonigiraf/db';
+import type { BookChapter, Skill } from '@slonigiraf/db';
 import type { GeneratedAbility } from '../../../../abilities/abilities.js';
 import type { StoredAbility } from '../../../book/application/abilities/abilityProcessing.js';
 import type { ConceptRedoStage } from '../conceptRedoStages.js';
@@ -19,7 +18,6 @@ import { isTikzCode } from '../../../../Edit/tikz.js';
 import { nextStoredTikzValidity } from '../../../../Edit/tikzValidation.js';
 import { parseStoredAbility, withAbilityVisualSource } from '../../../../abilities/abilities.js';
 import { abilityModuleId, storedAbilityImageId } from '../../../book/application/abilities/abilityProcessing.js';
-import { stripMarkdownImageReferences } from '../../../book/infrastructure/pdf/bookImageRefs.js';
 import { EditForm } from '../SkillsStyles.js';
 import { CONCEPT_REDO_STAGES } from '../conceptRedoStages.js';
 import FixingOverlay from '../../../shared/ui/FixingOverlay.js';
@@ -27,7 +25,7 @@ import ItemActionsMenu from '../../../shared/ui/ItemActionsMenu.js';
 
 const TikzDisplay = React.lazy(() => import('../../../../Edit/TikzDisplay.js'));
 
-export function ChapterNavigation ({ chapters, failedVisualCounts, index, matchExercises = false, missingAbilityCounts, onChange, onEdit }: { chapters: BookChapter[]; failedVisualCounts?: number[]; index: number; matchExercises?: boolean; missingAbilityCounts?: number[]; onChange: (index: number) => void; onEdit: () => void }): React.ReactElement | null {
+export function ChapterNavigation ({ chapters, failedVisualCounts, index, matchAbilities = false, missingAbilityCounts, onChange, onEdit }: { chapters: BookChapter[]; failedVisualCounts?: number[]; index: number; matchAbilities?: boolean; missingAbilityCounts?: number[]; onChange: (index: number) => void; onEdit: () => void }): React.ReactElement | null {
   const previous = useCallback((): void => onChange(index - 1), [index, onChange]);
   const next = useCallback((): void => onChange(index + 1), [index, onChange]);
 
@@ -35,7 +33,7 @@ export function ChapterNavigation ({ chapters, failedVisualCounts, index, matchE
     return null;
   }
 
-  if (matchExercises) {
+  if (matchAbilities) {
     return <div className='chapterNavigation exercisesChapterNavigation'>
       <Button
         icon='arrow-left'
@@ -153,150 +151,18 @@ export function ChapterTitleEditor ({ chapter, language, onClose, onError, onSav
   </Modal>;
 }
 
-export function BookItem ({ description, id, imageDescription, onDelete, onDeleted, onError, onFix, onSave, rank, solution, solutionImageDescription, title, type }: { description: string; id?: number; imageDescription?: string; onDelete: (id: number) => Promise<void>; onDeleted: () => void; onError: (message: string) => void; onFix?: (id: number) => Promise<void>; onSave?: (id: number, value: ExerciseEditableFields) => Promise<void>; rank?: number; solution?: string; solutionImageDescription?: string; title: string; type: 'concept' | 'exercise' }): React.ReactElement {
-  const [isEditing, setIsEditing] = useState(false);
-  const [isFixing, setIsFixing] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
-  const [draftTitle, setDraftTitle] = useState(title);
-  const [draftDescription, setDraftDescription] = useState(description);
-  const [draftImageDescription, setDraftImageDescription] = useState(imageDescription ?? '');
-  const [draftSolution, setDraftSolution] = useState(solution ?? '');
-  const [draftSolutionImageDescription, setDraftSolutionImageDescription] = useState(solutionImageDescription ?? '');
+export function BookItem ({ description, id, onDelete, onDeleted, onError, title }: { description: string; id?: number; onDelete: (id: number) => Promise<void>; onDeleted: () => void; onError: (message: string) => void; title: string; type?: 'concept' }): React.ReactElement {
   const remove = useCallback((): void => {
-    if (id === undefined) {
-      return;
-    }
+    if (id === undefined) return;
+    onDelete(id).then(onDeleted).catch((reason: unknown) => onError(reason instanceof Error ? reason.message : 'Unable to delete the Concept.'));
+  }, [id, onDelete, onDeleted, onError]);
 
-    onDelete(id).then(onDeleted).catch((error) => onError(error instanceof Error ? error.message : `Unable to delete the ${type}.`));
-  }, [id, onDelete, onDeleted, onError, type]);
-  const openEdit = useCallback((): void => {
-    setDraftTitle(title);
-    setDraftDescription(description);
-    setDraftImageDescription(imageDescription ?? '');
-    setDraftSolution(solution ?? '');
-    setDraftSolutionImageDescription(solutionImageDescription ?? '');
-    setIsEditing(true);
-  }, [description, imageDescription, solution, solutionImageDescription, title]);
-  const closeEdit = useCallback((): void => {
-    if (!isSaving) {
-      setIsEditing(false);
-    }
-  }, [isSaving]);
-  const save = useCallback((): void => {
-    if (id === undefined || !onSave || !draftTitle.trim()) {
-      return;
-    }
-
-    setIsSaving(true);
-    onSave(id, {
-      description: draftDescription.trim(),
-      imageDescription: draftImageDescription.trim(),
-      solution: draftSolution.trim(),
-      solutionImageDescription: draftSolutionImageDescription.trim(),
-      title: draftTitle.trim()
-    })
-      .then(() => setIsEditing(false))
-      .catch((error) => onError(error instanceof Error ? error.message : 'Unable to save the Exercise.'))
-      .finally(() => setIsSaving(false));
-  }, [draftDescription, draftImageDescription, draftSolution, draftSolutionImageDescription, draftTitle, id, onError, onSave]);
-
-  const fix = useCallback((): void => {
-    if (id === undefined || !onFix) {
-      return;
-    }
-
-    setIsFixing(true);
-    onFix(id)
-      .catch((error) => onError(error instanceof Error ? error.message : 'Unable to fix the Exercise with AI.'))
-      .finally(() => setIsFixing(false));
-  }, [id, onError, onFix]);
-
-  return <article aria-busy={isFixing} className='contentCard' tabIndex={-1}>
+  return <article className='contentCard' tabIndex={-1}>
     <div className='contentCardActions'>
-      <ItemActionsMenu
-        actions={[
-          ...(type === 'exercise' && onFix ? [{ label: isFixing ? 'Fixing…' : 'Fix with AI', isDisabled: id === undefined || isFixing || isSaving, onClick: fix }] : []),
-          ...(type === 'exercise' && onSave ? [{ label: 'Edit', isDisabled: id === undefined || isFixing, onClick: openEdit }] : []),
-          { label: 'Delete', isDestructive: true, isDisabled: id === undefined || isFixing || isSaving, onClick: remove }
-        ]}
-        label={type === 'exercise' ? 'Exercise' : 'Concept'}
-      />
+      <ItemActionsMenu actions={[{ label: 'Delete', isDestructive: true, isDisabled: id === undefined, onClick: remove }]} label='Concept' />
     </div>
-    <strong>{rank !== undefined && <span>{rank}. </span>}<SpanWithTags content={title} /></strong>
+    <strong><SpanWithTags content={title} /></strong>
     {description && <p><SpanWithTags content={description} /></p>}
-    {imageDescription && <p><small>Required visual: <SpanWithTags content={imageDescription} /></small></p>}
-    {solution && <p><SpanWithTags content={solution} /></p>}
-    {solutionImageDescription && <p><small>Solution visual: <SpanWithTags content={solutionImageDescription} /></small></p>}
-    {isFixing && <FixingOverlay />}
-    {isEditing && <Modal
-      header='Edit Exercise'
-      onClose={closeEdit}
-      size='small'
-    >
-      <Modal.Content>
-        <EditForm>
-          <label>
-            <span>Title</span>
-            <input
-              disabled={isSaving}
-              onChange={({ target }) => setDraftTitle(target.value)}
-              type='text'
-              value={draftTitle}
-            />
-          </label>
-          <label>
-            <span>Task</span>
-            <textarea
-              disabled={isSaving}
-              onChange={({ target }) => setDraftDescription(target.value)}
-              rows={5}
-              value={draftDescription}
-            />
-          </label>
-          <label>
-            <span>Required visual description</span>
-            <textarea
-              disabled={isSaving}
-              onChange={({ target }) => setDraftImageDescription(target.value)}
-              rows={3}
-              value={draftImageDescription}
-            />
-          </label>
-          <label>
-            <span>Solution</span>
-            <textarea
-              disabled={isSaving}
-              onChange={({ target }) => setDraftSolution(target.value)}
-              rows={5}
-              value={draftSolution}
-            />
-          </label>
-          <label>
-            <span>Solution visual description</span>
-            <textarea
-              disabled={isSaving}
-              onChange={({ target }) => setDraftSolutionImageDescription(target.value)}
-              rows={3}
-              value={draftSolutionImageDescription}
-            />
-          </label>
-          <div className='editActions'>
-            <Button
-              icon='times'
-              isDisabled={isSaving}
-              label='Cancel'
-              onClick={closeEdit}
-            />
-            <Button
-              icon='save'
-              isDisabled={isSaving || !draftTitle.trim()}
-              label={isSaving ? 'Saving…' : 'Save'}
-              onClick={save}
-            />
-          </div>
-        </EditForm>
-      </Modal.Content>
-    </Modal>}
   </article>;
 }
 
@@ -583,22 +449,6 @@ export function AbilityCard ({ isBusy = false, onDeleted, onError, onFix, record
       </Modal.Content>
     </Modal>}
   </article>;
-}
-
-export function ExerciseReviewCard ({ exercise, isProposed = false }: { exercise: Exercise; isProposed?: boolean }): React.ReactElement {
-  return <div className={`fixResultsReviewCard${isProposed ? ' isProposed' : ''}`}>
-    <div className='fixResultsReviewHeading'>
-      <strong><SpanWithTags content={exercise.title} /></strong>
-      <span className='fixResultsReviewMeta'>
-        {isProposed && <span className='fixResultsReviewProposed'>Proposed</span>}
-        {exercise.id !== undefined && <span className='fixResultsReviewId'>ID {exercise.id}</span>}
-      </span>
-    </div>
-    <p><SpanWithTags content={stripMarkdownImageReferences(exercise.description)} /></p>
-    {exercise.imageDescription && <p><small>Required visual: <SpanWithTags content={exercise.imageDescription} /></small></p>}
-    {exercise.solution && <div className='solution'><SpanWithTags content={exercise.solution} /></div>}
-    {exercise.solutionImageDescription && <p><small>Solution visual: <SpanWithTags content={exercise.solutionImageDescription} /></small></p>}
-  </div>;
 }
 
 export function AbilityReviewCard ({ ability, content, isProposed = false }: { ability: GeneratedAbility | null; content?: string; isProposed?: boolean }): React.ReactElement {

@@ -1,54 +1,21 @@
 // Copyright 2021-2026 @polkadot/app-laws authors & contributors
 // SPDX-License-Identifier: Apache-2.0
 
-/** Group displayed Ability records by their parent Concept. Exercises are only
- * used to resolve the relationship; they are not rendered as parent cards. */
+/** Group Abilities directly by their source Concept, retaining unmatched records. */
 export function groupAbilitiesByConcept<
   TConcept extends { id?: number },
-  TExercise extends { conceptId?: number; id?: number },
   TAbility extends { moduleId: string }
-> (concepts: TConcept[], exercises: TExercise[], abilities: TAbility[], exerciseModuleId: (id: number) => string, conceptModuleId?: (id: number) => string): {
+> (concepts: TConcept[], abilities: TAbility[], conceptModuleId: (id: number) => string): {
   groups: Array<{ abilities: TAbility[]; concept: TConcept }>;
-  withoutConcept: TAbility[];
   unmatched: TAbility[];
 } {
-  const conceptIds = new Set(concepts.flatMap(({ id }) => id === undefined ? [] : [id]));
-  const moduleIdsByConcept = new Map<number, Set<string>>();
-  const knownModules = new Set<string>();
-  const withoutConceptModules = new Set<string>();
-
-  for (const concept of concepts) {
-    if (concept.id === undefined || !conceptModuleId) continue;
-    const moduleId = conceptModuleId(concept.id);
-    knownModules.add(moduleId);
-    moduleIdsByConcept.set(concept.id, new Set([...(moduleIdsByConcept.get(concept.id) ?? []), moduleId]));
-  }
-
-  for (const { conceptId, id } of exercises) {
-    if (id === undefined) {
-      continue;
-    }
-
-    const moduleId = exerciseModuleId(id);
-
-    knownModules.add(moduleId);
-
-    if (conceptId === undefined || !conceptIds.has(conceptId)) {
-      withoutConceptModules.add(moduleId);
-    } else {
-      const ids = moduleIdsByConcept.get(conceptId) ?? new Set<string>();
-
-      ids.add(moduleId);
-      moduleIdsByConcept.set(conceptId, ids);
-    }
-  }
+  const knownModules = new Set(concepts.flatMap(({ id }) => id === undefined ? [] : [conceptModuleId(id)]));
 
   return {
     groups: concepts.map((concept) => ({
-      abilities: abilities.filter(({ moduleId }) => concept.id !== undefined && moduleIdsByConcept.get(concept.id)?.has(moduleId)),
+      abilities: abilities.filter(({ moduleId }) => concept.id !== undefined && moduleId === conceptModuleId(concept.id)),
       concept
     })),
-    withoutConcept: abilities.filter(({ moduleId }) => withoutConceptModules.has(moduleId)),
     unmatched: abilities.filter(({ moduleId }) => !knownModules.has(moduleId))
   };
 }

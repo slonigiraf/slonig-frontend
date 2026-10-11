@@ -4,5 +4,4 @@
 export { default as ChapterTitleEditor } from './ChapterTitleEditor/ChapterTitleEditor.js';
 export { default as ConceptForm } from './ConceptForm/ConceptForm.js';
 export { default as ConceptItem } from './ConceptItem/ConceptItem.js';
-export { default as EditableExerciseItem } from './EditableExerciseItem/EditableExerciseItem.js';
 export { default as FixConceptsReviewContent } from './FixConceptsReviewContent/FixConceptsReviewContent.js';

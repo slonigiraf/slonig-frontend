@@ -424,7 +424,7 @@ async function storeGeneratedChapterConcepts(bookId: number, chapterPages: BookP
 
   for (const storedPage of [...chapterPages].sort((a, b) => a.pageNumber - b.pageNumber)) {
     const pageConcepts = conceptsByPageInput.get(storedPage.pageNumber) ?? [];
-    const stored = await replaceParsedBookPageContent(bookId, storedPage.pageNumber, storedPage.chapter, pageConcepts, []);
+    const stored = await replaceParsedBookPageContent(bookId, storedPage.pageNumber, storedPage.chapter, pageConcepts);
     const storedConcepts = stored.concepts;
 
     const processedPage: BookPage = {

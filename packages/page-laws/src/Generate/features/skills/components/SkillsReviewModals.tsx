@@ -1,112 +1,31 @@
 // Copyright 2021-2026 @polkadot/app-laws authors & contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import type { ExerciseFixReviewResult, FixReviewResult, ImageFixReviewResult } from '../SkillsTypes.js';
+import type { FixReviewResult, ImageFixReviewResult } from '../SkillsTypes.js';
 
 import { SpanWithTags } from '@slonigiraf/slonig-components';
 import React from 'react';
 
 import { Button, Modal } from '@polkadot/react-components';
 
-import { AbilityReviewCard, ExerciseReviewCard, RemovedReviewCard } from './SkillsComponents.js';
+import { AbilityReviewCard, RemovedReviewCard } from './SkillsComponents.js';
 import { FixResultsReviewContent } from '../SkillsStyles.js';
 
 const TikzDisplay = React.lazy(() => import('../../../../Edit/TikzDisplay.js'));
 
 interface SkillsReviewModalsProps {
   applyAbilityFixReview: () => Promise<void>;
-  applyExerciseFixReview: () => Promise<void>;
   applyImageFixReview: () => Promise<void>;
   autoRunAll: boolean;
-  closeExerciseFixReview: () => void;
   closeFixReview: () => void;
   closeImageFixReview: () => void;
-  exerciseFixReview: ExerciseFixReviewResult | null;
   fixReview: FixReviewResult | null;
   imageFixReview: ImageFixReviewResult | null;
   isBusy: boolean;
 }
 
-export default function SkillsReviewModals ({ applyAbilityFixReview, applyExerciseFixReview, applyImageFixReview, autoRunAll, closeExerciseFixReview, closeFixReview, closeImageFixReview, exerciseFixReview, fixReview, imageFixReview, isBusy }: SkillsReviewModalsProps): React.ReactElement {
+export default function SkillsReviewModals ({ applyAbilityFixReview, applyImageFixReview, autoRunAll, closeFixReview, closeImageFixReview, fixReview, imageFixReview, isBusy }: SkillsReviewModalsProps): React.ReactElement {
   return <>
-  {exerciseFixReview && !autoRunAll && (
-    <Modal
-      header='Fix exercises results'
-      onClose={closeExerciseFixReview}
-      size='large'
-    >
-      <Modal.Content>
-        <FixResultsReviewContent>
-          <div className='fixResultsReviewIntro'>
-            <p><strong>No Exercise changes have been saved yet.</strong></p>
-            <p>Checked {exerciseFixReview.checked} Exercises. Proposed {exerciseFixReview.items.length} correction{exerciseFixReview.items.length === 1 ? '' : 's'} and {exerciseFixReview.duplicatePairs.length} duplicate deletion{exerciseFixReview.duplicatePairs.length === 1 ? '' : 's'}.</p>
-          </div>
-          {(exerciseFixReview.items.length > 0 || exerciseFixReview.duplicatePairs.length > 0) && <div className='fixResultsReviewComparison'>
-            {exerciseFixReview.items.map(({ errors, exercise, exerciseId, original }, index) => <article
-              className='fixResultsReviewItem'
-              key={exerciseId}
-            >
-              <strong>{index + 1}. <SpanWithTags content={original.title} /></strong>
-              <div className='fixResultsReviewRow'>
-                <div className='fixResultsReviewCell'>
-                  <span className='fixResultsReviewChangeLabel'>Before</span>
-                  <ExerciseReviewCard exercise={original} />
-                </div>
-                <div className='fixResultsReviewCell'>
-                  <span className='fixResultsReviewChangeLabel'>After</span>
-                  <ExerciseReviewCard
-                    exercise={exercise}
-                    isProposed
-                  />
-                </div>
-              </div>
-              <section className='fixResultsDifference'>
-                <h3>Difference</h3>
-                {errors.length
-                  ? <ul>{errors.map((message, errorIndex) => <li key={`${exerciseId}-${errorIndex}`}><SpanWithTags content={message} /></li>)}</ul>
-                  : <p>This Exercise will be replaced by the proposed correction shown above.</p>}
-              </section>
-            </article>)}
-            {exerciseFixReview.duplicatePairs.map(({ chapterTitle, deleted, kept }, duplicateIndex) => <article
-              className='fixResultsReviewItem'
-              key={deleted.id ?? `deleted-${duplicateIndex}`}
-            >
-              <strong>{exerciseFixReview.items.length + duplicateIndex + 1}. <SpanWithTags content={deleted.title} /> — duplicate deletion</strong>
-              <p className='fixResultsReviewContext'><small>Chapter: <SpanWithTags content={chapterTitle} /> · Keeping: <SpanWithTags content={kept.title} /></small></p>
-              <div className='fixResultsReviewRow'>
-                <div className='fixResultsReviewCell'>
-                  <span className='fixResultsReviewChangeLabel'>Before</span>
-                  <ExerciseReviewCard exercise={deleted} />
-                </div>
-                <div className='fixResultsReviewCell'>
-                  <span className='fixResultsReviewChangeLabel'>After</span>
-                  <RemovedReviewCard label='Removed as duplicate' />
-                </div>
-              </div>
-              <section className='fixResultsDifference'>
-                <h3>Difference</h3>
-                <p><strong><SpanWithTags content={deleted.title} /></strong> will be deleted as a duplicate; <SpanWithTags content={kept.title} /> will be kept.</p>
-              </section>
-            </article>)}
-          </div>}
-          <Button.Group>
-            <Button
-              icon='times'
-              isDisabled={isBusy}
-              label='Discard'
-              onClick={closeExerciseFixReview}
-            />
-            <Button
-              icon='check'
-              isDisabled={isBusy}
-              label={exerciseFixReview.items.length || exerciseFixReview.duplicatePairs.length ? 'Apply changes' : 'Confirm review'}
-              onClick={() => applyExerciseFixReview().catch(console.error)}
-            />
-          </Button.Group>
-        </FixResultsReviewContent>
-      </Modal.Content>
-    </Modal>
-  )}
   {fixReview && !autoRunAll && (
     <Modal
       header='Fix abilities results'

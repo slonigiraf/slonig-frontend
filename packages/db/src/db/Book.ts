@@ -22,8 +22,7 @@ export const BOOK_PROCESSING_STAGES = [
 
 export type BookProcessingStageKey = typeof BOOK_PROCESSING_STAGES[number];
 
-// Exercise review and splitting are standalone tools, not pipeline stages.
-export type BookStageSpendKey = BookProcessingStageKey | 'exercises' | 'fixExercises' | 'splitExercises';
+export type BookStageSpendKey = BookProcessingStageKey;
 
 export type BookStageSpend = Partial<Record<BookStageSpendKey, number>>;
 

@@ -5,159 +5,32 @@
 
 import { strict as assert } from 'node:assert';
 
-import { assignBookConceptsToChapters, createBook, createBookConcept, deleteAbilities, deleteBook, deleteBookConcept, getAbilities, getBookConceptsForBookPage, getExercisesForBookPage, putBookChapter, putBookPage, reorderBookConcepts, replaceAbilities, replaceExercisesForBookPage, splitBookChapterAtPage, updateAbilityDisplayOrder, updateExerciseDisplayOrder } from './index.js';
+import { assignBookConceptsToChapters, createBook, createBookConcept, deleteAbilities, deleteBook, deleteBookConcept, getAbilities, getBookConceptsForBookPage, putBookChapter, putBookPage, reorderBookConcepts, replaceAbilities, splitBookChapterAtPage, updateAbilityDisplayOrder } from './index.js';
 import { db } from './db/index.js';
 
 const ability = (title: string): string => JSON.stringify({ h: title, i: '', q: [{ a: 'ok', h: 'Question', i: null, p: null }], t: 3 });
-const moduleId = (bookId: number, exerciseId: number): string => `book-${bookId}-exercise-${exerciseId}`;
+const moduleId = (bookId: number, conceptId: number): string => `book-${bookId}-concept-${conceptId}`;
 
 describe('ZPD learning display order', (): void => {
-  it('propagates BookConcept order to Exercises and then Abilities', async (): Promise<void> => {
-    const bookId = await createBook({ contentHash: `learning-order-${Date.now()}`, created: Date.now(), name: 'Order test', opfsName: 'order.pdf', size: 1 });
-    const abilityModules: string[] = [];
+  it('propagates a Concept reorder directly to its linked Abilities', async (): Promise<void> => {
+    const bookId = await createBook({ contentHash: `direct-order-${Date.now()}`, created: Date.now(), name: 'Direct order', opfsName: 'direct-order.pdf', size: 1 });
 
     try {
       const chapterId = await putBookChapter({ bookId, title: 'Chapter' });
-
       await putBookPage({ bookId, chapter: 'Chapter', chapterId, conceptsProcessed: true, pageNumber: 1 });
-
       const first = await createBookConcept({ bookPage: [bookId, 1], chapterId, description: '', displayOrder: 0, title: 'First' });
       const second = await createBookConcept({ bookPage: [bookId, 1], chapterId, description: '', displayOrder: 1, title: 'Second' });
-      const storedExercises = await replaceExercisesForBookPage([bookId, 1], [
-        { conceptId: first.id, description: '', solution: '', source: 'generated', title: 'First A' },
-        { conceptId: second.id, description: '', solution: '', source: 'generated', title: 'Second' },
-        { conceptId: first.id, description: '', solution: '', source: 'generated', title: 'First B' }
-      ]);
-      const [firstA, firstB, secondExercise] = [storedExercises[0], storedExercises[2], storedExercises[1]];
+      const firstModule = moduleId(bookId, first.id as number);
+      const secondModule = moduleId(bookId, second.id as number);
 
-      assert.deepEqual((await getExercisesForBookPage([bookId, 1])).map(({ title, displayOrder }) => [title, displayOrder]), [
-        ['First A', 0],
-        ['First B', 1],
-        ['Second', 2]
-      ]);
-
-      for (const exercise of [firstA, firstB, secondExercise]) {
-        assert.notEqual(exercise.id, undefined);
-        abilityModules.push(moduleId(bookId, exercise.id as number));
-      }
-
-      await replaceAbilities(moduleId(bookId, firstA.id as number), [ability('First A.1'), ability('First A.2')]);
-      await replaceAbilities(moduleId(bookId, firstB.id as number), [ability('First B')]);
-      await replaceAbilities(moduleId(bookId, secondExercise.id as number), [ability('Second')]);
-
-      assert.deepEqual((await getAbilities(moduleId(bookId, secondExercise.id as number))).map(({ displayOrder }) => displayOrder), [3]);
-
+      await replaceAbilities(firstModule, [ability('First')]);
+      await replaceAbilities(secondModule, [ability('Second')]);
+      assert.deepEqual((await getAbilities(firstModule)).map(({ displayOrder }) => displayOrder), [0]);
+      assert.deepEqual((await getAbilities(secondModule)).map(({ displayOrder }) => displayOrder), [1]);
       await reorderBookConcepts([second.id as number, first.id as number]);
-
-      assert.deepEqual((await getExercisesForBookPage([bookId, 1])).map(({ title, displayOrder }) => [title, displayOrder]), [
-        ['Second', 0],
-        ['First A', 1],
-        ['First B', 2]
-      ]);
-      assert.deepEqual((await getAbilities(moduleId(bookId, secondExercise.id as number))).map(({ displayOrder }) => displayOrder), [0]);
-      assert.deepEqual((await getAbilities(moduleId(bookId, firstA.id as number))).map(({ displayOrder }) => displayOrder), [1, 2]);
-      assert.deepEqual((await getAbilities(moduleId(bookId, firstB.id as number))).map(({ displayOrder }) => displayOrder), [3]);
+      assert.deepEqual((await getAbilities(secondModule)).map(({ displayOrder }) => displayOrder), [0]);
+      assert.deepEqual((await getAbilities(firstModule)).map(({ displayOrder }) => displayOrder), [1]);
     } finally {
-      await Promise.all(abilityModules.map((id) => deleteAbilities(id)));
-      await deleteBook(bookId);
-    }
-  });
-
-  it('back-propagates Ability order through Exercise to BookConcept', async (): Promise<void> => {
-    const bookId = await createBook({ contentHash: `ability-back-order-${Date.now()}`, created: Date.now(), name: 'Ability back order test', opfsName: 'ability-back-order.pdf', size: 1 });
-    const abilityModules: string[] = [];
-
-    try {
-      const chapterId = await putBookChapter({ bookId, title: 'Chapter' });
-
-      await putBookPage({ bookId, chapter: 'Chapter', chapterId, conceptsProcessed: true, pageNumber: 1 });
-
-      const first = await createBookConcept({ bookPage: [bookId, 1], chapterId, description: '', displayOrder: 0, title: 'First' });
-      const second = await createBookConcept({ bookPage: [bookId, 1], chapterId, description: '', displayOrder: 1, title: 'Second' });
-      const storedExercises = await replaceExercisesForBookPage([bookId, 1], [
-        { conceptId: first.id, description: '', solution: '', source: 'generated', title: 'First A' },
-        { conceptId: first.id, description: '', solution: '', source: 'generated', title: 'First B' },
-        { conceptId: second.id, description: '', solution: '', source: 'generated', title: 'Second' }
-      ]);
-      const [firstA, firstB, secondExercise] = storedExercises;
-
-      for (const exercise of storedExercises) {
-        assert.notEqual(exercise.id, undefined);
-        abilityModules.push(moduleId(bookId, exercise.id as number));
-      }
-
-      await replaceAbilities(moduleId(bookId, firstA.id as number), [ability('First A.1'), ability('First A.2')]);
-      await replaceAbilities(moduleId(bookId, firstB.id as number), [ability('First B')]);
-      const [secondAbilityId] = await replaceAbilities(moduleId(bookId, secondExercise.id as number), [ability('Second')]);
-
-      assert.equal((await getAbilities(moduleId(bookId, secondExercise.id as number)))[0]?.displayOrder, 3);
-
-      await updateAbilityDisplayOrder(secondAbilityId, 0);
-
-      assert.deepEqual((await getBookConceptsForBookPage(bookId, 1))
-        .sort((a, b) => (a.displayOrder ?? Number.MAX_SAFE_INTEGER) - (b.displayOrder ?? Number.MAX_SAFE_INTEGER))
-        .map(({ title, displayOrder }) => [title, displayOrder]), [
-        ['Second', 0],
-        ['First', 1]
-      ]);
-      assert.deepEqual((await getExercisesForBookPage([bookId, 1])).map(({ title, displayOrder }) => [title, displayOrder]), [
-        ['Second', 0],
-        ['First A', 1],
-        ['First B', 2]
-      ]);
-      assert.equal((await getAbilities(moduleId(bookId, secondExercise.id as number)))[0]?.displayOrder, 0);
-      assert.deepEqual((await getAbilities(moduleId(bookId, firstA.id as number))).map(({ displayOrder }) => displayOrder), [1, 2]);
-      assert.deepEqual((await getAbilities(moduleId(bookId, firstB.id as number))).map(({ displayOrder }) => displayOrder), [3]);
-    } finally {
-      await Promise.all(abilityModules.map((id) => deleteAbilities(id)));
-      await deleteBook(bookId);
-    }
-  });
-
-  it('back-propagates Exercise order to BookConcept and then Abilities', async (): Promise<void> => {
-    const bookId = await createBook({ contentHash: `exercise-back-order-${Date.now()}`, created: Date.now(), name: 'Exercise back order test', opfsName: 'exercise-back-order.pdf', size: 1 });
-    const abilityModules: string[] = [];
-
-    try {
-      const chapterId = await putBookChapter({ bookId, title: 'Chapter' });
-
-      await putBookPage({ bookId, chapter: 'Chapter', chapterId, conceptsProcessed: true, pageNumber: 1 });
-
-      const first = await createBookConcept({ bookPage: [bookId, 1], chapterId, description: '', displayOrder: 0, title: 'First' });
-      const second = await createBookConcept({ bookPage: [bookId, 1], chapterId, description: '', displayOrder: 1, title: 'Second' });
-      const storedExercises = await replaceExercisesForBookPage([bookId, 1], [
-        { conceptId: first.id, description: '', solution: '', source: 'generated', title: 'First' },
-        { conceptId: second.id, description: '', solution: '', source: 'generated', title: 'Second A' },
-        { conceptId: second.id, description: '', solution: '', source: 'generated', title: 'Second B' }
-      ]);
-      const [firstExercise, secondA, secondB] = storedExercises;
-
-      for (const exercise of storedExercises) {
-        assert.notEqual(exercise.id, undefined);
-        const id = moduleId(bookId, exercise.id as number);
-
-        abilityModules.push(id);
-        await replaceAbilities(id, [ability(exercise.title)]);
-      }
-
-      await updateExerciseDisplayOrder(secondB.id as number, 0);
-
-      assert.deepEqual((await getBookConceptsForBookPage(bookId, 1))
-        .sort((a, b) => (a.displayOrder ?? Number.MAX_SAFE_INTEGER) - (b.displayOrder ?? Number.MAX_SAFE_INTEGER))
-        .map(({ title, displayOrder }) => [title, displayOrder]), [
-        ['Second', 0],
-        ['First', 1]
-      ]);
-      assert.deepEqual((await getExercisesForBookPage([bookId, 1])).map(({ title, displayOrder }) => [title, displayOrder]), [
-        ['Second B', 0],
-        ['Second A', 1],
-        ['First', 2]
-      ]);
-      assert.equal((await getAbilities(moduleId(bookId, secondB.id as number)))[0]?.displayOrder, 0);
-      assert.equal((await getAbilities(moduleId(bookId, secondA.id as number)))[0]?.displayOrder, 1);
-      assert.equal((await getAbilities(moduleId(bookId, firstExercise.id as number)))[0]?.displayOrder, 2);
-    } finally {
-      await Promise.all(abilityModules.map((id) => deleteAbilities(id)));
       await deleteBook(bookId);
     }
   });

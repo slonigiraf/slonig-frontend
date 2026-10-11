@@ -1,7 +1,7 @@
 // Copyright 2021-2026 @polkadot/app-laws authors & contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import type { BookChapter, BookConcept, BookPage, BookProcessingStageKey, Exercise } from '@slonigiraf/db';
+import type { BookChapter, BookConcept, BookPage, BookProcessingStageKey } from '@slonigiraf/db';
 import { completeBookProcessingStage, isBookProcessingStageComplete, withCompletedBookProcessingStage } from '@slonigiraf/db';
 import type { PDFDocumentProxy } from 'pdfjs-dist';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -14,12 +14,11 @@ import { bookProcessingManager } from '../../book/application/pipeline/bookProce
 import { useTranslation } from '../../../common/translate.js';
 import type { ProcessingStatus } from '../../shared/types/processing.js';
 import type { AutoRunProgress } from '../../shared/types/processing.js';
-import { getSessionExerciseChapter, getSessionReaderMaximized, getSessionReaderPane, getSessionRecognitionAttempted, storeSessionPage, storeSessionRecognitionAttempted } from '../../book/infrastructure/storage/bookReaderSession.js';
+import { getSessionReaderMaximized, getSessionReaderPane, getSessionRecognitionAttempted, storeSessionPage, storeSessionRecognitionAttempted } from '../../book/infrastructure/storage/bookReaderSession.js';
 import type { DeduplicateConceptsReview, FixConceptsReview, Props } from './BookReaderTypes.js';
 import type { ReaderEntityCounts, ReaderPane } from '../../shared/types/bookWorkspace.js';
 import { useBookChapterActions } from './hooks/useBookChapterActions.js';
 import { useBookConceptProcessing } from './hooks/useBookConceptProcessing.js';
-import { useBookExerciseEditor } from './hooks/useBookExerciseEditor.js';
 import { useBookLearningContentProcessing } from './hooks/useBookLearningContentProcessing.js';
 import { useBookMetadataController } from './hooks/useBookMetadataController.js';
 import { useBookReaderCosts } from './hooks/useBookReaderCosts.js';
@@ -103,13 +102,8 @@ export function useBookReaderController (props: Props) {
   const [fixConceptsTargetChapterCount, setFixConceptsTargetChapterCount] = useState(0);
   const [isAssigningStandards, setIsAssigningStandards] = useState(false);
   const [conceptFirstPageByKey, setConceptFirstPageByKey] = useState<Map<string, number>>(new Map());
-  const [exerciseChapterConcepts, setExerciseChapterConcepts] = useState<BookConcept[]>([]);
-  const [exerciseChapterExercises, setExerciseChapterExercises] = useState<Exercise[]>([]);
-  const [exerciseChapterMissingCounts, setExerciseChapterMissingCounts] = useState<Map<string, number>>(new Map());
-  const [exerciseChapterIndex, setExerciseChapterIndex] = useState(() => getSessionExerciseChapter(book.id));
-  const [isExerciseChapterLoading, setIsExerciseChapterLoading] = useState(false);
   const [error, setError] = useState('');
-  const [entityCounts, setEntityCounts] = useState<ReaderEntityCounts>({ abilities: 0, bookExercises: 0, concepts: 0, exercises: 0 });
+  const [entityCounts, setEntityCounts] = useState<ReaderEntityCounts>({ abilities: 0, concepts: 0 });
   const [generatedConceptsChapterCount, setGeneratedConceptsChapterCount] = useState(0);
   const [fixedConceptsChapterCount, setFixedConceptsChapterCount] = useState(0);
   const [sortedConceptsChapterCount, setSortedConceptsChapterCount] = useState(0);
@@ -148,10 +142,8 @@ export function useBookReaderController (props: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const pageAreaRef = useRef<HTMLDivElement>(null);
   const conceptsOutputRef = useRef<HTMLDivElement>(null);
-  const exerciseConceptsOutputRef = useRef<HTMLDivElement>(null);
   const standardsChapterOutputRef = useRef<HTMLDivElement>(null);
   const pendingConceptChapterFocusRef = useRef(false);
-  const pendingExerciseChapterFocusRef = useRef(false);
   const pendingStandardsChapterFocusRef = useRef(false);
 
   const currentReaderProcessingSignal = useCallback((): AbortSignal => bookProcessingManager.signal(book.id), [book.id]);
@@ -178,7 +170,6 @@ export function useBookReaderController (props: Props) {
     addEmbeddingsCost,
     addFixConceptsCost,
     addLanguageCost,
-    addOpenRouterStageCost,
     addRecognizeCost,
     addRecognizeExternalCall,
     addRefineChaptersCost,
@@ -195,10 +186,8 @@ export function useBookReaderController (props: Props) {
     embeddingConceptInventory,
     embeddingHeatmapMode,
     embeddingModel,
-    exerciseChapterIndex,
     isMaximized,
     pages,
-    pendingExerciseChapterFocusRef,
     pendingStandardsChapterFocusRef,
     selectedModel,
     setActivePane,
@@ -207,7 +196,6 @@ export function useBookReaderController (props: Props) {
     setEmbeddingByConceptId,
     setEmbeddingConceptInventory,
     setEntityCounts,
-    setExerciseChapterIndex,
     setFixConceptsChapterStatuses,
     setIsEmbeddingHeatmapLoading,
     setRevealedPanes,
@@ -222,8 +210,6 @@ export function useBookReaderController (props: Props) {
   const {
     conceptChapters,
     currentConceptChapter,
-    currentExerciseChapter,
-    exerciseChapters,
     loadConceptCountsByChapter,
     loadDeduplicateConceptInventory,
     refreshConceptCounts,
@@ -324,29 +310,19 @@ export function useBookReaderController (props: Props) {
     concepts,
     conceptsOutputRef,
     currentConceptChapter,
-    currentExerciseChapter,
     embeddingHeatmapMode,
-    exerciseChapterConcepts,
-    exerciseChapters,
-    exerciseConceptsOutputRef,
     file,
-    isExerciseChapterLoading,
     isMaximized,
     pageAreaRef,
     pageNumber,
     pages,
     pdf,
     pendingConceptChapterFocusRef,
-    pendingExerciseChapterFocusRef,
     pendingStandardsChapterFocusRef,
     setChapters,
     setConceptFirstPageByKey,
     setConcepts,
     setError,
-    setExerciseChapterConcepts,
-    setExerciseChapterExercises,
-    setExerciseChapterMissingCounts,
-    setIsExerciseChapterLoading,
     setPageInput,
     setPageNumber,
     setPages,
@@ -602,19 +578,6 @@ export function useBookReaderController (props: Props) {
   });
 
 
-  const exerciseEditor = useBookExerciseEditor({
-    addOpenRouterStageCost,
-    book,
-    currentExerciseChapter,
-    exerciseChapterConcepts,
-    generateAllConceptsModel,
-    pages,
-    refreshEntityCounts,
-    setError,
-    setExerciseChapterExercises,
-    setSkillsRefreshToken
-  });
-
   const submitPageInput = useCallback((): void => {
     const requestedPage = Number(pageInput);
 
@@ -719,7 +682,6 @@ export function useBookReaderController (props: Props) {
     ...metadata,
     ...recognition,
     ...conceptEditor,
-    ...exerciseEditor,
     ...processingStatus,
     activePane,
     setActivePane,
@@ -781,16 +743,6 @@ export function useBookReaderController (props: Props) {
     setIsAssigningStandards,
     conceptFirstPageByKey,
     setConceptFirstPageByKey,
-    exerciseChapterConcepts,
-    setExerciseChapterConcepts,
-    exerciseChapterExercises,
-    setExerciseChapterExercises,
-    exerciseChapterMissingCounts,
-    setExerciseChapterMissingCounts,
-    exerciseChapterIndex,
-    setExerciseChapterIndex,
-    isExerciseChapterLoading,
-    setIsExerciseChapterLoading,
     error,
     setError,
     entityCounts,
@@ -859,10 +811,8 @@ export function useBookReaderController (props: Props) {
     canvasRef,
     pageAreaRef,
     conceptsOutputRef,
-    exerciseConceptsOutputRef,
     standardsChapterOutputRef,
     pendingConceptChapterFocusRef,
-    pendingExerciseChapterFocusRef,
     pendingStandardsChapterFocusRef,
     currentReaderProcessingSignal,
     ...navigationModel,

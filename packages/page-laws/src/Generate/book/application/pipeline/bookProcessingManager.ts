@@ -304,7 +304,7 @@ export class BookProcessingManager {
           return;
         }
         if (action.isDone) {
-          if (action.onRetryMissing) {
+          if (key !== 'abilities' && action.onRetryMissing) {
             if (action.isResultComplete === undefined) return;
             if (!action.isResultComplete && retry()) return;
           }
@@ -322,7 +322,7 @@ export class BookProcessingManager {
         // completion before React ever renders busy=true. The database stage
         // checkpoint is enough to advance without resubmitting the paid job.
         if (action.isDone) {
-          if (action.onRetryMissing) {
+          if (key !== 'abilities' && action.onRetryMissing) {
             if (action.isResultComplete === undefined) return;
             if (!action.isResultComplete && retry()) return;
           }
@@ -331,7 +331,7 @@ export class BookProcessingManager {
         }
         return;
       }
-      if (action.onRetryMissing) {
+      if (key !== 'abilities' && action.onRetryMissing) {
         if (action.isResultComplete === undefined) return;
         if (!action.isResultComplete && retry()) return;
       } else if (!action.isDone) {

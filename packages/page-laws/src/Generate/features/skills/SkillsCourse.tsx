@@ -5,7 +5,7 @@ import type { Book, BookChapter } from '@slonigiraf/db';
 import type { GeneratedAbility } from '../../../abilities/abilities.js';
 import { prepareAbilityForPublishing } from '../../../abilities/abilities.js';
 
-import { deleteAbility, getAbilities, getBookChapters, getBookConceptsForBookPage, getBookPages, getExercisesForBookPage, getSetting, hydrateAbilityContent, putBookChapter, SettingKey, updateBookChapterTitle, updateBookFields } from '@slonigiraf/db';
+import { deleteAbility, getAbilities, getBookChapters, getBookConceptsForBookPage, getBookPages, getSetting, hydrateAbilityContent, putBookChapter, SettingKey, updateBookChapterTitle, updateBookFields } from '@slonigiraf/db';
 import { digestFromCIDv1, getCIDFromBytes, getIPFSContentIDAndPinIt, getIPFSContentIDForBytesAndPinIt, getIPFSDataFromContentID, SpanWithTags, parseJson, useInfo, useIpfsContext, useLoginContext } from '@slonigiraf/slonig-components';
 import BN from 'bn.js';
 import { useLiveQuery } from 'dexie-react-hooks';
@@ -26,14 +26,12 @@ import { chapterOutlineKey, type ChapterTemplates, isKnowledgeId, type Knowledge
 import KnowledgeTargetSelector from './components/KnowledgeTargetSelector.js';
 import { parseStoredAbility } from '../../../abilities/abilities.js';
 import { isTikzCode } from '../../../Edit/tikz.js';
-import { sortExercisesForDisplay } from '../../book/domain/concepts/learningOrder.js';
 import { useAutosavedTitle, type TitleSaveStatus } from './useAutosavedTitle.js';
 
 type OutlineItem =
   | { chapter: BookChapter; key: string; type: 'chapter' }
   | { key: string; row: TemplateRow; type: 'template' };
 
-const exerciseAbilityModuleId = (bookId: number, exerciseId: number): string => `book-${bookId}-exercise-${exerciseId}`;
 const conceptAbilityModuleId = (bookId: number, conceptId: number): string => `book-${bookId}-concept-${conceptId}`;
 
 function imageDataUrlToBytes (value: string): Uint8Array | undefined {
@@ -230,7 +228,6 @@ function SkillsCourse ({ book, onBookChange }: { book: Book; onBookChange: (upda
     const [storedChapters, pages, pageLessConcepts] = await Promise.all([getBookChapters(book.id), getBookPages(book.id), getBookConceptsForBookPage(book.id, 0)]);
     const pageRows = await Promise.all(pages.map(async (page) => ({
       concepts: await getBookConceptsForBookPage(book.id, page.pageNumber),
-      exercises: await getExercisesForBookPage([book.id, page.pageNumber]),
       page
     })));
     const loaded = await Promise.all(storedChapters.map(async (chapter): Promise<ChapterTemplates> => {
@@ -238,30 +235,12 @@ function SkillsCourse ({ book, onBookChange }: { book: Book; onBookChange: (upda
         return { chapter, templates: [] };
       }
 
-      const chapterConceptIds = new Set(pageRows.flatMap(({ concepts, page }) => concepts.flatMap((concept) => {
-        const belongsToChapter = concept.chapterId !== undefined
-          ? concept.chapterId === chapter.id
-          : page.chapter === chapter.title;
-
-        return belongsToChapter && concept.id !== undefined ? [concept.id] : [];
-      })));
-      const exercises = sortExercisesForDisplay(pageRows.flatMap(({ exercises, page }) => exercises.filter(({ conceptId }) => conceptId !== undefined
-        ? chapterConceptIds.has(conceptId)
-        : page.chapter === chapter.title)));
-      const sources = [
-        ...[...pageRows.flatMap(({ concepts, page }) => concepts.filter((concept) => concept.id !== undefined && (concept.chapterId !== undefined ? concept.chapterId === chapter.id : page.chapter === chapter.title))), ...pageLessConcepts.filter(({ chapterId }) => chapterId === chapter.id)].flatMap(({ id }) => id === undefined ? [] : [conceptAbilityModuleId(book.id, id)]),
-        ...exercises.flatMap(({ id }) => id === undefined ? [] : [exerciseAbilityModuleId(book.id, id)])
+      const conceptSources = [
+        ...pageRows.flatMap(({ concepts, page }) => concepts.filter((concept) => concept.id !== undefined &&
+          (concept.chapterId !== undefined ? concept.chapterId === chapter.id : page.chapter === chapter.title))),
+        ...pageLessConcepts.filter(({ chapterId }) => chapterId === chapter.id)
       ];
-      const directConceptModules = new Set<string>();
-      await Promise.all(sources.filter((moduleId) => moduleId.includes('-concept-')).map(async (moduleId) => {
-        if ((await getAbilities(moduleId)).length) directConceptModules.add(moduleId);
-      }));
-      const visibleModules = sources.filter((moduleId) => {
-        if (!moduleId.includes('-exercise-')) return true;
-        const exerciseId = Number(/-exercise-(\d+)$/.exec(moduleId)?.[1]);
-        const conceptId = exercises.find(({ id }) => id === exerciseId)?.conceptId;
-        return conceptId === undefined || !directConceptModules.has(conceptAbilityModuleId(book.id, conceptId));
-      });
+      const visibleModules = conceptSources.flatMap(({ id }) => id === undefined ? [] : [conceptAbilityModuleId(book.id, id)]);
       const templates = (await Promise.all(visibleModules.map(async (moduleId) => {
         const records = await getAbilities(moduleId);
 

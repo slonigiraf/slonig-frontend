@@ -1,49 +1,33 @@
 // Copyright 2021-2026 @polkadot/app-laws authors & contributors
 // SPDX-License-Identifier: Apache-2.0
 
-/// <reference types="@polkadot/dev-test/globals.d.ts" />
-
 import { strict as assert } from 'node:assert';
+import { describe, it } from 'node:test';
 
 import { groupAbilitiesByConcept } from './abilityConceptGroups.js';
 
-describe('Ability cards grouped under Concepts', (): void => {
-  it('groups several exercises into the same Concept, preserving Ability order', (): void => {
+const conceptModuleId = (id: number): string => `book-2-concept-${id}`;
+
+describe('Ability cards grouped directly under Concepts', (): void => {
+  it('groups Concept-linked Abilities in Concept order', (): void => {
     const result = groupAbilitiesByConcept(
       [{ id: 10, title: 'First concept' }, { id: 20, title: 'Second concept' }],
-      [{ id: 100, conceptId: 10 }, { id: 200, conceptId: 10 }, { id: 300, conceptId: 20 }],
-      [{ id: 'b', moduleId: 'exercise:200' }, { id: 'c', moduleId: 'exercise:300' }, { id: 'a', moduleId: 'exercise:100' }],
-      (id) => `exercise:${id}`
+      [{ id: 'second', moduleId: conceptModuleId(20) }, { id: 'first', moduleId: conceptModuleId(10) }],
+      conceptModuleId
     );
 
-    assert.deepEqual(result.groups.map(({ abilities }) => abilities.map(({ id }) => id)), [['b', 'a'], ['c']]);
-    assert.deepEqual(result.withoutConcept, []);
+    assert.deepEqual(result.groups.map(({ abilities }) => abilities.map(({ id }) => id)), [['first'], ['second']]);
     assert.deepEqual(result.unmatched, []);
   });
 
-  it('groups directly generated Concept Abilities without source Exercises', (): void => {
+  it('keeps Concepts with missing Abilities and flags unlinked records', (): void => {
     const result = groupAbilitiesByConcept(
-      [{ id: 7, title: 'Core concept' }],
-      [],
-      [{ moduleId: 'book-2-concept-7' }],
-      (id) => `book-2-exercise-${id}`,
-      (id) => `book-2-concept-${id}`
+      [{ id: 10 }, { id: 20 }],
+      [{ moduleId: conceptModuleId(20) }, { moduleId: 'book-2-concept-999' }, { moduleId: 'unknown' }],
+      conceptModuleId
     );
 
-    assert.deepEqual(result.groups[0].abilities.map(({ moduleId }) => moduleId), ['book-2-concept-7']);
-    assert.deepEqual(result.unmatched, []);
-  });
-
-  it('keeps abilities for orphan exercises and unmatched records visible', (): void => {
-    const result = groupAbilitiesByConcept(
-      [{ id: 10 }],
-      [{ id: 100, conceptId: 10 }, { id: 200, conceptId: 99 }, { id: 300 }],
-      [{ moduleId: 'exercise:200' }, { moduleId: 'exercise:300' }, { moduleId: 'unknown' }],
-      (id) => `exercise:${id}`
-    );
-
-    assert.deepEqual(result.groups[0].abilities, []);
-    assert.deepEqual(result.withoutConcept.map(({ moduleId }) => moduleId), ['exercise:200', 'exercise:300']);
-    assert.deepEqual(result.unmatched.map(({ moduleId }) => moduleId), ['unknown']);
+    assert.deepEqual(result.groups.map(({ abilities }) => abilities.map(({ moduleId }) => moduleId)), [[], [conceptModuleId(20)]]);
+    assert.deepEqual(result.unmatched.map(({ moduleId }) => moduleId), ['book-2-concept-999', 'unknown']);
   });
 });

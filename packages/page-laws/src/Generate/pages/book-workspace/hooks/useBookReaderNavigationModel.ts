@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { Book, BookConcept, BookPage } from '@slonigiraf/db';
-import { getAbilities, getBookConceptsForBookPage, getBookPages, getExercisesForBookPage, isBookProcessingStageComplete } from '@slonigiraf/db';
+import { getAbilities, getBookConceptsForBookPage, getBookPages, isBookProcessingStageComplete } from '@slonigiraf/db';
 import type { Dispatch, MutableRefObject, SetStateAction } from 'react';
 import { useCallback, useEffect, useMemo } from 'react';
 import { estimateAiInput } from '../../../book/application/pricing/aiEstimate.js';
@@ -16,9 +16,9 @@ import { loadStoredBookStandards } from '../../../book/infrastructure/storage/st
 import { resolveSharedChapterIndex, type SharedChapterSelection } from '../../../book/domain/chapters/chapterSelection.js';
 import { getSharedChapterSelection, storeSharedChapterSelection, subscribeSharedChapterSelection } from '../../../book/infrastructure/storage/chapterSelectionStorage.js';
 import { clearFixConceptsChapterStatuses, fixConceptsChapterKey, storeFixConceptsChapterStatuses, type FixConceptsChapterStatuses } from '../../../book/infrastructure/storage/fixConceptsProgress.js';
-import { conceptEmbeddingDistanceMatrix, conceptsForNavigationChapter, conceptAbilityModuleId, exerciseAbilityModuleId, getBookConceptInventory } from '../../../book/application/workspace/bookReaderWorkspace.js';
-import { exerciseChapterSessionKey, readerMaximizedSessionKey, readerPaneSessionKey } from '../../../book/infrastructure/storage/bookReaderSession.js';
-import { type ConceptEmbeddingHeatmapEntry, type ExerciseChapterNavigationItem, type ReaderEntityCounts, type ReaderPane } from '../../../shared/types/bookWorkspace.js';
+import { conceptEmbeddingDistanceMatrix, conceptsForNavigationChapter, conceptAbilityModuleId, getBookConceptInventory } from '../../../book/application/workspace/bookReaderWorkspace.js';
+import { readerMaximizedSessionKey, readerPaneSessionKey } from '../../../book/infrastructure/storage/bookReaderSession.js';
+import { type ConceptEmbeddingHeatmapEntry, type ReaderEntityCounts, type ReaderPane } from '../../../shared/types/bookWorkspace.js';
 interface UseBookReaderNavigationModelOptions {
   activePane: ReaderPane;
   book: Book;
@@ -28,10 +28,8 @@ interface UseBookReaderNavigationModelOptions {
   embeddingConceptInventory: BookConcept[];
   embeddingHeatmapMode: 'book' | 'chapter';
   embeddingModel: string;
-  exerciseChapterIndex: number;
   isMaximized: boolean;
   pages: Map<number, BookPage>;
-  pendingExerciseChapterFocusRef: MutableRefObject<boolean>;
   pendingStandardsChapterFocusRef: MutableRefObject<boolean>;
   selectedModel: string;
   setActivePane: Dispatch<SetStateAction<ReaderPane>>;
@@ -40,7 +38,6 @@ interface UseBookReaderNavigationModelOptions {
   setEmbeddingByConceptId: Dispatch<SetStateAction<Map<number, number[]>>>;
   setEmbeddingConceptInventory: Dispatch<SetStateAction<BookConcept[]>>;
   setEntityCounts: Dispatch<SetStateAction<ReaderEntityCounts>>;
-  setExerciseChapterIndex: Dispatch<SetStateAction<number>>;
   setFixConceptsChapterStatuses: Dispatch<SetStateAction<FixConceptsChapterStatuses>>;
   setIsEmbeddingHeatmapLoading: Dispatch<SetStateAction<boolean>>;
   setRevealedPanes: Dispatch<SetStateAction<Set<ReaderPane>>>;
@@ -62,10 +59,8 @@ export function useBookReaderNavigationModel ({
   embeddingConceptInventory,
   embeddingHeatmapMode,
   embeddingModel,
-  exerciseChapterIndex,
   isMaximized,
   pages,
-  pendingExerciseChapterFocusRef,
   pendingStandardsChapterFocusRef,
   selectedModel,
   setActivePane,
@@ -74,7 +69,6 @@ export function useBookReaderNavigationModel ({
   setEmbeddingByConceptId,
   setEmbeddingConceptInventory,
   setEntityCounts,
-  setExerciseChapterIndex,
   setFixConceptsChapterStatuses,
   setIsEmbeddingHeatmapLoading,
   setRevealedPanes,
@@ -211,67 +205,21 @@ export function useBookReaderNavigationModel ({
     // input, so show the conservative two-request estimate.
     return estimateAiInput(selectedModel, [estimatedRequest, estimatedRequest], 4_800);
   }, [currentConceptChapter, pages, selectedModel]);
-  const exerciseChapters = useMemo<ExerciseChapterNavigationItem[]>(() => conceptChapters.flatMap(({ chapterId, pageNumbers, title }) =>
-    pageNumbers.some((chapterPageNumber) => pages.get(chapterPageNumber)?.conceptsProcessed)
-      ? [{ id: chapterId, pageNumbers, title }]
-      : []
-  ), [conceptChapters, pages]);
-  const currentExerciseChapter = exerciseChapters[exerciseChapterIndex];
-
   const refreshEntityCounts = useCallback(async (): Promise<void> => {
     const storedPages = await getBookPages(book.id);
-    const pageRows = await Promise.all(storedPages.map(async ({ pageNumber }) => {
-      const [pageConcepts, pageExercises] = await Promise.all([
-        getBookConceptsForBookPage(book.id, pageNumber),
-        getExercisesForBookPage([book.id, pageNumber])
-      ]);
+    const concepts = (await Promise.all(storedPages.map(({ pageNumber }) => getBookConceptsForBookPage(book.id, pageNumber)))).flat();
+    const abilities = (await Promise.all(concepts.flatMap(({ id }) => id === undefined ? [] : [getAbilities(conceptAbilityModuleId(book.id, id))]))).flat();
 
-      return { concepts: pageConcepts, exercises: pageExercises };
-    }));
-    const allExercises = pageRows.flatMap(({ exercises }) => exercises);
-    const abilities = (await Promise.all([
-      ...pageRows.flatMap(({ concepts }) => concepts.flatMap(({ id }) => id === undefined ? [] : [getAbilities(conceptAbilityModuleId(book.id, id))])),
-      ...allExercises.flatMap(({ id }) => id === undefined ? [] : [getAbilities(exerciseAbilityModuleId(book.id, id))])
-    ])).flat();
-
-    setEntityCounts({
-      abilities: abilities.length,
-      bookExercises: allExercises.filter(({ source }) => source !== 'generated').length,
-      concepts: pageRows.reduce((count, { concepts }) => count + concepts.length, 0),
-      exercises: allExercises.length
-    });
+    setEntityCounts({ abilities: abilities.length, concepts: concepts.length });
   }, [book.id]);
 
-  const onSkillsEntityCountsChange = useCallback(({ abilities, bookExercises, exercises }: Pick<ReaderEntityCounts, 'abilities' | 'bookExercises' | 'exercises'>): void => {
-    setEntityCounts((current) => ({ ...current, abilities, bookExercises, exercises }));
+  const onSkillsEntityCountsChange = useCallback(({ abilities }: Pick<ReaderEntityCounts, 'abilities'>): void => {
+    setEntityCounts((current) => ({ ...current, abilities }));
   }, []);
   const onSkillsContentChange = useCallback((): void => {
     setSkillsRefreshToken((value) => value + 1);
     refreshConceptCounts().catch(() => undefined);
   }, [refreshConceptCounts]);
-  const changeExerciseChapter = useCallback((index: number): void => {
-    const nextIndex = Math.max(0, Math.min(index, Math.max(0, exerciseChapters.length - 1)));
-    const chapter = exerciseChapters[nextIndex];
-    const conceptChapterIndex = chapter
-      ? conceptChapters.findIndex(({ chapterId, title }) => chapter.id !== undefined ? chapterId === chapter.id : title.trim() === chapter.title.trim())
-      : -1;
-    const conceptChapter = conceptChapterIndex >= 0 ? conceptChapters[conceptChapterIndex] : undefined;
-
-    pendingExerciseChapterFocusRef.current = true;
-    setExerciseChapterIndex(nextIndex);
-
-    try {
-      sessionStorage.setItem(exerciseChapterSessionKey(book.id), String(nextIndex));
-    } catch {
-      // Session storage may be unavailable in privacy-restricted contexts.
-    }
-
-    storeSharedChapterSelection(book.id, {
-      chapterId: conceptChapter?.chapterId,
-      index: conceptChapterIndex >= 0 ? conceptChapterIndex : nextIndex,
-      title: chapter?.title
-    });
-  }, [book.id, conceptChapters, exerciseChapters]);
   const changeStandardsChapter = useCallback((index: number): void => {
     const nextIndex = Math.max(0, Math.min(index, Math.max(0, conceptChapters.length - 1)));
     const chapter = conceptChapters[nextIndex];
@@ -284,26 +232,6 @@ export function useBookReaderNavigationModel ({
   useEffect(() => {
     refreshEntityCounts().catch(() => undefined);
   }, [book.completedStages, refreshEntityCounts]);
-
-  useEffect((): void => {
-    if (!exerciseChapters.length) {
-      setExerciseChapterIndex(0);
-
-      return;
-    }
-
-    if (exerciseChapterIndex >= exerciseChapters.length) {
-      const nextIndex = exerciseChapters.length - 1;
-
-      setExerciseChapterIndex(nextIndex);
-
-      try {
-        sessionStorage.setItem(exerciseChapterSessionKey(book.id), String(nextIndex));
-      } catch {
-        // Session storage may be unavailable in privacy-restricted contexts.
-      }
-    }
-  }, [book.id, exerciseChapterIndex, exerciseChapters.length]);
 
   useEffect((): void => {
     if (!conceptChapters.length) {
@@ -326,17 +254,6 @@ export function useBookReaderNavigationModel ({
         setStandardsChapterIndex(nextConceptChapterIndex);
       }
 
-      if (exerciseChapters.length) {
-        const nextExerciseIndex = resolveSharedChapterIndex(selection, exerciseChapters);
-
-        setExerciseChapterIndex(nextExerciseIndex);
-
-        try {
-          sessionStorage.setItem(exerciseChapterSessionKey(book.id), String(nextExerciseIndex));
-        } catch {
-          // Session storage may be unavailable in privacy-restricted contexts.
-        }
-      }
     };
     const storedSelection = getSharedChapterSelection(book.id);
 
@@ -345,7 +262,7 @@ export function useBookReaderNavigationModel ({
     }
 
     return subscribeSharedChapterSelection(book.id, applySelection);
-  }, [book.id, conceptChapters, exerciseChapters]);
+  }, [book.id, conceptChapters]);
 
   useEffect((): void => {
     setStandardsByChapter(loadStoredBookStandards(book.id));
@@ -469,12 +386,10 @@ export function useBookReaderNavigationModel ({
 
 
   return {
-    changeExerciseChapter,
     changeStandardsChapter,
     chapterGenerationEstimate,
     conceptChapters,
     currentConceptChapter,
-    currentExerciseChapter,
     currentStandardsChapter,
     currentStandardsChapterKey,
     embeddingBookEntries,
@@ -482,7 +397,6 @@ export function useBookReaderNavigationModel ({
     embeddingHeatmapDistances,
     embeddingHeatmapEntries,
     embeddingMissingCount,
-    exerciseChapters,
     loadConceptCountsByChapter,
     loadDeduplicateConceptInventory,
     onSkillsContentChange,

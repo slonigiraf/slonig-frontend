@@ -106,7 +106,7 @@ export function useConceptReorder ({
       // Reordering only changes the learning/display sequence. It must not
       // invalidate processing history: generated/fixed Exercises and later
       // stages remain valid, while DB order propagation updates dependent
-      // Exercise/Ability displayOrder values in place.
+      // Ability displayOrder values in place.
       await reloadCurrentChapterConcepts();
       setSkillsRefreshToken((value) => value + 1);
       setError('');

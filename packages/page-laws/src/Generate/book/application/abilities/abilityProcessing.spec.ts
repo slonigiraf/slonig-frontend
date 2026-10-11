@@ -4,10 +4,9 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import type { Exercise } from '@slonigiraf/db';
 import type OpenAI from 'openai';
 
-import { abilityRepairInput, exerciseRepairInput, requestAbilityRepairResult, type StoredAbility } from './abilityProcessing.js';
+import { abilityRepairInput, requestAbilityRepairResult, type StoredAbility } from './abilityProcessing.js';
 
 describe('Ability repair source evidence', (): void => {
   it('sends the linked Concept directly with no Exercise or embedding pre-check', (): void => {
@@ -31,13 +30,7 @@ describe('Ability repair source evidence', (): void => {
     assert.equal(input.abilities[0].sourceExercise, undefined);
     assert.equal(input.abilities[0].embeddingValidation, undefined);
   });
-  it('includes the source Concept in Fix exercises input', (): void => {
-    const exercise = { conceptId: 3, description: 'Convert distance.', id: 7, title: 'Old title', solution: 'Multiply.' } as Exercise;
-    const concept = { title: 'Distance conversion', description: 'Convert km to m.' };
-    const input = exerciseRepairInput('en', [exercise], 'Measurements', 11, new Map([[3, concept]])) as { exercises: Array<{ sourceConcept: typeof concept }> };
 
-    assert.deepEqual(input.exercises[0].sourceConcept, concept);
-  });
 });
 
 

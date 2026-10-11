@@ -5,7 +5,7 @@
 
 import { strict as assert } from 'node:assert';
 
-import { completeBookProcessingStage, createBook, createImage, deleteAbilities, deleteBook, deleteExercise, deleteImage, getAbilities, getBook, getBookVisualQaSummary, getImage, getImages, hydrateAbilityContent, isTikzImageQaPassed, putImage, replaceAbilities, replaceExercisesForBookPage, setTikzImageQaState, storeAbility, tikzSourceVersion } from './index.js';
+import { completeBookProcessingStage, createBook, createBookConcept, createImage, deleteAbilities, deleteBook, deleteBookConcept, deleteImage, getAbilities, getBook, getBookVisualQaSummary, getImage, getImages, hydrateAbilityContent, isTikzImageQaPassed, putImage, replaceAbilities, setTikzImageQaState, storeAbility, tikzSourceVersion } from './index.js';
 
 describe('TikZ visual QA persistence', (): void => {
   it('requires PNG-based review metadata after a render, and invalidates approval on source edit', async (): Promise<void> => {
@@ -262,27 +262,22 @@ describe('Ability images', (): void => {
     assert.equal(await getImage(imageId), undefined);
   });
 
-  it('cascades Exercise deletion into Ability rows and their orphan Images', async (): Promise<void> => {
-    const bookId = await createBook({ contentHash: `ability-exercise-cascade-${Date.now()}`, created: Date.now(), name: 'Ability cascade test', opfsName: 'ability-cascade.pdf', size: 1 });
+  it('cascades Concept deletion into its Ability rows and their orphan Images', async (): Promise<void> => {
+    const bookId = await createBook({ contentHash: `ability-concept-cascade-${Date.now()}`, created: Date.now(), name: 'Ability cascade test', opfsName: 'ability-cascade.pdf', size: 1 });
 
     try {
-      const [exercise] = await replaceExercisesForBookPage([bookId, 1], [{ description: '', solution: '', source: 'generated', title: 'Exercise' }]);
+      const concept = await createBookConcept({ bookPage: [bookId, 1], description: '', title: 'Concept' });
+      const conceptModuleId = `book-${bookId}-concept-${concept.id as number}`;
 
-      assert.notEqual(exercise.id, undefined);
-      const exerciseModuleId = `book-${bookId}-exercise-${exercise.id as number}`;
-
-      await replaceAbilities(exerciseModuleId, [JSON.stringify({
-        h: 'Visual exercise ability',
-        i: '',
-        q: [{ a: '1', h: 'Question', i: '', p: 'Owned prompt image' }],
-        t: 3
+      await replaceAbilities(conceptModuleId, [JSON.stringify({
+        h: 'Visual concept ability', i: '', q: [{ a: '1', h: 'Question', i: '', p: 'Owned prompt image' }], t: 3
       })]);
-      const [stored] = await getAbilities(exerciseModuleId);
+      const [stored] = await getAbilities(conceptModuleId);
       const imageId = (JSON.parse(stored.content) as { q: Array<{ p: number | null }> }).q[0].p as number;
 
       assert.ok(await getImage(imageId));
-      await deleteExercise(exercise.id as number);
-      assert.deepEqual(await getAbilities(exerciseModuleId), []);
+      await deleteBookConcept(concept.id as number);
+      assert.deepEqual(await getAbilities(conceptModuleId), []);
       assert.equal(await getImage(imageId), undefined);
     } finally {
       await deleteBook(bookId);

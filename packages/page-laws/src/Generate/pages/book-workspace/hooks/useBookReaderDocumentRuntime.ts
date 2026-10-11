@@ -1,18 +1,17 @@
 // Copyright 2021-2026 @polkadot/app-laws authors & contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import type { Book, BookChapter, BookConcept, BookPage, BookProcessingStageKey, Exercise } from '@slonigiraf/db';
-import { getBookChapters, getBookConceptsForBookPage, getBookPages, getExercisesForBookPage } from '@slonigiraf/db';
+import type { Book, BookChapter, BookConcept, BookPage, BookProcessingStageKey } from '@slonigiraf/db';
+import { getBookChapters, getBookConceptsForBookPage, getBookPages } from '@slonigiraf/db';
 import type { PDFDocumentLoadingTask, PDFDocumentProxy, RenderTask } from 'pdfjs-dist';
 import type { Dispatch, MutableRefObject, RefObject, SetStateAction } from 'react';
 import { useEffect, useLayoutEffect } from 'react';
 import { areAllBookPagesConceptsProcessed } from '../../../book/application/processing/bookProcessing.js';
 import type { ConceptChapterNavigationItem } from '../../../book/domain/concepts/conceptRecognition.js';
-import { missingGeneratedExerciseConceptIndexes } from '../../../book/domain/exercises/exercises.js';
 import { loadPdfJs } from '../../../book/infrastructure/pdf/pdf.js';
-import { analysisPageNumbers, conceptReferenceKey, conceptsForExerciseChapter, conceptsForNavigationChapter, exerciseChapterNavigationKey, exercisesForExerciseChapter, getBookConceptInventory } from '../../../book/application/workspace/bookReaderWorkspace.js';
+import { analysisPageNumbers, conceptReferenceKey, conceptsForNavigationChapter, getBookConceptInventory } from '../../../book/application/workspace/bookReaderWorkspace.js';
 import { getSessionPage } from '../../../book/infrastructure/storage/bookReaderSession.js';
-import { type ExerciseChapterNavigationItem, type ReaderPane } from '../../../shared/types/bookWorkspace.js';
+import { type ReaderPane } from '../../../shared/types/bookWorkspace.js';
 interface UseBookReaderDocumentRuntimeOptions {
   activePane: ReaderPane;
   autoRunAll: boolean;
@@ -22,29 +21,19 @@ interface UseBookReaderDocumentRuntimeOptions {
   concepts: BookConcept[];
   conceptsOutputRef: RefObject<HTMLDivElement>;
   currentConceptChapter?: ConceptChapterNavigationItem;
-  currentExerciseChapter?: ExerciseChapterNavigationItem;
   embeddingHeatmapMode: 'book' | 'chapter';
-  exerciseChapterConcepts: BookConcept[];
-  exerciseChapters: ExerciseChapterNavigationItem[];
-  exerciseConceptsOutputRef: RefObject<HTMLDivElement>;
   file: File;
-  isExerciseChapterLoading: boolean;
   isMaximized: boolean;
   pageAreaRef: RefObject<HTMLDivElement>;
   pageNumber: number;
   pages: Map<number, BookPage>;
   pdf?: PDFDocumentProxy;
   pendingConceptChapterFocusRef: MutableRefObject<boolean>;
-  pendingExerciseChapterFocusRef: MutableRefObject<boolean>;
   pendingStandardsChapterFocusRef: MutableRefObject<boolean>;
   setChapters: Dispatch<SetStateAction<BookChapter[]>>;
   setConceptFirstPageByKey: Dispatch<SetStateAction<Map<string, number>>>;
   setConcepts: Dispatch<SetStateAction<BookConcept[]>>;
   setError: Dispatch<SetStateAction<string>>;
-  setExerciseChapterConcepts: Dispatch<SetStateAction<BookConcept[]>>;
-  setExerciseChapterExercises: Dispatch<SetStateAction<Exercise[]>>;
-  setExerciseChapterMissingCounts: Dispatch<SetStateAction<Map<string, number>>>;
-  setIsExerciseChapterLoading: Dispatch<SetStateAction<boolean>>;
   setPageInput: Dispatch<SetStateAction<string>>;
   setPageNumber: Dispatch<SetStateAction<number>>;
   setPages: Dispatch<SetStateAction<Map<number, BookPage>>>;
@@ -65,29 +54,19 @@ export function useBookReaderDocumentRuntime ({
   concepts,
   conceptsOutputRef,
   currentConceptChapter,
-  currentExerciseChapter,
   embeddingHeatmapMode,
-  exerciseChapterConcepts,
-  exerciseChapters,
-  exerciseConceptsOutputRef,
   file,
-  isExerciseChapterLoading,
   isMaximized,
   pageAreaRef,
   pageNumber,
   pages,
   pdf,
   pendingConceptChapterFocusRef,
-  pendingExerciseChapterFocusRef,
   pendingStandardsChapterFocusRef,
   setChapters,
   setConceptFirstPageByKey,
   setConcepts,
   setError,
-  setExerciseChapterConcepts,
-  setExerciseChapterExercises,
-  setExerciseChapterMissingCounts,
-  setIsExerciseChapterLoading,
   setPageInput,
   setPageNumber,
   setPages,
@@ -177,20 +156,6 @@ export function useBookReaderDocumentRuntime ({
   }, [concepts]);
 
   useLayoutEffect(() => {
-    if (!pendingExerciseChapterFocusRef.current || isExerciseChapterLoading || !exerciseChapterConcepts.length) {
-      return;
-    }
-
-    const first = exerciseConceptsOutputRef.current?.querySelector<HTMLElement>('.exerciseConceptCard');
-
-    if (first) {
-      pendingExerciseChapterFocusRef.current = false;
-      first.focus({ preventScroll: true });
-      first.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    }
-  }, [exerciseChapterConcepts, isExerciseChapterLoading]);
-
-  useLayoutEffect(() => {
     if (!pendingStandardsChapterFocusRef.current || (activePane === 'embeddings' && embeddingHeatmapMode !== 'chapter')) {
       return;
     }
@@ -235,89 +200,6 @@ export function useBookReaderDocumentRuntime ({
       active = false;
     };
   }, [book.id, currentConceptChapter, pages]);
-
-  useEffect(() => {
-    if (!autoRunAll && activePane !== 'conceptExercises') {
-      return;
-    }
-
-    let active = true;
-
-    const loadChapterLearningContent = async (): Promise<void> => {
-      if (!currentExerciseChapter) {
-        setExerciseChapterConcepts([]);
-        setExerciseChapterExercises([]);
-        setIsExerciseChapterLoading(false);
-
-        return;
-      }
-
-      setExerciseChapterConcepts([]);
-      setExerciseChapterExercises([]);
-      setIsExerciseChapterLoading(true);
-      const pageRows = await Promise.all(Array.from(pages.keys()).map(async (chapterPageNumber) => {
-        const [storedConcepts, storedExercises] = await Promise.all([
-          getBookConceptsForBookPage(book.id, chapterPageNumber),
-          getExercisesForBookPage([book.id, chapterPageNumber])
-        ]);
-
-        return { concepts: storedConcepts, exercises: storedExercises, pageNumber: chapterPageNumber };
-      }));
-      const pageLessConcepts = await getBookConceptsForBookPage(book.id, 0);
-      const chapterConcepts = conceptsForExerciseChapter([...pageRows.flatMap(({ concepts }) => concepts), ...pageLessConcepts], currentExerciseChapter);
-
-      if (active) {
-        setExerciseChapterConcepts(chapterConcepts);
-        setExerciseChapterExercises(exercisesForExerciseChapter(pageRows, chapterConcepts, currentExerciseChapter));
-      }
-    };
-
-    loadChapterLearningContent()
-      .catch(() => active && setError('Unable to load this chapter’s exercises.'))
-      .finally(() => active && setIsExerciseChapterLoading(false));
-
-    return () => {
-      active = false;
-    };
-  }, [activePane, book.id, currentExerciseChapter, pages, skillsRefreshToken]);
-
-  useEffect(() => {
-    if (activePane !== 'conceptExercises') {
-      return;
-    }
-
-    let active = true;
-
-    setExerciseChapterMissingCounts(new Map());
-
-    const loadMissingCounts = async (): Promise<Map<string, number>> => {
-      const pageRows = await Promise.all(Array.from(pages.keys()).map(async (chapterPageNumber) => {
-        const [storedConcepts, storedExercises] = await Promise.all([
-          getBookConceptsForBookPage(book.id, chapterPageNumber),
-          getExercisesForBookPage([book.id, chapterPageNumber])
-        ]);
-
-        return { concepts: storedConcepts, exercises: storedExercises, pageNumber: chapterPageNumber };
-      }));
-      const pageLessConcepts = await getBookConceptsForBookPage(book.id, 0);
-      const inventory = [...pageRows.flatMap(({ concepts }) => concepts), ...pageLessConcepts];
-
-      return new Map(exerciseChapters.map((chapter) => {
-        const concepts = conceptsForExerciseChapter(inventory, chapter);
-        const exercises = exercisesForExerciseChapter(pageRows, concepts, chapter);
-
-        return [exerciseChapterNavigationKey(chapter), missingGeneratedExerciseConceptIndexes(concepts, exercises).length] as const;
-      }));
-    };
-
-    loadMissingCounts()
-      .then((counts) => active && setExerciseChapterMissingCounts(counts))
-      .catch(() => active && setExerciseChapterMissingCounts(new Map()));
-
-    return () => {
-      active = false;
-    };
-  }, [activePane, autoRunAll, book.id, exerciseChapters, pages, skillsRefreshToken]);
 
   useEffect(() => {
     if (!pdf || !canvasRef.current || !pageAreaRef.current) {

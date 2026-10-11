@@ -1,7 +1,7 @@
 // Copyright 2021-2026 @polkadot/app-laws authors & contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import type { BookChapter, BookConcept, Exercise } from '@slonigiraf/db';
+import type { BookChapter, BookConcept } from '@slonigiraf/db';
 import { isBookProcessingStageComplete } from '@slonigiraf/db';
 import { Confirmation, SpanWithTags, SelectableList } from '@slonigiraf/slonig-components';
 import MathpixLoader from 'mathpix-markdown-it/lib/components/mathpix-loader/index.js';
@@ -15,7 +15,6 @@ import OpenRouterModelSelector from '../../../openrouter/components/ModelSelecto
 import { fixConceptsChapterKey } from '../../book/infrastructure/storage/fixConceptsProgress.js';
 import { formatOpenRouterSpend } from '../../../openrouter/cost.js';
 import { pageChapterEvidence } from '../../book/domain/chapters/chapterSegmentation.js';
-import { missingGeneratedExerciseConceptIndexes } from '../../book/domain/exercises/exercises.js';
 import { hasChapterStandards, STANDARD_FRAMEWORKS, standardsChapterKey } from '../../book/domain/standards/standards.js';
 import Skills, { SkillsCourse } from '../../features/skills/index.js';
 import { AiPriceEstimate } from '../../shared/ui/PriceEstimate.js';
@@ -23,8 +22,8 @@ import ProcessingPopup from '../../shared/ui/ProcessingPopup.js';
 import StageRunPricePopup from '../../shared/ui/StageRunPricePopup.js';
 
 import { StyledReader } from './BookReader.styles.js';
-import { ChapterTitleEditor, ConceptForm, ConceptItem, EditableExerciseItem, FixConceptsReviewContent } from './components/index.js';
-import { conceptDisplayPage, conceptReferenceKey, exerciseChapterNavigationKey } from '../../book/application/workspace/bookReaderWorkspace.js';
+import { ChapterTitleEditor, ConceptForm, ConceptItem, FixConceptsReviewContent } from './components/index.js';
+import { conceptDisplayPage, conceptReferenceKey } from '../../book/application/workspace/bookReaderWorkspace.js';
 import type { FixConceptsReviewChapter } from './BookReaderTypes.js';
 import type { ConceptEmbeddingHeatmapEntry, ReaderPane } from '../../shared/types/bookWorkspace.js';
 import type { BookReaderController } from './BookReaderController.js';
@@ -51,7 +50,6 @@ export function BookReaderView ({ controller }: Props): React.ReactElement {
     cancelConceptPointerDrag,
     canvasRef,
     changeConceptChapter,
-    changeExerciseChapter,
     changeStandardsChapter,
     chapterGenerationEstimate,
     chapterIdentificationLabel,
@@ -77,7 +75,6 @@ export function BookReaderView ({ controller }: Props): React.ReactElement {
     currentBookPage,
     currentChapter,
     currentConceptChapter,
-    currentExerciseChapter,
     currentStandardsChapter,
     currentStandardsChapterKey,
     deduplicateConceptsReview,
@@ -93,18 +90,11 @@ export function BookReaderView ({ controller }: Props): React.ReactElement {
     endConceptPointerDrag,
     entityCounts,
     error,
-    exerciseChapterConcepts,
-    exerciseChapterExercises,
-    exerciseChapterIndex,
-    exerciseChapterMissingCounts,
-    exerciseChapters,
-    exerciseConceptsOutputRef,
     fixConceptWithAi,
     fixConceptsChapterStatuses,
     fixConceptsReview,
     fixConceptsReviewChapterIndex,
     fixConceptsTargetChapterCount,
-    fixExerciseWithAi,
     fixedConceptsChapterCount,
     generatedConceptsChapterCount,
     goToPage,
@@ -124,7 +114,6 @@ export function BookReaderView ({ controller }: Props): React.ReactElement {
     isDetectingBookLanguage,
     isDetectingBookSubject,
     isEmbeddingHeatmapLoading,
-    isExerciseChapterLoading,
     isFixingConcepts,
     isGeneratingAllConcepts,
     isGeneratingChapterConcepts,
@@ -179,7 +168,6 @@ export function BookReaderView ({ controller }: Props): React.ReactElement {
     revealedPanes,
     saveConcept,
     saveCurrentChapterTitle,
-    saveExercise,
     saveManualBookAge,
     saveManualBookLanguage,
     saveManualBookSubject,
@@ -481,23 +469,6 @@ export function BookReaderView ({ controller }: Props): React.ReactElement {
       : isGeneratingChapterConcepts
         ? 'Extracting and saving concepts for this chapter…'
         : 'Concepts';
-  const exerciseItem = (exercise: Exercise): React.ReactNode => <EditableExerciseItem
-    exercise={exercise}
-    key={exercise.id}
-    onError={setError}
-    onFix={fixExerciseWithAi}
-    onSave={saveExercise}
-  />;
-  const focusExerciseConcept = (conceptIndex: number): void => {
-    const conceptSection = exerciseConceptsOutputRef.current?.querySelector<HTMLElement>(`[data-concept-rank="${conceptIndex + 1}"]`);
-
-    if (!conceptSection) {
-      return;
-    }
-
-    conceptSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    conceptSection.focus({ preventScroll: true });
-  };
   const conceptsPane = (): React.ReactNode => {
     return <div className='tabPanel conceptsPanel'>
       <div className='detailsHeader'>
@@ -741,55 +712,6 @@ export function BookReaderView ({ controller }: Props): React.ReactElement {
       {isEmbeddingHeatmapLoading
         ? <p className='emptyOutput'>Loading cached concept embeddings…</p>
         : conceptHeatmap(entries, embeddingHeatmapDistances)}
-    </div>;
-  };
-
-  const exercisesPane = (): React.ReactNode => {
-    const conceptIds = new Set(exerciseChapterConcepts.flatMap(({ id }) => id === undefined ? [] : [id]));
-    const generatedWithoutConcept = exerciseChapterExercises.filter(({ conceptId, source }) => source === 'generated' && (conceptId === undefined || !conceptIds.has(conceptId)));
-    const missingConceptIndexes = missingGeneratedExerciseConceptIndexes(exerciseChapterConcepts, exerciseChapterExercises);
-
-    return <div className='tabPanel conceptsPanel'>
-      <div className='detailsHeader'><span>{isExerciseChapterLoading ? 'Loading chapter exercises…' : 'Exercises grouped by concept'}</span></div>
-      {!isExerciseChapterLoading && !!missingConceptIndexes.length && <div className='missingExerciseNavigation'>
-        <span>Missing exercises for concepts:</span>
-        <span className='missingExerciseLinks'>{missingConceptIndexes.map((conceptIndex, missingIndex) => <React.Fragment key={conceptReferenceKey(exerciseChapterConcepts[conceptIndex])}>
-          {missingIndex > 0 && <span aria-hidden='true'>, </span>}
-          <button
-            aria-label={`Go to concept ${conceptIndex + 1}, missing an exercise`}
-            onClick={() => focusExerciseConcept(conceptIndex)}
-            type='button'
-          >{conceptIndex + 1}</button>
-        </React.Fragment>)}</span>
-      </div>}
-      <div
-        className='conceptsOutput'
-        ref={exerciseConceptsOutputRef}
-      >
-        <h3>{currentExerciseChapter?.title || 'Chapter not identified'}</h3>
-        {!currentExerciseChapter
-          ? <p className='emptyOutput'>No processed chapters are available.</p>
-          : <>
-            {exerciseChapterConcepts.map((concept, conceptIndex) => {
-              const generated = exerciseChapterExercises.filter(({ conceptId, source }) => source === 'generated' && concept.id !== undefined && conceptId === concept.id);
-
-              return <section
-                className='conceptExerciseGroup exerciseConceptCard'
-                data-concept-rank={conceptIndex + 1}
-                key={conceptReferenceKey(concept)}
-                tabIndex={-1}
-              >
-                <h4><span className='conceptExerciseRank'>{conceptIndex + 1}.</span> <SpanWithTags content={concept.title} /></h4>
-                {concept.description && <p><SpanWithTags content={concept.description} /></p>}
-                {generated.length ? <ul className='exerciseList'>{generated.map(exerciseItem)}</ul> : <p className='emptyOutput'>No generated exercises for this concept.</p>}
-              </section>;
-            })}
-            {!!generatedWithoutConcept.length && <section className='conceptExerciseGroup exerciseConceptCard'>
-              <h4>Other generated exercises</h4>
-              <ul className='exerciseList'>{generatedWithoutConcept.map(exerciseItem)}</ul>
-            </section>}
-          </>}
-      </div>
     </div>;
   };
 
@@ -1172,7 +1094,6 @@ export function BookReaderView ({ controller }: Props): React.ReactElement {
           ['chapters', 'Chapters', revealedPanes.has('chapters') || isBookProcessingStageComplete(book, 'chapters'), chapters.length],
           ['textConcepts', 'Concepts', revealedPanes.has('textConcepts') || isBookProcessingStageComplete(book, 'concepts'), entityCounts.concepts],
           ['embeddings', 'Embedings', revealedPanes.has('embeddings') || isBookProcessingStageComplete(book, 'embeddings'), undefined],
-          ['conceptExercises', 'Exercises', revealedPanes.has('conceptExercises'), entityCounts.exercises],
           ['preExercisesExercises', 'Abilities', revealedPanes.has('preExercisesExercises') || isBookProcessingStageComplete(book, 'abilities'), entityCounts.abilities],
           ['standards', 'Standards', revealedPanes.has('standards') || isBookProcessingStageComplete(book, 'standards') || Object.keys(standardsByChapter).length > 0, undefined],
           ['skillsCourse', 'Course', revealedPanes.has('skillsCourse') || isBookProcessingStageComplete(book, 'abilities'), undefined]
@@ -1278,43 +1199,6 @@ export function BookReaderView ({ controller }: Props): React.ReactElement {
             icon='arrow-right'
             isDisabled={!conceptChapters.length || standardsChapterIndex >= conceptChapters.length - 1}
             onClick={() => changeStandardsChapter(standardsChapterIndex + 1)}
-          />
-        </div>}
-        {activePane === 'conceptExercises' && <div className='chapterNavigation'>
-          <Button
-            icon='arrow-left'
-            isDisabled={exerciseChapterIndex <= 0}
-            onClick={() => changeExerciseChapter(exerciseChapterIndex - 1)}
-          />
-          <div className='chapterSelectGroup'>
-            <label>Chapter <select
-              aria-label='Navigate chapters'
-              disabled={!exerciseChapters.length}
-              onChange={({ target }) => changeExerciseChapter(Number(target.value))}
-              value={exerciseChapters.length ? exerciseChapterIndex : ''}
-            >
-              {exerciseChapters.map((chapter, index) => {
-                const missingCount = exerciseChapterMissingCounts.get(exerciseChapterNavigationKey(chapter));
-                const title = chapter.title || 'Chapter not identified';
-
-                return <option
-                  key={`${chapter.title}:${index}`}
-                  value={index}
-                >{title}{missingCount ? ` (${missingCount} exercise${missingCount === 1 ? '' : 's'} missing)` : ''}</option>;
-              })}
-            </select></label>
-            <Button
-              aria-label='Edit chapter name'
-              icon='edit'
-              isDisabled={exerciseChapters[exerciseChapterIndex]?.id === undefined}
-              onClick={() => openChapterEditor(exerciseChapters[exerciseChapterIndex]?.id)}
-            />
-          </div>
-          <span>{exerciseChapters.length ? `${exerciseChapterIndex + 1} of ${exerciseChapters.length}` : 'No chapters'}</span>
-          <Button
-            icon='arrow-right'
-            isDisabled={!exerciseChapters.length || exerciseChapterIndex >= exerciseChapters.length - 1}
-            onClick={() => changeExerciseChapter(exerciseChapterIndex + 1)}
           />
         </div>}
         {activePane === 'pdf'
@@ -1428,8 +1312,6 @@ export function BookReaderView ({ controller }: Props): React.ReactElement {
                     ? <div className='detailsArea fullWidthDetails'>{standardsPane()}</div>
                     : activePane === 'embeddings'
                       ? <div className='detailsArea fullWidthDetails'>{embeddingsPane()}</div>
-                    : activePane === 'conceptExercises'
-                      ? <div className='detailsArea fullWidthDetails'>{exercisesPane()}</div>
                       : activePane === 'conceptsSkills'
                       ? <>
                         <div className='skillsArea'>

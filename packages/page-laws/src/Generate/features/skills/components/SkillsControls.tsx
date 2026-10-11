@@ -24,7 +24,7 @@ interface SkillsControlsProps {
   confirm: () => void;
   error: string;
   estimate: React.ComponentProps<typeof AiPriceEstimate>['estimate'];
-  exercisesMissingAbilitiesCount: number;
+  conceptsMissingAbilitiesCount: number;
   generateOnlyMissingAbilities: boolean;
   generateOnlyMissingImages: boolean;
   isBusy: boolean;
@@ -47,7 +47,7 @@ interface SkillsControlsProps {
   visiblePipelineActions: PipelineAction[];
 }
 
-export default function SkillsControls ({ abilitiesMissingImagesCount, failedTikzCount, fixOnlyFailedTikz, abortProcessing, aiAction, autoRunAll, autoRunCompletedCount, autoRunStageCount, closeConfirmation, confirm, error, estimate, exercisesMissingAbilitiesCount, generateOnlyMissingAbilities, generateOnlyMissingImages, isBusy, notice, openRouterSpent, pipelineControls, progress, progressLabel, progressTotal, runSelectedPipelineAction, selectedModel, selectedPipelineAction, selectedPipelineKey, setGenerateOnlyMissingAbilities, setGenerateOnlyMissingImages, setFixOnlyFailedTikz, setSelectedModel, setSelectedPipelineKey, showPipeline, visiblePipelineActions }: SkillsControlsProps): React.ReactElement {
+export default function SkillsControls ({ abilitiesMissingImagesCount, failedTikzCount, fixOnlyFailedTikz, abortProcessing, aiAction, autoRunAll, autoRunCompletedCount, autoRunStageCount, closeConfirmation, confirm, error, estimate, conceptsMissingAbilitiesCount, generateOnlyMissingAbilities, generateOnlyMissingImages, isBusy, notice, openRouterSpent, pipelineControls, progress, progressLabel, progressTotal, runSelectedPipelineAction, selectedModel, selectedPipelineAction, selectedPipelineKey, setGenerateOnlyMissingAbilities, setGenerateOnlyMissingImages, setFixOnlyFailedTikz, setSelectedModel, setSelectedPipelineKey, showPipeline, visiblePipelineActions }: SkillsControlsProps): React.ReactElement {
   return <>
   {aiAction && !autoRunAll && (
     <StageRunPricePopup
@@ -56,8 +56,8 @@ export default function SkillsControls ({ abilitiesMissingImagesCount, failedTik
       onRun={confirm}
     >
       <AiPriceEstimate estimate={estimate} />
-      {aiAction === 'exercises' && <Toggle
-        isDisabled={!exercisesMissingAbilitiesCount}
+      {aiAction === 'abilities' && <Toggle
+        isDisabled={!conceptsMissingAbilitiesCount}
         label='Only for Concepts missing an Ability'
         onChange={setGenerateOnlyMissingAbilities}
         value={generateOnlyMissingAbilities}

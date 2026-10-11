@@ -15,13 +15,11 @@ import {
   getBookConceptsForBookPage,
   getBookPages,
   getConceptEmbeddings,
-  getExercisesForBookPage,
   getImage,
   getSkillsForChapter,
   putBookPage,
   putConceptEmbeddings,
   replaceBookChapterAssignments,
-  replaceExercisesForBookPage,
   replaceSkillsForChapter,
   resetBookProcessingStagesFrom,
   storeAbility
@@ -69,27 +67,14 @@ async function seedLearningArtifacts(label: string) {
     model: 'test-embedder'
   }]);
 
-  const [exercise] = await replaceExercisesForBookPage([bookId, 1], [{
-    conceptId: concept.id,
-    description: 'Write 0.',
-    solution: '0',
-    source: 'generated',
-    title: 'Write zero'
-  }]);
-
-  if (exercise.id === undefined) {
-    throw new Error('Expected a stored exercise id.');
-  }
-
   await replaceSkillsForChapter(chapter.id, [{
     bookConceptIds: [concept.id],
     description: 'Write zero.',
-    exerciseIds: [exercise.id],
     rank: 0,
     title: 'Write zero'
   }]);
 
-  const abilityModuleId = `book-${bookId}-exercise-${exercise.id}`;
+  const abilityModuleId = `book-${bookId}-concept-${concept.id}`;
 
   await storeAbility(abilityModuleId, JSON.stringify({ h: 'Write zero', i: '0', q: [], t: 1 }));
 
@@ -106,7 +91,6 @@ describe('book stage entity invalidation', (): void => {
       assert.equal((await getBookChapters(seeded.bookId)).length, 0, 'a full Chapters rerun deletes its previous rows');
       assert.equal((await getBookConceptsForBookPage(seeded.bookId, 1)).length, 0);
       assert.equal((await getConceptEmbeddings([seeded.conceptId])).length, 0);
-      assert.equal((await getExercisesForBookPage([seeded.bookId, 1])).length, 0);
       assert.equal((await getSkillsForChapter(seeded.chapterId)).length, 0);
       assert.equal((await getAbilities(seeded.abilityModuleId)).length, 0);
       assert.equal((await getBookPages(seeded.bookId))[0]?.conceptsProcessed, false);
@@ -210,7 +194,6 @@ describe('book stage entity invalidation', (): void => {
 
       assert.equal((await getBookConceptsForBookPage(seeded.bookId, 1)).length, 1);
       assert.equal((await getConceptEmbeddings([seeded.conceptId])).length, 0);
-      assert.equal((await getExercisesForBookPage([seeded.bookId, 1])).length, 0);
       assert.equal((await getSkillsForChapter(seeded.chapterId)).length, 0);
       assert.equal((await getAbilities(seeded.abilityModuleId)).length, 0);
     } finally {

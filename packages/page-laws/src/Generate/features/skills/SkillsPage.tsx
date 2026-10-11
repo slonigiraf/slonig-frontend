@@ -1,12 +1,12 @@
 // Copyright 2021-2026 @polkadot/app-laws authors & contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import type { Book, BookChapter, BookPage, BookProcessingStageKey, BookStageSpendKey, Exercise, Skill, TikzReviewResult } from '@slonigiraf/db';
+import type { Book, BookChapter, BookPage, BookProcessingStageKey, BookStageSpendKey, Skill, TikzReviewResult } from '@slonigiraf/db';
 import type { GeneratedAbility } from '../../../abilities/abilities.js';
-import type { AbilityWorkflowJsonRunner, ExerciseAbilityConversion } from '../../book/domain/abilities/abilityWorkflow.js';
-import type { AiAction, BookPageContent, ChapterContent, DuplicateAbilityReview, DuplicateExerciseReview, ExerciseFixReviewResult, FixedImageReview, FixReviewResult, ImageFixReviewResult, UnresolvedImageReview, PipelineAction, SkillSource, SkillsProps, SkillsView } from './SkillsTypes.js';
+import type { AbilityWorkflowJsonRunner } from '../../book/domain/abilities/abilityWorkflow.js';
+import type { AiAction, ChapterContent, DuplicateAbilityReview, FixedImageReview, FixReviewResult, ImageFixReviewResult, UnresolvedImageReview, PipelineAction, SkillSource, SkillsProps, SkillsView } from './SkillsTypes.js';
 
-import { addBookStageSpend, completeBookProcessingStage, deleteAbilities, deleteAbility, deleteBookConcept, deleteExercise, getAbilities, getBookChapters, getBookCompletedStages, getBookConceptsForBookPage, getBookPages, getExercisesForBookPage, getSetting, getSkillsForChapter, getImage, getBookVisualQaSummary, hydrateAbilityContent, putImage, setTikzImageQaState, tikzSourceVersion, replaceAbilities, replaceExercisesForConcept, replaceExercisesForBookPage, replaceSkillsForChapter, resetBookProcessingStagesFrom, SettingKey, storeAbility } from '@slonigiraf/db';
+import { addBookStageSpend, completeBookProcessingStage, deleteAbilities, deleteAbility, deleteBookConcept, getAbilities, getBookChapters, getBookCompletedStages, getBookConceptsForBookPage, getBookPages, getSetting, getSkillsForChapter, getImage, getBookVisualQaSummary, hydrateAbilityContent, putImage, setTikzImageQaState, tikzSourceVersion, replaceAbilities, replaceSkillsForChapter, resetBookProcessingStagesFrom, SettingKey, storeAbility } from '@slonigiraf/db';
 import OpenAI from 'openai';
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 
@@ -15,8 +15,6 @@ import { isTikzCode } from '../../../Edit/tikz.js';
 import { shouldSkipStoredTikzCompile } from '../../../Edit/tikzValidation.js';
 import { rasterizeTikzSvg } from '../../book/application/abilities/tikzRaster.js';
 import { parseStoredAbility } from '../../../abilities/abilities.js';
-import { parseExerciseRepairResult } from '../../book/domain/exercises/exercises.js';
-import { processExtractedChapterContent } from '../../book/application/processing/bookProcessing.js';
 import { bookProcessingManager } from '../../book/application/pipeline/bookProcessingManager.js';
 import { useBookProcessingRun } from '../../book/application/pipeline/useBookProcessingRun.js';
 import { bookLanguageLabel } from '../../book/domain/metadata/bookLanguage.js';
@@ -24,19 +22,17 @@ import { conceptRedoStagesFrom, type ConceptRedoStage } from './conceptRedoStage
 import { addBookExternalCall } from '../../book/infrastructure/storage/bookExternalCalls.js';
 import { estimateAiInput } from '../../book/application/pricing/aiEstimate.js';
 import { DEFAULT_PROCESSING_MODEL } from '../../book/application/config.js';
-import { ABILITY_WORKFLOW_SYSTEM_PROMPT, CONCEPT_ABILITY_WORKFLOW_SYSTEM_PROMPT, FIX_ABILITIES_REQUEST_PROMPT, FIX_EXERCISES_REQUEST_PROMPT, REPAIR_SYSTEM_PROMPT, SKILLS_GENERATION_SYSTEM_PROMPT, SOURCES_TO_SKILLS_REQUEST_PROMPT } from '../../book/infrastructure/ai/prompts/abilities.js';
-import { abilityGenerationRequestPrompt, generateExerciseAbility, transportCompactAbilitySourceExercise } from '../../book/domain/abilities/abilityWorkflow.js';
+import { CONCEPT_ABILITY_WORKFLOW_SYSTEM_PROMPT, REPAIR_SYSTEM_PROMPT, SKILLS_GENERATION_SYSTEM_PROMPT, SOURCES_TO_SKILLS_REQUEST_PROMPT } from '../../book/infrastructure/ai/prompts/abilities.js';
 import { conceptAbilityGenerationPrompt, generateConceptAbility } from '../../book/domain/abilities/conceptAbilityWorkflow.js';
 import { mapConcurrent } from '../../../common/concurrency.js';
 import { OPENROUTER_CONCURRENCY } from '../../../openrouter/concurrency.js';
 import { useBookStageTimer } from '../../book/infrastructure/storage/bookStageTime.js';
 import { stripMarkdownImageReferences } from '../../book/infrastructure/pdf/bookImageRefs.js';
-import { abilityWithDirectConceptTitle, exerciseWithConceptTitle } from '../../book/domain/concepts/conceptTitles.js';
-import { sortAbilitiesForDisplay, sortExercisesForDisplay } from '../../book/domain/concepts/learningOrder.js';
+import { abilityWithDirectConceptTitle } from '../../book/domain/concepts/conceptTitles.js';
+import { sortAbilitiesForDisplay } from '../../book/domain/concepts/learningOrder.js';
 import { resolveSharedChapterIndex } from '../../book/domain/chapters/chapterSelection.js';
 import { getSharedChapterSelection, storeSharedChapterSelection, subscribeSharedChapterSelection } from '../../book/infrastructure/storage/chapterSelectionStorage.js';
-import { abilityModuleId, abilityRepairInput, abilityWithImageDescriptions, cleanTikzResponse, conceptAbilityModuleId, exerciseAbilityModuleId, exerciseForPageReplacement, exerciseRepairInput, parseGeneratedSkills, parseTikzAiReview, requestAbilityRepairResult, requestChatContent, requestChatContentWithTruncationRetry, requestValidatedJson, storedAbilityImageId, tikzCompileRepairPrompt, tikzDetectedProblemsRepairPrompt, tikzFixReviewPrompt, tikzRequestPrompt, type ImageFixTarget, type StoredAbility, type TikzAiReview } from '../../book/application/abilities/abilityProcessing.js';
-import type { ExerciseEditableFields } from '../../shared/types/exercise.js';
+import { abilityModuleId, abilityRepairInput, cleanTikzResponse, conceptAbilityModuleId, parseGeneratedSkills, parseTikzAiReview, requestAbilityRepairResult, requestChatContent, requestChatContentWithTruncationRetry, requestValidatedJson, storedAbilityImageId, tikzCompileRepairPrompt, tikzDetectedProblemsRepairPrompt, tikzFixReviewPrompt, tikzRequestPrompt, type ImageFixTarget, type StoredAbility, type TikzAiReview } from '../../book/application/abilities/abilityProcessing.js';
 import { ChapterTitleEditor } from './components/SkillsComponents.js';
 import SkillsContentView from './components/SkillsContentView.js';
 import SkillsControls from './components/SkillsControls.js';
@@ -286,12 +282,10 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
   const hasBookSubject = Boolean(book.subject);
   const [aiAction, setAiAction] = useState<AiAction>();
   const [chapterContent, setChapterContent] = useState<ChapterContent[]>([]);
-  const [bookPageContent, setBookPageContent] = useState<BookPageContent[]>([]);
   const [chapterIndex, setChapterIndex] = useState(() => getSessionChapter(book.id, view));
   const [editingChapter, setEditingChapter] = useState<BookChapter>();
   const [error, setError] = useState('');
   const [fixReview, setFixReview] = useState<FixReviewResult | null>(null);
-  const [exerciseFixReview, setExerciseFixReview] = useState<ExerciseFixReviewResult | null>(null);
   const [imageFixReview, setImageFixReview] = useState<ImageFixReviewResult | null>(null);
   const [generateOnlyMissingAbilities, setGenerateOnlyMissingAbilities] = useState(false);
   const [generateOnlyMissingImages, setGenerateOnlyMissingImages] = useState(false);
@@ -333,7 +327,6 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
     setOpenRouterSpent((current) => current + costUsd);
     void addBookStageSpend(book.id, stage, costUsd).catch(console.error);
   }, [book.id]);
-  const addFixExercisesCost = useCallback((costUsd: number): void => addStageCost('fixExercises', costUsd), [addStageCost]);
   const addAbilitiesCost = useCallback((costUsd: number): void => addStageCost('abilities', costUsd), [addStageCost]);
   const addFixAbilitiesCost = useCallback((costUsd: number): void => addStageCost('fixAbilities', costUsd), [addStageCost]);
   const addImagesCost = useCallback((costUsd: number): void => addStageCost('images', costUsd), [addStageCost]);
@@ -363,14 +356,10 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
         getBookPages(book.id),
         getBookConceptsForBookPage(book.id, 0)
       ]);
-      const pageRows = await Promise.all(pages.map(async (page: BookPage) => {
-        const [concepts, exercises] = await Promise.all([
-          getBookConceptsForBookPage(book.id, page.pageNumber),
-          getExercisesForBookPage([book.id, page.pageNumber])
-        ]);
-
-        return { concepts, exercises, page };
-      }));
+      const pageRows = await Promise.all(pages.map(async (page: BookPage) => ({
+        concepts: await getBookConceptsForBookPage(book.id, page.pageNumber),
+        page
+      })));
       const result = await Promise.all(chapters.map(async (chapter): Promise<ChapterContent> => {
         const skills = chapter.id === undefined ? [] : await getSkillsForChapter(chapter.id);
         const chapterConcepts = [
@@ -379,15 +368,8 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
             : page.chapter === chapter.title)),
           ...pageLessConcepts.filter(({ chapterId }) => chapterId !== undefined && chapterId === chapter.id)
         ];
-        const chapterConceptIds = new Set(chapterConcepts.flatMap(({ id }) => id === undefined ? [] : [id]));
-        const exercises = sortExercisesForDisplay(pageRows.flatMap(({ exercises, page }) => exercises.filter(({ conceptId }) => conceptId !== undefined
-          ? chapterConceptIds.has(conceptId)
-          : page.chapter === chapter.title)));
         const conceptRecords = (await Promise.all(chapterConcepts.flatMap(({ id }) => id === undefined ? [] : [getAbilities(conceptAbilityModuleId(book.id, id))]))).flat();
-        const directConceptIds = new Set(conceptRecords.map(({ moduleId }) => Number(/-concept-(\d+)$/.exec(moduleId)?.[1])));
-        const legacyRecords = (await Promise.all(exercises.flatMap(({ id, conceptId }) => id === undefined || (conceptId !== undefined && directConceptIds.has(conceptId)) ? [] : [getAbilities(exerciseAbilityModuleId(book.id, id))]))).flat();
-        const records = [...conceptRecords, ...legacyRecords] as Array<{ content: string; displayOrder?: number; id: string; moduleId: string }>;
-        const abilities = sortAbilitiesForDisplay(await Promise.all(records.map(async ({ content, displayOrder, id, moduleId }): Promise<StoredAbility> => {
+        const abilities = sortAbilitiesForDisplay(await Promise.all(conceptRecords.map(async ({ content, displayOrder, id, moduleId }): Promise<StoredAbility> => {
           try {
             const hydratedContent = await hydrateAbilityContent(content);
 
@@ -397,13 +379,12 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
           }
         })));
 
-        return { abilities, chapter, concepts: chapterConcepts, exercises, skills };
+        return { abilities, chapter, concepts: chapterConcepts, skills };
       }));
 
       if (active) {
         const sharedSelection = getSharedChapterSelection(book.id);
 
-        setBookPageContent(pageRows.map(({ exercises, page }) => ({ exercises, page })));
         setChapterContent(result);
         setChapterIndex((current) => sharedSelection
           ? resolveSharedChapterIndex(sharedSelection, result.map(({ chapter }) => chapter))
@@ -464,17 +445,13 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
 
   const allConcepts = useMemo(() => chapterContent.flatMap(({ concepts }) => concepts), [chapterContent]);
   const allSkills = useMemo(() => chapterContent.flatMap(({ skills }) => skills), [chapterContent]);
-  const allExercises = useMemo(() => chapterContent.flatMap(({ exercises }) => exercises), [chapterContent]);
-  const allBookExercises = useMemo(() => allExercises.filter(({ source }) => source !== 'generated'), [allExercises]);
   const allAbilities = useMemo(() => chapterContent.flatMap(({ abilities }) => abilities), [chapterContent]);
   const abilityModuleIds = useMemo(() => new Set(allAbilities.map(({ moduleId }) => moduleId)), [allAbilities]);
-  const exerciseConceptIds = useMemo(() => new Set(allExercises.flatMap(({ conceptId }) => conceptId === undefined ? [] : [conceptId])), [allExercises]);
-  const conceptsMissingExercises = useMemo(() => allConcepts.filter(({ id }) => id === undefined || !exerciseConceptIds.has(id)), [allConcepts, exerciseConceptIds]);
-  const exercisesMissingAbilities = useMemo(() => allConcepts.filter(({ id }) => id === undefined || !abilityModuleIds.has(conceptAbilityModuleId(book.id, id))), [abilityModuleIds, allConcepts, book.id]);
+  const conceptsMissingAbilities = useMemo(() => allConcepts.filter(({ id }) => id === undefined || !abilityModuleIds.has(conceptAbilityModuleId(book.id, id))), [abilityModuleIds, allConcepts, book.id]);
   const missingAbilityIndexesByChapter = useMemo(() => chapterContent.map(({ concepts }) => concepts.flatMap(({ id }, conceptIndex) => id === undefined || !abilityModuleIds.has(conceptAbilityModuleId(book.id, id)) ? [conceptIndex] : [])), [abilityModuleIds, book.id, chapterContent]);
   const missingAbilityCountsByChapter = useMemo(() => missingAbilityIndexesByChapter.map((indexes) => indexes.length), [missingAbilityIndexesByChapter]);
   const currentMissingAbilityIndexes = missingAbilityIndexesByChapter[chapterIndex] ?? [];
-  const focusAbilityExercise = useCallback((exerciseIndex: number): void => {
+  const focusConceptAbility = useCallback((exerciseIndex: number): void => {
     const conceptId = current?.concepts[exerciseIndex]?.id;
     const conceptSection = Array.from(abilitiesOutputRef.current?.querySelectorAll<HTMLElement>('[data-concept-id]') ?? [])
       .find((section) => section.dataset.conceptId === String(conceptId))
@@ -485,13 +462,13 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
   }, [current]);
 
   useEffect(() => {
-    onEntityCountsChange?.({ abilities: allAbilities.length, bookExercises: allBookExercises.length, exercises: allExercises.length });
-  }, [allAbilities.length, allBookExercises.length, allExercises.length, onEntityCountsChange]);
+    onEntityCountsChange?.({ abilities: allAbilities.length });
+  }, [allAbilities.length, onEntityCountsChange]);
   useEffect(() => {
-    if (!exercisesMissingAbilities.length && generateOnlyMissingAbilities) {
+    if (!conceptsMissingAbilities.length && generateOnlyMissingAbilities) {
       setGenerateOnlyMissingAbilities(false);
     }
-  }, [exercisesMissingAbilities.length, generateOnlyMissingAbilities]);
+  }, [conceptsMissingAbilities.length, generateOnlyMissingAbilities]);
   const conceptsById = useMemo(() => new Map(chapterContent.flatMap(({ concepts }) => concepts.flatMap((concept) => concept.id === undefined ? [] : [[concept.id, concept] as const]))), [chapterContent]);
   const imageGenerationTargets = useMemo(() => allAbilities.flatMap((record) => record.ability
     ? record.ability.q.flatMap((exercise, exerciseIndex) => (['p', 'i'] as const).flatMap((field) => {
@@ -560,7 +537,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
     return chapterContent.map(({ abilities }) => abilities.filter(({ id }) => failedAbilityIds.has(id)).length);
   }, [chapterContent, failedTikzTargets]);
   const imageFixTargetsForRun = fixOnlyFailedTikz && !autoRunAll ? failedTikzTargets : imageFixTargets;
-  const skillSources = useMemo<SkillSource[]>(() => chapterContent.flatMap(({ chapter, concepts, exercises }) => chapter.id === undefined ? [] : [...concepts.flatMap(({ description, id, title }) => id === undefined ? [] : [{ chapterId: chapter.id as number, chapterTitle: chapter.title, description, sourceId: id, sourceType: 'concept' as const, title }]), ...exercises.flatMap(({ description, id, title }) => id === undefined ? [] : [{ chapterId: chapter.id as number, chapterTitle: chapter.title, description: stripMarkdownImageReferences(description), sourceId: id, sourceType: 'exercise' as const, title }])]), [chapterContent]);
+  const skillSources = useMemo<SkillSource[]>(() => chapterContent.flatMap(({ chapter, concepts }) => chapter.id === undefined ? [] : concepts.flatMap(({ description, id, title }) => id === undefined ? [] : [{ chapterId: chapter.id as number, chapterTitle: chapter.title, description, sourceId: id, sourceType: 'concept' as const, title }])), [chapterContent]);
   useEffect(() => {
     setEffectiveCompletedStages(getBookCompletedStages(book));
   }, [book]);
@@ -613,14 +590,10 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
       return Array.from({ length: Math.ceil(skillSources.length / BATCH_SIZE) }, (_, index) => SOURCES_TO_SKILLS_REQUEST_PROMPT(language, skillSources.slice(index * BATCH_SIZE, (index + 1) * BATCH_SIZE)));
     }
 
-    if (aiAction === 'exercises') {
+    if (aiAction === 'abilities') {
       return chapterContent.flatMap(({ chapter, concepts }) => concepts
         .filter(({ id }) => !generateOnlyMissingAbilities || id === undefined || !abilityModuleIds.has(conceptAbilityModuleId(book.id, id)))
         .map((concept) => conceptAbilityGenerationPrompt(language, chapter.title, concept, book.age)));
-    }
-
-    if (aiAction === 'fixExercises') {
-      return chapterContent.filter(({ exercises }) => exercises.length > 0).map(({ chapter, exercises }) => FIX_EXERCISES_REQUEST_PROMPT(exerciseRepairInput(language, exercises, chapter.title, book.age, conceptsById)));
     }
 
     if (aiAction === 'fix') {
@@ -642,114 +615,14 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
     return [];
   }, [abilityModuleIds, aiAction, book.age, book.id, chapterContent, conceptsById, generateOnlyMissingAbilities, imageFixTargetsForRun, imageGenerationTargetsForRun, language, skillSources]);
   const maxChapterAbilityCount = Math.max(1, ...chapterContent.map(({ abilities }) => abilities.length));
-  const maxChapterExerciseCount = Math.max(1, ...chapterContent.map(({ exercises }) => exercises.length));
-  const generationOutputTokens = aiAction === 'exercises' ? 3_200 : aiAction === 'fixExercises' ? maxChapterExerciseCount * 550 : aiAction === 'fix' ? maxChapterAbilityCount * 700 : aiAction === 'images' ? 2_400 : aiAction === 'fixImages' ? TIKZ_REVIEW_MAX_OUTPUT_TOKENS : aiAction === 'skills' ? BATCH_SIZE * 180 : 300;
+  const generationOutputTokens = aiAction === 'abilities' ? 3_200 : aiAction === 'fix' ? maxChapterAbilityCount * 700 : aiAction === 'images' ? 2_400 : aiAction === 'fixImages' ? TIKZ_REVIEW_MAX_OUTPUT_TOKENS : aiAction === 'skills' ? BATCH_SIZE * 180 : 300;
   const validationInputs = requestInputs;
   const outputTokens = generationOutputTokens;
   const estimate = estimateAiInput(effectiveModel, validationInputs, outputTokens);
 
-  const deleteExerciseWithAbilities = useCallback(async (exerciseId: number): Promise<void> => {
-    await deleteAbilities(exerciseAbilityModuleId(book.id, exerciseId));
-    await deleteExercise(exerciseId);
-  }, [book.id]);
-
-  const saveExercise = useCallback(async (exerciseId: number, value: ExerciseEditableFields): Promise<void> => {
-    const row = bookPageContent.find(({ exercises }) => exercises.some(({ id }) => id === exerciseId));
-
-    if (!row) {
-      throw new Error('Unable to find the page containing this Exercise.');
-    }
-
-    const originalExercises = row.exercises;
-    const updatedExercises = originalExercises.map((exercise) => exercise.id === exerciseId ? { ...exercise, ...value } : exercise);
-    const abilityContentsByExerciseId = new Map<number, string[]>();
-
-    originalExercises.forEach(({ id }) => {
-      if (id !== undefined) {
-        abilityContentsByExerciseId.set(id, allAbilities.filter(({ moduleId }) => moduleId === exerciseAbilityModuleId(book.id, id)).map(({ content }) => content));
-      }
-    });
-
-    await replaceExercisesForBookPage([book.id, row.page.pageNumber], updatedExercises.map(exerciseForPageReplacement));
-
-    const storedExercises = await getExercisesForBookPage([book.id, row.page.pageNumber]);
-
-    if (storedExercises.length !== originalExercises.length || storedExercises.some(({ id }) => id === undefined)) {
-      throw new Error('Unable to remap Exercises after saving the edit.');
-    }
-
-    for (let index = 0; index < originalExercises.length; index++) {
-      const oldId = originalExercises[index].id;
-      const newId = storedExercises[index].id as number;
-
-      if (oldId === undefined || oldId === newId) {
-        continue;
-      }
-
-      const contents = abilityContentsByExerciseId.get(oldId) ?? [];
-
-      if (contents.length) {
-        await replaceAbilities(exerciseAbilityModuleId(book.id, newId), contents);
-      }
-
-      await deleteAbilities(exerciseAbilityModuleId(book.id, oldId));
-    }
-
-    setNotice('Exercise saved. Existing Abilities were kept linked to the edited Exercise.');
-    refreshContent();
-  }, [allAbilities, book.id, bookPageContent, refreshContent]);
-
-  const fixSingleExercise = useCallback(async (exerciseId: number): Promise<void> => {
-    const chapterRow = chapterContent.find(({ exercises }) => exercises.some(({ id }) => id === exerciseId));
-    const exercise = chapterRow?.exercises.find(({ id }) => id === exerciseId);
-
-    if (!chapterRow || !exercise) {
-      throw new Error('Unable to find this Exercise in its chapter.');
-    }
-
-    const client = await createClient();
-    const systemPrompt = REPAIR_SYSTEM_PROMPT(language, book.age);
-    const userPrompt = FIX_EXERCISES_REQUEST_PROMPT(exerciseRepairInput(language, [exercise], chapterRow.chapter.title, book.age, conceptsById));
-    const result = await requestValidatedJson(
-      client,
-      effectiveModel,
-      systemPrompt,
-      userPrompt,
-      (content) => parseExerciseRepairResult(content, [exercise], [exerciseId]),
-      true,
-      addFixExercisesCost,
-      undefined,
-      undefined,
-      2
-    );
-    const review = result.reviews.find(({ index }) => index === 0);
-
-    const corrected = exerciseWithConceptTitle(review?.exercise ?? exercise, conceptsById);
-
-    if (!review?.hasErrors && corrected.title === exercise.title) {
-      setNotice('AI review found no Exercise changes to apply.');
-      return;
-    }
-
-    await saveExercise(exerciseId, {
-      description: corrected.description,
-      imageDescription: corrected.imageDescription,
-      solution: corrected.solution,
-      solutionImageDescription: corrected.solutionImageDescription,
-      title: corrected.title
-    });
-    setNotice('Exercise fixed with AI. Existing Abilities were kept linked to the edited Exercise.');
-  }, [addFixExercisesCost, book.age, chapterContent, conceptsById, createClient, effectiveModel, language, saveExercise]);
-
-  const deleteConceptWithExercises = useCallback(async (conceptId: number): Promise<void> => {
-    const referencedExercises = allExercises.filter(({ conceptId: exerciseConceptId, id }) => id !== undefined && exerciseConceptId === conceptId);
-
-    for (const exercise of referencedExercises) {
-      await deleteExerciseWithAbilities(exercise.id as number);
-    }
-
+  const deleteConceptAndAbilities = useCallback(async (conceptId: number): Promise<void> => {
     await deleteBookConcept(conceptId);
-  }, [allExercises, deleteExerciseWithAbilities]);
+  }, []);
 
   const beginProgress = useCallback((label: string, total: number, stage?: BookStageSpendKey): AbortSignal => {
     processingAbortControllerRef.current?.abort();
@@ -757,7 +630,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
 
     processingAbortControllerRef.current = controller;
     setProcessingStage(stage);
-    setAiAction(undefined); setError(''); setFixReview(null); setExerciseFixReview(null); setImageFixReview(null); setNotice(''); setIsBusy(true); setOpenRouterSpent(0); setProgress(0); setProgressLabel(label); setProgressTotal(Math.max(1, total));
+    setAiAction(undefined); setError(''); setFixReview(null); setImageFixReview(null); setNotice(''); setIsBusy(true); setOpenRouterSpent(0); setProgress(0); setProgressLabel(label); setProgressTotal(Math.max(1, total));
 
     return controller.signal;
   }, []);
@@ -787,7 +660,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
 
   // The Ability card replays a local slice of the book pipeline, never its
   // chapter-wide actions. Re-read the freshly persisted rows between stages:
-  // replacement can change Exercise/Ability IDs and Image references.
+  // replacement can change Ability IDs and Image references.
   const redoConceptFromStage = useCallback(async (record: StoredAbility, start: ConceptRedoStage): Promise<void> => {
     if (processingAbortControllerRef.current) {
       throw new Error('Another AI operation is currently running.');
@@ -944,7 +817,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
         endProgress();
       }
     }
-  }, [addAbilitiesCost, addFixAbilitiesCost, addFixExercisesCost, addFixImagesCost, addImagesCost, addStageCost, beginProgress, book.age, book.id, book.subject, chapterContent, conceptsById, createClient, effectiveModel, endProgress, language, refreshContent]);
+  }, [addAbilitiesCost, addFixAbilitiesCost, addFixImagesCost, addImagesCost, addStageCost, beginProgress, book.age, book.id, book.subject, chapterContent, conceptsById, createClient, effectiveModel, endProgress, language, refreshContent]);
 
   const generateSkills = useCallback(async (): Promise<void> => {
     const signal = beginProgress('Generating Skills', skillSources.length);
@@ -975,7 +848,6 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
           rows.push({
             ...skill,
             bookConceptIds: source.sourceType === 'concept' ? [source.sourceId] : [],
-            exerciseIds: source.sourceType === 'exercise' ? [source.sourceId] : [],
             rank: rows.length
           });
           generatedByChapter.set(source.chapterId, rows);
@@ -994,8 +866,8 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
     }
   }, [addOpenRouterCost, allSkills, beginProgress, book.id, endProgress, chapters, createClient, language, refresh, effectiveModel, skillSources]);
 
-  const generateExercises = useCallback(async (): Promise<void> => {
-    const targets = generateOnlyMissingAbilities ? exercisesMissingAbilities : allConcepts;
+  const generateAbilities = useCallback(async (): Promise<void> => {
+    const targets = generateOnlyMissingAbilities ? conceptsMissingAbilities : allConcepts;
     const signal = beginProgress('Generating Abilities from Concepts', targets.length, 'abilities');
 
     try {
@@ -1055,109 +927,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
     } finally {
       endProgress();
     }
-  }, [addAbilitiesCost, allAbilities.length, allConcepts, beginProgress, book.age, book.id, chapterContent, completeStage, createClient, effectiveModel, endProgress, exercisesMissingAbilities, generateOnlyMissingAbilities, language, onAction, onContentChange, refresh]);
-
-  const fixExercises = useCallback(async (): Promise<void> => {
-    const signal = beginProgress('Fixing Exercise errors', allExercises.length, 'fixExercises');
-
-    try {
-      if (!allExercises.length) {
-        throw new Error('No Exercises are available to fix.');
-      }
-
-      if (allExercises.some(({ id }) => id === undefined)) {
-        throw new Error('Every Exercise must have an id before Exercises can be fixed.');
-      }
-
-      const client = await createClient();
-      const replacements = new Map<number, { errors: string[]; exercise: Exercise }>();
-      const duplicatePairs = new Map<number, DuplicateExerciseReview>();
-      const batches = chapterContent
-        .filter(({ exercises }) => exercises.length > 0)
-        .map(({ chapter, exercises }) => ({ batch: exercises, chapterTitle: chapter.title }));
-      let completed = 0;
-
-      await mapConcurrent(batches, OPENROUTER_CONCURRENCY, async ({ batch, chapterTitle }) => {
-        const originalIds = batch.map(({ id }) => id as number);
-        const systemPrompt = REPAIR_SYSTEM_PROMPT(language, book.age);
-        const userPrompt = FIX_EXERCISES_REQUEST_PROMPT(exerciseRepairInput(language, batch, chapterTitle, book.age, conceptsById));
-        const result = await requestValidatedJson(
-          client,
-          effectiveModel,
-          systemPrompt,
-          userPrompt,
-          (content) => parseExerciseRepairResult(content, batch, originalIds),
-          true,
-          addFixExercisesCost,
-          undefined,
-          undefined,
-          2,
-          signal
-        );
-        const batchDuplicateIds = new Set(result.duplicatePairs.map(({ deletedExerciseId }) => deletedExerciseId));
-
-        result.duplicatePairs.forEach(({ deletedExerciseId, keptExerciseId }) => {
-          const kept = batch.find(({ id }) => id === keptExerciseId);
-          const deleted = batch.find(({ id }) => id === deletedExerciseId);
-
-          if (!kept || !deleted) {
-            throw new Error('OpenRouter returned a duplicate Exercise pair that does not exist in this chapter.');
-          }
-
-          duplicatePairs.set(deletedExerciseId, { chapterTitle, deleted, kept });
-        });
-        result.reviews.forEach((review) => {
-          if (review.hasErrors && review.exercise) {
-            const original = batch[review.index];
-            const id = original.id as number;
-
-            if (!batchDuplicateIds.has(id)) {
-              replacements.set(id, { errors: review.errors, exercise: exerciseWithConceptTitle(review.exercise, conceptsById) });
-            }
-          }
-        });
-        completed += batch.length;
-        setProgress(Math.min(allExercises.length, completed));
-      });
-
-      const duplicateIds = new Set(duplicatePairs.keys());
-
-      allExercises.forEach((exercise) => {
-        if (exercise.id !== undefined && !duplicateIds.has(exercise.id)) {
-          const existing = replacements.get(exercise.id);
-          const corrected = exerciseWithConceptTitle(existing?.exercise ?? exercise, conceptsById);
-
-          if (corrected.title !== exercise.title) {
-            replacements.set(exercise.id, { errors: [...(existing?.errors ?? []), 'Title must match its source Concept.'], exercise: corrected });
-          }
-        }
-      });
-      duplicateIds.forEach((id) => replacements.delete(id));
-      const review: ExerciseFixReviewResult = {
-        checked: allExercises.length,
-        duplicatePairs: Array.from(duplicatePairs.values()),
-        items: Array.from(replacements, ([exerciseId, { errors, exercise }]) => ({
-          errors,
-          exercise,
-          exerciseId,
-          original: allExercises.find(({ id }) => id === exerciseId) ?? exercise
-        }))
-      };
-      const unchanged = Math.max(0, allExercises.length - replacements.size - duplicateIds.size);
-
-      // This is intentionally only a proposal. The database and processing
-      // stage are not touched until the user explicitly accepts the review
-      // popup below.
-      setExerciseFixReview(review);
-      setNotice(`Review ready: ${replacements.size} Exercise fix${replacements.size === 1 ? '' : 'es'}, ${duplicateIds.size} duplicate deletion${duplicateIds.size === 1 ? '' : 's'}, ${unchanged} unchanged. No database changes have been made.`);
-    } catch (caught) {
-      if (!signal.aborted) {
-        setError(caught instanceof Error ? caught.message : 'Unable to fix Exercise errors.');
-      }
-    } finally {
-      endProgress();
-    }
-  }, [addFixExercisesCost, allExercises, beginProgress, book.age, endProgress, chapterContent, conceptsById, createClient, language, effectiveModel]);
+  }, [addAbilitiesCost, allAbilities.length, allConcepts, beginProgress, book.age, book.id, chapterContent, completeStage, createClient, effectiveModel, endProgress, conceptsMissingAbilities, generateOnlyMissingAbilities, language, onAction, onContentChange, refresh]);
 
   const fixAbilities = useCallback(async (): Promise<void> => {
     const signal = beginProgress('Fixing Ability errors', allAbilities.length, 'fixAbilities');
@@ -1280,10 +1050,6 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
     setFixReview(null);
     setNotice('Proposed Ability changes were discarded. No database changes were made.');
   }, []);
-  const closeExerciseFixReview = useCallback((): void => {
-    setExerciseFixReview(null);
-    setNotice('Proposed Exercise changes were discarded. No database changes were made.');
-  }, []);
   const applyAbilityFixReview = useCallback(async (): Promise<void> => {
     if (!fixReview) {
       return;
@@ -1321,7 +1087,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
 
       // A duplicate Concept-linked Ability removes its source Concept too.
       for (const conceptId of duplicateConceptIds) {
-        await deleteConceptWithExercises(conceptId);
+        await deleteConceptAndAbilities(conceptId);
       }
 
       // Remove any duplicate Ability whose Concept link is absent.
@@ -1353,113 +1119,11 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
     } finally {
       setIsBusy(false);
     }
-  }, [deleteConceptWithExercises, fixReview, onAction, onContentChange, refresh, completeStage, stageDone]);
-  const applyExerciseFixReview = useCallback(async (): Promise<void> => {
-    if (!exerciseFixReview) {
-      return;
-    }
-
-    setIsBusy(true);
-    setError('');
-
-    try {
-      const replacements = new Map(exerciseFixReview.items.map(({ exercise, exerciseId }) => [exerciseId, exercise] as const));
-      const duplicateIds = new Set(exerciseFixReview.duplicatePairs.flatMap(({ deleted }) => deleted.id === undefined ? [] : [deleted.id]));
-      const abilityContentsByExerciseId = new Map<number, string[]>();
-
-      allExercises.forEach(({ id }) => {
-        if (id === undefined) {
-          return;
-        }
-
-        const moduleId = exerciseAbilityModuleId(book.id, id);
-
-        abilityContentsByExerciseId.set(id, allAbilities.filter((record) => record.moduleId === moduleId).map(({ content }) => content));
-      });
-
-      for (const { exercises, page } of bookPageContent) {
-        const pageHasChanges = exercises.some(({ id }) => id !== undefined && (duplicateIds.has(id) || replacements.has(id)));
-
-        if (!pageHasChanges) {
-          continue;
-        }
-
-        const keptEntries = exercises
-          .filter(({ id }) => id === undefined || !duplicateIds.has(id))
-          .map((original) => ({
-            corrected: original.id === undefined ? original : replacements.get(original.id) ?? original,
-            original
-          }));
-
-        await replaceExercisesForBookPage([book.id, page.pageNumber], keptEntries.map(({ corrected }) => exerciseForPageReplacement(corrected)));
-
-        const storedExercises = await getExercisesForBookPage([book.id, page.pageNumber]);
-
-        if (storedExercises.length !== keptEntries.length || storedExercises.some(({ id }) => id === undefined)) {
-          throw new Error('Unable to remap Exercises after applying fixes.');
-        }
-
-        for (let index = 0; index < keptEntries.length; index++) {
-          const oldId = keptEntries[index].original.id;
-          const newId = storedExercises[index].id as number;
-
-          if (oldId === undefined) {
-            continue;
-          }
-
-          const oldModuleId = exerciseAbilityModuleId(book.id, oldId);
-          const wasCorrected = replacements.has(oldId);
-
-          if (!wasCorrected && oldId !== newId) {
-            const contents = abilityContentsByExerciseId.get(oldId) ?? [];
-
-            if (contents.length) {
-              await replaceAbilities(exerciseAbilityModuleId(book.id, newId), contents);
-            }
-          }
-
-          if (wasCorrected || oldId !== newId) {
-            await deleteAbilities(oldModuleId);
-          }
-        }
-
-        for (const deletedId of exercises.flatMap(({ id }) => id !== undefined && duplicateIds.has(id) ? [id] : [])) {
-          await deleteAbilities(exerciseAbilityModuleId(book.id, deletedId));
-        }
-      }
-
-      // Exercise review is a standalone editor operation, not a pipeline stage.
-      // It must not write obsolete Fix exercises completion checkpoints.
-
-      const fixed = replacements.size;
-      const deleted = duplicateIds.size;
-
-      setExerciseFixReview(null);
-      setNotice(`Applied Fix exercises review: ${fixed} corrected, ${deleted} duplicate${deleted === 1 ? '' : 's'} deleted.`);
-      refresh();
-      onContentChange?.();
-      onAction?.('conceptExercises');
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Unable to apply Fix exercises changes.');
-    } finally {
-      setIsBusy(false);
-    }
-  }, [allAbilities, allExercises, book.id, bookPageContent, exerciseFixReview, onAction, onContentChange, refresh]);
-  const openExerciseGeneration = useCallback((): void => {
-    setGenerateOnlyMissingAbilities(exercisesMissingAbilities.length > 0 && exercisesMissingAbilities.length < allConcepts.length);
-    setAiAction('exercises');
-  }, [allConcepts.length, exercisesMissingAbilities.length]);
-  const retryMissingAbilities = useCallback((): void => {
-    setGenerateOnlyMissingAbilities(true);
-    setAiAction('exercises');
-  }, []);
-  const openExerciseFix = useCallback((): void => {
-    // Opening the confirmation must be a purely local state change. Switching
-    // the parent pane here can remount/re-render the surrounding reader before
-    // the modal is used, which made this action appear one-shot in some flows.
-    // Keep pane navigation deferred until the review popup is explicitly applied.
-    setAiAction('fixExercises');
-  }, []);
+  }, [deleteConceptAndAbilities, fixReview, onAction, onContentChange, refresh, completeStage, stageDone]);
+  const openAbilityGeneration = useCallback((): void => {
+    setGenerateOnlyMissingAbilities(conceptsMissingAbilities.length > 0 && conceptsMissingAbilities.length < allConcepts.length);
+    setAiAction('abilities');
+  }, [allConcepts.length, conceptsMissingAbilities.length]);
   const openAbilityFix = useCallback((): void => {
     setAiAction('fix');
   }, []);
@@ -1698,12 +1362,8 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
       generateSkills().catch(console.error);
     }
 
-    if (aiAction === 'exercises') {
-      generateExercises().catch(console.error);
-    }
-
-    if (aiAction === 'fixExercises') {
-      fixExercises().catch(console.error);
+    if (aiAction === 'abilities') {
+      generateAbilities().catch(console.error);
     }
 
     if (aiAction === 'fix') {
@@ -1717,7 +1377,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
     if (aiAction === 'fixImages') {
       fixImages().catch(console.error);
     }
-  }, [aiAction, completeImagesStage, fixAbilities, fixExercises, fixImages, generateExercises, generateSkills]);
+  }, [aiAction, completeImagesStage, fixAbilities, fixImages, generateAbilities, generateSkills]);
 
   useEffect((): void => {
     if (autoRunAll && aiAction && !isBusy) {
@@ -1730,14 +1390,12 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
       return;
     }
 
-    if (exerciseFixReview) {
-      void applyExerciseFixReview();
-    } else if (fixReview) {
+    if (fixReview) {
       void applyAbilityFixReview();
     } else if (imageFixReview) {
       void applyImageFixReview();
     }
-  }, [applyAbilityFixReview, applyExerciseFixReview, applyImageFixReview, autoRunAll, exerciseFixReview, fixReview, imageFixReview, isBusy]);
+  }, [applyAbilityFixReview, applyImageFixReview, autoRunAll, fixReview, imageFixReview, isBusy]);
   const closeConfirmation = useCallback((): void => {
     setAiAction(undefined);
     setGenerateOnlyMissingAbilities(false);
@@ -1754,9 +1412,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
       label: 'Abilities',
       isDone: stageDone(ABILITIES_STAGE),
       isDisabled: isBusy || !hasBookLanguage || !hasBookSubject || !stageDone('refineChapters') || !allConcepts.length,
-      isResultComplete: exercisesMissingAbilities.length === 0,
-      onClick: openExerciseGeneration,
-      onRetryMissing: retryMissingAbilities
+      onClick: openAbilityGeneration
     },
     {
       key: 'fixAbilities',
@@ -1782,7 +1438,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
       onClick: openImageFix
     },
     ...(pipelineSuffix ?? [])
-  ], [allExercises.length, chapterContent, conceptsMissingExercises.length, exercisesMissingAbilities.length, hasAbilities, hasBookLanguage, hasBookSubject, isBusy, missingImageGenerationTargets.length, openAbilityFix, openExerciseFix, openExerciseGeneration, openImageFix, openImages, pipelinePrefix, pipelineSuffix, retryMissingAbilities, retryMissingImages, stageDone, bookVisualQaStatus]);
+  ], [chapterContent, conceptsMissingAbilities.length, hasAbilities, hasBookLanguage, hasBookSubject, isBusy, missingImageGenerationTargets.length, openAbilityFix, openAbilityGeneration, openImageFix, openImages, pipelinePrefix, pipelineSuffix, retryMissingImages, stageDone, bookVisualQaStatus]);
   const visiblePipelineActions = useMemo(() => {
     const firstIncompleteIndex = pipelineActions.findIndex(({ isDone }) => !isDone);
 
@@ -1846,7 +1502,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
       actions: pipelineActions,
       busy: isBusy || externalAutoRunBusy,
       contentReady: isContentSnapshotCurrent,
-      hasReview: Boolean(aiAction || fixReview || exerciseFixReview || imageFixReview),
+      hasReview: Boolean(aiAction || fixReview || imageFixReview),
       error,
       onComplete: () => onAutoRunComplete?.(),
       onError: (message) => {
@@ -1854,7 +1510,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
         onAbortAutoRun?.();
       }
     });
-  }, [aiAction, autoRunAll, book.id, error, exerciseFixReview, externalAutoRunBusy, fixReview, imageFixReview, isBusy, isContentSnapshotCurrent, onAbortAutoRun, onAutoRunComplete, pipelineActions, processingRun]);
+  }, [aiAction, autoRunAll, book.id, error, externalAutoRunBusy, fixReview, imageFixReview, isBusy, isContentSnapshotCurrent, onAbortAutoRun, onAutoRunComplete, pipelineActions, processingRun]);
 
   const autoRunCompletedCount = autoRunStageKeys.reduce((count, key) => {
     if (processingRun?.completed.includes(key)) return count + 1;
@@ -1920,13 +1576,10 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
                        />}
     <SkillsReviewModals
       applyAbilityFixReview={applyAbilityFixReview}
-      applyExerciseFixReview={applyExerciseFixReview}
       applyImageFixReview={applyImageFixReview}
       autoRunAll={autoRunAll}
-      closeExerciseFixReview={closeExerciseFixReview}
       closeFixReview={closeFixReview}
       closeImageFixReview={closeImageFixReview}
-      exerciseFixReview={exerciseFixReview}
       fixReview={fixReview}
       imageFixReview={imageFixReview}
       isBusy={isBusy}
@@ -1944,7 +1597,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
       confirm={confirm}
       error={error}
       estimate={estimate}
-      exercisesMissingAbilitiesCount={exercisesMissingAbilities.length}
+      conceptsMissingAbilitiesCount={conceptsMissingAbilities.length}
       generateOnlyMissingAbilities={generateOnlyMissingAbilities}
       generateOnlyMissingImages={generateOnlyMissingImages}
       isBusy={isBusy}
@@ -1975,12 +1628,10 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
       changeChapter={changeChapter}
       current={current}
       currentMissingAbilityIndexes={currentMissingAbilityIndexes}
-      deleteConceptWithExercises={deleteConceptWithExercises}
-      deleteExerciseWithAbilities={deleteExerciseWithAbilities}
+      deleteConceptAndAbilities={deleteConceptAndAbilities}
       fixSingleAbility={redoConceptFromStage}
       isBusy={isBusy}
-      fixSingleExercise={fixSingleExercise}
-      focusAbilityExercise={focusAbilityExercise}
+      focusConceptAbility={focusConceptAbility}
       failedVisualCountsByChapter={failedVisualCountsByChapter}
       missingAbilityCountsByChapter={missingAbilityCountsByChapter}
       onError={setError}
@@ -1988,7 +1639,6 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
       pipelineOnly={pipelineOnly}
       refresh={refresh}
       refreshContent={refreshContent}
-      saveExercise={saveExercise}
       tikzIssuesByImageId={tikzIssuesByImageId}
       view={view}
     />

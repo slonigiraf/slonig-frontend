@@ -62,6 +62,40 @@ describe('BookProcessingManager', (): void => {
     assert.equal((await getBookProcessingRun(bookId))?.status, 'completed');
   });
 
+  it('moves from partially generated Abilities to Fix abilities without targeted retries', async (): Promise<void> => {
+    const bookId = 902707;
+    const manager = new BookProcessingManager();
+    const clicked: string[] = [];
+    let missingRetryCount = 0;
+    const actions: PipelineAction[] = [
+      { key: 'abilities', label: 'Abilities', isDone: false, isDisabled: false,
+        isResultComplete: false, onClick: () => clicked.push('abilities'),
+        onRetryMissing: () => { missingRetryCount++; } },
+      { key: 'fixAbilities', label: 'Fix abilities', isDone: false, isDisabled: false,
+        onClick: () => clicked.push('fixAbilities') }
+    ];
+
+    await manager.startFastForward(bookId, ['abilities', 'fixAbilities'], false, { generation: 'model-1', embedding: 'model-2', standards: 'model-3' });
+    const frame = (busy: boolean) => ({
+      actions, busy, contentReady: true, error: '', hasReview: false,
+      onComplete: () => undefined,
+      onError: (message: string) => { throw new Error(message); }
+    });
+
+    manager.stepFastForward(bookId, frame(false));
+    manager.stepFastForward(bookId, frame(true));
+    // The Ability stage persisted its completion checkpoint because one Concept
+    // produced an Ability, although other Concepts remain without Abilities.
+    actions[0].isDone = true;
+    manager.stepFastForward(bookId, frame(false));
+
+    assert.equal(missingRetryCount, 0);
+    assert.deepEqual(clicked, ['abilities', 'fixAbilities']);
+    assert.deepEqual(manager.getSnapshot(bookId)?.completed, ['abilities']);
+    assert.deepEqual(manager.getSnapshot(bookId)?.retryCounts, {});
+    await manager.flush(bookId);
+  });
+
   it('reports an unresolved Ability repair instead of leaving Fast Forward at 100% forever', async (): Promise<void> => {
     const bookId = 902705;
     const manager = new BookProcessingManager();
