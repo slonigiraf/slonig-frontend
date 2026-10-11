@@ -23,6 +23,13 @@ describe('parseNameSuggestions', (): void => {
     });
   });
 
+  it('never saves chapter-prefixed or numbered AI suggestions', (): void => {
+    assert.deepEqual(parseNameSuggestions('{"bookName":"Mathematics","chapters":[{"id":1,"title":"Chapter 1. Fractions"},{"id":2,"title":"1. Fractions"}]}', [1, 2]), {
+      bookName: 'Mathematics',
+      chapters: [{ id: 1, title: 'Fractions' }, { id: 2, title: 'Fractions' }]
+    });
+  });
+
   it('respects native orthography for non-English books', (): void => {
     assert.deepEqual(parseNameSuggestions('{"bookName":"Die Grundlagen der Mathematik","chapters":[{"id":5,"title":"2. Grundlagen der Mathematik"}]}', [5], 'de'), {
       bookName: 'Die Grundlagen der Mathematik',

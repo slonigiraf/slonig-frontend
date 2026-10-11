@@ -12,6 +12,8 @@ describe('book and chapter headings', (): void => {
   });
 
   it('removes leading numeric, decimal, chapter-prefixed and roman-numbered headings', (): void => {
+    assert.equal(formatChapterTitle('Chapter 1. Fractions'), 'Fractions');
+    assert.equal(formatChapterTitle('1. Fractions'), 'Fractions');
     assert.equal(formatChapterTitle('Chapter 2: linear equations'), 'Linear equations');
     assert.equal(formatChapterTitle('3.1. shapes and spaces'), 'Shapes and spaces');
     assert.equal(formatChapterTitle('§ 4 fractions of a whole'), 'Fractions of a whole');

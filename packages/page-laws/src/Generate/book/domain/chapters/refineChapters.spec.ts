@@ -22,6 +22,10 @@ describe('refine chapters', (): void => {
     assert.match(prompt, /chapter sizes are as even as practical/);
     assert.match(prompt, /Avoid results where one chapter is much smaller or larger/);
     assert.match(prompt, /specific theme/);
+    assert.match(prompt, /Chapter 1\. Fractions/);
+    assert.match(prompt, /1\. Fractions/);
+    assert.match(prompt, /write "Fractions" instead/);
+    assert.match(prompt, /one unsplit chapter/);
     assert.match(prompt, /sourcePage is informational only/);
     assert.match(prompt, /exactly one original chapter/);
     assert.match(prompt, /Never combine, compare, interleave, or reorder concepts with concepts from another chapter/);
@@ -68,6 +72,15 @@ describe('refine chapters', (): void => {
         { conceptIndexes: [0, 1], title: 'A' },
         { conceptIndexes: [2, 3], title: 'B' }
       ]
+    });
+  });
+
+  it('strips chapter numbering from AI-refined titles, even without splitting', (): void => {
+    assert.deepEqual(parseRefinedChapterGroups('{"chapters":[{"title":"Chapter 1. Fractions","conceptIndexes":[0,1]}]}', 2, 2), {
+      chapters: [{ conceptIndexes: [0, 1], title: 'Fractions' }]
+    });
+    assert.deepEqual(parseRefinedChapterGroups('{"chapters":[{"title":"1. Fractions","conceptIndexes":[0]},{"title":"Chapter 2. Decimals","conceptIndexes":[1]}]}', 2, 2), {
+      chapters: [{ conceptIndexes: [0], title: 'Fractions' }, { conceptIndexes: [1], title: 'Decimals' }]
     });
   });
 
