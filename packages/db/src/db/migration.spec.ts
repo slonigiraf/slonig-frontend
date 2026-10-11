@@ -85,9 +85,11 @@ describe('IndexedDB production migration', (): void => {
       upgraded = new SlonigDB(databaseName);
       await upgraded.open();
 
-      assert.equal(upgraded.verno, 103);
+      assert.equal(upgraded.verno, 104);
       assert.equal(upgraded.tables.some(({ name }) => name === 'fixConceptsChapterStatuses'), true);
+      assert.equal(upgraded.tables.some(({ name }) => name === 'bookAbilitySplitQueues'), true);
       await upgraded.fixConceptsChapterStatuses.put({ bookId: 7, statuses: { 'chapter:Fractions:12,13': 'fixed', 'chapter:Geometry:14,15': 'failed' } });
+      await upgraded.bookAbilitySplitQueues.put({ bookId: 7, conceptIds: [4, 5] });
       assert.equal(upgraded.tables.some(({ name }) => name === 'standardEmbeddings'), true);
       await upgraded.standardEmbeddings.put({ id: 'CCSS.6.RP.A.2', embedding: [0.25, 0.75] });
       assert.deepEqual(await upgraded.standardEmbeddings.get('CCSS.6.RP.A.2'), { id: 'CCSS.6.RP.A.2', embedding: [0.25, 0.75] });
@@ -129,6 +131,7 @@ describe('IndexedDB production migration', (): void => {
       assert.equal(await upgraded.abilities.count(), abilityCount + 1);
       assert.equal(await upgraded.images.count(), abilityCount, 'reopening must not repeat migration fixups');
       assert.deepEqual((await upgraded.fixConceptsChapterStatuses.get(7))?.statuses, { 'chapter:Fractions:12,13': 'fixed', 'chapter:Geometry:14,15': 'failed' }, 'chapter progress survives reopening');
+      assert.deepEqual((await upgraded.bookAbilitySplitQueues.get(7))?.conceptIds, [4, 5], 'split queue survives reopening');
       assert.equal((await upgraded.mathpixPdfJobs.get([7, 1, 40]))?.pdfId, 'pdf-resume-7-1', 'pending Mathpix jobs must survive reloads');
     } finally {
       legacy.close();
@@ -172,9 +175,11 @@ describe('IndexedDB production migration', (): void => {
 
       upgraded = new SlonigDB(name);
       await upgraded.open();
-      assert.equal(upgraded.verno, 103);
+      assert.equal(upgraded.verno, 104);
       assert.equal(upgraded.tables.some(({ name }) => name === 'fixConceptsChapterStatuses'), true);
+      assert.equal(upgraded.tables.some(({ name }) => name === 'bookAbilitySplitQueues'), true);
       await upgraded.fixConceptsChapterStatuses.put({ bookId: 7, statuses: { 'chapter:Fractions:12,13': 'fixed', 'chapter:Geometry:14,15': 'failed' } });
+      await upgraded.bookAbilitySplitQueues.put({ bookId: 7, conceptIds: [4, 5] });
       assert.deepEqual((await upgraded.books.get(17))?.completedStages, ['recognize', 'abilities', 'images']);
       assert.deepEqual((await upgraded.books.get(18))?.completedStages, ['recognize', 'abilities', 'images']);
       const run = await upgraded.bookProcessingRuns.get(17);
@@ -217,9 +222,11 @@ describe('IndexedDB production migration', (): void => {
       await upgraded.open();
       const savedBook = await upgraded.books.get(29);
       const savedRun = await upgraded.bookProcessingRuns.get(29);
-      assert.equal(upgraded.verno, 103);
+      assert.equal(upgraded.verno, 104);
       assert.equal(upgraded.tables.some(({ name }) => name === 'fixConceptsChapterStatuses'), true);
+      assert.equal(upgraded.tables.some(({ name }) => name === 'bookAbilitySplitQueues'), true);
       await upgraded.fixConceptsChapterStatuses.put({ bookId: 7, statuses: { 'chapter:Fractions:12,13': 'fixed', 'chapter:Geometry:14,15': 'failed' } });
+      await upgraded.bookAbilitySplitQueues.put({ bookId: 7, conceptIds: [4, 5] });
       assert.deepEqual(savedBook?.completedStages, ['recognize', 'images', 'standards']);
       assert.equal(Object.prototype.hasOwnProperty.call(savedBook, 'processingStage'), false);
       assert.deepEqual(savedRun?.stages, ['recognize', 'standards']);

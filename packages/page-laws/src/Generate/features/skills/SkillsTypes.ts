@@ -24,6 +24,14 @@ export interface SkillsProps {
   externalRefreshToken?: number;
   pipelineOnly?: boolean;
   pipelineControls?: React.ReactNode;
+  /** Book-wide queue shared by the toolbar and the Abilities pane. */
+  splitQueueConceptIds?: readonly number[];
+  onQueueSplit?: (record: StoredAbility) => void;
+  onSplitQueueItemComplete?: (conceptId: number) => Promise<void> | void;
+  onSplitQueueBusyChange?: (busy: boolean) => void;
+  externalSplitQueueBusy?: boolean;
+  isSplitQueueConfirmationOpen?: boolean;
+  onCloseSplitQueueConfirmation?: () => void;
   pipelinePrefix?: PipelineAction[];
   pipelineSuffix?: PipelineAction[];
   onAutoRunComplete?: () => void;

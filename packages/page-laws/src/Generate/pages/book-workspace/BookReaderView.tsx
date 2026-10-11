@@ -2,11 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { BookChapter, BookConcept } from '@slonigiraf/db';
-import { isBookProcessingStageComplete } from '@slonigiraf/db';
-import { Confirmation, SpanWithTags, SelectableList } from '@slonigiraf/slonig-components';
+import { getBookAbilitySplitQueue, isBookProcessingStageComplete, removeBookAbilitySplitQueueItem, toggleBookAbilitySplitQueueItem } from '@slonigiraf/db';
+import { Confirmation, SpanWithTags, SelectableList, useInfo } from '@slonigiraf/slonig-components';
 import MathpixLoader from 'mathpix-markdown-it/lib/components/mathpix-loader/index.js';
 import MathpixMarkdown from 'mathpix-markdown-it/lib/components/mathpix-markdown/index.js';
-import React from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Button, Dropdown, Input, Modal } from '@polkadot/react-components';
 import { bookAgeLabel, MAX_BOOK_LEARNER_AGE, MIN_BOOK_LEARNER_AGE, normalizeBookAge } from '../../book/domain/metadata/bookAge.js';
 import { BOOK_LANGUAGE_OPTIONS, bookLanguageLabel, normalizeLanguageCode } from '../../book/domain/metadata/bookLanguage.js';
@@ -28,6 +28,7 @@ import { conceptDisplayPage, conceptReferenceKey } from '../../book/application/
 import type { FixConceptsReviewChapter } from './BookReaderTypes.js';
 import type { ConceptEmbeddingHeatmapEntry, ReaderPane } from '../../shared/types/bookWorkspace.js';
 import type { BookReaderController } from './BookReaderController.js';
+import type { StoredAbility } from '../../book/application/abilities/abilityProcessing.js';
 
 interface Props { controller: BookReaderController; }
 
@@ -213,6 +214,60 @@ export function BookReaderView ({ controller }: Props): React.ReactElement {
     totalPages,
     unrecognizedPageNumbers,
   } = controller;
+
+  const { showInfo } = useInfo();
+  // Keep the owning book alongside the IDs: an old book's queue must never
+  // appear while the new book's IndexedDB read is still pending.
+  const [splitQueueState, setSplitQueueState] = useState<{ bookId: number; conceptIds: number[] }>();
+  const [isSplitQueueConfirmationOpen, setIsSplitQueueConfirmationOpen] = useState(false);
+  const [isSplitBatchRunning, setIsSplitBatchRunning] = useState(false);
+  const activeBookIdRef = useRef(book.id);
+  const showInfoRef = useRef(showInfo);
+
+  activeBookIdRef.current = book.id;
+  showInfoRef.current = showInfo;
+
+  const isSplitQueueReady = splitQueueState?.bookId === book.id;
+  const splitQueueConceptIds = isSplitQueueReady ? splitQueueState.conceptIds : [];
+
+  useEffect(() => {
+    let active = true;
+
+    setSplitQueueState(undefined);
+    setIsSplitQueueConfirmationOpen(false);
+    void getBookAbilitySplitQueue(book.id).then((conceptIds) => {
+      if (active) setSplitQueueState({ bookId: book.id, conceptIds });
+    }).catch((error: unknown) => {
+      if (active) showInfoRef.current(`Could not load the split queue: ${error instanceof Error ? error.message : String(error)}`, 'error');
+    });
+
+    return () => { active = false; };
+  }, [book.id]);
+
+  const queueSplitAbility = useCallback(async (record: StoredAbility): Promise<void> => {
+    if (!isSplitQueueReady || isSplitBatchRunning) return;
+    const match = /^book-(\d+)-concept-(\d+)$/.exec(record.moduleId);
+    if (!match || Number(match[1]) !== book.id) return;
+    const conceptId = Number(match[2]);
+
+    try {
+      const { conceptIds, queued } = await toggleBookAbilitySplitQueueItem(book.id, conceptId);
+
+      if (activeBookIdRef.current === book.id) {
+        setSplitQueueState({ bookId: book.id, conceptIds });
+        showInfoRef.current(t(queued ? '+1 ability marked for splitting' : '-1 ability removed from split queue'));
+      }
+    } catch (error) {
+      showInfoRef.current(`Could not save the split queue: ${error instanceof Error ? error.message : String(error)}`, 'error');
+    }
+  }, [book.id, isSplitQueueReady, isSplitBatchRunning, t]);
+
+  const onSplitQueueItemComplete = useCallback(async (conceptId: number): Promise<void> => {
+    // Await the database commit before counting the Ability as completed.
+    const conceptIds = await removeBookAbilitySplitQueueItem(book.id, conceptId);
+
+    if (activeBookIdRef.current === book.id) setSplitQueueState({ bookId: book.id, conceptIds });
+  }, [book.id]);
 
   const recognizedTextPane = (): React.ReactNode => (
     <div className='tabPanel'>
@@ -1039,14 +1094,30 @@ export function BookReaderView ({ controller }: Props): React.ReactElement {
         onContentChange={onSkillsContentChange}
         onEntityCountsChange={onSkillsEntityCountsChange}
         onPipelineSelectionChange={setSelectedPipelineKey}
+        splitQueueConceptIds={splitQueueConceptIds}
+        onQueueSplit={queueSplitAbility}
+        onSplitQueueItemComplete={onSplitQueueItemComplete}
+        onSplitQueueBusyChange={setIsSplitBatchRunning}
+        isSplitQueueConfirmationOpen={isSplitQueueConfirmationOpen}
+        externalSplitQueueBusy={isSplitBatchRunning || !isSplitQueueReady}
+        onCloseSplitQueueConfirmation={() => setIsSplitQueueConfirmationOpen(false)}
         pipelineControls={<>
           <Button
             aria-label={t('Run all remaining stages')}
             className='pipelineFastForwardButton'
             icon='fast-forward'
-            isDisabled={isPriceDisabled || autoRunAll || !selectedPipelineKey}
+            isDisabled={isPriceDisabled || autoRunAll || isSplitBatchRunning || !selectedPipelineKey}
             onClick={() => onFastForward(selectedPipelineKey)}
             title={t('Run all remaining stages')}
+          />
+          <Button
+            aria-label={t('Split queued Abilities')}
+            className='pipelineSplitQueueButton'
+            icon='wand-magic-sparkles'
+            isDisabled={isPriceDisabled || autoRunAll || isSplitBatchRunning || !isSplitQueueReady || splitQueueConceptIds.length === 0}
+            label={String(splitQueueConceptIds.length)}
+            onClick={() => setIsSplitQueueConfirmationOpen(true)}
+            title={t('Split queued Abilities')}
           />
           <Button
             className='pipelinePriceButton'
@@ -1322,6 +1393,9 @@ export function BookReaderView ({ controller }: Props): React.ReactElement {
                           onAction={revealPane}
                           onBookChange={onBookChange}
                           onEntityCountsChange={onSkillsEntityCountsChange}
+                          splitQueueConceptIds={splitQueueConceptIds}
+                          onQueueSplit={queueSplitAbility}
+                          externalSplitQueueBusy={isSplitBatchRunning || !isSplitQueueReady}
                           showPipeline={false}
                           view='preExercisesExercises'
                         /></div>

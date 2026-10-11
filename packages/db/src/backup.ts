@@ -6,6 +6,7 @@ const BOOK_PARSING_TABLES = new Set([
   'bookPages',
   'bookChapters',
   'bookConcepts',
+  'bookAbilitySplitQueues',
   'skills',
   'exerciseTemplates'
 ]);

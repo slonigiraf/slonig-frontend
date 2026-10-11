@@ -6,7 +6,7 @@ import type { GeneratedAbility } from '../../../abilities/abilities.js';
 import type { AbilityWorkflowJsonRunner } from '../../book/domain/abilities/abilityWorkflow.js';
 import type { AiAction, ChapterContent, DuplicateAbilityReview, FixedImageReview, FixReviewResult, ImageFixReviewResult, UnresolvedImageReview, PipelineAction, SkillSource, SkillsProps, SkillsView } from './SkillsTypes.js';
 
-import { addBookStageSpend, completeBookProcessingStage, createBookConcept, ensureAbilityAnswerImage, deleteAbilities, deleteAbility, deleteBookConcept, getAbilities, getBookChapters, getBookCompletedStages, getBookConceptsForBookPage, getBookPages, getSetting, getSkillsForChapter, getImage, getBookVisualQaSummary, hydrateAbilityContent, isBookProcessingStageSatisfied, putImage, reorderBookConcepts, setTikzImageQaState, tikzSourceVersion, replaceAbilities, replaceSkillsForChapter, resetBookProcessingStagesFrom, SettingKey, storeAbility } from '@slonigiraf/db';
+import { addBookStageSpend, completeBookProcessingStage, createBookConcept, ensureAbilityAnswerImage, deleteAbilities, deleteAbility, deleteBookConcept, getAbilities, getBookChapters, getBookCompletedStages, getBookConceptsForBookPage, getBookPages, getSetting, getSkillsForChapter, getImage, getBookVisualQaSummary, hydrateAbilityContent, isBookProcessingStageSatisfied, putImage, replaceBookConceptWithChildren, setTikzImageQaState, tikzSourceVersion, replaceAbilities, replaceSkillsForChapter, resetBookProcessingStagesFrom, SettingKey, storeAbility } from '@slonigiraf/db';
 import OpenAI from 'openai';
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 
@@ -25,7 +25,7 @@ import { parseFixedConcept } from '../../book/domain/concepts/fixConcepts.js';
 import { fixSingleConceptPrompt } from '../../book/application/concepts/conceptPrompts.js';
 import { parseSplitConcepts, splitConceptPrompt } from '../../book/domain/concepts/splitConcept.js';
 import { addBookExternalCall } from '../../book/infrastructure/storage/bookExternalCalls.js';
-import { estimateAiInput } from '../../book/application/pricing/aiEstimate.js';
+import { estimateAiInput, estimateAiRequests, type AiInputEstimate, type AiRequestEstimate } from '../../book/application/pricing/aiEstimate.js';
 import { DEFAULT_PROCESSING_MODEL } from '../../book/application/config.js';
 import { CONCEPT_ABILITY_WORKFLOW_SYSTEM_PROMPT, FIX_ABILITIES_REQUEST_PROMPT, REPAIR_SYSTEM_PROMPT, SKILLS_GENERATION_SYSTEM_PROMPT, SOURCES_TO_SKILLS_REQUEST_PROMPT } from '../../book/infrastructure/ai/prompts/abilities.js';
 import { conceptAbilityGenerationPrompt, generateConceptAbility } from '../../book/domain/abilities/conceptAbilityWorkflow.js';
@@ -43,6 +43,9 @@ import SkillsContentView from './components/SkillsContentView.js';
 import SkillsControls from './components/SkillsControls.js';
 import SkillsReviewModals from './components/SkillsReviewModals.js';
 import { StyledSkills } from './SkillsStyles.js';
+import { AiPriceEstimate } from '../../shared/ui/PriceEstimate.js';
+import StageRunPricePopup from '../../shared/ui/StageRunPricePopup.js';
+import OpenRouterModelSelector from '../../../openrouter/components/ModelSelector.js';
 
 async function preRenderTikzLazy (value: string): Promise<TikzPreRenderResult> {
   const { preRenderTikz } = await import('../../../Edit/TikzDisplay.js');
@@ -272,6 +275,7 @@ const FIX_ANSWER_IMAGES_STAGE: BookProcessingStageKey = 'fixAnswerImages';
 const TIKZ_RENDER_CONCURRENCY = 4;
 const TIKZ_REVIEW_MAX_OUTPUT_TOKENS = 6_000;
 const MAX_TIKZ_VISUAL_REVIEW_ATTEMPTS = 3;
+const EMPTY_SPLIT_QUEUE: readonly number[] = [];
 
 const chapterSessionKey = (bookId: number, view: SkillsView): string => `knowledge-upload-book-${bookId}-${view}-chapter`;
 
@@ -285,7 +289,7 @@ function getSessionChapter (bookId: number, view: SkillsView): number {
   }
 }
 
-function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapters = false, book, externalAutoRunBusy = false, externalRefreshToken = 0, onAction, onAutoRunComplete, onAutoRunProcessingChange, onAutoRunProgressChange, onAbortAutoRun, onBookChange, onContentChange, onEntityCountsChange, onPipelineSelectionChange, pipelineOnly = false, pipelineControls, pipelinePrefix, pipelineSuffix, showPipeline = true, view }: SkillsProps): React.ReactElement {
+function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapters = false, book, externalAutoRunBusy = false, externalRefreshToken = 0, onAction, onAutoRunComplete, onAutoRunProcessingChange, onAutoRunProgressChange, onAbortAutoRun, onBookChange, onContentChange, onEntityCountsChange, onPipelineSelectionChange, pipelineOnly = false, pipelineControls, pipelinePrefix, pipelineSuffix, showPipeline = true, view, splitQueueConceptIds, onQueueSplit, onSplitQueueItemComplete, onSplitQueueBusyChange, externalSplitQueueBusy = false, isSplitQueueConfirmationOpen = false, onCloseSplitQueueConfirmation }: SkillsProps): React.ReactElement {
   const language = book.language ?? '';
   const hasBookLanguage = Boolean(language);
   const hasBookSubject = Boolean(book.subject);
@@ -302,6 +306,10 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
   const [fixOnlyFailedTikz, setFixOnlyFailedTikz] = useState(false);
   const [tikzIssuesByImageId, setTikzIssuesByImageId] = useState<Record<number, string[]>>({});
   const [notice, setNotice] = useState('');
+  const [splitQueueEstimateState, setSplitQueueEstimateState] = useState<{ key: string; estimate: AiInputEstimate | string }>();
+  const splitBatchRunningRef = useRef(false);
+  const splitBatchCancelledRef = useRef(false);
+  const queuedSplitIds = splitQueueConceptIds ?? EMPTY_SPLIT_QUEUE;
   const [isBusy, setIsBusy] = useState(false);
   const [openRouterSpent, setOpenRouterSpent] = useState(0);
   const [progress, setProgress] = useState(0);
@@ -313,6 +321,8 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
   const effectiveModel = autoRunAll ? DEFAULT_PROCESSING_MODEL : selectedModel;
   const [effectiveCompletedStages, setEffectiveCompletedStages] = useState<BookProcessingStageKey[]>(() => getBookCompletedStages(book));
   const [loadedContentSnapshotKey, setLoadedContentSnapshotKey] = useState('');
+  const splitEstimateKey = `${book.id}:${effectiveModel}:${queuedSplitIds.join(',')}:${loadedContentSnapshotKey}`;
+  const splitQueueEstimate = splitQueueEstimateState?.key === splitEstimateKey ? splitQueueEstimateState.estimate : undefined;
   const processingRun = useBookProcessingRun(book.id);
   const autoRunStageKeys = processingRun?.mode === 'fastForward' ? processingRun.stages : [];
   const previousRunStatusRef = useRef(processingRun?.status);
@@ -696,6 +706,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
   }, []);
 
   const abortProcessing = useCallback((): void => {
+    splitBatchCancelledRef.current = true;
     processingAbortControllerRef.current?.abort();
     processingAbortControllerRef.current = null;
     setProcessingStage(undefined);
@@ -900,32 +911,42 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
   // Keep the original Concept and Ability until ALL children have passed the
   // complete pipeline. A failed or cancelled attempt removes its draft children
   // and their generated Abilities/Images, without touching the original.
-  const splitAbility = useCallback(async (record: StoredAbility): Promise<void> => {
-    if (processingAbortControllerRef.current) throw new Error('Another AI operation is currently running.');
+  const splitAbility = useCallback(async (record: StoredAbility, signal: AbortSignal): Promise<void> => {
+    if (signal.aborted) throw new Error('Concept split was cancelled.');
     const conceptLink = /-concept-(\d+)$/.exec(record.moduleId);
     const conceptId = conceptLink ? Number(conceptLink[1]) : undefined;
     const chapterRow = conceptId === undefined ? undefined : chapterContent.find(({ concepts }) => concepts.some(({ id }) => id === conceptId));
-    const concept = chapterRow?.concepts.find(({ id }) => id === conceptId);
 
-    if (!concept || conceptId === undefined || !chapterRow) {
+    if (conceptId === undefined || !chapterRow) {
       throw new Error('This Ability has no linked Concept. Link it to a Concept before splitting.');
     }
     if (!language || !book.subject) throw new Error('Book language and subject must be configured before splitting a Concept.');
 
-    const signal = beginProgress(`Splitting Concept: ${concept.title}`, 1, 'fixConcepts');
+    // Snapshot siblings for the AI prompt. Final chapter ordering is handled
+    // atomically against the LIVE inventory, after the generated children pass.
+    const allPages = await getBookPages(book.id);
+    const rows = await Promise.all([0, ...allPages.map(({ pageNumber }) => pageNumber)]
+      .map(async (pageNumber) => ({ pageNumber, concepts: await getBookConceptsForBookPage(book.id, pageNumber) })));
+    const chapterConcepts = rows.flatMap(({ pageNumber, concepts }) => concepts.filter(({ chapterId }) =>
+      chapterId !== undefined
+        ? chapterId === chapterRow.chapter.id
+        : pageNumber !== 0 && allPages.find((page) => page.pageNumber === pageNumber)?.chapter === chapterRow.chapter.title
+    ));
+    const concept = chapterConcepts.find(({ id }) => id === conceptId);
+    if (!concept) throw new Error('The queued Concept no longer exists in this chapter.');
+
     const savedChildren: BookConcept[] = [];
     let originalDeleted = false;
 
     try {
       const client = await createClient();
-      const chapterPages = (await getBookPages(book.id)).filter((page) =>
+      const chapterPages = allPages.filter((page) =>
         chapterRow.chapter.id !== undefined
           ? page.chapterId === chapterRow.chapter.id || (page.chapterId === undefined && page.chapter === chapterRow.chapter.title)
           : page.chapter === chapterRow.chapter.title
       );
       const chapterMmd = chapterPages.map(({ pageMMD, pageNumber }) => `--- page ${pageNumber} ---\n${pageMMD ?? ''}`).join('\n\n');
-      const siblings = chapterRow.concepts.filter(({ id }) => id !== conceptId);
-      setProgressLabel(`Splitting “${concept.title}” into child Concepts`);
+      const siblings = chapterConcepts.filter(({ id }) => id !== conceptId);
       const children = await requestValidatedJson(
         client, effectiveModel,
         'Split compound educational Concepts into independent child objectives. Return only JSON.',
@@ -935,16 +956,10 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
       );
       if (signal.aborted) throw new Error('Concept split was cancelled.');
       const stages = conceptRedoStagesFrom('abilities');
-      const total = 2 + children.length * (stages.length + 1);
-
-      setProgressTotal(total);
-      setProgress(1);
       const fixedChildren: Array<Pick<BookConcept, 'title' | 'description'>> = [];
 
-      for (const [index, child] of children.entries()) {
+      for (const child of children) {
         if (signal.aborted) throw new Error('Concept split was cancelled.');
-        setProcessingStage('fixConcepts');
-        setProgressLabel(`Fixing child Concept ${index + 1}/${children.length}: ${child.title}`);
         const fixed = await requestValidatedJson(
           client, effectiveModel,
           'Review and repair exactly one educational Concept. Return only JSON.',
@@ -955,7 +970,6 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
 
         if (signal.aborted) throw new Error('Concept split was cancelled.');
         fixedChildren.push(fixed);
-        setProgress(2 + index);
       }
 
       // Fixing titles can make two formerly distinct children identical. Check
@@ -974,27 +988,15 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
         savedChildren.push(saved);
       }
 
-      for (const [childIndex, child] of savedChildren.entries()) {
-        await runConceptStages(child, chapterRow.chapter.title, stages, client, signal, (stageIndex, stage, completed) => {
-          setProcessingStage(stage);
-          setProgress(1 + validatedChildren.length + childIndex * stages.length + stageIndex + (completed ? 1 : 0));
-          setProgressLabel(`Child ${childIndex + 1}/${savedChildren.length} — ${stage}: ${child.title}`);
-        });
+      for (const child of savedChildren) {
+        await runConceptStages(child, chapterRow.chapter.title, stages, client, signal, () => undefined);
       }
 
       if (signal.aborted) throw new Error('Concept split was cancelled.');
-      // Insert the children at the source Concept's learning position before
-      // deleting the parent. Deletion cascades to its old Ability and Images.
-      const ordered = [...chapterRow.concepts].sort((a, b) => (a.displayOrder ?? Number.MAX_SAFE_INTEGER) - (b.displayOrder ?? Number.MAX_SAFE_INTEGER) || (a.id ?? 0) - (b.id ?? 0));
-      const orderedIds = ordered.flatMap(({ id }) => id === conceptId
-        ? savedChildren.flatMap(({ id: childId }) => childId === undefined ? [] : [childId])
-        : id === undefined ? [] : [id]);
-
-      await reorderBookConcepts(orderedIds, chapterRow.chapter.id);
-      await deleteBookConcept(conceptId);
+      // Concurrent workers may finish in any order, even within a chapter.
+      // Replace the parent and order children in one IndexedDB transaction.
+      await replaceBookConceptWithChildren(conceptId, savedChildren.flatMap(({ id }) => id === undefined ? [] : [id]));
       originalDeleted = true;
-      setProgress(total);
-      setNotice(`Split “${concept.title}” into ${savedChildren.length} Concepts, each with a repaired Ability and checked images.`);
     } catch (error) {
       if (!originalDeleted) {
         const rollback = await Promise.allSettled(savedChildren.flatMap(({ id }) => id === undefined ? [] : [deleteBookConcept(id)]));
@@ -1004,10 +1006,121 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
         }
       }
       throw error;
-    } finally {
-      try { refreshContent(); } finally { endProgress(); }
     }
-  }, [addStageCost, beginProgress, book.age, book.id, book.subject, chapterContent, createClient, effectiveModel, endProgress, language, refreshContent, runConceptStages]);
+  }, [addStageCost, book.age, book.id, book.subject, chapterContent, createClient, effectiveModel, language, runConceptStages]);
+
+  // Estimate against the actual queued Concepts and their source chapters. The
+  // number of child Concepts and visual requests is unknown until AI responds;
+  // two children with two potential exercises per child is our planning basis.
+  useEffect(() => {
+    if (!isSplitQueueConfirmationOpen || queuedSplitIds.length === 0) return;
+    let active = true;
+
+    const estimateQueue = async (): Promise<void> => {
+      if (!language || !book.subject) throw new Error('Set the book language and subject before splitting.');
+      const pages = await getBookPages(book.id);
+      const requests: AiRequestEstimate[] = [];
+
+      for (const conceptId of queuedSplitIds) {
+        const chapterRow = chapterContent.find(({ concepts }) => concepts.some(({ id }) => id === conceptId));
+        const concept = chapterRow?.concepts.find(({ id }) => id === conceptId);
+        if (!concept || !chapterRow) throw new Error(`Queued Concept ${conceptId} was not found. Refresh the book.`);
+        const chapterPages = pages.filter((page) => page.chapterId === chapterRow.chapter.id || (page.chapterId === undefined && page.chapter === chapterRow.chapter.title));
+        const chapterMmd = chapterPages.map(({ pageMMD, pageNumber }) => `--- page ${pageNumber} ---\n${pageMMD ?? ''}`).join('\n\n');
+        const siblings = chapterRow.concepts.filter(({ id }) => id !== conceptId);
+        requests.push({ input: splitConceptPrompt(chapterRow.chapter.title, chapterMmd, concept, siblings, book.subject, language, book.age), outputTokens: 3_200 });
+
+        const record = chapterRow.abilities.find(({ moduleId }) => moduleId === conceptAbilityModuleId(book.id, conceptId));
+        const exampleVisualSource = JSON.stringify(record?.ability?.q ?? []);
+        for (let childIndex = 0; childIndex < 2; childIndex++) {
+          const draftChild = { title: `${concept.title} — ${childIndex + 1}`, description: concept.description };
+          requests.push({ input: fixSingleConceptPrompt(chapterRow.chapter.title, chapterMmd, draftChild, book.subject, language, book.age), outputTokens: 1_500 });
+          requests.push({ input: conceptAbilityGenerationPrompt(language, chapterRow.chapter.title, draftChild, book.age), outputTokens: 3_200 });
+          requests.push({ input: `Repair the generated Ability for ${JSON.stringify(draftChild)}. ${exampleVisualSource}`, outputTokens: 1_800 });
+          // Generated exercise visuals are conditional. Include two question
+          // and two answer images, with one visual review each, per child.
+          for (let exerciseIndex = 0; exerciseIndex < 2; exerciseIndex++) {
+            const visualPrompt = `Generate educational TikZ for ${draftChild.title}, exercise ${exerciseIndex + 1}: ${exampleVisualSource}`;
+            requests.push({ input: visualPrompt, outputTokens: 2_400 });
+            requests.push({ input: `Review question TikZ: ${visualPrompt}`, outputTokens: 6_000 });
+            requests.push({ input: `Generate answer figure: ${visualPrompt}`, outputTokens: 2_400 });
+            requests.push({ input: `Review answer TikZ: ${visualPrompt}`, outputTokens: 6_000 });
+          }
+        }
+      }
+
+      if (active) setSplitQueueEstimateState({ key: splitEstimateKey, estimate: estimateAiRequests(effectiveModel, requests) });
+    };
+
+    void estimateQueue().catch((error: unknown) => {
+      if (active) setSplitQueueEstimateState({ key: splitEstimateKey, estimate: error instanceof Error ? error.message : 'Unable to estimate split costs.' });
+    });
+    return () => { active = false; };
+  }, [isSplitQueueConfirmationOpen, queuedSplitIds, chapterContent, book.id, book.subject, book.age, language, effectiveModel, splitEstimateKey]);
+
+  const runSplitQueue = useCallback(async (): Promise<void> => {
+    if (splitBatchRunningRef.current || processingAbortControllerRef.current || isBusy || autoRunAll || externalAutoRunBusy || externalSplitQueueBusy || queuedSplitIds.length === 0 || !splitQueueEstimate || typeof splitQueueEstimate === 'string') return;
+    splitBatchRunningRef.current = true;
+    splitBatchCancelledRef.current = false;
+    onSplitQueueBusyChange?.(true);
+    onCloseSplitQueueConfirmation?.();
+    const pending = [...queuedSplitIds];
+    const signal = beginProgress(`Splitting ${pending.length} queued Abilities in parallel`, pending.length);
+    let finished = 0;
+    let completed = 0;
+    let failed = 0;
+
+    try {
+      // Launch every queued split immediately. Each job owns its own child
+      // Concepts and rollback, and only successful jobs leave IndexedDB.
+      // allSettled waits for every job even if one fails unexpectedly.
+      const results = await Promise.allSettled(pending.map(async (conceptId) => {
+        if (signal.aborted) return undefined;
+
+        try {
+          const chapterRow = chapterContent.find(({ concepts }) => concepts.some(({ id }) => id === conceptId));
+          const record = chapterRow?.abilities.find(({ moduleId }) => moduleId === conceptAbilityModuleId(book.id, conceptId));
+
+          if (!record) throw new Error(`Queued Ability for Concept ${conceptId} was not found.`);
+          await splitAbility(record, signal);
+          await onSplitQueueItemComplete?.(conceptId);
+          completed++;
+          return undefined;
+        } catch (error) {
+          if (!signal.aborted) failed++;
+          return `${conceptId}: ${error instanceof Error ? error.message : String(error)}`;
+        } finally {
+          finished++;
+          setProgress(finished);
+          setProgressLabel(`Split ${finished}/${pending.length} processed (${completed} successful, ${failed} failed)`);
+        }
+      }));
+
+      const failures = results.flatMap((result, index): string[] => {
+        if (result.status === 'rejected') {
+          if (!signal.aborted) failed++;
+          return [`${pending[index]}: ${result.reason instanceof Error ? result.reason.message : String(result.reason)}`];
+        }
+        return result.value ? [result.value] : [];
+      });
+
+      if (signal.aborted || splitBatchCancelledRef.current) {
+        setNotice(`Split batch cancelled: ${completed} completed. Unfinished Abilities remain queued.`);
+      } else if (failures.length) {
+        setError(`Split ${completed} of ${pending.length} Abilities. ${failed} failed and remain queued. First error: ${failures[0]}`);
+      } else {
+        setNotice(`Split ${completed} queued ${completed === 1 ? 'Ability' : 'Abilities'} successfully.`);
+      }
+    } catch (error) {
+      setError(`Batch split failed: ${error instanceof Error ? error.message : String(error)}. Remaining Abilities stay queued.`);
+    } finally {
+      splitBatchRunningRef.current = false;
+      try { refreshContent(); } finally {
+        endProgress();
+        onSplitQueueBusyChange?.(false);
+      }
+    }
+  }, [autoRunAll, beginProgress, book.id, chapterContent, endProgress, externalAutoRunBusy, externalSplitQueueBusy, isBusy, onCloseSplitQueueConfirmation, onSplitQueueItemComplete, onSplitQueueBusyChange, queuedSplitIds, refreshContent, splitAbility, splitQueueEstimate]);
 
   const generateSkills = useCallback(async (): Promise<void> => {
     const signal = beginProgress('Generating Skills', skillSources.length);
@@ -1887,6 +2000,22 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
       onError={setError}
       onSaved={refresh}
                        />}
+    {isSplitQueueConfirmationOpen && <StageRunPricePopup
+      header={`Split ${queuedSplitIds.length} queued ${queuedSplitIds.length === 1 ? 'Ability' : 'Abilities'}?`}
+      isRunDisabled={isBusy || autoRunAll || externalAutoRunBusy || !splitQueueEstimate || typeof splitQueueEstimate === 'string' || queuedSplitIds.length === 0}
+      onClose={() => onCloseSplitQueueConfirmation?.()}
+      onRun={() => { void runSplitQueue(); }}
+    >
+      <p>All {queuedSplitIds.length} queued {queuedSplitIds.length === 1 ? 'Ability' : 'Abilities'} will start splitting in parallel. Each split generates child Concepts, Abilities and checked images. Originals remain until their replacements succeed.</p>
+      <AiPriceEstimate estimate={splitQueueEstimate} />
+      <p><small>Approximate estimate: two children and up to two question and answer visuals per child. Actual cost depends on the number of children, required visuals, AI retries and usage.</small></p>
+      <OpenRouterModelSelector
+        className='modelSelect'
+        isDisabled={isBusy}
+        onChange={setSelectedModel}
+        value={selectedModel}
+      />
+    </StageRunPricePopup>}
     <SkillsReviewModals
       applyAbilityFixReview={applyAbilityFixReview}
       applyImageFixReview={applyImageFixReview}
@@ -1924,7 +2053,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
       progressTotal={progressTotal}
       runSelectedPipelineAction={runSelectedPipelineAction}
       selectedModel={selectedModel}
-      selectedPipelineAction={selectedPipelineAction}
+      selectedPipelineAction={externalSplitQueueBusy ? undefined : selectedPipelineAction}
       selectedPipelineKey={selectedPipelineKey}
       setGenerateOnlyMissingAbilities={setGenerateOnlyMissingAbilities}
       setGenerateOnlyMissingImages={setGenerateOnlyMissingImages}
@@ -1947,8 +2076,9 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
       currentMissingAbilityIndexes={currentMissingAbilityIndexes}
       deleteConceptAndAbilities={deleteConceptAndAbilities}
       fixSingleAbility={redoConceptFromStage}
-      splitSingleAbility={splitAbility}
-      isBusy={isBusy}
+      splitSingleAbility={(record) => onQueueSplit?.(record)}
+      splitQueueConceptIds={queuedSplitIds}
+      isBusy={isBusy || externalSplitQueueBusy}
       focusConceptAbility={focusConceptAbility}
       failedVisualCountsByChapter={failedVisualCountsByChapter}
       missingAbilityCountsByChapter={missingAbilityCountsByChapter}

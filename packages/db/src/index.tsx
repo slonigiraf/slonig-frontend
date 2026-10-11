@@ -569,7 +569,7 @@ export async function getBookByContentHash(contentHash: string): Promise<Book | 
 }
 
 export async function deleteBook(id: number): Promise<void> {
-    await db.transaction('rw', db.books, db.bookPages, db.bookChapters, db.bookConcepts, db.conceptEmbeddings, db.skills, db.exerciseTemplates, db.abilities, db.images, db.mathpixPdfJobs, db.bookProcessingRuns, db.fixConceptsChapterStatuses, async () => {
+    await db.transaction('rw', db.books, db.bookPages, db.bookChapters, db.bookConcepts, db.conceptEmbeddings, db.skills, db.exerciseTemplates, db.abilities, db.images, db.mathpixPdfJobs, db.bookProcessingRuns, db.fixConceptsChapterStatuses, db.bookAbilitySplitQueues, async () => {
         const pageKeys = await db.bookPages.where('bookId').equals(id).primaryKeys();
         const chapterIds = (await db.bookChapters.where('bookId').equals(id).primaryKeys()) as number[];
         const skillIds = (await Promise.all(chapterIds.map((chapterId) => db.skills.where('chapterId').equals(chapterId).primaryKeys()))).flat() as number[];
@@ -596,6 +596,7 @@ export async function deleteBook(id: number): Promise<void> {
         await db.mathpixPdfJobs.where('bookId').equals(id).delete();
         await db.bookProcessingRuns.delete(id);
         await db.fixConceptsChapterStatuses.delete(id);
+        await db.bookAbilitySplitQueues.delete(id);
     });
 }
 
@@ -1310,26 +1311,76 @@ export async function reorderBookConcepts(sortedIds: number[], explicitChapterId
     });
 }
 
+// Shared by ordinary deletion and the atomic split commit. Call only inside a
+// read/write transaction covering the affected tables.
+async function deleteBookConceptRows(id: number, syncOrder = true): Promise<void> {
+    const concept = await db.bookConcepts.get(id);
+    const chapterId = await chapterIdForConcept(concept);
+
+    await db.bookConcepts.delete(id);
+    await db.conceptEmbeddings.delete(id);
+    if (concept) {
+        const moduleId = `book-${concept.bookPage[0]}-concept-${id}`;
+        const records = await db.abilities.where('moduleId').equals(moduleId).toArray() as Ability[];
+        await db.abilities.where('moduleId').equals(moduleId).delete();
+        await deleteUnreferencedAbilityImages(records.flatMap(({ content }) => abilityImageIds(content)));
+    }
+    const linkedSkills = await db.skills.filter(({ bookConceptIds }) => (bookConceptIds ?? []).includes(id)).toArray();
+
+    await Promise.all(linkedSkills.flatMap((skill) => skill.id === undefined ? [] : [db.skills.update(skill.id, { bookConceptIds: (skill.bookConceptIds ?? []).filter((conceptId) => conceptId !== id) })]));
+
+    if (syncOrder && chapterId !== undefined) {
+        await syncChapterLearningDisplayOrder(chapterId);
+    }
+}
+
 export async function deleteBookConcept(id: number): Promise<void> {
     await db.transaction('rw', db.bookConcepts, db.conceptEmbeddings, db.skills, db.bookPages, db.abilities, db.images, async () => {
-        const concept = await db.bookConcepts.get(id);
-        const chapterId = await chapterIdForConcept(concept);
+        await deleteBookConceptRows(id);
+    });
+}
 
-        await db.bookConcepts.delete(id);
-        await db.conceptEmbeddings.delete(id);
-        if (concept) {
-            const moduleId = `book-${concept.bookPage[0]}-concept-${id}`;
-            const records = await db.abilities.where('moduleId').equals(moduleId).toArray() as Ability[];
-            await db.abilities.where('moduleId').equals(moduleId).delete();
-            await deleteUnreferencedAbilityImages(records.flatMap(({ content }) => abilityImageIds(content)));
+/**
+ * Atomically replace a split parent with its fully generated children in the
+ * LIVE chapter order. Multiple splits in the same chapter may complete out of
+ * order; each transaction uses the current rows, never the AI worker's stale
+ * snapshot. If anything fails, the parent and its Ability remain intact.
+ */
+export async function replaceBookConceptWithChildren(parentId: number, childIds: number[]): Promise<void> {
+    if (!Number.isSafeInteger(parentId) || parentId < 1 || !childIds.length ||
+        childIds.some((id) => !Number.isSafeInteger(id) || id < 1 || id === parentId) ||
+        new Set(childIds).size !== childIds.length) {
+        throw new Error('A split needs one parent and distinct saved child Concepts.');
+    }
+
+    await db.transaction('rw', db.bookConcepts, db.conceptEmbeddings, db.skills, db.bookPages, db.abilities, db.images, async () => {
+        const parent = await db.bookConcepts.get(parentId);
+
+        if (!parent) throw new Error('The parent Concept was already removed.');
+        const chapterId = await chapterIdForConcept(parent);
+
+        if (chapterId === undefined) throw new Error('The parent Concept has no chapter for learning order.');
+        const children = await db.bookConcepts.bulkGet(childIds);
+
+        for (const child of children) {
+            if (!child || child.bookPage[0] !== parent.bookPage[0] || await chapterIdForConcept(child) !== chapterId) {
+                throw new Error('Every split child must exist in the same book chapter as its parent.');
+            }
         }
-        const linkedSkills = await db.skills.filter(({ bookConceptIds }) => (bookConceptIds ?? []).includes(id)).toArray();
 
-        await Promise.all(linkedSkills.flatMap((skill) => skill.id === undefined ? [] : [db.skills.update(skill.id, { bookConceptIds: (skill.bookConceptIds ?? []).filter((conceptId) => conceptId !== id) })]));
+        const { concepts } = await chapterConceptsForLearningOrder(chapterId);
+        const ordered = orderedByDisplayOrder(concepts, (a, b) => a.bookPage[1] - b.bookPage[1] || (a.id ?? 0) - (b.id ?? 0));
+        const childSet = new Set(childIds);
+        const withoutDrafts = ordered.filter(({ id }) => id === undefined || !childSet.has(id));
+        const parentIndex = withoutDrafts.findIndex(({ id }) => id === parentId);
 
-        if (chapterId !== undefined) {
-            await syncChapterLearningDisplayOrder(chapterId);
-        }
+        if (parentIndex < 0) throw new Error('The split parent is no longer in its chapter.');
+        const replacements = children.filter((child): child is BookConcept => child !== undefined);
+        const nextOrder = [...withoutDrafts.slice(0, parentIndex), ...replacements, ...withoutDrafts.slice(parentIndex + 1)];
+
+        await Promise.all(nextOrder.flatMap(({ id }, displayOrder) => id === undefined ? [] : [db.bookConcepts.update(id, { displayOrder, chapterId })]));
+        await deleteBookConceptRows(parentId, false);
+        await syncChapterLearningDisplayOrder(chapterId);
     });
 }
 
@@ -3264,4 +3315,44 @@ export async function putBookFixConceptsChapterStatuses(bookId: number, statuses
 
 export async function deleteBookFixConceptsChapterStatuses(bookId: number): Promise<void> {
     await db.fixConceptsChapterStatuses.delete(bookId);
+}
+
+/** Persistent pending Ability splits; only valid, unique Concept IDs are stored. */
+function validAbilitySplitConceptIds(ids: readonly number[]): number[] {
+    return [...new Set(ids.filter((id) => Number.isSafeInteger(id) && id > 0))];
+}
+
+export async function getBookAbilitySplitQueue(bookId: number): Promise<number[]> {
+    return validAbilitySplitConceptIds((await db.bookAbilitySplitQueues.get(bookId))?.conceptIds ?? []);
+}
+
+/** Change the queue atomically so rapid clicks never overwrite another edit. */
+export async function toggleBookAbilitySplitQueueItem(bookId: number, conceptId: number): Promise<{ conceptIds: number[]; queued: boolean }> {
+    if (!Number.isSafeInteger(conceptId) || conceptId <= 0) throw new Error('Invalid Concept ID.');
+
+    return db.transaction('rw', db.bookAbilitySplitQueues, async () => {
+        const table = db.bookAbilitySplitQueues;
+        const current = validAbilitySplitConceptIds((await table.get(bookId))?.conceptIds ?? []);
+        const queued = !current.includes(conceptId);
+        const conceptIds = queued ? [...current, conceptId] : current.filter((id) => id !== conceptId);
+
+        if (conceptIds.length) await table.put({ bookId, conceptIds });
+        else await table.delete(bookId);
+
+        return { conceptIds, queued };
+    });
+}
+
+/** Remove an item only after its split completed successfully. */
+export async function removeBookAbilitySplitQueueItem(bookId: number, conceptId: number): Promise<number[]> {
+    return db.transaction('rw', db.bookAbilitySplitQueues, async () => {
+        const table = db.bookAbilitySplitQueues;
+        const conceptIds = validAbilitySplitConceptIds((await table.get(bookId))?.conceptIds ?? [])
+            .filter((id) => id !== conceptId);
+
+        if (conceptIds.length) await table.put({ bookId, conceptIds });
+        else await table.delete(bookId);
+
+        return conceptIds;
+    });
 }

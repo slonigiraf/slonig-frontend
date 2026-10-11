@@ -130,6 +130,7 @@ export class SlonigDB extends Dexie {
   tikzSvgCache!: Table<TikzSvgCacheEntry, [string, string]>;
   bookProcessingRuns!: Table<BookProcessingRun, number>;
   fixConceptsChapterStatuses!: Table<{ bookId: number; statuses: Record<string, 'fixed' | 'failed'> }, number>;
+  bookAbilitySplitQueues!: Table<{ bookId: number; conceptIds: number[] }, number>;
 
   constructor(name = 'slonig') {
     super(name);
@@ -723,6 +724,8 @@ export class SlonigDB extends Dexie {
     });
     // Store Fix concepts review outcomes per book in IndexedDB.
     this.version(103).stores({ fixConceptsChapterStatuses: '&bookId' });
+    // Pending Ability splits survive page reloads and are isolated by book.
+    this.version(104).stores({ bookAbilitySplitQueues: '&bookId' });
 
   }
 }
