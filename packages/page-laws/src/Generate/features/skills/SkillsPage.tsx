@@ -6,7 +6,7 @@ import type { GeneratedAbility } from '../../../abilities/abilities.js';
 import type { AbilityWorkflowJsonRunner } from '../../book/domain/abilities/abilityWorkflow.js';
 import type { AiAction, ChapterContent, DuplicateAbilityReview, FixedImageReview, FixReviewResult, ImageFixReviewResult, UnresolvedImageReview, PipelineAction, SkillSource, SkillsProps, SkillsView } from './SkillsTypes.js';
 
-import { addBookStageSpend, completeBookProcessingStage, deleteAbilities, deleteAbility, deleteBookConcept, getAbilities, getBookChapters, getBookCompletedStages, getBookConceptsForBookPage, getBookPages, getSetting, getSkillsForChapter, getImage, getBookVisualQaSummary, hydrateAbilityContent, putImage, setTikzImageQaState, tikzSourceVersion, replaceAbilities, replaceSkillsForChapter, resetBookProcessingStagesFrom, SettingKey, storeAbility } from '@slonigiraf/db';
+import { addBookStageSpend, completeBookProcessingStage, deleteAbilities, deleteAbility, deleteBookConcept, getAbilities, getBookChapters, getBookCompletedStages, getBookConceptsForBookPage, getBookPages, getSetting, getSkillsForChapter, getImage, getBookVisualQaSummary, hydrateAbilityContent, isBookProcessingStageSatisfied, putImage, setTikzImageQaState, tikzSourceVersion, replaceAbilities, replaceSkillsForChapter, resetBookProcessingStagesFrom, SettingKey, storeAbility } from '@slonigiraf/db';
 import OpenAI from 'openai';
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 
@@ -568,7 +568,11 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
   // A prior render-only checkpoint (including a stale UI book snapshot) is not
   // proof that the current book images passed PNG-based visual inspection.
   const stageDone = useCallback((stage: BookProcessingStageKey): boolean => effectiveCompletedStages.includes(stage), [effectiveCompletedStages]);
-  const stageReady = useCallback((stage: BookProcessingStageKey): boolean => stageDone(stage) || Boolean(book.bypassedStages?.includes(stage)), [book.bypassedStages, stageDone]);
+  // Prerequisite checks must use the current Book checkpoint, not the local
+  // completed-stage mirror (which is synchronized in a later React effect).
+  // Otherwise Fast Forward can see a completed Refine chapters stage while
+  // Abilities still appears disabled for one render.
+  const stageReady = useCallback((stage: BookProcessingStageKey): boolean => isBookProcessingStageSatisfied(book, stage), [book]);
   const hasAbilities = allAbilities.length > 0;
 
   const completeStage = useCallback(async (stage: BookProcessingStageKey, invalidateDownstream = false): Promise<void> => {

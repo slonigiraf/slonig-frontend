@@ -434,9 +434,17 @@ export class BookProcessingManager {
           const settled = [...run.completed, ...(run.bypassedStages ?? [])];
 
           if (settled.length && settled.every((stage) => frame.satisfiedStages?.includes(stage))) {
+            // A prior stage can finish in the same frame in which the next
+            // action still reports stale disabled props. Publish the new
+            // cursor once so React can recompute the next action against the
+            // latest Book checkpoint before treating it as genuinely blocked.
+            // This never clicks a disabled action or repeats an AI request.
+            if (run.currentStage !== key) {
+              save({ currentStage: key });
+              return;
+            }
             const message = `Fast Forward cannot start ${action.label}: this stage's prerequisites or required source content are unavailable after the previous stage. Resolve the missing input or continue explicitly.`;
 
-            save({ currentStage: key });
             this.fail(bookId, message);
             frame.onError(message);
           }

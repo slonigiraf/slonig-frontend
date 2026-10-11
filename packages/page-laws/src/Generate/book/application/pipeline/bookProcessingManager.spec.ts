@@ -70,6 +70,89 @@ describe('BookProcessingManager', (): void => {
     assert.equal((await getBookProcessingRun(bookId))?.status, 'completed');
   });
 
+  it('hands off no-split Refine chapters to Abilities after a stale disabled frame without aborting', async (): Promise<void> => {
+    const bookId = await createBook({
+      contentHash: `fast-forward-no-split-${Date.now()}-${Math.random()}`,
+      created: Date.now(), name: 'No split refinement', opfsName: 'no-split.pdf', size: 1
+    });
+    const manager = new BookProcessingManager();
+    const clicks: string[] = [];
+    const errors: string[] = [];
+    const actions: PipelineAction[] = [
+      { key: 'refineChapters', label: 'Refine chapters', isDone: false, isDisabled: false,
+        onClick: () => clicks.push('refineChapters') },
+      { key: 'abilities', label: 'Abilities', isDone: false, isDisabled: true,
+        onClick: () => clicks.push('abilities') }
+    ];
+    let latestBook = (await getBook(bookId))!;
+    const frame = (busy = false) => ({
+      actions, busy, contentReady: true, hasReview: false, error: '',
+      satisfiedStages: [...(latestBook.completedStages ?? []), ...(latestBook.bypassedStages ?? [])],
+      successfulStages: latestBook.completedStages ?? [],
+      onComplete: () => undefined, onError: (message: string) => errors.push(message)
+    });
+
+    try {
+      await manager.startFastForward(bookId, ['refineChapters', 'abilities'], false, { generation: 'g', embedding: 'e', standards: 's' });
+      manager.stepFastForward(bookId, frame());
+      manager.stepFastForward(bookId, frame(true));
+      assert.deepEqual(clicks, ['refineChapters']);
+
+      // AI decided no split was needed. The stage still saved a real checkpoint.
+      latestBook = (await completeBookProcessingStage(bookId, 'refineChapters'))!;
+      assert.equal(isBookProcessingStageSatisfied(latestBook, 'refineChapters'), true);
+      actions[0].isDone = true;
+      // The next action still carries its previous render's disabled flag.
+      manager.stepFastForward(bookId, frame());
+      assert.equal(manager.getSnapshot(bookId)?.status, 'running');
+      assert.equal(manager.getSnapshot(bookId)?.currentStage, 'abilities');
+      assert.deepEqual(clicks, ['refineChapters']);
+      assert.deepEqual(errors, []);
+
+      // The next React render uses the latest Book prerequisite checkpoint.
+      actions[1].isDisabled = !isBookProcessingStageSatisfied(latestBook, 'refineChapters');
+      manager.stepFastForward(bookId, frame());
+      assert.deepEqual(clicks, ['refineChapters', 'abilities']);
+      assert.equal(manager.getSnapshot(bookId)?.status, 'running');
+      assert.deepEqual(errors, []);
+    } finally {
+      await manager.flush(bookId);
+      await deleteBook(bookId);
+    }
+  });
+
+  it('still stops at Abilities when it remains disabled after the checkpoint handoff', async (): Promise<void> => {
+    const bookId = await createBook({
+      contentHash: `fast-forward-abilities-blocked-${Date.now()}-${Math.random()}`,
+      created: Date.now(), name: 'Abilities missing source', opfsName: 'missing-source.pdf', size: 1
+    });
+    const manager = new BookProcessingManager();
+    const errors: string[] = [];
+    const actions: PipelineAction[] = [
+      { key: 'refineChapters', label: 'Refine chapters', isDone: true, isDisabled: false, onClick: () => undefined },
+      { key: 'abilities', label: 'Abilities', isDone: false, isDisabled: true, onClick: () => assert.fail('Blocked stage was started') }
+    ];
+
+    try {
+      const book = (await completeBookProcessingStage(bookId, 'refineChapters'))!;
+      const frame = () => ({
+        actions, busy: false, contentReady: true, hasReview: false, error: '',
+        satisfiedStages: book.completedStages ?? [], successfulStages: book.completedStages ?? [],
+        onComplete: () => undefined, onError: (message: string) => errors.push(message)
+      });
+
+      await manager.startFastForward(bookId, ['refineChapters', 'abilities'], false, { generation: 'g', embedding: 'e', standards: 's' });
+      manager.stepFastForward(bookId, frame()); // Allow a fresh render at the new stage.
+      assert.equal(manager.getSnapshot(bookId)?.status, 'running');
+      manager.stepFastForward(bookId, frame()); // Still blocked: missing source is real.
+      assert.equal(manager.getSnapshot(bookId)?.status, 'failed');
+      assert.match(errors[0], /cannot start Abilities/);
+    } finally {
+      await manager.flush(bookId);
+      await deleteBook(bookId);
+    }
+  });
+
   it('advances directly from Concepts to Fix concepts without automatically regenerating missing chapters', async (): Promise<void> => {
     const manager = new BookProcessingManager();
     const bookId = 902709;
