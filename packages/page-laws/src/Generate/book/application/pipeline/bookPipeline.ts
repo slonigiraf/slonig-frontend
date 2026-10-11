@@ -20,14 +20,11 @@ const BOOK_PIPELINE_STAGE_LABELS: Record<BookProcessingStageKey, string> = {
   deduplicateConcepts: 'Deduplicate concepts',
   sortConcepts: 'Sort concepts',
   refineChapters: 'Refine chapters',
-  exercises: 'Exercises',
-  fixExercises: 'Fix exercises',
   abilities: 'Abilities',
   fixAbilities: 'Fix abilities',
   images: 'Images',
   fixImages: 'Fix images',
-  standards: 'Standards',
-  fixStandards: 'Fix standards'
+  standards: 'Standards'
 };
 
 /** UI metadata for the canonical database-owned processing pipeline. */
@@ -40,10 +37,7 @@ export function bookPipelineStageLabel (key: BookProcessingStageKey): string {
   return BOOK_PIPELINE_STAGE_LABELS[key];
 }
 
-// fixStandards is not currently part of the statistics/fast-forward UI.
-const fixStandardsIndex = BOOK_PIPELINE_STAGES.findIndex(({ key }) => key === 'fixStandards');
-
-export const BOOK_PRICE_STAGES = BOOK_PIPELINE_STAGES.slice(0, fixStandardsIndex);
+export const BOOK_PRICE_STAGES = BOOK_PIPELINE_STAGES;
 
 export const BOOK_READER_COMMAND_ACTIONS = [
   'recognize',

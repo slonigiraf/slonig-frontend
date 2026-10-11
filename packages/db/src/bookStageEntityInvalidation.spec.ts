@@ -8,6 +8,7 @@ import { strict as assert } from 'node:assert';
 import {
   createBook,
   createBookConcept,
+  createImage,
   deleteBook,
   getAbilities,
   getBookChapters,
@@ -15,6 +16,7 @@ import {
   getBookPages,
   getConceptEmbeddings,
   getExercisesForBookPage,
+  getImage,
   getSkillsForChapter,
   putBookPage,
   putConceptEmbeddings,
@@ -101,13 +103,100 @@ describe('book stage entity invalidation', (): void => {
     try {
       await resetBookProcessingStagesFrom(seeded.bookId, 'chapters');
 
-      assert.equal((await getBookChapters(seeded.bookId)).length, 1, 'the Chapters stage owns the chapter rows, so they remain for the rerun to replace');
+      assert.equal((await getBookChapters(seeded.bookId)).length, 0, 'a full Chapters rerun deletes its previous rows');
       assert.equal((await getBookConceptsForBookPage(seeded.bookId, 1)).length, 0);
       assert.equal((await getConceptEmbeddings([seeded.conceptId])).length, 0);
       assert.equal((await getExercisesForBookPage([seeded.bookId, 1])).length, 0);
       assert.equal((await getSkillsForChapter(seeded.chapterId)).length, 0);
       assert.equal((await getAbilities(seeded.abilityModuleId)).length, 0);
       assert.equal((await getBookPages(seeded.bookId))[0]?.conceptsProcessed, false);
+    } finally {
+      await deleteBook(seeded.bookId);
+    }
+  });
+
+  it('preserves existing Chapters during an explicitly targeted missing-only retry', async (): Promise<void> => {
+    const seeded = await seedLearningArtifacts('chapters-missing');
+
+    try {
+      await resetBookProcessingStagesFrom(seeded.bookId, 'chapters', { onlyMissing: true });
+
+      assert.equal((await getBookChapters(seeded.bookId)).length, 1);
+      assert.equal((await getBookConceptsForBookPage(seeded.bookId, 1)).length, 0);
+    } finally {
+      await deleteBook(seeded.bookId);
+    }
+  });
+
+  it('deletes Concepts rows on a full rerun but preserves them on missing-only retry', async (): Promise<void> => {
+    const targeted = await seedLearningArtifacts('concepts-missing');
+    const full = await seedLearningArtifacts('concepts-full');
+
+    try {
+      await resetBookProcessingStagesFrom(targeted.bookId, 'concepts', { onlyMissing: true });
+      assert.equal((await getBookConceptsForBookPage(targeted.bookId, 1)).length, 1);
+      assert.equal((await getConceptEmbeddings([targeted.conceptId])).length, 0);
+
+      await resetBookProcessingStagesFrom(full.bookId, 'concepts');
+      assert.equal((await getBookConceptsForBookPage(full.bookId, 1)).length, 0);
+      assert.equal((await getBookChapters(full.bookId)).length, 1);
+      assert.equal((await getBookPages(full.bookId))[0]?.conceptsProcessed, false);
+    } finally {
+      await deleteBook(targeted.bookId);
+      await deleteBook(full.bookId);
+    }
+  });
+
+  it('deletes the selected Embeddings and Abilities outputs during full reruns', async (): Promise<void> => {
+    const embeddings = await seedLearningArtifacts('embeddings-full');
+    const abilities = await seedLearningArtifacts('abilities-full');
+
+    try {
+      await resetBookProcessingStagesFrom(embeddings.bookId, 'embeddings');
+      assert.equal((await getConceptEmbeddings([embeddings.conceptId])).length, 0);
+      assert.equal((await getBookConceptsForBookPage(embeddings.bookId, 1)).length, 1);
+
+      await resetBookProcessingStagesFrom(abilities.bookId, 'abilities');
+      assert.equal((await getAbilities(abilities.abilityModuleId)).length, 0);
+      assert.equal((await getBookConceptsForBookPage(abilities.bookId, 1)).length, 1);
+    } finally {
+      await deleteBook(embeddings.bookId);
+      await deleteBook(abilities.bookId);
+    }
+  });
+
+  it('resets full Image output while retaining Ability foreign keys and semantic prompts', async (): Promise<void> => {
+    const seeded = await seedLearningArtifacts('images-full');
+
+    try {
+      const imageId = await createImage({ type: 'tikz', prompt: 'A number line', data: '\\begin{tikzpicture}\\end{tikzpicture}', valid: true });
+      await storeAbility(`book-${seeded.bookId}-concept-${seeded.conceptId}`, JSON.stringify({
+        h: 'Number line', i: '', q: [{ a: '0', h: 'Locate zero', i: null, p: imageId }], t: 1
+      }));
+
+      await resetBookProcessingStagesFrom(seeded.bookId, 'images');
+      const image = await getImage(imageId);
+
+      assert.equal(image?.type, 'prompt');
+      assert.equal(image?.data, null);
+      assert.equal(image?.prompt, 'A number line');
+      assert.equal((await getAbilities(`book-${seeded.bookId}-concept-${seeded.conceptId}`)).length, 1);
+    } finally {
+      await deleteBook(seeded.bookId);
+    }
+  });
+
+  it('preserves all Concepts, including previous Fix concepts additions, on a full rerun', async (): Promise<void> => {
+    const seeded = await seedLearningArtifacts('fix-concepts-additions');
+
+    try {
+      await createBookConcept({ attempt: 2, bookPage: [seeded.bookId, 1], chapterId: seeded.chapterId,
+        title: 'Later correction', description: 'Generated by Fix concepts' });
+      await resetBookProcessingStagesFrom(seeded.bookId, 'fixConcepts');
+
+      const concepts = await getBookConceptsForBookPage(seeded.bookId, 1);
+
+      assert.deepEqual(concepts.map(({ attempt }) => attempt).sort((a, b) => a - b), [0, 2]);
     } finally {
       await deleteBook(seeded.bookId);
     }

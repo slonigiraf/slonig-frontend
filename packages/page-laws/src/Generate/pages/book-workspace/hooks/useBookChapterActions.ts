@@ -147,10 +147,11 @@ export function useBookChapterActions ({
       // stages even when every page still has a syntactically valid chapter.
       updated = await updateBookFieldsAndStages(book.id, {}, {
         complete: ['chapters'],
-        resetFrom: 'chapters'
+        resetFrom: 'chapters',
+        onlyMissing: true
       });
     } else {
-      updated = await updateBookFieldsAndStages(book.id, {}, { resetFrom: 'chapters' });
+      updated = await updateBookFieldsAndStages(book.id, {}, { resetFrom: 'chapters', onlyMissing: true });
     }
 
     const fallback = complete

@@ -260,7 +260,6 @@ async function reviewConceptImage (target: ImageFixTarget, client: OpenAI, model
   }
 }
 const BATCH_SIZE = 5;
-const FIX_EXERCISES_STAGE: BookProcessingStageKey = 'fixExercises';
 const ABILITIES_STAGE: BookProcessingStageKey = 'abilities';
 const FIX_ABILITIES_STAGE: BookProcessingStageKey = 'fixAbilities';
 const IMAGES_STAGE: BookProcessingStageKey = 'images';
@@ -588,7 +587,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
 
   const completeStage = useCallback(async (stage: BookProcessingStageKey, invalidateDownstream = false): Promise<void> => {
     if (invalidateDownstream) {
-      await resetBookProcessingStagesFrom(book.id, stage);
+      await resetBookProcessingStagesFrom(book.id, stage, { onlyMissing: true });
     }
 
     const updated = await completeBookProcessingStage(book.id, stage);
@@ -1003,6 +1002,9 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
       if (!allConcepts.length) throw new Error('No Concepts are available to generate Abilities from.');
       if (!targets.length) throw new Error('No Concepts are missing Abilities.');
       if (targets.some(({ id }) => id === undefined)) throw new Error('Every Concept must be saved before generating Abilities.');
+      if (!generateOnlyMissingAbilities) {
+        await resetBookProcessingStagesFrom(book.id, 'abilities');
+      }
       const client = await createClient();
       const pending = new Set(targets.map(({ id }) => id as number));
       const generated = new Map<number, GeneratedAbility>();
@@ -1035,13 +1037,17 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
         if (signal.aborted) throw new Error('Ability generation was canceled.');
         await replaceAbilities(conceptAbilityModuleId(book.id, conceptId), [JSON.stringify(ability)]);
       }
-      if (generated.size || allAbilities.length) await completeStage(ABILITIES_STAGE);
+      // Old Ability rows have been deleted for a full run. Only missing-only
+      // retries may count pre-existing Abilities as successful stage output.
+      const hasAbilitiesAfterRun = generated.size > 0 || (generateOnlyMissingAbilities && allAbilities.length > 0);
+
+      if (hasAbilitiesAfterRun) await completeStage(ABILITIES_STAGE);
       refresh();
       onContentChange?.();
-      if (generated.size || allAbilities.length) onAction?.('preExercisesExercises');
+      if (hasAbilitiesAfterRun) onAction?.('preExercisesExercises');
       if (pending.size) {
         const detail = lastError ? ` Last attempt: ${lastError}` : '';
-        if (!generated.size && !allAbilities.length) setError(`No Abilities were generated after ${maxAttempts} attempts.${detail}`);
+        if (!hasAbilitiesAfterRun) setError(`No Abilities were generated after ${maxAttempts} attempts.${detail}`);
         else setNotice(`Generated Abilities for ${generated.size} of ${targets.length} Concepts; ${pending.size} remained unchanged.${detail}`);
       }
     } catch (reason) {
@@ -1422,14 +1428,8 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
         }
       }
 
-      const hasChanges = replacements.size > 0 || duplicateIds.size > 0;
-
-      // Content corrections may leave a few downstream rows stale or missing,
-      // but preserve their completed-stage history so small edits do not force a
-      // full pipeline rerun. Result-completeness checks still expose gaps.
-      if (hasChanges || !stageDone(FIX_EXERCISES_STAGE)) {
-        await completeStage(FIX_EXERCISES_STAGE);
-      }
+      // Exercise review is a standalone editor operation, not a pipeline stage.
+      // It must not write obsolete Fix exercises completion checkpoints.
 
       const fixed = replacements.size;
       const deleted = duplicateIds.size;
@@ -1444,7 +1444,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
     } finally {
       setIsBusy(false);
     }
-  }, [allAbilities, allExercises, book.id, bookPageContent, exerciseFixReview, onAction, onContentChange, refresh, completeStage, stageDone]);
+  }, [allAbilities, allExercises, book.id, bookPageContent, exerciseFixReview, onAction, onContentChange, refresh]);
   const openExerciseGeneration = useCallback((): void => {
     setGenerateOnlyMissingAbilities(exercisesMissingAbilities.length > 0 && exercisesMissingAbilities.length < allConcepts.length);
     setAiAction('exercises');
@@ -1480,6 +1480,10 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
     try {
       if (generateOnlyMissingImages && !targets.length) {
         throw new Error('No Abilities are missing Images.');
+      }
+
+      if (!generateOnlyMissingImages) {
+        await resetBookProcessingStagesFrom(book.id, 'images');
       }
 
       if (!targets.length) {
@@ -1742,7 +1746,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
   }, []);
 
   const pipelineActions = useMemo<PipelineAction[]>(() => [
-    ...(pipelinePrefix ?? []).filter((action) => action.key !== 'exercises' && action.key !== 'fixExercises').map((action) => action.key === 'concepts'
+    ...(pipelinePrefix ?? []).map((action) => action.key === 'concepts'
       ? { ...action, isResultComplete: chapterContent.length > 0 && chapterContent.every(({ concepts }) => concepts.length > 0) }
       : action),
     {

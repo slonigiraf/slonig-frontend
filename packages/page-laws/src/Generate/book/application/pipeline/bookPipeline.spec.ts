@@ -16,7 +16,7 @@ describe('Book processing pipeline metadata', (): void => {
   it('keeps the existing price/fast-forward range ending at standards', (): void => {
     assert.deepEqual(
       BOOK_PRICE_STAGES.map(({ key }) => key),
-      BOOK_PROCESSING_STAGES.slice(0, BOOK_PROCESSING_STAGES.indexOf('fixStandards'))
+      BOOK_PROCESSING_STAGES
     );
   });
 

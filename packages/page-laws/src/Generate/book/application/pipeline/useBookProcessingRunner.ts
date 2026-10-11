@@ -74,7 +74,7 @@ export function useBookProcessingRunner (options: UseBookProcessingRunnerOptions
           case 'refineChapters': await o.refineAllChapters(o.generateAllConceptsModel); break;
           case 'chapters': await o.identifyChapters(); return;
           case 'recognize': o.setActivePane('text'); await o.recognizeAllPages(); return;
-          case 'standards': await o.assignStandards(!o.generateOnlyMissingStandards); break;
+          case 'standards': await o.assignStandards(bookProcessingManager.getSnapshot(bookId)?.status === 'running' || !o.generateOnlyMissingStandards); break;
         }
       } catch (error) {
         o.setError(error instanceof Error ? error.message : `Unable to process ${action}.`);

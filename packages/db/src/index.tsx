@@ -499,7 +499,7 @@ export async function createBook(book: Omit<Book, 'id'>): Promise<number> {
  * helpers for completedStages so an old UI snapshot cannot replace unrelated
  * state written by another component in the meantime.
  */
-export async function updateBookFields(id: number, changes: Partial<Omit<Book, 'completedStages' | 'id' | 'processingStage'>>): Promise<Book | undefined> {
+export async function updateBookFields(id: number, changes: Partial<Omit<Book, 'completedStages' | 'id'>>): Promise<Book | undefined> {
     return db.transaction('rw', db.books, async () => {
         const storedBook = await db.books.get(id);
 
@@ -537,20 +537,27 @@ function isBookProcessingStageAfter(stage: BookProcessingStageKey, candidate: Bo
 }
 
 /**
- * Delete persisted artifacts produced strictly after the stage being rerun.
- * The stage's own rows are intentionally preserved because many reruns replace
- * or reconcile them as part of the stage itself. Downstream rows, however,
- * must never survive with foreign keys or semantic assumptions from the old
- * upstream snapshot.
+ * A full rerun drops the selected stage's regenerable output and everything
+ * downstream. A targeted missing-only retry preserves existing selected-stage
+ * outputs while still invalidating downstream artifacts.
+ *
+ * Repair/organization stages edit earlier stages' records; their source rows
+ * must remain available as inputs. Fix concepts preserves all existing concepts,
+ * including concepts added by previous Fix concepts attempts.
  */
-async function clearBookEntitiesAfterProcessingStage(bookId: number, stage: BookProcessingStageKey): Promise<void> {
-    const clearChapters = isBookProcessingStageAfter(stage, 'chapters');
-    const clearConcepts = isBookProcessingStageAfter(stage, 'concepts');
-    const clearEmbeddings = isBookProcessingStageAfter(stage, 'embeddings');
-    const clearExercises = isBookProcessingStageAfter(stage, 'refineChapters');
-    const clearAbilities = isBookProcessingStageAfter(stage, 'abilities');
+async function clearBookEntitiesAfterProcessingStage(bookId: number, stage: BookProcessingStageKey, onlyMissing = false): Promise<void> {
+    const clears = (candidate: BookProcessingStageKey): boolean =>
+        isBookProcessingStageAfter(stage, candidate) || (!onlyMissing && stage === candidate);
+    const clearRecognition = stage === 'recognize' && !onlyMissing;
+    const clearChapters = clears('chapters');
+    const clearConcepts = clears('concepts');
+    const clearEmbeddings = clears('embeddings');
+    const clearExercises = clears('refineChapters');
+    const clearAbilities = clears('abilities');
+    const clearImages = clears('images') && !clearAbilities;
+    const clearImageReviews = stage === 'fixImages' && !onlyMissing;
 
-    if (!clearChapters && !clearConcepts && !clearEmbeddings && !clearExercises && !clearAbilities) {
+    if (!clearRecognition && !clearChapters && !clearConcepts && !clearEmbeddings && !clearExercises && !clearAbilities && !clearImages && !clearImageReviews) {
         return;
     }
 
@@ -570,6 +577,26 @@ async function clearBookEntitiesAfterProcessingStage(bookId: number, stage: Book
         }
         await Promise.all(chapterIds.map((chapterId) => db.skills.where('chapterId').equals(chapterId).delete()));
         await deleteUnreferencedAbilityImages(imageIds);
+    } else if (clearImages || clearImageReviews) {
+        // Image rows have foreign keys inside Ability JSON. Keep their IDs and
+        // semantic prompts, but discard the selected Images stage's generated
+        // TikZ and all review results so a full run can regenerate them.
+        const abilities = await db.abilities.filter(({ moduleId }) => moduleId.startsWith(`book-${bookId}-`)).toArray() as Ability[];
+        const ids = Array.from(new Set(abilities.flatMap(({ content }) => abilityImageIds(content))));
+        const images = await db.images.bulkGet(ids);
+
+        await Promise.all(images.flatMap((image) => !image ? [] : [db.images.put({
+            ...image,
+            type: clearImageReviews ? image.type : 'prompt',
+            prompt: image.prompt || image.data || '',
+            data: clearImageReviews ? image.data : null,
+            valid: undefined,
+            renderStatus: undefined,
+            visualQaStatus: undefined,
+            detectedIssues: undefined,
+            sourceVersion: undefined,
+            reviewResult: undefined
+        })]));
     }
 
     if (clearExercises) {
@@ -578,6 +605,10 @@ async function clearBookEntitiesAfterProcessingStage(bookId: number, stage: Book
         if (exerciseIds.length) {
             await db.exercises.bulkDelete(exerciseIds);
         }
+    }
+
+    if (!onlyMissing && stage === 'sortConcepts') {
+        await db.bookConcepts.filter(({ bookPage }) => bookPage[0] === bookId).modify({ displayOrder: undefined });
     }
 
     if (clearConcepts) {
@@ -602,14 +633,18 @@ async function clearBookEntitiesAfterProcessingStage(bookId: number, stage: Book
         });
         await db.books.update(bookId, { chapterOrder: [] });
     }
+    if (clearRecognition) {
+        await db.bookPages.where('bookId').equals(bookId).delete();
+        await db.mathpixPdfJobs.where('bookId').equals(bookId).delete();
+    }
 }
 
 export async function updateBookFieldsAndStages(
     id: number,
-    changes: Partial<Omit<Book, 'completedStages' | 'fixConceptsAttempts' | 'id' | 'processingStage' | 'stageSpend'>>,
-    options: { complete?: BookProcessingStageKey[]; resetFrom?: BookProcessingStageKey; uncomplete?: BookProcessingStageKey[] } = {}
+    changes: Partial<Omit<Book, 'completedStages' | 'fixConceptsAttempts' | 'id' | 'stageSpend'>>,
+    options: { complete?: BookProcessingStageKey[]; resetFrom?: BookProcessingStageKey; onlyMissing?: boolean; uncomplete?: BookProcessingStageKey[] } = {}
 ): Promise<Book | undefined> {
-    return db.transaction('rw', db.books, db.bookPages, db.bookChapters, db.bookConcepts, db.conceptEmbeddings, db.exercises, db.skills, db.exerciseTemplates, db.abilities, db.images, async () => {
+    return db.transaction('rw', db.books, db.bookPages, db.bookChapters, db.bookConcepts, db.conceptEmbeddings, db.exercises, db.skills, db.exerciseTemplates, db.abilities, db.images, db.mathpixPdfJobs, async () => {
         const storedBook = await db.books.get(id);
 
         if (!storedBook) {
@@ -619,7 +654,7 @@ export async function updateBookFieldsAndStages(
         let updated: Book = { ...storedBook, ...changes, completedStages: getBookCompletedStages(storedBook) };
 
         if (options.resetFrom) {
-            await clearBookEntitiesAfterProcessingStage(id, options.resetFrom);
+            await clearBookEntitiesAfterProcessingStage(id, options.resetFrom, options.onlyMissing);
             updated = withBookProcessingStagesResetFrom(updated, options.resetFrom);
         }
 
@@ -665,21 +700,6 @@ export async function getBook(id: number): Promise<Book | undefined> {
     return withNamedBookStages(await db.books.get(id));
 }
 
-/** @deprecated Use completeBookProcessingStage/resetBookProcessingStagesFrom. */
-export async function updateBookProcessingStage(id: number, processingStage: number): Promise<Book | undefined> {
-    const book = await db.books.get(id);
-
-    if (!book) {
-        return undefined;
-    }
-
-    const legacyBook = { ...book, completedStages: undefined, processingStage };
-
-    await db.books.update(id, { completedStages: getBookCompletedStages(legacyBook), processingStage });
-
-    return getBook(id);
-}
-
 export async function completeBookProcessingStage(id: number, stage: BookProcessingStageKey): Promise<Book | undefined> {
     return db.transaction('rw', db.books, db.abilities, db.images, async () => {
         // Fix Images completion means the review run finished. Individual
@@ -715,15 +735,15 @@ export async function uncompleteBookProcessingStage(id: number, stage: BookProce
     });
 }
 
-export async function resetBookProcessingStagesFrom(id: number, stage: BookProcessingStageKey): Promise<Book | undefined> {
-    return db.transaction('rw', db.books, db.bookPages, db.bookChapters, db.bookConcepts, db.conceptEmbeddings, db.exercises, db.skills, db.exerciseTemplates, db.abilities, db.images, async () => {
+export async function resetBookProcessingStagesFrom(id: number, stage: BookProcessingStageKey, options: { onlyMissing?: boolean } = {}): Promise<Book | undefined> {
+    return db.transaction('rw', db.books, db.bookPages, db.bookChapters, db.bookConcepts, db.conceptEmbeddings, db.exercises, db.skills, db.exerciseTemplates, db.abilities, db.images, db.mathpixPdfJobs, async () => {
         const book = await db.books.get(id);
 
         if (!book) {
             return undefined;
         }
 
-        await clearBookEntitiesAfterProcessingStage(id, stage);
+        await clearBookEntitiesAfterProcessingStage(id, stage, options.onlyMissing);
         const updated = withBookProcessingStagesResetFrom({ ...book, completedStages: getBookCompletedStages(book) }, stage);
 
         await db.books.update(id, { completedStages: updated.completedStages });
@@ -1051,7 +1071,7 @@ export async function applyBookChapterRefinements(bookId: number, refinements: B
         return [];
     }
 
-    return db.transaction('rw', db.books, db.bookPages, db.bookChapters, db.bookConcepts, db.exercises, db.skills, db.exerciseTemplates, db.abilities, db.images, async () => {
+    return db.transaction('rw', db.books, db.bookPages, db.bookChapters, db.bookConcepts, db.exercises, db.skills, db.exerciseTemplates, db.abilities, db.images, db.mathpixPdfJobs, async () => {
         const storedBook = await db.books.get(bookId);
 
         if (!storedBook) {

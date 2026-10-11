@@ -33,6 +33,41 @@ import type { MathpixPdfJob } from './MathpixPdfJob.js';
 import type { TikzSvgCacheEntry } from './TikzSvgCache.js';
 import type { BookProcessingRun } from './BookProcessingRun.js';
 
+// Ordinal checkpoints are only understood while upgrading databases created
+// before named checkpoints were introduced. Runtime Book objects never use them.
+type LegacyOrdinalBook = Book & { processingStage?: number };
+
+function migrateOrdinalBookStages (book: LegacyOrdinalBook): BookProcessingStageKey[] {
+  if (book.completedStages) {
+    return getBookCompletedStages(book);
+  }
+
+  const legacyMinimums: Partial<Record<BookProcessingStageKey, number>> = {
+    recognize: 1,
+    chapters: 2,
+    concepts: 3,
+    abilities: 8,
+    fixAbilities: 9,
+    images: 10,
+    fixImages: 11,
+    standards: 12
+  };
+  const completed = new Set<BookProcessingStageKey>();
+
+  for (const stage of BOOK_PROCESSING_STAGES) {
+    const minimum = legacyMinimums[stage];
+
+    if (minimum !== undefined && (book.processingStage ?? 0) >= minimum) {
+      completed.add(stage);
+    }
+  }
+  if (book.language) completed.add('language');
+  if (book.subject) completed.add('subject');
+  if (book.age !== undefined) completed.add('age');
+
+  return BOOK_PROCESSING_STAGES.filter((stage) => completed.has(stage));
+}
+
 type LegacyBookSkill = Omit<Skill, 'exerciseIds'> & { bookExerciseIds?: number[] };
 type LegacyExerciseTemplate = Omit<ExerciseTemplate, 'skillId'> & { bookSkillId: number };
 type LegacyExerciseWithImages = Exercise & { image?: string; images?: string[] };
@@ -223,18 +258,18 @@ export class SlonigDB extends Dexie {
       }
     });
     this.version(78).stores({}).upgrade(async (transaction: Transaction) => {
-      const books = await transaction.table<Book>('books').filter(({ processingStage }) => (processingStage ?? 0) >= 6).toArray();
+      const books = await transaction.table<LegacyOrdinalBook>('books').filter(({ processingStage }) => (processingStage ?? 0) >= 6).toArray();
 
-      await Promise.all(books.flatMap(({ id }) => id === undefined ? [] : [transaction.table<Book>('books').update(id, { processingStage: 5 })]));
+      await Promise.all(books.flatMap(({ id }) => id === undefined ? [] : [transaction.table<LegacyOrdinalBook>('books').update(id, { processingStage: 5 })]));
     });
     this.version(79).stores({}).upgrade(async (transaction: Transaction) => {
       const [books, skills] = await Promise.all([
-        transaction.table<Book>('books').filter(({ processingStage }) => (processingStage ?? 0) >= 6).toArray(),
+        transaction.table<LegacyOrdinalBook>('books').filter(({ processingStage }) => (processingStage ?? 0) >= 6).toArray(),
         transaction.table<LegacyBookSkill>('bookSkills').toArray()
       ]);
 
       await Promise.all([
-        ...books.flatMap(({ id }) => id === undefined ? [] : [transaction.table<Book>('books').update(id, { processingStage: 5 })]),
+        ...books.flatMap(({ id }) => id === undefined ? [] : [transaction.table<LegacyOrdinalBook>('books').update(id, { processingStage: 5 })]),
         ...skills.flatMap((skill) => skill.id === undefined ? [] : [transaction.table<LegacyBookSkill>('bookSkills').update(skill.id, {
           bookConceptIds: skill.bookConceptIds ?? [],
           bookExerciseIds: skill.bookExerciseIds ?? []
@@ -281,12 +316,12 @@ export class SlonigDB extends Dexie {
     });
     this.version(83).stores({}).upgrade(async (transaction: Transaction) => {
       const [books, exercises] = await Promise.all([
-        transaction.table<Book>('books').filter(({ processingStage }) => (processingStage ?? 0) >= 3).toArray(),
+        transaction.table<LegacyOrdinalBook>('books').filter(({ processingStage }) => (processingStage ?? 0) >= 3).toArray(),
         transaction.table<Exercise>('exercises').toArray()
       ]);
 
       await Promise.all([
-        ...books.flatMap(({ id, processingStage }) => id === undefined ? [] : [transaction.table<Book>('books').update(id, { processingStage: Math.min(7, (processingStage ?? 2) + 1) })]),
+        ...books.flatMap(({ id, processingStage }) => id === undefined ? [] : [transaction.table<LegacyOrdinalBook>('books').update(id, { processingStage: Math.min(7, (processingStage ?? 2) + 1) })]),
         ...exercises.flatMap((exercise) => exercise.id === undefined || exercise.source ? [] : [transaction.table<Exercise>('exercises').update(exercise.id, { source: 'book' })])
       ]);
     });
@@ -312,14 +347,14 @@ export class SlonigDB extends Dexie {
       bookPages: '&[bookId+pageNumber],bookId,chapterId,conceptsProcessed'
     }).upgrade(async (transaction: Transaction) => {
       const [books, chapters, pages] = await Promise.all([
-        transaction.table<Book>('books').toArray(),
+        transaction.table<LegacyOrdinalBook>('books').toArray(),
         transaction.table<BookChapter>('bookChapters').toArray(),
         transaction.table<BookPage>('bookPages').toArray()
       ]);
       const chaptersByBookAndTitle = new Map(chapters.flatMap((chapter) => chapter.id === undefined ? [] : [[`${chapter.bookId}:${chapter.title.trim().toLocaleLowerCase()}`, chapter.id] as const]));
 
       await Promise.all([
-        ...books.flatMap(({ id, processingStage }) => id === undefined || (processingStage ?? 0) < 2 ? [] : [transaction.table<Book>('books').update(id, { processingStage: (processingStage ?? 0) + 1 })]),
+        ...books.flatMap(({ id, processingStage }) => id === undefined || (processingStage ?? 0) < 2 ? [] : [transaction.table<LegacyOrdinalBook>('books').update(id, { processingStage: (processingStage ?? 0) + 1 })]),
         ...pages.map((page) => {
           if (page.chapterId !== undefined || !page.chapter.trim()) {
             return Promise.resolve(0);
@@ -342,10 +377,16 @@ export class SlonigDB extends Dexie {
       }));
     });
     this.version(87).stores({}).upgrade(async (transaction: Transaction) => {
-      const table = transaction.table<Book, number>('books');
-      const books = await table.toArray();
+      const table = transaction.table<LegacyOrdinalBook, number>('books');
 
-      await Promise.all(books.flatMap((book) => book.id === undefined ? [] : [table.update(book.id, { completedStages: getBookCompletedStages(book) })]));
+      await forEachMigrationBatch(table, async (rows) => {
+        for (const book of rows) {
+          await table.where(':id').equals(book.id).modify((stored) => {
+            stored.completedStages = migrateOrdinalBookStages(book);
+            delete stored.processingStage;
+          });
+        }
+      });
     });
     this.version(88).stores({}).upgrade(async (transaction: Transaction) => {
       const [books, concepts] = await Promise.all([

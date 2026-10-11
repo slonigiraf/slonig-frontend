@@ -85,7 +85,7 @@ describe('IndexedDB production migration', (): void => {
       upgraded = new SlonigDB(databaseName);
       await upgraded.open();
 
-      assert.equal(upgraded.verno, 100);
+      assert.equal(upgraded.verno, 101);
       assert.equal(upgraded.tables.some(({ name }) => name === 'standardEmbeddings'), true);
       await upgraded.standardEmbeddings.put({ id: 'CCSS.6.RP.A.2', embedding: [0.25, 0.75] });
       assert.deepEqual(await upgraded.standardEmbeddings.get('CCSS.6.RP.A.2'), { id: 'CCSS.6.RP.A.2', embedding: [0.25, 0.75] });
@@ -169,7 +169,7 @@ describe('IndexedDB production migration', (): void => {
 
       upgraded = new SlonigDB(name);
       await upgraded.open();
-      assert.equal(upgraded.verno, 100);
+      assert.equal(upgraded.verno, 101);
       assert.deepEqual((await upgraded.books.get(17))?.completedStages, ['recognize', 'abilities', 'images']);
       assert.deepEqual((await upgraded.books.get(18))?.completedStages, ['recognize', 'abilities', 'images']);
       const run = await upgraded.bookProcessingRuns.get(17);
@@ -180,6 +180,44 @@ describe('IndexedDB production migration', (): void => {
       const notYetReviewed = await upgraded.bookProcessingRuns.get(18);
       assert.equal(notYetReviewed?.status, 'running', 'do not invalidate an unfinished stage merely because visual QA is planned');
       assert.deepEqual(notYetReviewed?.completed, []);
+    } finally {
+      previous.close();
+      upgraded?.close();
+      await Dexie.delete(name);
+    }
+  });
+
+  it('removes ordinal checkpoints and removed stage identifiers when upgrading version 100', async (): Promise<void> => {
+    const name = `slonig-named-stages-migration-${Date.now()}-${Math.random()}`;
+    const previous = new Dexie(name);
+    let upgraded: SlonigDB | undefined;
+
+    previous.version(100).stores({ books: '++id,name,created,&contentHash', bookProcessingRuns: '&bookId,status,updatedAt' });
+    try {
+      await previous.open();
+      await previous.table('books').put({
+        id: 29, contentHash: 'legacy-stage-test', created: 1, name: 'Older book', opfsName: 'old.pdf', size: 1,
+        processingStage: 13, completedStages: ['recognize', 'fixExercises', 'images', 'fixStandards', 'standards']
+      });
+      await previous.table('bookProcessingRuns').put({
+        bookId: 29, id: 'legacy-stage-run', mode: 'fastForward', status: 'completed',
+        stages: ['recognize', 'fixExercises', 'standards', 'fixStandards'], startStage: 'recognize',
+        completed: ['recognize', 'fixExercises', 'standards', 'fixStandards'],
+        retryCounts: { fixExercises: 2 }, startedStage: false, skipRefineChapters: false,
+        models: { generation: 'model-a', embedding: 'model-b', standards: 'model-c' }, updatedAt: 1
+      });
+      previous.close();
+
+      upgraded = new SlonigDB(name);
+      await upgraded.open();
+      const savedBook = await upgraded.books.get(29);
+      const savedRun = await upgraded.bookProcessingRuns.get(29);
+      assert.equal(upgraded.verno, 101);
+      assert.deepEqual(savedBook?.completedStages, ['recognize', 'images', 'standards']);
+      assert.equal(Object.prototype.hasOwnProperty.call(savedBook, 'processingStage'), false);
+      assert.deepEqual(savedRun?.stages, ['recognize', 'standards']);
+      assert.deepEqual(savedRun?.completed, ['recognize', 'standards']);
+      assert.deepEqual(savedRun?.retryCounts, {});
     } finally {
       previous.close();
       upgraded?.close();

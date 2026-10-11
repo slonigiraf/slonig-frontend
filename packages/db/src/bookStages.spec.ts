@@ -31,7 +31,7 @@ describe('named book processing stages', (): void => {
 
   it('resets the selected stage and every stage after it while preserving earlier completion', (): void => {
     const reset = withBookProcessingStagesResetFrom(book({
-      completedStages: ['recognize', 'language', 'subject', 'age', 'chapters', 'concepts', 'fixConcepts', 'embeddings', 'deduplicateConcepts', 'sortConcepts', 'refineChapters', 'exercises', 'fixExercises', 'abilities']
+      completedStages: ['recognize', 'language', 'subject', 'age', 'chapters', 'concepts', 'fixConcepts', 'embeddings', 'deduplicateConcepts', 'sortConcepts', 'refineChapters', 'abilities']
     }), 'fixConcepts');
 
     assert.deepEqual(reset.completedStages, ['recognize', 'language', 'subject', 'age', 'chapters', 'concepts']);
@@ -43,16 +43,11 @@ describe('named book processing stages', (): void => {
     assert.deepEqual(resetEmbeddings.completedStages, ['recognize', 'language', 'subject', 'age', 'chapters', 'concepts', 'fixConcepts']);
   });
 
-  it('maps legacy checkpoints without pretending newly inserted concept-repair/sort stages were completed', (): void => {
-    const completed = getBookCompletedStages(book({ age: 10, language: 'en', processingStage: 13, subject: 'en-math' }));
+  it('ignores unknown historical identifiers and does not infer stages from book metadata', (): void => {
+    const completed = getBookCompletedStages(book({ age: 10, language: 'en', subject: 'en-math' }));
 
-    assert.equal(completed.includes('concepts'), true);
-    assert.equal(completed.includes('fixConcepts'), false);
-    assert.equal(completed.includes('embeddings'), false);
-    assert.equal(completed.includes('deduplicateConcepts'), false);
-    assert.equal(completed.includes('sortConcepts'), false);
-    assert.equal(completed.includes('refineChapters'), false);
-    assert.equal(completed.includes('exercises'), false);
-    assert.equal(completed.includes('fixStandards'), true);
+    assert.deepEqual(completed, []);
+    assert.deepEqual(getBookCompletedStages(book({ completedStages: ['recognize', 'concepts', 'fixImages'] })), ['recognize', 'concepts', 'fixImages']);
   });
+
 });

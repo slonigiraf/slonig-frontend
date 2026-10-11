@@ -17,14 +17,13 @@ export const BOOK_PROCESSING_STAGES = [
   'fixAbilities',
   'images',
   'fixImages',
-  'standards',
-  'fixStandards'
+  'standards'
 ] as const;
 
-/** Old stage identifiers remain readable in historical book data. */
-export type BookProcessingStageKey = typeof BOOK_PROCESSING_STAGES[number] | 'exercises' | 'fixExercises';
+export type BookProcessingStageKey = typeof BOOK_PROCESSING_STAGES[number];
 
-export type BookStageSpendKey = BookProcessingStageKey | 'splitExercises';
+// Exercise review and splitting are standalone tools, not pipeline stages.
+export type BookStageSpendKey = BookProcessingStageKey | 'exercises' | 'fixExercises' | 'splitExercises';
 
 export type BookStageSpend = Partial<Record<BookStageSpendKey, number>>;
 
@@ -48,8 +47,6 @@ export interface Book {
    * not renumber or reinterpret existing completion data.
    */
   completedStages?: BookProcessingStageKey[];
-  /** @deprecated Legacy ordinal checkpoint. Read only for pre-v87 books. */
-  processingStage?: number;
   stageSpend?: BookStageSpend;
   contentHash: string;
   name: string;
@@ -58,59 +55,14 @@ export interface Book {
   created: number;
 }
 
-const LEGACY_STAGE_MINIMUM: Partial<Record<BookProcessingStageKey, number>> = {
-  recognize: 1,
-  chapters: 2,
-  concepts: 3,
-  exercises: 4,
-  fixExercises: 6,
-  abilities: 8,
-  fixAbilities: 9,
-  images: 10,
-  fixImages: 11,
-  standards: 12,
-  fixStandards: 13
-};
-
-/**
- * Returns stage completion in canonical pipeline order. Explicit completedStages
- * are authoritative. The legacy ordinal/metadata fallback exists only so old
- * book rows remain usable until the v87 migration has written named stages.
- */
-export function getBookCompletedStages (book: Pick<Book, 'age' | 'completedStages' | 'language' | 'processingStage' | 'subject'>): BookProcessingStageKey[] {
-  if (book.completedStages) {
-    const completed = new Set(book.completedStages);
-
-    return BOOK_PROCESSING_STAGES.filter((stage) => completed.has(stage));
-  }
-
-  const legacyStage = book.processingStage ?? 0;
-  const completed = new Set<BookProcessingStageKey>();
-
-  BOOK_PROCESSING_STAGES.forEach((stage) => {
-    const minimum = LEGACY_STAGE_MINIMUM[stage];
-
-    if (minimum !== undefined && legacyStage >= minimum) {
-      completed.add(stage);
-    }
-  });
-
-  if (book.language) {
-    completed.add('language');
-  }
-
-  if (book.subject) {
-    completed.add('subject');
-  }
-
-  if (book.age !== undefined) {
-    completed.add('age');
-  }
+/** Return only canonical, explicitly completed stages in pipeline order. */
+export function getBookCompletedStages (book: Pick<Book, 'completedStages'>): BookProcessingStageKey[] {
+  const completed = new Set(book.completedStages ?? []);
 
   return BOOK_PROCESSING_STAGES.filter((stage) => completed.has(stage));
 }
 
-export function isBookProcessingStageComplete (book: Pick<Book, 'age' | 'completedStages' | 'language' | 'processingStage' | 'subject'>, stage: BookProcessingStageKey): boolean {
+export function isBookProcessingStageComplete (book: Pick<Book, 'completedStages'>, stage: BookProcessingStageKey): boolean {
   return getBookCompletedStages(book).includes(stage);
 }
 

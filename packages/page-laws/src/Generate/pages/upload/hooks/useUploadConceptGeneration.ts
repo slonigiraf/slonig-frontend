@@ -221,7 +221,7 @@ export function useUploadConceptGeneration ({ embeddingModel, generateAllConcept
 
     setPendingProcessingAction('concepts');
 
-    resetBookProcessingStagesFrom(selectedBook.id, generateOnlyMissingConcepts ? 'fixConcepts' : 'concepts').then((updatedBook) => {
+    resetBookProcessingStagesFrom(selectedBook.id, 'concepts', { onlyMissing: generateOnlyMissingConcepts }).then((updatedBook) => {
       clearFixConceptsChapterStatuses(selectedBook.id);
       if (updatedBook) {
         setBooks((current) => current.map((book) => book.id === updatedBook.id ? updatedBook : book));
@@ -302,7 +302,7 @@ export function useUploadConceptGeneration ({ embeddingModel, generateAllConcept
     }
 
     setPendingProcessingAction('fixConcepts');
-    resetBookProcessingStagesFrom(selectedBook.id, 'fixConcepts')
+    resetBookProcessingStagesFrom(selectedBook.id, 'fixConcepts', { onlyMissing: fixOnlyFailedConcepts })
       .then((storedBook) => {
         if (storedBook) {
           setBooks((current) => current.map((book) => book.id === storedBook.id ? storedBook : book));
@@ -313,7 +313,7 @@ export function useUploadConceptGeneration ({ embeddingModel, generateAllConcept
         setPendingProcessingAction(undefined);
         setError(t('Unable to clear downstream data before fixing concepts.'));
       });
-  }, [requestProcessing, selectedBook, t, setBooks, setEmbeddingModel, setError, setPendingProcessingAction]);
+  }, [fixOnlyFailedConcepts, requestProcessing, selectedBook, t, setBooks, setEmbeddingModel, setError, setPendingProcessingAction]);
 
   const onEmbeddings = useCallback((): void => {
     if (!selectedBook) {

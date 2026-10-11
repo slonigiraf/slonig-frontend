@@ -251,7 +251,7 @@ export function useUploadStandardsProcessing ({ embeddingModel, requestProcessin
 
     setPendingProcessingAction('standards');
 
-    resetBookProcessingStagesFrom(selectedBook.id, 'standards').then((updatedBook) => {
+    resetBookProcessingStagesFrom(selectedBook.id, 'standards', { onlyMissing: generateOnlyMissingStandards }).then((updatedBook) => {
       if (updatedBook) {
         setBooks((current) => current.map((book) => book.id === updatedBook.id ? updatedBook : book));
       }

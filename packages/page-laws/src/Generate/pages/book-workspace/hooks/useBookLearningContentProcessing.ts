@@ -73,6 +73,13 @@ export function useBookLearningContentProcessing ({
       return;
     }
 
+    // A full Standards run discards the previous chapter mappings, including
+    // mappings for chapters that might fail to regenerate this time.
+    if (force) {
+      setStandardsByChapter({});
+      storeBookStandards(book.id, {});
+    }
+
     setError('');
     setIsAssigningStandards(true);
     setStandardsAssignedChapterCount(0);
@@ -132,7 +139,7 @@ export function useBookLearningContentProcessing ({
           setStandardsAssignedChapterCount((count) => count + 1);
         }
       });
-      const next = { ...standardsByChapter };
+      const next = force ? {} : { ...standardsByChapter };
       let failures = 0;
       let succeeded = 0;
 
