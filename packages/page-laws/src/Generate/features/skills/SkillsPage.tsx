@@ -314,6 +314,20 @@ function getSessionReviewMode (bookId: number, view: SkillsView): boolean {
   }
 }
 
+// A rereview pass covers only the Abilities in the chapters selected in the
+// dialog. Keep its scope across reloads, just like the review navigation.
+function getSessionReviewAbilityIds (bookId: number, view: SkillsView): string[] | undefined {
+  try {
+    const raw = sessionStorage.getItem(`${reviewSessionKey(bookId, view)}-scope`);
+    if (raw === null) return undefined;
+    const parsed: unknown = JSON.parse(raw);
+
+    return Array.isArray(parsed) && parsed.every((id) => typeof id === 'string') ? parsed as string[] : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 function getSessionChapter (bookId: number, view: SkillsView): number {
   try {
     const stored = Number(sessionStorage.getItem(chapterSessionKey(bookId, view)));
@@ -332,12 +346,15 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
   const [chapterContent, setChapterContent] = useState<ChapterContent[]>([]);
   const [chapterIndex, setChapterIndex] = useState(() => getSessionChapter(book.id, view));
   const [isReviewModeOpen, setIsReviewModeOpen] = useState(() => getSessionReviewMode(book.id, view));
+  const [reviewAbilityIds, setReviewAbilityIds] = useState<readonly string[] | undefined>(() => getSessionReviewAbilityIds(book.id, view));
   const activeReviewSessionKey = reviewSessionKey(book.id, view);
   const reviewNavigationSessionKey = `${activeReviewSessionKey}-navigation`;
+  const reviewScopeSessionKey = `${activeReviewSessionKey}-scope`;
 
   // A mounted Skills page can switch books or views without being remounted.
   useEffect(() => {
     setIsReviewModeOpen(getSessionReviewMode(book.id, view));
+    setReviewAbilityIds(getSessionReviewAbilityIds(book.id, view));
   }, [book.id, view]);
 
   const [isRereviewDialogOpen, setIsRereviewDialogOpen] = useState(false);
@@ -371,6 +388,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
   const effectiveModel = autoRunAll ? DEFAULT_PROCESSING_MODEL : selectedModel;
   const [effectiveCompletedStages, setEffectiveCompletedStages] = useState<BookProcessingStageKey[]>(() => getBookCompletedStages(book));
   const [loadedContentSnapshotKey, setLoadedContentSnapshotKey] = useState('');
+  const [failedContentSnapshotKey, setFailedContentSnapshotKey] = useState('');
   const splitEstimateKey = `${book.id}:${effectiveModel}:${JSON.stringify(queuedWorkItems)}:${loadedContentSnapshotKey}`;
   const splitQueueEstimate = splitQueueEstimateState?.key === splitEstimateKey ? splitQueueEstimateState.estimate : undefined;
   const processingRun = useBookProcessingRun(book.id);
@@ -393,6 +411,8 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
   // chapterContent represents so the auto-run hand-off can wait for that reload.
   const contentSnapshotKey = `${book.id}:${externalRefreshToken}:${refreshToken}`;
   const isContentSnapshotCurrent = loadedContentSnapshotKey === contentSnapshotKey;
+  const isReviewDataLoadFailed = failedContentSnapshotKey === contentSnapshotKey;
+  const isReviewDataLoading = !isContentSnapshotCurrent && !isReviewDataLoadFailed;
   const refreshContent = useCallback((): void => {
     refresh();
     onContentChange?.();
@@ -472,11 +492,16 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
         // Set this in the same committed update as chapterContent. A subsequent
         // refresh changes contentSnapshotKey synchronously, making the snapshot
         // stale again until the matching async DB read has finished.
+        setFailedContentSnapshotKey('');
         setLoadedContentSnapshotKey(contentSnapshotKey);
       }
     };
 
-    load().catch(() => active && setError('Unable to load this book’s learning content.'));
+    load().catch(() => {
+      if (!active) return;
+      setFailedContentSnapshotKey(contentSnapshotKey);
+      setError('Unable to load this book’s learning content.');
+    });
 
     return () => {
       active = false;
@@ -2182,23 +2207,27 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
   const startAbilityReview = useCallback((): void => {
     try {
       sessionStorage.removeItem(reviewNavigationSessionKey);
+      sessionStorage.removeItem(reviewScopeSessionKey);
       sessionStorage.setItem(activeReviewSessionKey, 'open');
     } catch {
       // Review mode still works when browser storage is restricted.
     }
+    setReviewAbilityIds(undefined);
     setIsReviewModeOpen(true);
-  }, [activeReviewSessionKey, reviewNavigationSessionKey]);
+  }, [activeReviewSessionKey, reviewNavigationSessionKey, reviewScopeSessionKey]);
 
   const closeAbilityReview = useCallback((): void => {
     try {
       sessionStorage.removeItem(activeReviewSessionKey);
       sessionStorage.removeItem(reviewNavigationSessionKey);
+      sessionStorage.removeItem(reviewScopeSessionKey);
     } catch {
       // Closing Review mode must work even without session storage.
     }
+    setReviewAbilityIds(undefined);
     setIsReviewModeOpen(false);
     refreshContent();
-  }, [activeReviewSessionKey, refreshContent, reviewNavigationSessionKey]);
+  }, [activeReviewSessionKey, refreshContent, reviewNavigationSessionKey, reviewScopeSessionKey]);
 
   const markAbilityReviewed = useCallback(async (record: StoredAbility): Promise<void> => {
     await setBookAbilityReviewed(book.id, record.id, true);
@@ -2226,6 +2255,23 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
       const ids = chapterContent.flatMap(({ abilities }, index) => rereviewChapterIndexes.has(index) ? abilities.map(({ id }) => id) : []);
       await resetBookAbilityReviews(book.id, ids);
       setIsRereviewDialogOpen(false);
+
+      // Reflect the database reset immediately so the first selected Ability
+      // appears in Review mode while the fresh chapter data is still loading.
+      const resetIds = new Set(ids);
+      setChapterContent((previous) => previous.map((chapter) => ({
+        ...chapter,
+        abilities: chapter.abilities.map((ability) => resetIds.has(ability.id) ? { ...ability, reviewed: false } : ability)
+      })));
+      try {
+        sessionStorage.removeItem(reviewNavigationSessionKey);
+        sessionStorage.setItem(reviewScopeSessionKey, JSON.stringify(ids));
+        sessionStorage.setItem(activeReviewSessionKey, 'open');
+      } catch {
+        // Rereview still starts when browser storage is restricted.
+      }
+      setReviewAbilityIds(ids);
+      setIsReviewModeOpen(true);
       refreshContent();
       const count = rereviewChapterIndexes.size;
       setNotice(`Review status reset for ${count} selected chapter${count === 1 ? '' : 's'} (${ids.length} Abilities). Other chapters are unchanged.`);
@@ -2234,7 +2280,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
     } finally {
       setIsResettingReview(false);
     }
-  }, [book.id, chapterContent, isResettingReview, refreshContent, rereviewChapterIndexes]);
+  }, [activeReviewSessionKey, book.id, chapterContent, isResettingReview, refreshContent, rereviewChapterIndexes, reviewNavigationSessionKey, reviewScopeSessionKey]);
 
   return <StyledSkills className={pipelineOnly ? 'pipelineOnly' : undefined}>
     {isReviewModeOpen && <AbilityReviewMode
@@ -2242,6 +2288,8 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
       key={activeReviewSessionKey}
       navigationSessionKey={reviewNavigationSessionKey}
       isBusy={isBusy || externalSplitQueueBusy}
+      isLoading={isReviewDataLoading}
+      hasLoadError={isReviewDataLoadFailed}
       onCancelFix={onCancelFix}
       onClose={closeAbilityReview}
       onContentChange={refreshContent}
@@ -2250,6 +2298,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
       onQueueSplit={onQueueSplit}
       onReviewed={markAbilityReviewed}
       queuedItems={queuedFixItems}
+      reviewAbilityIds={reviewAbilityIds}
     />}
     {isRereviewDialogOpen && <Modal header='Rereview Abilities' onClose={() => { if (!isResettingReview) setIsRereviewDialogOpen(false); }} size='small'>
       <Modal.Content>

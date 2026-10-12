@@ -4,7 +4,7 @@
 import type { AbilityFixInstructions, BookAbilityWorkItem } from '@slonigiraf/db';
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Button } from '@polkadot/react-components';
+import { Button, Spinner } from '@polkadot/react-components';
 
 import type { StoredAbility } from '../../../book/application/abilities/abilityProcessing.js';
 import type { ChapterContent } from '../SkillsTypes.js';
@@ -15,6 +15,8 @@ import { StyledSkills } from '../SkillsStyles.js';
 interface Props {
   chapters: readonly ChapterContent[];
   isBusy: boolean;
+  isLoading: boolean;
+  hasLoadError: boolean;
   navigationSessionKey: string;
   onCancelFix?: (id: string) => Promise<void>;
   onClose: () => void;
@@ -24,6 +26,7 @@ interface Props {
   onQueueSplit?: (record: StoredAbility) => void;
   onReviewed: (record: StoredAbility) => Promise<void>;
   queuedItems: readonly BookAbilityWorkItem[];
+  reviewAbilityIds?: readonly string[];
 }
 
 interface ReviewNavigationState {
@@ -55,7 +58,7 @@ function getReviewNavigationState (sessionKey: string): ReviewNavigationState {
 }
 
 /** Book-wide sequential review. Nothing is silently approved at a chapter boundary. */
-export default function AbilityReviewMode ({ chapters, isBusy, navigationSessionKey, onCancelFix, onClose, onContentChange, onError, onQueueFix, onQueueSplit, onReviewed, queuedItems }: Props): React.ReactElement {
+export default function AbilityReviewMode ({ chapters, hasLoadError, isBusy, isLoading, navigationSessionKey, onCancelFix, onClose, onContentChange, onError, onQueueFix, onQueueSplit, onReviewed, queuedItems, reviewAbilityIds }: Props): React.ReactElement {
   const savedNavigation = useMemo(() => getReviewNavigationState(navigationSessionKey), [navigationSessionKey]);
   const [reviewedIds, setReviewedIds] = useState<Set<string>>(() => new Set());
   const [skippedIds, setSkippedIds] = useState<Set<string>>(() => new Set(savedNavigation.skippedIds));
@@ -65,9 +68,15 @@ export default function AbilityReviewMode ({ chapters, isBusy, navigationSession
   const [historyIndex, setHistoryIndex] = useState(() => savedNavigation.historyIndex);
   const [saving, setSaving] = useState(false);
   const contentRef = useRef<HTMLElement>(null);
-  const entries = useMemo(() => chapters.flatMap(({ abilities, chapter, concepts }, chapterIndex) => abilities.map((record) => ({
-    chapter, chapterIndex, concept: concepts.find(({ id }) => record.moduleId.endsWith(`-concept-${id}`)), record
-  }))), [chapters]);
+  const entries = useMemo(() => {
+    const selectedIds = reviewAbilityIds === undefined ? undefined : new Set(reviewAbilityIds);
+
+    return chapters.flatMap(({ abilities, chapter, concepts }, chapterIndex) => abilities
+      .filter(({ id }) => selectedIds === undefined || selectedIds.has(id))
+      .map((record) => ({
+        chapter, chapterIndex, concept: concepts.find(({ id }) => record.moduleId.endsWith(`-concept-${id}`)), record
+      })));
+  }, [chapters, reviewAbilityIds]);
   const pending = entries.filter(({ record }) => !record.reviewed && !reviewedIds.has(record.id));
   const current = historyIndex < visitedIds.length
     ? entries.find(({ record }) => record.id === visitedIds[historyIndex])
@@ -131,7 +140,7 @@ export default function AbilityReviewMode ({ chapters, isBusy, navigationSession
   const hasAtMostOneVisualPerExercise = current?.record.ability?.q.every(({ i, p }) => !(i?.trim() && p?.trim())) ?? false;
   useLayoutEffect(() => {
     const content = contentRef.current;
-    if (!content || !current) return;
+    if (!content || !current || isLoading || hasLoadError) return;
 
     let frame = 0;
     const fitVisuals = (): void => {
@@ -180,30 +189,36 @@ export default function AbilityReviewMode ({ chapters, isBusy, navigationSession
       observer?.disconnect();
       window.removeEventListener('resize', scheduleFit);
     };
-  }, [current?.record.id, current?.record.content, hasAtMostOneVisualPerExercise, queuedFixId, queuedSplit]);
+  }, [current?.record.id, current?.record.content, hasAtMostOneVisualPerExercise, hasLoadError, isLoading, queuedFixId, queuedSplit]);
 
 
   return createPortal(<StyledSkills aria-label='Book Ability review' className='abilityReviewOverlay' role='dialog' aria-modal='true'>
     <header className='abilityReviewHeader'>
       <div className='abilityReviewSummary'>
         <h2>Review Abilities</h2>
-        <span>{reviewedCount}/{entries.length} reviewed · {pending.length} left</span>
-        {current && <span className='abilityReviewLocation' title={current.chapter.title}>Chapter {current.chapterIndex + 1}/{chapters.length}: {current.chapter.title}</span>}
+        {!isLoading && <span>{hasLoadError ? 'Unable to load review data' : `${reviewedCount}/${entries.length} reviewed · ${pending.length} left`}</span>}
+        {!isLoading && !hasLoadError && current && <span className='abilityReviewLocation' title={current.chapter.title}>Chapter {current.chapterIndex + 1}/{chapters.length}: {current.chapter.title}</span>}
       </div>
       <div className='abilityReviewActions'>
-        <Button icon='arrow-left' isDisabled={saving || historyIndex === 0} label='Back' onClick={() => setHistoryIndex((previous) => Math.max(0, previous - 1))} />
-        {current && <>
+        <Button icon='arrow-left' isDisabled={saving || isLoading || hasLoadError || historyIndex === 0} label='Back' onClick={() => setHistoryIndex((previous) => Math.max(0, previous - 1))} />
+        {!isLoading && !hasLoadError && current && <>
           <Button icon='arrow-right' isDisabled={saving} label={isCurrentReviewed ? 'Next' : 'Skip for now'} onClick={skip} />
           <Button icon='check' isDisabled={saving || isBusy || isCurrentReviewed || Boolean(queuedFixId) || Boolean(queuedSplit)} label={saving ? 'Saving…' : 'Reviewed'} onClick={() => { void markReviewed(); }} />
         </>}
-        <Button icon='times' label='Exit review' onClick={onClose} />
+        <Button icon='times' onClick={onClose} />
       </div>
     </header>
-    <div className='abilityReviewProgress' role='progressbar' aria-label='Book Ability review progress' aria-valuenow={reviewedCount} aria-valuemin={0} aria-valuemax={entries.length}>
+    {!isLoading && !hasLoadError && <div className='abilityReviewProgress' role='progressbar' aria-label='Book Ability review progress' aria-valuenow={reviewedCount} aria-valuemin={0} aria-valuemax={entries.length}>
       <div style={{ width: `${entries.length ? (100 * reviewedCount / entries.length) : 100}%` }} />
-    </div>
+    </div>}
     <main className='abilityReviewContent' ref={contentRef}>
-      {current ? <>
+      {isLoading ? <div aria-label='Loading review data' className='abilityReviewLoading' role='status'>
+        <Spinner label='Loading' />
+      </div> : hasLoadError ? <div className='abilityReviewDone' role='alert'>
+        <h3>Unable to load review data.</h3>
+        <p>The review status could not be verified. Retry loading the book.</p>
+        <Button icon='redo' label='Retry' onClick={onContentChange} />
+      </div> : current ? <>
         {(queuedFixId || queuedSplit) && <p className='abilityReviewPending'>This Ability has a pending AI job. Review it after the job finishes, or skip it for now.</p>}
         <AbilityConceptCard concept={current.concept} isSingleExercise={current.record.ability?.q.length === 1}>
           <AbilityCard
@@ -219,8 +234,8 @@ export default function AbilityReviewMode ({ chapters, isBusy, navigationSession
           />
         </AbilityConceptCard>
       </> : <div className='abilityReviewDone'>
-        <h3>{pending.length === 0 ? 'Entire book reviewed!' : 'You have reached the end of this review pass.'}</h3>
-        <p>{pending.length === 0 ? 'Every Ability has been marked Reviewed.' : `${pending.length} Ability${pending.length === 1 ? ' is' : 'ies are'} still awaiting review.`}</p>
+        <h3>{entries.length === 0 && reviewAbilityIds !== undefined ? 'No Abilities in the selected chapters.' : pending.length === 0 ? (reviewAbilityIds === undefined ? 'Entire book reviewed!' : 'Selected chapters reviewed!') : 'You have reached the end of this review pass.'}</h3>
+        <p>{pending.length === 0 ? (reviewAbilityIds === undefined ? 'Every Ability has been marked Reviewed.' : 'The selected chapters have no Abilities left to review.') : `${pending.length} Ability${pending.length === 1 ? ' is' : 'ies are'} still awaiting review.`}</p>
         {pending.length > 0 && <Button icon='redo' label='Review remaining' onClick={() => setSkippedIds(new Set<string>())} />}
         <Button icon='check' label='Close' onClick={onClose} />
       </div>}

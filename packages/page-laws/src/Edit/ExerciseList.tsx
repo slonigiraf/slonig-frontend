@@ -211,9 +211,8 @@ const AbilityExercisesGrid = styled.div`
     justify-content: center;
     padding: 0;
     position: absolute;
-    right: 0;
-    top: 0;
-    transform: translate(50%, -50%);
+    right: 0.5rem;
+    top: 0.5rem;
     width: 2.25rem;
     z-index: 1;
   }
@@ -232,8 +231,9 @@ const AbilityExercisesGrid = styled.div`
     opacity: 0.45;
   }
 
+  /* The edit control sits inside the exercise; keep the heading clear of it. */
   .abilityExerciseEditable .exercise-header {
-    padding-right: 1rem;
+    padding-right: 3.25rem;
   }
 
   > .ui--row > .exercise-display {

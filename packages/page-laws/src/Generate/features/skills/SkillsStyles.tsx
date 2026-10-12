@@ -621,6 +621,10 @@ export const StyledSkills = styled.div`
   .abilityReviewContent {
     --review-visual-height: 150px;
     box-sizing: border-box;
+    /* Increase the central review pane's reading text to 1.5x without enlarging
+       the navigation toolbar or scaling the images and their controls. */
+    font-size: 150%;
+    line-height: 1.45;
     flex: 1 1 auto;
     margin: 0;
     max-width: none;
@@ -643,16 +647,31 @@ export const StyledSkills = styled.div`
   .abilityReviewContent .abilityConceptCard > h4 { margin: 0 0 0.2rem; }
   .abilityReviewContent .abilityConceptCard > p { margin: 0.15rem 0 0.3rem; }
   .abilityReviewContent .matchedAbilities { margin: 0.3rem 0 0; }
-  .abilityReviewContent .abilityCard { margin: 0; padding: 0.45rem 0.65rem; }
-  .abilityReviewContent .abilityCard > .contentCardActions { right: 0.5rem; top: 0.4rem; transform: none; }
-  .abilityReviewContent .abilityCard > .contentCardActions + div { max-width: none; padding-right: 0; width: 100%; }
+  .abilityReviewContent .abilityCard { margin: 0; padding: 0.45rem 0.65rem; width: calc(100% - 1.375rem); }
+  .abilityReviewContent .abilityCard > .contentCardActions + div { max-width: none; padding-right: 2.333rem; width: 100%; }
   .abilityReviewContent .abilityCard .ui--row { padding: 0.45rem; }
   .abilityReviewContent .abilityCard .ui--row .exercise-display { min-width: 0; }
-  .abilityReviewContent .abilityCard .exercise-header { padding-right: 0.5rem; }
+  /* The larger review text must leave room for the edit control inside each exercise. */
+  .abilityReviewContent .abilityCard .abilityExerciseEditable .exercise-header { padding-right: 3.25rem; }
   .abilityReviewContent .abilityCard .abilityAnswer { margin-top: 0.35rem; padding: 0.45rem; }
+  .abilityReviewContent .abilityConceptParent,
+  .abilityReviewContent .abilityCard .abilityReviewedIndicator { font-size: 1.7rem; }
   .abilityReviewContent .abilityCard .abilityReviewedIndicator { margin-top: 0.2rem; }
-  .abilityReviewPending { font-size: 0.82rem; margin: 0 auto 0.35rem; max-width: 100%; width: 60vw; }
+  .abilityReviewPending { font-size: 1.64rem; margin: 0 auto 0.35rem; max-width: 100%; width: 60vw; }
   .abilityReviewDone { text-align: center; padding: 3rem 1rem; }
+  /* Keep the spinner and its Loading label centered in the whole viewport,
+     not halfway down the shorter content pane below the review toolbar. */
+  .abilityReviewLoading {
+    align-items: center;
+    display: flex;
+    inset: 0;
+    justify-content: center;
+    pointer-events: none;
+    position: fixed;
+    text-align: center;
+  }
+  /* Use the regular spinner label size, independent of the 1.5x review text scale. */
+  .abilityReviewLoading .ui--Spinner .text { font-size: 1rem; margin: 0.5rem auto 0; }
 
   /* Both TikZ and bitmap previews use identical responsive visual boxes.
      Preserve aspect ratio inside the box and keep both exercises side by side
@@ -728,9 +747,21 @@ export const StyledSkills = styled.div`
   /* Stay red while a Fix Ability job is queued (including while it runs).
      The queue removes the flag only after a successful correction. */
   .abilityCard.abilityCardQueuedForFix { border-color: #d32f2f; box-shadow: inset 0 0 0 1px #d32f2f; }
-  /* Center Ability actions over the parent Ability card border corner (not inside it). */
-  .abilityCard > .contentCardActions { right: 0; top: 0; transform: translate(50%, -50%); }
-  .abilityCard > .contentCardActions + div { padding-right: 0.75rem; }
+  /* The three-dot trigger straddles the Ability card's right border.
+     Reserve half its width plus the former 0.25rem inset outside the card,
+     keeping the trigger in the same place and clear of exercise edit buttons. */
+  .abilityCard { width: calc(100% - 1.375rem); }
+  .abilityCard > .contentCardActions {
+    margin: 0;
+    position: absolute;
+    right: 0;
+    top: -0.9rem;
+    transform: translateX(50%);
+  }
+  .abilityCard > .contentCardActions + div {
+    box-sizing: border-box;
+    padding-right: 2.333rem;
+  }
   .abilityCardSingleExercise { max-width: calc(30rem + 2.125rem); }
   .abilityExerciseCard { background: var(--bg-input); border: 1px solid #dde1eb; border-radius: 0.7rem; box-shadow: 0 1px 2px rgba(24, 39, 75, 0.04); box-sizing: border-box; margin-bottom: 1rem; padding: 0.95rem 1rem 1rem; }
   .abilityExerciseCard:focus { outline: none; }
@@ -761,9 +792,8 @@ export const StyledSkills = styled.div`
   @media only screen and (max-width: 600px) {
     .contentCard { padding: 0.75rem; }
     .contentCardActions { right: 0.5rem; top: 0.5rem; }
-    /* The Ability uses an exercise grid rather than a title, so only on
-       narrow screens reserve space for the floating actions. */
-    .abilityCard > .contentCardActions + div { padding-right: 0.333rem; }
+    /* Preserve the Ability menu's edit-button clearance on small screens. */
+    .abilityCard > .contentCardActions + div { padding-right: 2.333rem; }
     .chapterNavigation { display: flex; flex-wrap: wrap; min-width: 0; }
     .exercisesChapterNavigation { gap: 0.35rem; }
     .exercisesChapterNavigation .chapterSelectGroup { flex: 1 1 100%; min-width: 0; order: 2; }
