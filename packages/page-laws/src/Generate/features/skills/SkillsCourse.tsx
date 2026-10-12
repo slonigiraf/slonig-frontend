@@ -5,7 +5,7 @@ import type { Book, BookChapter } from '@slonigiraf/db';
 import type { GeneratedAbility } from '../../../abilities/abilities.js';
 import { prepareAbilityForPublishing } from '../../../abilities/abilities.js';
 
-import { deleteAbility, getAbilities, getBookChapters, getBookConceptsForBookPage, getBookPages, getSetting, hydrateAbilityContent, putBookChapter, SettingKey, updateBookChapterTitle, updateBookFields } from '@slonigiraf/db';
+import { deleteAbilityWithConcept, getAbilities, getBook, getBookChapters, getBookConceptsForBookPage, getBookPages, getSetting, hydrateAbilityContent, putBookChapter, SettingKey, saveBookCourseLearningOrder, updateBookChapterTitle, updateBookFields } from '@slonigiraf/db';
 import { digestFromCIDv1, getCIDFromBytes, getIPFSContentIDAndPinIt, getIPFSContentIDForBytesAndPinIt, getIPFSDataFromContentID, SpanWithTags, parseJson, useInfo, useIpfsContext, useLoginContext } from '@slonigiraf/slonig-components';
 import BN from 'bn.js';
 import { useLiveQuery } from 'dexie-react-hooks';
@@ -240,7 +240,11 @@ function SkillsCourse ({ book, onBookChange }: { book: Book; onBookChange: (upda
           (concept.chapterId !== undefined ? concept.chapterId === chapter.id : page.chapter === chapter.title))),
         ...pageLessConcepts.filter(({ chapterId }) => chapterId === chapter.id)
       ];
-      const visibleModules = conceptSources.flatMap(({ id }) => id === undefined ? [] : [conceptAbilityModuleId(book.id, id)]);
+      // Concept order is canonical, including after reorders in the Concepts tab.
+      // An Ability's own displayOrder only orders siblings of the SAME Concept.
+      const visibleModules = conceptSources
+        .sort((a, b) => (a.displayOrder ?? Number.MAX_SAFE_INTEGER) - (b.displayOrder ?? Number.MAX_SAFE_INTEGER) || (a.id ?? 0) - (b.id ?? 0))
+        .flatMap(({ id }) => id === undefined ? [] : [conceptAbilityModuleId(book.id, id)]);
       const templates = (await Promise.all(visibleModules.map(async (moduleId) => {
         const records = await getAbilities(moduleId);
 
@@ -255,7 +259,7 @@ function SkillsCourse ({ book, onBookChange }: { book: Book; onBookChange: (upda
         }));
 
         return hydratedRecords.filter((value): value is TemplateRow => value !== undefined);
-      }))).flat().sort((a, b) => (a.displayOrder ?? Number.MAX_SAFE_INTEGER) - (b.displayOrder ?? Number.MAX_SAFE_INTEGER) || a.recordId.localeCompare(b.recordId));
+      }))).flat();
 
       return { chapter, templates };
     }));
@@ -270,44 +274,27 @@ function SkillsCourse ({ book, onBookChange }: { book: Book; onBookChange: (upda
   }, [book.id, storedBook.chapterOrder?.join(',')]);
   const outline = useMemo((): OutlineItem[] => {
     const excludedChapterIds = new Set(storedBook.excludedCourseChapterIds || []);
-    const items = (chapters || []).flatMap(({ chapter, templates }): OutlineItem[] => chapter.id === undefined
-      ? []
-      : [
-        ...(excludedChapterIds.has(chapter.id) ? [] : [{ chapter, key: chapterOutlineKey(chapter.id), type: 'chapter' } as const]),
-        ...templates.map((row): OutlineItem => ({ key: templateOutlineKey(row.recordId), row, type: 'template' }))
-      ]);
-    const byKey = new Map(items.map((item) => [item.key, item]));
-    const keys = (storedBook.courseOrder || []).filter((key) => byKey.has(key));
+    const items: OutlineItem[] = [];
+    const leadingTemplates: OutlineItem[] = [];
 
     for (const { chapter, templates } of chapters || []) {
-      if (chapter.id === undefined) {
-        continue;
+      if (chapter.id === undefined) continue;
+
+      if (!excludedChapterIds.has(chapter.id)) {
+        items.push({ chapter, key: chapterOutlineKey(chapter.id), type: 'chapter' });
+        // An excluded first chapter must not put Abilities above the first heading.
+        items.push(...leadingTemplates.splice(0));
       }
 
-      const chapterKey = chapterOutlineKey(chapter.id);
-
-      if (!excludedChapterIds.has(chapter.id) && !keys.includes(chapterKey)) {
-        keys.push(chapterKey);
-      }
-
-      const chapterIndex = keys.indexOf(chapterKey);
-      const nextChapterIndex = keys.findIndex((key, index) => index > chapterIndex && key.startsWith('chapter:'));
-      const insertionIndex = excludedChapterIds.has(chapter.id) || nextChapterIndex < 0 ? keys.length : nextChapterIndex;
-      const missingTemplateKeys = templates.map(({ recordId }) => templateOutlineKey(recordId)).filter((key) => !keys.includes(key));
-
-      keys.splice(insertionIndex, 0, ...missingTemplateKeys);
+      const rows = templates.map((row): OutlineItem => ({ key: templateOutlineKey(row.recordId), row, type: 'template' }));
+      (items.length ? items : leadingTemplates).push(...rows);
     }
 
-    // `courseOrder` is the authoritative Course-tab order. The source Ability
-    // displayOrder is used above only to build the initial/default order. Do not
-    // sort each chapter segment again here: doing so silently undoes a user's
-    // drag as soon as the optimistic `courseOrder` update re-renders.
-    return keys.flatMap((key) => {
-      const item = byKey.get(key);
-
-      return item ? [item] : [];
-    });
-  }, [chapters, storedBook.courseOrder, storedBook.excludedCourseChapterIds]);
+    // Do not replay saved template positions from book.courseOrder: they may be
+    // stale after a Concept reorder in another tab. This view always follows
+    // the live Concept order, and Course drags save that order back to Concepts.
+    return items;
+  }, [chapters, storedBook.excludedCourseChapterIds]);
   const courseChapters = useMemo((): ChapterTemplates[] => {
     const grouped: ChapterTemplates[] = [];
 
@@ -463,11 +450,10 @@ function SkillsCourse ({ book, onBookChange }: { book: Book; onBookChange: (upda
 
   const deleteTemplate = useCallback(async (recordId: string): Promise<void> => {
     try {
-      await deleteAbility(recordId);
-      const updatedBook = { ...storedBook, courseOrder: storedBook.courseOrder?.filter((key) => key !== templateOutlineKey(recordId)) };
-
-      await updateBookFields(storedBook.id, { courseOrder: updatedBook.courseOrder });
-      setStoredBook(updatedBook);
+      // Removes the linked Concept and all of its Abilities atomically.
+      await deleteAbilityWithConcept(recordId);
+      const updatedBook = await getBook(storedBook.id);
+      if (updatedBook) setStoredBook(updatedBook);
     } catch (error) {
       showInfo(`Unable to delete the ability: ${errorMessage(error)}`, 'error');
     }
@@ -568,18 +554,16 @@ function SkillsCourse ({ book, onBookChange }: { book: Book; onBookChange: (upda
       return;
     }
 
-    const chapterOrder = keys.filter((key) => key.startsWith('chapter:')).map((key) => Number(key.slice('chapter:'.length)));
-    const previousBook = storedBook;
-    const updatedBook = { ...storedBook, chapterOrder, courseOrder: keys };
-
-    setStoredBook(updatedBook);
     setDragKey(undefined);
-    updateBookFields(storedBook.id, { chapterOrder, courseOrder: keys })
-      .then(() => setPublishStatus('Course order saved.'))
-      .catch((error) => {
-        setStoredBook(previousBook);
-        showInfo(`Unable to save the course order: ${errorMessage(error)}`, 'error');
-      });
+    setIsReorderingAbilities(true);
+    saveBookCourseLearningOrder(storedBook.id, keys)
+      .then(async () => {
+        const updatedBook = await getBook(storedBook.id);
+        if (updatedBook) setStoredBook(updatedBook);
+        setPublishStatus('Course and Concept order saved.');
+      })
+      .catch((error) => showInfo(`Unable to save the course order: ${errorMessage(error)}`, 'error'))
+      .finally(() => setIsReorderingAbilities(false));
   }, [dragKey, isOrganizationLocked, outline, showInfo, storedBook]);
 
   const clearAbilityDropMarker = useCallback((): void => {
@@ -713,6 +697,24 @@ function SkillsCourse ({ book, onBookChange }: { book: Book; onBookChange: (upda
 
     keys.splice(boundedInsertionIndex, 0, moved);
 
+    // One Concept may own multiple Ability records. Move its entire group as
+    // a unit, since all of those Abilities must share the same Concept rank
+    // and chapter. This also prevents a single drag from splitting a Concept.
+    const sourceItem = outline.find(({ key }) => key === sourceKey);
+
+    if (sourceItem?.type === 'template') {
+      const siblingKeys = outline.flatMap((item) => item.type === 'template' && item.row.moduleId === sourceItem.row.moduleId ? [item.key] : []);
+
+      if (siblingKeys.length > 1) {
+        const groupSet = new Set(siblingKeys);
+        const position = keys.slice(0, keys.indexOf(sourceKey)).filter((key) => !groupSet.has(key)).length;
+        const remaining = keys.filter((key) => !groupSet.has(key));
+
+        remaining.splice(position, 0, ...siblingKeys);
+        keys.splice(0, keys.length, ...remaining);
+      }
+    }
+
     if (!keys[0]?.startsWith('chapter:')) {
       setPublishStatus('A chapter name must remain above the first ability.');
 
@@ -723,17 +725,14 @@ function SkillsCourse ({ book, onBookChange }: { book: Book; onBookChange: (upda
       return;
     }
 
-    const previousBook = storedBook;
-    const updatedBook = { ...storedBook, courseOrder: keys };
-
     setIsReorderingAbilities(true);
-    setStoredBook(updatedBook);
 
     try {
-      await updateBookFields(storedBook.id, { courseOrder: keys });
-      setPublishStatus('Course order saved.');
+      await saveBookCourseLearningOrder(storedBook.id, keys);
+      const updatedBook = await getBook(storedBook.id);
+      if (updatedBook) setStoredBook(updatedBook);
+      setPublishStatus('Course and Concept order saved.');
     } catch (error) {
-      setStoredBook(previousBook);
       showInfo(`Unable to save the course order: ${errorMessage(error)}`, 'error');
     } finally {
       setIsReorderingAbilities(false);

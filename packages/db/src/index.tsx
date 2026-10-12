@@ -1322,6 +1322,91 @@ export async function reorderBookConcepts(sortedIds: number[], explicitChapterId
     });
 }
 
+/**
+ * Persist Course drag-and-drop in the same canonical Concept order used by the
+ * Concepts and Abilities views. Ability record hashes and the legacy
+ * book.courseOrder are NOT independent sources of learning order.
+ *
+ * Changing the chapter above an Ability also changes the source Concept's
+ * chapter. Unrepresented Concepts (which have no Ability yet) keep their
+ * relative positions. All writes, including Book outline metadata, are atomic.
+ */
+export async function saveBookCourseLearningOrder(bookId: number, courseOrder: string[]): Promise<void> {
+    if (!courseOrder.length || !courseOrder[0].startsWith('chapter:') || new Set(courseOrder).size !== courseOrder.length) {
+        throw new Error('A Course must begin with a chapter and cannot contain duplicate rows.');
+    }
+
+    await db.transaction('rw', db.books, db.bookChapters, db.bookConcepts, db.bookPages, db.abilities, async () => {
+        const book = await db.books.get(bookId);
+        if (!book) throw new Error('Book no longer exists.');
+
+        const chapters = await db.bookChapters.where('bookId').equals(bookId).toArray();
+        const knownChapterIds = new Set(chapters.flatMap(({ id }) => id === undefined ? [] : [id]));
+        const headingIds: number[] = [];
+        const desiredByChapter = new Map<number, number[]>();
+        const targets = new Map<number, number>();
+        const conceptsById = new Map<number, BookConcept>();
+        const affectedChapterIds = new Set<number>();
+        let currentChapterId: number | undefined;
+
+        for (const key of courseOrder) {
+            if (key.startsWith('chapter:')) {
+                const chapterId = Number(key.slice('chapter:'.length));
+                if (!Number.isSafeInteger(chapterId) || !knownChapterIds.has(chapterId) || headingIds.includes(chapterId)) {
+                    throw new Error('Course order contains an unknown or duplicate chapter.');
+                }
+                currentChapterId = chapterId;
+                headingIds.push(chapterId);
+                desiredByChapter.set(chapterId, []);
+            } else if (key.startsWith('template:') && currentChapterId !== undefined) {
+                const record = await db.abilities.get(key.slice('template:'.length));
+                const match = record && CONCEPT_ABILITY_MODULE.exec(record.moduleId);
+                if (!match || Number(match[1]) !== bookId) throw new Error('Course order contains an unknown Ability.');
+                const conceptId = Number(match[2]);
+                let concept = conceptsById.get(conceptId);
+                if (!concept) {
+                    concept = await db.bookConcepts.get(conceptId);
+                    if (!concept || concept.bookPage[0] !== bookId) throw new Error('Ability has no corresponding Concept.');
+                    conceptsById.set(conceptId, concept);
+                    const oldChapterId = await chapterIdForConcept(concept);
+                    if (oldChapterId !== undefined) affectedChapterIds.add(oldChapterId);
+                }
+                const previousTarget = targets.get(conceptId);
+                if (previousTarget !== undefined && previousTarget !== currentChapterId) {
+                    throw new Error('Abilities belonging to one Concept cannot be split between chapters.');
+                }
+                if (previousTarget === undefined) {
+                    targets.set(conceptId, currentChapterId);
+                    desiredByChapter.get(currentChapterId)?.push(conceptId);
+                }
+                affectedChapterIds.add(currentChapterId);
+            } else {
+                throw new Error('Course order contains an invalid row.');
+            }
+        }
+
+        for (const chapterId of affectedChapterIds) {
+            const { concepts } = await chapterConceptsForLearningOrder(chapterId);
+            const baseline = orderedByDisplayOrder(concepts, (a, b) => a.bookPage[1] - b.bookPage[1] || (a.id ?? 0) - (b.id ?? 0))
+                .filter(({ id }) => id === undefined || !targets.has(id) || targets.get(id) === chapterId);
+            const present = new Set(baseline.flatMap(({ id }) => id === undefined ? [] : [id]));
+            const desired = desiredByChapter.get(chapterId) ?? [];
+            const incoming = desired.filter((id) => !present.has(id)).map((id) => conceptsById.get(id) as BookConcept);
+            const reordered = reorderSubsetInExistingSlots([...baseline, ...incoming], desired, ({ id }) => id);
+
+            await Promise.all(reordered.flatMap(({ id }, displayOrder) => id === undefined ? [] : [db.bookConcepts.update(id, { chapterId, displayOrder })]));
+        }
+        for (const chapterId of affectedChapterIds) {
+            await syncChapterLearningDisplayOrder(chapterId);
+        }
+
+        // Keep excluded chapter headings in the Book's chapter list. Only
+        // visible headings are reordered by Course drag-and-drop.
+        const chapterOrder = [...headingIds, ...chapters.flatMap(({ id }) => id === undefined || headingIds.includes(id) ? [] : [id])];
+        await db.books.update(bookId, { chapterOrder, courseOrder });
+    });
+}
+
 // Shared by ordinary deletion and the atomic split commit. Call only inside a
 // read/write transaction covering the affected tables.
 async function deleteBookConceptRows(id: number, syncOrder = true): Promise<void> {
@@ -1348,6 +1433,36 @@ async function deleteBookConceptRows(id: number, syncOrder = true): Promise<void
 export async function deleteBookConcept(id: number): Promise<void> {
     await db.transaction('rw', db.bookConcepts, db.conceptEmbeddings, db.skills, db.bookPages, db.abilities, db.images, async () => {
         await deleteBookConceptRows(id);
+    });
+}
+
+/** Delete an Ability and its source Concept together; do not use for ordinary
+ * Ability edits/AI replacement, which must retain the source Concept. */
+export async function deleteAbilityWithConcept(recordId: string): Promise<void> {
+    await db.transaction('rw', db.books, db.bookConcepts, db.conceptEmbeddings, db.skills, db.bookPages, db.abilities, db.images, async () => {
+        const record = await db.abilities.get(recordId);
+        if (!record) return;
+
+        const match = CONCEPT_ABILITY_MODULE.exec(record.moduleId);
+        const concept = match ? await db.bookConcepts.get(Number(match[2])) : undefined;
+        let removedIds = [recordId];
+
+        if (match && concept && concept.bookPage[0] === Number(match[1])) {
+            removedIds = (await db.abilities.where('moduleId').equals(record.moduleId).primaryKeys()) as string[];
+            await deleteBookConceptRows(Number(match[2]));
+        } else {
+            await db.abilities.delete(recordId);
+            await deleteUnreferencedAbilityImages(abilityImageIds(record.content));
+        }
+
+        if (match) {
+            const bookId = Number(match[1]);
+            const book = await db.books.get(bookId);
+            if (book?.courseOrder) {
+                const removedKeys = new Set(removedIds.map((id) => `template:${id}`));
+                await db.books.update(bookId, { courseOrder: book.courseOrder.filter((key) => !removedKeys.has(key)) });
+            }
+        }
     });
 }
 

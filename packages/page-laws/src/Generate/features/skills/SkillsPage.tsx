@@ -34,7 +34,6 @@ import { OPENROUTER_CONCURRENCY } from '../../../openrouter/concurrency.js';
 import { useBookStageTimer } from '../../book/infrastructure/storage/bookStageTime.js';
 import { stripMarkdownImageReferences } from '../../book/infrastructure/pdf/bookImageRefs.js';
 import { abilityWithDirectConceptTitle } from '../../book/domain/concepts/conceptTitles.js';
-import { sortAbilitiesForDisplay } from '../../book/domain/concepts/learningOrder.js';
 import { resolveSharedChapterIndex } from '../../book/domain/chapters/chapterSelection.js';
 import { getSharedChapterSelection, storeSharedChapterSelection, subscribeSharedChapterSelection } from '../../book/infrastructure/storage/chapterSelectionStorage.js';
 import { abilityModuleId, abilityRepairInput, answerTikzRequestPrompt, exerciseNeedsCompletedFigure, cleanTikzResponse, conceptAbilityModuleId, parseGeneratedSkills, parseTikzAiReview, requestAbilityRepairResult, requestChatContent, requestChatContentWithTruncationRetry, requestValidatedJson, storedAbilityImageId, tikzCompileRepairPrompt, tikzDetectedProblemsRepairPrompt, tikzFixReviewPrompt, tikzRequestPrompt, type ImageFixTarget, type StoredAbility, type TikzAiReview } from '../../book/application/abilities/abilityProcessing.js';
@@ -418,8 +417,10 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
             : page.chapter === chapter.title)),
           ...pageLessConcepts.filter(({ chapterId }) => chapterId !== undefined && chapterId === chapter.id)
         ].sort((a, b) => (a.displayOrder ?? Number.MAX_SAFE_INTEGER) - (b.displayOrder ?? Number.MAX_SAFE_INTEGER) || (a.id ?? 0) - (b.id ?? 0));
+        // Keep the already-sorted Concept sequence, not a global Ability
+        // displayOrder/hash sort (which can differ from Concept learning order).
         const conceptRecords = (await Promise.all(chapterConcepts.flatMap(({ id }) => id === undefined ? [] : [getAbilities(conceptAbilityModuleId(book.id, id))]))).flat();
-        const abilities = sortAbilitiesForDisplay(await Promise.all(conceptRecords.map(async ({ content, displayOrder, id, moduleId }): Promise<StoredAbility> => {
+        const abilities = await Promise.all(conceptRecords.map(async ({ content, displayOrder, id, moduleId }): Promise<StoredAbility> => {
           try {
             const hydratedContent = await hydrateAbilityContent(content);
 
@@ -427,7 +428,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
           } catch {
             return { ability: null, content, displayOrder, id, moduleId };
           }
-        })));
+        }));
 
         return { abilities, chapter, concepts: chapterConcepts, skills };
       }));

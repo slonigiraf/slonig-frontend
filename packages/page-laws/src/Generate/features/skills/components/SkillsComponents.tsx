@@ -6,7 +6,7 @@ import type { AbilityFixInstructions, BookChapter, Skill } from '@slonigiraf/db'
 import type { GeneratedAbility } from '../../../../abilities/abilities.js';
 import type { StoredAbility } from '../../../book/application/abilities/abilityProcessing.js';
 
-import { ABILITY_FIX_FIELDS, emptyAbilityFixInstructions, effectiveAbilityFixInstructions, abilityFixHasChanges, addBookAbilityChangeLog, deleteAbilities, deleteAbility, deleteSkill, getBookAbilityWorkQueue, getImage, putImage, relinkBookAbilityChangeLogRecord, storeAbility, updateBookChapterTitle } from '@slonigiraf/db';
+import { ABILITY_FIX_FIELDS, emptyAbilityFixInstructions, effectiveAbilityFixInstructions, abilityFixHasChanges, addBookAbilityChangeLog, deleteAbilities, deleteAbility, deleteAbilityWithConcept, deleteSkill, getBookAbilityWorkQueue, getImage, putImage, relinkBookAbilityChangeLogRecord, storeAbility, updateBookChapterTitle } from '@slonigiraf/db';
 import { SpanWithTags } from '@slonigiraf/slonig-components';
 import React, { useCallback, useState } from 'react';
 
@@ -196,7 +196,7 @@ export function AbilityCard ({ isBusy = false, isAiUpdated = false, isQueuedForF
   const [draft, setDraft] = useState<GeneratedAbility | null>(() => record.ability ? cloneAbility(record.ability) : null);
   const [rawDraft, setRawDraft] = useState(record.content);
   const remove = useCallback((): void => {
-    deleteAbility(record.id).then(onDeleted).catch((error) => onError(error instanceof Error ? error.message : 'Unable to delete the Ability.'));
+    deleteAbilityWithConcept(record.id).then(onDeleted).catch((error) => onError(error instanceof Error ? error.message : 'Unable to delete the Ability and its Concept.'));
   }, [onDeleted, onError, record.id]);
   const logUserChange = useCallback(async (summary: string, recordId = record.id, title = record.ability?.h ?? 'Ability'): Promise<void> => {
     const match = /^book-(\d+)-concept-(\d+)$/.exec(record.moduleId);
