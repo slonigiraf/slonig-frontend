@@ -6,7 +6,7 @@ import type { GeneratedAbility } from '../../../abilities/abilities.js';
 import type { AbilityWorkflowJsonRunner } from '../../book/domain/abilities/abilityWorkflow.js';
 import type { AiAction, ChapterContent, DuplicateAbilityReview, FixedImageReview, FixReviewResult, ImageFixReviewResult, UnresolvedImageReview, PipelineAction, SkillSource, SkillsProps, SkillsView } from './SkillsTypes.js';
 
-import { ABILITY_FIX_FIELDS, abilityFixHasTextChanges, addBookAbilityChangeLog, getBookAbilityWorkQueue, updateBookAbilityFixRecordId, addBookStageSpend, completeBookProcessingStage, createBookConcept, ensureAbilityAnswerImage, deleteAbilities, deleteAbility, deleteBookConcept, getAbilities, getBookChapters, getBookCompletedStages, getBookConceptsForBookPage, getBookPages, getSetting, getSkillsForChapter, getImage, getBookVisualQaSummary, hydrateAbilityContent, isBookProcessingStageSatisfied, putImage, replaceBookConceptWithChildren, relinkBookAbilityChangeLogRecord, setTikzImageQaState, tikzSourceVersion, replaceAbilities, replaceSkillsForChapter, resetBookProcessingStagesFrom, SettingKey, storeAbility } from '@slonigiraf/db';
+import { ABILITY_FIX_FIELDS, abilityFixHasTextChanges, effectiveAbilityFixInstructions, addBookAbilityChangeLog, getBookAbilityWorkQueue, updateBookAbilityFixRecordId, addBookStageSpend, completeBookProcessingStage, createBookConcept, ensureAbilityAnswerImage, deleteAbilities, deleteAbility, deleteBookConcept, getAbilities, getBookChapters, getBookCompletedStages, getBookConceptsForBookPage, getBookPages, getSetting, getSkillsForChapter, getImage, getBookVisualQaSummary, hydrateAbilityContent, isBookProcessingStageSatisfied, putImage, replaceBookConceptWithChildren, relinkBookAbilityChangeLogRecord, setTikzImageQaState, tikzSourceVersion, replaceAbilities, replaceSkillsForChapter, resetBookProcessingStagesFrom, SettingKey, storeAbility } from '@slonigiraf/db';
 import OpenAI from 'openai';
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 
@@ -1058,13 +1058,14 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
 
       for (const item of queuedWorkItems) {
         if (item.kind !== 'fix' || !item.instructions) continue;
-        if (abilityFixHasTextChanges(item.instructions)) {
-          requests.push({ input: `Regenerate Ability from targeted feedback: ${JSON.stringify(item.instructions)}`, outputTokens: 3_200 });
+        const instructions = effectiveAbilityFixInstructions(item.instructions);
+        if (abilityFixHasTextChanges(instructions)) {
+          requests.push({ input: `Regenerate Ability from feedback: ${JSON.stringify(instructions)}`, outputTokens: 3_200 });
         }
         for (const field of ABILITY_FIX_FIELDS) {
-          if (field.image && item.instructions[field.key]?.trim()) {
-            requests.push({ input: `Regenerate image: ${item.instructions[field.key]}`, outputTokens: 2_400 });
-            requests.push({ input: `Render and visually review corrected image: ${item.instructions[field.key]}`, outputTokens: TIKZ_REVIEW_MAX_OUTPUT_TOKENS });
+          if (field.image && instructions[field.key]?.trim()) {
+            requests.push({ input: `Regenerate image: ${instructions[field.key]}`, outputTokens: 2_400 });
+            requests.push({ input: `Render and visually review corrected image: ${instructions[field.key]}`, outputTokens: TIKZ_REVIEW_MAX_OUTPUT_TOKENS });
           }
         }
       }
@@ -1082,7 +1083,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
   const fixQueuedAbility = useCallback(async (item: BookAbilityWorkItem, signal: AbortSignal): Promise<void> => {
     if (item.kind !== 'fix' || !item.instructions) throw new Error('Missing scheduled Ability correction.');
     if (!language) throw new Error('Set the book language before fixing an Ability.');
-    const instructions = item.instructions;
+    const instructions = effectiveAbilityFixInstructions(item.instructions);
     const moduleId = conceptAbilityModuleId(book.id, item.conceptId);
     const liveJob = (await getBookAbilityWorkQueue(book.id)).find(({ id }) => id === item.id);
     const existing = await getAbilities(moduleId);
@@ -1098,7 +1099,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
       const corrected = await requestValidatedJson(
         client, effectiveModel,
         'You are an expert educational Ability editor. Return only one JSON Ability object of the same schema; do not return markdown. Preserve everything not requested.',
-        `Regenerate this Ability with targeted corrections. It must retain t:3, i, h and exactly two exercises in q. Each exercise has h, a, p, i, pPrompt and iPrompt as applicable. Preserve original image source and unchanged fields. Do not embed image source code in fields that previously held plain image prompts. Follow ONLY the nonempty correction notes below.\nBook language: ${language}\nLearner age: ${book.age ?? 'unspecified'}\nOriginal Ability:\n${JSON.stringify(originalAbility)}\nCorrections by field:\n${JSON.stringify(Object.fromEntries(ABILITY_FIX_FIELDS.filter(({ image, key }) => !image && instructions[key].trim()).map(({ key }) => [key, instructions[key]])))}`,
+        `Regenerate this Ability using the correction instructions. It must retain t:3, i, h and exactly two exercises in q. Each exercise has h, a, p, i, pPrompt and iPrompt as applicable. Preserve original image source and any fields not requested to change. Do not embed image source code in fields that previously held plain image prompts. Follow ONLY the instructions below.\nBook language: ${language}\nLearner age: ${book.age ?? 'unspecified'}\nOriginal Ability:\n${JSON.stringify(originalAbility)}\n${instructions.overall ? `Whole-Ability correction (takes priority over all field notes):\n${instructions.overall}` : `Corrections by field:\n${JSON.stringify(Object.fromEntries(ABILITY_FIX_FIELDS.filter(({ image, key }) => !image && instructions[key].trim()).map(({ key }) => [key, instructions[key]])))}`}`,
         (response) => parseStoredAbility(response), true, addFixAbilitiesCost, 3_200, undefined, 2, signal
       );
       if (signal.aborted) throw new Error('Ability correction cancelled.');

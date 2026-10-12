@@ -6,7 +6,7 @@ import { describe, it } from 'node:test';
 import { Dexie } from 'dexie';
 import { IDBKeyRange, indexedDB } from 'fake-indexeddb';
 
-import { ABILITY_FIX_FIELDS, abilityFixHasTextChanges, addBookAbilityChangeLog, emptyAbilityFixInstructions, getBookAbilityChangeLog, getBookAbilityWorkQueue, removeBookAbilityWorkItem, relinkBookAbilityChangeLogRecord, reviewBookAbilityChangeLogEntry, scheduleBookAbilityFix, toggleBookAbilitySplitWorkItem } from './index.js';
+import { ABILITY_FIX_FIELDS, abilityFixHasChanges, abilityFixHasTextChanges, effectiveAbilityFixInstructions, addBookAbilityChangeLog, emptyAbilityFixInstructions, getBookAbilityChangeLog, getBookAbilityWorkQueue, removeBookAbilityWorkItem, relinkBookAbilityChangeLogRecord, reviewBookAbilityChangeLogEntry, scheduleBookAbilityFix, toggleBookAbilitySplitWorkItem } from './index.js';
 
 Dexie.dependencies.indexedDB = indexedDB;
 Dexie.dependencies.IDBKeyRange = IDBKeyRange;
@@ -20,6 +20,21 @@ describe('Persistent Ability work and change history', (): void => {
     assert.equal(abilityFixHasTextChanges(instructions), false);
     instructions.exercise2Question = 'Ask for three values';
     assert.equal(abilityFixHasTextChanges(instructions), true);
+  });
+
+  it('prioritizes a whole-Ability correction over every detailed note', (): void => {
+    const instructions = emptyAbilityFixInstructions();
+    instructions.exercise1QuestionImage = 'Old image note';
+    instructions.title = 'Old title note';
+    instructions.overall = '  Make the exercises appropriate for younger learners  ';
+    const effective = effectiveAbilityFixInstructions(instructions);
+    assert.equal(effective.overall, 'Make the exercises appropriate for younger learners');
+    assert.equal(effective.title, '');
+    assert.equal(effective.exercise1QuestionImage, '');
+    assert.equal(abilityFixHasChanges(instructions), true);
+    assert.equal(abilityFixHasTextChanges(effective), true);
+    assert.equal(abilityFixHasChanges({ ...emptyAbilityFixInstructions(), overall: '  ' }), false);
+    assert.deepEqual(effectiveAbilityFixInstructions({ ...instructions, overall: '' }).exercise1QuestionImage, 'Old image note');
   });
 
   it('stores split and fix jobs together, isolates books, and keeps failures queued', async (): Promise<void> => {
@@ -37,6 +52,10 @@ describe('Persistent Ability work and change history', (): void => {
     items = await scheduleBookAbilityFix(first, 32, 'ability-32', instructions);
     assert.equal(items.length, 2);
     assert.equal(items[1].instructions?.exercise1QuestionImage, 'Repair the coordinate labels');
+    instructions.overall = 'Correct the entire Ability';
+    items = await scheduleBookAbilityFix(first, 32, 'ability-32', instructions);
+    assert.equal(items[1].instructions?.overall, 'Correct the entire Ability');
+    assert.equal(items[1].instructions?.exercise1QuestionImage, '', 'global feedback wins when scheduling');
     await removeBookAbilityWorkItem(first, 'split:31');
     assert.deepEqual((await getBookAbilityWorkQueue(first)).map(({ id }) => id), ['fix:ability-32']);
     await removeBookAbilityWorkItem(first, 'fix:ability-32');

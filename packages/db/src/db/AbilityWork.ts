@@ -1,5 +1,7 @@
 /** Editable correction requests, one field per learner-facing Ability part. */
 export interface AbilityFixInstructions {
+  /** A whole-Ability correction takes priority over every detailed field. */
+  overall: string;
   title: string;
   exercise1Question: string;
   exercise1QuestionImage: string;
@@ -23,9 +25,15 @@ export const ABILITY_FIX_FIELDS: ReadonlyArray<{ key: keyof AbilityFixInstructio
   { key: 'exercise2AnswerImage', label: 'Exercise 2 answer image', image: true }
 ];
 
-export const emptyAbilityFixInstructions = (): AbilityFixInstructions => Object.fromEntries(ABILITY_FIX_FIELDS.map(({ key }) => [key, ''])) as unknown as AbilityFixInstructions;
-export const abilityFixHasTextChanges = (instructions: AbilityFixInstructions): boolean => ABILITY_FIX_FIELDS.some(({ key, image }) => !image && Boolean(instructions[key]?.trim()));
-export const abilityFixHasChanges = (instructions: AbilityFixInstructions): boolean => ABILITY_FIX_FIELDS.some(({ key }) => Boolean(instructions[key]?.trim()));
+export const emptyAbilityFixInstructions = (): AbilityFixInstructions => ({ overall: '', ...Object.fromEntries(ABILITY_FIX_FIELDS.map(({ key }) => [key, ''])) }) as AbilityFixInstructions;
+
+/** Whole-Ability feedback overrides (and discards) every per-field note. */
+export const effectiveAbilityFixInstructions = (instructions: AbilityFixInstructions): AbilityFixInstructions => instructions.overall?.trim()
+  ? { ...emptyAbilityFixInstructions(), overall: instructions.overall.trim() }
+  : { ...emptyAbilityFixInstructions(), ...instructions, overall: '' };
+
+export const abilityFixHasTextChanges = (instructions: AbilityFixInstructions): boolean => Boolean(instructions.overall?.trim()) || ABILITY_FIX_FIELDS.some(({ key, image }) => !image && Boolean(instructions[key]?.trim()));
+export const abilityFixHasChanges = (instructions: AbilityFixInstructions): boolean => abilityFixHasTextChanges(instructions) || ABILITY_FIX_FIELDS.some(({ key }) => Boolean(instructions[key]?.trim()));
 
 export interface BookAbilityWorkItem {
   /** Stable, type-prefixed identity. */

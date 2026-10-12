@@ -6,7 +6,7 @@ import type { AbilityFixInstructions, BookChapter, Skill } from '@slonigiraf/db'
 import type { GeneratedAbility } from '../../../../abilities/abilities.js';
 import type { StoredAbility } from '../../../book/application/abilities/abilityProcessing.js';
 
-import { ABILITY_FIX_FIELDS, emptyAbilityFixInstructions, abilityFixHasChanges, addBookAbilityChangeLog, deleteAbilities, deleteAbility, deleteSkill, getImage, putImage, relinkBookAbilityChangeLogRecord, storeAbility, updateBookChapterTitle } from '@slonigiraf/db';
+import { ABILITY_FIX_FIELDS, emptyAbilityFixInstructions, effectiveAbilityFixInstructions, abilityFixHasChanges, addBookAbilityChangeLog, deleteAbilities, deleteAbility, deleteSkill, getBookAbilityWorkQueue, getImage, putImage, relinkBookAbilityChangeLogRecord, storeAbility, updateBookChapterTitle } from '@slonigiraf/db';
 import { SpanWithTags } from '@slonigiraf/slonig-components';
 import React, { useCallback, useState } from 'react';
 
@@ -188,6 +188,7 @@ function cloneAbility (ability: GeneratedAbility): GeneratedAbility {
 
 export function AbilityCard ({ isBusy = false, isAiUpdated = false, isQueuedForFix = false, isQueuedForSplit = false, onDeleted, onError, onQueueFix, onAbilityLogChange, onSplit, record, visualIssues }: { isBusy?: boolean; isAiUpdated?: boolean; isQueuedForFix?: boolean; isQueuedForSplit?: boolean; onDeleted: () => void; onError: (message: string) => void; onQueueFix?: (record: StoredAbility, instructions: AbilityFixInstructions) => Promise<void>; onAbilityLogChange?: () => Promise<void>; onSplit: (record: StoredAbility) => void; record: StoredAbility; visualIssues?: Record<string, string[]> }): React.ReactElement {
   const [isFixDialogOpen, setIsFixDialogOpen] = useState(false);
+  const [showDetailedFixForm, setShowDetailedFixForm] = useState(false);
   const [fixInstructions, setFixInstructions] = useState<AbilityFixInstructions>(emptyAbilityFixInstructions);
   const [isScheduling, setIsScheduling] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -298,26 +299,35 @@ export function AbilityCard ({ isBusy = false, isAiUpdated = false, isQueuedForF
   }, [draft, onError, persistAbility, rawDraft]);
 
   const openFix = useCallback(async (): Promise<void> => {
-    const instructions = emptyAbilityFixInstructions();
-    await Promise.all((record.ability?.q ?? []).slice(0, 2).flatMap((_, index) => (['p', 'i'] as const).map(async (field) => {
-      const key = `${index}-${field}`;
-      const imageId = storedAbilityImageId(record, index, field);
-      const image = imageId === undefined ? undefined : await getImage(imageId);
-      const errors = [...new Set([...(image?.detectedIssues ?? []), ...(image?.reviewResult?.errors ?? []), ...(visualIssues?.[key] ?? [])])];
-      if (errors.length) {
-        const instructionKey = `exercise${index + 1}${field === 'p' ? 'QuestionImage' : 'AnswerImage'}` as keyof AbilityFixInstructions;
-        instructions[instructionKey] = errors.join('\n');
-      }
-    })));
+    const bookMatch = /^book-(\d+)-concept-\d+$/.exec(record.moduleId);
+    const queued = isQueuedForFix && bookMatch
+      ? (await getBookAbilityWorkQueue(Number(bookMatch[1]))).find((item) => item.kind === 'fix' && item.recordId === record.id)?.instructions
+      : undefined;
+    const instructions = { ...emptyAbilityFixInstructions(), ...queued };
+
+    if (!queued) {
+      await Promise.all((record.ability?.q ?? []).slice(0, 2).flatMap((_, index) => (['p', 'i'] as const).map(async (field) => {
+        const key = `${index}-${field}`;
+        const imageId = storedAbilityImageId(record, index, field);
+        const image = imageId === undefined ? undefined : await getImage(imageId);
+        const errors = [...new Set([...(image?.detectedIssues ?? []), ...(image?.reviewResult?.errors ?? []), ...(visualIssues?.[key] ?? [])])];
+        if (errors.length) {
+          const instructionKey = `exercise${index + 1}${field === 'p' ? 'QuestionImage' : 'AnswerImage'}` as keyof AbilityFixInstructions;
+          instructions[instructionKey] = errors.join('\n');
+        }
+      })));
+    }
+
     setFixInstructions(instructions);
+    setShowDetailedFixForm(false);
     setIsFixDialogOpen(true);
-  }, [record, visualIssues]);
+  }, [isQueuedForFix, record, visualIssues]);
 
   const scheduleFix = useCallback(async (): Promise<void> => {
     if (!onQueueFix || !abilityFixHasChanges(fixInstructions)) return;
     setIsScheduling(true);
     try {
-      await onQueueFix(record, fixInstructions);
+      await onQueueFix(record, effectiveAbilityFixInstructions(fixInstructions));
       setIsFixDialogOpen(false);
     } catch (error) {
       onError(error instanceof Error ? error.message : 'Unable to schedule Ability correction.');
@@ -337,7 +347,7 @@ export function AbilityCard ({ isBusy = false, isAiUpdated = false, isQueuedForF
   const isProcessing = isScheduling;
   const hasLinkedConcept = /-concept-\d+$/.test(record.moduleId);
 
-  return <article aria-busy={isProcessing} className={`contentCard abilityCard${isAiUpdated ? ' abilityCardAiUpdated' : ''}${record.ability?.q.length === 1 ? ' abilityCardSingleExercise' : ''}`} tabIndex={-1}>
+  return <article aria-busy={isProcessing} className={`contentCard abilityCard${isQueuedForFix ? ' abilityCardQueuedForFix' : ''}${isAiUpdated ? ' abilityCardAiUpdated' : ''}${record.ability?.q.length === 1 ? ' abilityCardSingleExercise' : ''}`} tabIndex={-1}>
     <div className='contentCardActions'>
       <ItemActionsMenu
         actions={[
@@ -368,22 +378,47 @@ export function AbilityCard ({ isBusy = false, isAiUpdated = false, isQueuedForF
     {isFixDialogOpen && <Modal
       header='Fix Ability'
       onClose={() => { if (!isScheduling) setIsFixDialogOpen(false); }}
-      size='large'
+      size={showDetailedFixForm ? 'large' : 'small'}
     >
       <Modal.Content>
         <EditForm>
-          <p>Describe what should be updated in each part. Leave parts unchanged by leaving their fields blank. Existing image errors are inserted automatically. Image-only instructions repair images without regenerating the Ability; instructions for text or title regenerate the Ability.</p>
-          {ABILITY_FIX_FIELDS.filter(({ key }) => !key.startsWith('exercise2') || (record.ability?.q.length ?? 2) > 1).map(({ key, label, image }) => <label key={key}>
-            <span>{label}</span>
-            <textarea
-              aria-label={`${label} correction instructions`}
-              disabled={isScheduling}
-              onChange={({ target }) => setFixInstructions((current) => ({ ...current, [key]: target.value }))}
-              placeholder={image ? 'Describe how to correct or regenerate this image' : 'Describe the text changes to make'}
-              rows={image ? 3 : 2}
-              value={fixInstructions[key]}
-            />
-          </label>)}
+          {!showDetailedFixForm
+            ? <>
+              <label>
+                <span>What should be changed in this Ability?</span>
+                <textarea
+                  aria-label='Whole Ability correction instructions'
+                  disabled={isScheduling}
+                  onChange={({ target }) => setFixInstructions((current) => ({ ...current, overall: target.value }))}
+                  placeholder='Briefly describe the changes for the entire Ability'
+                  rows={3}
+                  value={fixInstructions.overall}
+                />
+              </label>
+              <p>If filled in, this instruction replaces all notes in the detailed form.</p>
+            </>
+            : <>
+              {fixInstructions.overall.trim()
+                ? <p className='noticeMessage'>The whole-Ability instruction takes priority. These detailed notes will be ignored unless you clear it in the short form.</p>
+                : <p>Describe which parts to change. Leave fields blank to keep them unchanged. Detected image errors are added automatically. Image-only notes repair images; text notes regenerate Ability text.</p>}
+              {ABILITY_FIX_FIELDS.filter(({ key }) => !key.startsWith('exercise2') || (record.ability?.q.length ?? 2) > 1).map(({ key, label, image }) => <label key={key}>
+                <span>{label}</span>
+                <textarea
+                  aria-label={`${label} correction instructions`}
+                  disabled={isScheduling}
+                  onChange={({ target }) => setFixInstructions((current) => ({ ...current, [key]: target.value }))}
+                  placeholder={image ? 'Describe how to correct or regenerate this image' : 'Describe the text changes to make'}
+                  rows={image ? 3 : 2}
+                  value={fixInstructions[key]}
+                />
+              </label>)}
+            </>}
+          <Button
+            icon={showDetailedFixForm ? 'arrow-left' : 'edit'}
+            isDisabled={isScheduling}
+            label={showDetailedFixForm ? 'Use short form' : 'Show detailed form'}
+            onClick={() => setShowDetailedFixForm((current) => !current)}
+          />
           <Button.Group>
             <Button icon='times' isDisabled={isScheduling} label='Cancel' onClick={() => setIsFixDialogOpen(false)} />
             <Button icon='calendar-plus' isDisabled={!onQueueFix || isScheduling || !abilityFixHasChanges(fixInstructions)} label={isScheduling ? 'Scheduling…' : 'Schedule'} onClick={() => { void scheduleFix(); }} />

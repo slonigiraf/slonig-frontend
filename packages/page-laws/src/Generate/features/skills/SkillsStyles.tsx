@@ -572,6 +572,9 @@ export const StyledSkills = styled.div`
      Size its outer card to that content instead of stretching across the
      entire Concept panel; narrower screens still use the available width. */
   .abilityCard { max-width: calc(60rem + 2.125rem); }
+  /* Stay red while a Fix Ability job is queued (including while it runs).
+     The queue removes the flag only after a successful correction. */
+  .abilityCard.abilityCardQueuedForFix { border-color: #d32f2f; box-shadow: inset 0 0 0 1px #d32f2f; }
   /* Center Ability actions over the parent Ability card border corner (not inside it). */
   .abilityCard > .contentCardActions { right: 0; top: 0; transform: translate(50%, -50%); }
   .abilityCard > .contentCardActions + div { padding-right: 0.75rem; }
