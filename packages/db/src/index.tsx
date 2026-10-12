@@ -3807,7 +3807,7 @@ export async function setBookAbilityReviewed(bookId: number, recordId: string, r
     });
 }
 
-/** Reset the selected chapter and all subsequent chapters in one transaction. */
+/** Reset only the specified book Ability records in one transaction. */
 export async function resetBookAbilityReviews(bookId: number, recordIds: readonly string[]): Promise<void> {
     await db.transaction('rw', db.abilities, async () => {
         for (const id of new Set(recordIds)) {

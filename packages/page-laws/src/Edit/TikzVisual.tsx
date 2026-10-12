@@ -322,10 +322,11 @@ export default function TikzVisual ({ alt, editorTitle, expandedPrompt, hasCompi
     onEditorClose?.();
   }, [onEditorClose]);
 
-  return <TikzEditor>
-    {showPreview && <PreviewBlock>
-      <PreviewRow>
+  return <TikzEditor className='tikzVisualRoot'>
+    {showPreview && <PreviewBlock className='tikzVisualPreviewBlock'>
+      <PreviewRow className='tikzVisualPreviewRow'>
         <ZoomablePreview
+          className='tikzVisualThumbnail'
           aria-label={`Open ${alt} image preview`}
           onClick={() => setIsPreviewBig(true)}
           onKeyDown={(event) => {

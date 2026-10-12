@@ -570,16 +570,153 @@ export const StyledSkills = styled.div`
   .abilityReviewToolbar > div { display: flex; flex-wrap: wrap; gap: 0.5rem; }
   .abilityConceptParent { font-size: 0.85rem; opacity: 0.8; }
   .abilityReviewedIndicator { font-size: 0.85rem; font-weight: 600; margin-top: 0.5rem; }
-  &.abilityReviewOverlay { position: fixed; inset: 0; z-index: 1000; overflow-y: auto; border-radius: 0; padding: 0; min-height: 100vh; }
-  .abilityReviewHeader { position: sticky; top: 0; z-index: 1; background: var(--bg-page); border-bottom: 1px solid var(--border-table); display: flex; align-items: center; justify-content: space-between; padding: 1rem 2rem; gap: 1rem; }
-  .abilityReviewHeader h2 { margin: 0; }
-  .abilityReviewHeader p { margin: 0.2rem 0 0; }
-  .abilityReviewProgress { height: 0.4rem; background: var(--border-table); }
-  .abilityReviewProgress > div { height: 100%; background: var(--color-primary, #f28c00); transition: width 180ms ease; }
-  .abilityReviewContent { max-width: 76rem; margin: 2rem auto; padding: 0 1rem 4rem; }
-  .abilityReviewLocation { font-weight: 600; margin-bottom: 1rem; }
-  .abilityReviewActions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 0.75rem; margin: 1rem 0; }
+  /* Full-viewport review: navigation/actions stay in one slim top toolbar.
+     Only the Ability area scrolls; the header never covers an image. */
+  &.abilityReviewOverlay {
+    border-radius: 0;
+    display: flex;
+    flex-direction: column;
+    height: 100dvh;
+    inset: 0;
+    min-height: 0;
+    overflow: hidden;
+    padding: 0;
+    position: fixed;
+    width: 100vw;
+    z-index: 1000;
+  }
+  .abilityReviewHeader {
+    align-items: center;
+    background: var(--bg-page);
+    border-bottom: 1px solid var(--border-table);
+    display: flex;
+    flex: 0 0 auto;
+    flex-wrap: wrap;
+    gap: 0.35rem 0.75rem;
+    justify-content: space-between;
+    padding: 0.3rem 0.75rem;
+    z-index: 1;
+  }
+  .abilityReviewSummary {
+    align-items: baseline;
+    display: flex;
+    flex: 1 1 20rem;
+    flex-wrap: wrap;
+    gap: 0.2rem 0.75rem;
+    min-width: 0;
+  }
+  .abilityReviewSummary h2 { font-size: 1rem; line-height: 1.2; margin: 0; }
+  .abilityReviewSummary > span { font-size: 0.8rem; line-height: 1.2; }
+  .abilityReviewLocation {
+    font-weight: 600;
+    max-width: min(40vw, 34rem);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .abilityReviewActions { align-items: center; display: flex; flex-wrap: wrap; gap: 0.35rem; margin: 0; }
+  .abilityReviewActions .ui--Button { margin: 0; min-height: 2rem; padding: 0.35rem 0.6rem; }
+  .abilityReviewProgress { background: var(--border-table); flex: 0 0 3px; height: 3px; }
+  .abilityReviewProgress > div { background: var(--color-primary, #f28c00); height: 100%; transition: width 180ms ease; }
+  .abilityReviewContent {
+    --review-visual-height: 150px;
+    box-sizing: border-box;
+    flex: 1 1 auto;
+    margin: 0;
+    max-width: none;
+    min-height: 0;
+    overflow: auto;
+    padding: 0.5rem clamp(0.5rem, 1.5vw, 1.5rem);
+    width: 100%;
+  }
+  .abilityReviewContent .abilityConceptCard,
+  .abilityReviewContent .abilityConceptCardSingleExercise,
+  .abilityReviewContent .abilityCard,
+  .abilityReviewContent .abilityCardSingleExercise {
+    box-sizing: border-box;
+    max-width: none;
+    width: 100%;
+  }
+  /* Center the Ability panel at 60% of the viewport width, while leaving
+     the full-width scroll area available for overflow and navigation. */
+  .abilityReviewContent .abilityConceptCard { margin: 0 auto; padding: 0.5rem 0.75rem; width: 60vw; }
+  .abilityReviewContent .abilityConceptCard > h4 { margin: 0 0 0.2rem; }
+  .abilityReviewContent .abilityConceptCard > p { margin: 0.15rem 0 0.3rem; }
+  .abilityReviewContent .matchedAbilities { margin: 0.3rem 0 0; }
+  .abilityReviewContent .abilityCard { margin: 0; padding: 0.45rem 0.65rem; }
+  .abilityReviewContent .abilityCard > .contentCardActions { right: 0.5rem; top: 0.4rem; transform: none; }
+  .abilityReviewContent .abilityCard > .contentCardActions + div { max-width: none; padding-right: 0; width: 100%; }
+  .abilityReviewContent .abilityCard .ui--row { padding: 0.45rem; }
+  .abilityReviewContent .abilityCard .ui--row .exercise-display { min-width: 0; }
+  .abilityReviewContent .abilityCard .exercise-header { padding-right: 0.5rem; }
+  .abilityReviewContent .abilityCard .abilityAnswer { margin-top: 0.35rem; padding: 0.45rem; }
+  .abilityReviewContent .abilityCard .abilityReviewedIndicator { margin-top: 0.2rem; }
+  .abilityReviewPending { font-size: 0.82rem; margin: 0 auto 0.35rem; max-width: 100%; width: 60vw; }
   .abilityReviewDone { text-align: center; padding: 3rem 1rem; }
+
+  /* Both TikZ and bitmap previews use identical responsive visual boxes.
+     Preserve aspect ratio inside the box and keep both exercises side by side
+     when the available width allows it. The actual box height is calculated
+     from the remaining viewport space by AbilityReviewMode. */
+  .abilityReviewContent .abilityCard .exercise-header img,
+  .abilityReviewContent .abilityCard .abilityAnswer img {
+    box-sizing: border-box;
+    display: block;
+    height: var(--review-visual-height);
+    max-height: var(--review-visual-height);
+    max-width: 100%;
+    object-fit: contain;
+    width: 100%;
+  }
+  .abilityReviewContent .abilityCard .abilityVisualLoading {
+    align-items: center;
+    display: flex;
+    height: var(--review-visual-height);
+    justify-content: center;
+    max-width: 100%;
+    width: 100%;
+  }
+  .abilityReviewContent .abilityCard .exercise-header > div,
+  .abilityReviewContent .abilityCard .exercise-header > div > div,
+  .abilityReviewContent .abilityCard .abilityAnswer > div,
+  .abilityReviewContent .abilityCard .abilityAnswer > div > div {
+    max-width: 100%;
+  }
+  .abilityReviewContent .abilityCard .tikzVisualRoot,
+  .abilityReviewContent .abilityCard .tikzVisualPreviewBlock,
+  .abilityReviewContent .abilityCard .tikzVisualPreviewRow {
+    max-width: 100%;
+    width: 100%;
+  }
+  .abilityReviewContent .abilityCard .tikzVisualThumbnail {
+    flex: 1 1 auto;
+    min-width: 0;
+    width: 100%;
+  }
+  .abilityReviewContent .abilityCard .tikzDisplay--thumbnail {
+    box-sizing: border-box;
+    height: var(--review-visual-height);
+    max-height: var(--review-visual-height);
+    max-width: 100%;
+    min-height: 0;
+    width: 100%;
+  }
+  .abilityReviewContent .abilityCard .tikzDisplay--thumbnail > svg,
+  .abilityReviewContent .abilityCard .tikzDisplay--thumbnail > * > svg {
+    height: 100%;
+    max-height: 100%;
+    max-width: 100%;
+    width: 100%;
+  }
+  @media only screen and (max-width: 900px) {
+    .abilityReviewContent .abilityConceptCard, .abilityReviewPending { width: 100%; }
+  }
+  @media only screen and (max-width: 660px) {
+    .abilityReviewSummary { flex-basis: 100%; }
+    .abilityReviewLocation { max-width: 80vw; }
+    .abilityReviewActions { width: 100%; }
+  }
+
 
   .missingAbilityNavigation { align-items: baseline; display: flex; flex-wrap: wrap; gap: 0.35rem; margin: -0.2rem 0 0.75rem; }
   .missingAbilityLinks button { background: none; border: 0; color: var(--color-primary, #2f6feb); cursor: pointer; font: inherit; padding: 0; text-decoration: underline; }
@@ -636,3 +773,19 @@ export const StyledSkills = styled.div`
   }
 `;
 
+
+/** Standalone styles: the Rereview Modal renders into document.body via a portal. */
+export const RereviewChapterSelector = styled.div`
+  display: grid;
+  gap: 0.75rem;
+  p { margin: 0; }
+  .rereviewSelectionToolbar { align-items: center; display: flex; flex-wrap: wrap; gap: 0.5rem; justify-content: space-between; }
+  .rereviewSelectionToolbar > div { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+  .rereviewChapterList { border: 1px solid var(--border-table); border-radius: 0.4rem; max-height: min(50vh, 24rem); overflow-y: auto; }
+  .rereviewChapterOption { align-items: center; cursor: pointer; display: flex; gap: 0.65rem; padding: 0.6rem 0.7rem; }
+  .rereviewChapterOption + .rereviewChapterOption { border-top: 1px solid var(--border-table); }
+  .rereviewChapterOption input { flex: 0 0 auto; margin: 0; }
+  .rereviewChapterOption span { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
+  .rereviewChapterOption small { flex: 0 0 auto; opacity: 0.7; }
+  .rereviewChapterOption:has(input:checked) { background: rgba(47, 111, 235, 0.07); }
+`;

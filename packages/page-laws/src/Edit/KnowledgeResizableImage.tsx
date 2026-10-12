@@ -70,7 +70,7 @@ export default function KnowledgeResizableImage ({ alt = 'Image', cid, expandedP
   };
 
   if (!src) {
-    return <NormalImageAlt><Spinner noLabel /></NormalImageAlt>;
+    return <NormalImageAlt className='abilityVisualLoading'><Spinner noLabel /></NormalImageAlt>;
   }
 
   return <>

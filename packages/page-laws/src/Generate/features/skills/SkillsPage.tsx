@@ -46,7 +46,7 @@ import AbilityReviewMode from './components/AbilityReviewMode.js';
 import QueuedAbilityWorkList from './components/QueuedAbilityWorkList.js';
 import SkillsControls from './components/SkillsControls.js';
 import SkillsReviewModals from './components/SkillsReviewModals.js';
-import { StyledSkills } from './SkillsStyles.js';
+import { RereviewChapterSelector, StyledSkills } from './SkillsStyles.js';
 import { AiPriceEstimate } from '../../shared/ui/PriceEstimate.js';
 import StageRunPricePopup from '../../shared/ui/StageRunPricePopup.js';
 import OpenRouterModelSelector from '../../../openrouter/components/ModelSelector.js';
@@ -303,6 +303,17 @@ const EMPTY_WORK_QUEUE: readonly BookAbilityWorkItem[] = [];
 
 const chapterSessionKey = (bookId: number, view: SkillsView): string => `knowledge-upload-book-${bookId}-${view}-chapter`;
 
+// Keep Review mode open across page reloads, scoped to this book, view and tab.
+const reviewSessionKey = (bookId: number, view: SkillsView): string => `knowledge-upload-book-${bookId}-${view}-ability-review`;
+
+function getSessionReviewMode (bookId: number, view: SkillsView): boolean {
+  try {
+    return sessionStorage.getItem(reviewSessionKey(bookId, view)) === 'open';
+  } catch {
+    return false;
+  }
+}
+
 function getSessionChapter (bookId: number, view: SkillsView): number {
   try {
     const stored = Number(sessionStorage.getItem(chapterSessionKey(bookId, view)));
@@ -320,8 +331,17 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
   const [aiAction, setAiAction] = useState<AiAction>();
   const [chapterContent, setChapterContent] = useState<ChapterContent[]>([]);
   const [chapterIndex, setChapterIndex] = useState(() => getSessionChapter(book.id, view));
-  const [isReviewModeOpen, setIsReviewModeOpen] = useState(false);
+  const [isReviewModeOpen, setIsReviewModeOpen] = useState(() => getSessionReviewMode(book.id, view));
+  const activeReviewSessionKey = reviewSessionKey(book.id, view);
+  const reviewNavigationSessionKey = `${activeReviewSessionKey}-navigation`;
+
+  // A mounted Skills page can switch books or views without being remounted.
+  useEffect(() => {
+    setIsReviewModeOpen(getSessionReviewMode(book.id, view));
+  }, [book.id, view]);
+
   const [isRereviewDialogOpen, setIsRereviewDialogOpen] = useState(false);
+  const [rereviewChapterIndexes, setRereviewChapterIndexes] = useState<Set<number>>(() => new Set());
   const [isResettingReview, setIsResettingReview] = useState(false);
   const [editingChapter, setEditingChapter] = useState<BookChapter>();
   const [error, setError] = useState('');
@@ -2159,32 +2179,71 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
     selectedPipelineAction.onClick();
   }, [selectedPipelineAction]);
 
+  const startAbilityReview = useCallback((): void => {
+    try {
+      sessionStorage.removeItem(reviewNavigationSessionKey);
+      sessionStorage.setItem(activeReviewSessionKey, 'open');
+    } catch {
+      // Review mode still works when browser storage is restricted.
+    }
+    setIsReviewModeOpen(true);
+  }, [activeReviewSessionKey, reviewNavigationSessionKey]);
+
+  const closeAbilityReview = useCallback((): void => {
+    try {
+      sessionStorage.removeItem(activeReviewSessionKey);
+      sessionStorage.removeItem(reviewNavigationSessionKey);
+    } catch {
+      // Closing Review mode must work even without session storage.
+    }
+    setIsReviewModeOpen(false);
+    refreshContent();
+  }, [activeReviewSessionKey, refreshContent, reviewNavigationSessionKey]);
+
   const markAbilityReviewed = useCallback(async (record: StoredAbility): Promise<void> => {
     await setBookAbilityReviewed(book.id, record.id, true);
     await onAbilityLogChange?.();
   }, [book.id, onAbilityLogChange]);
 
-  const rereviewFromChapter = useCallback(async (): Promise<void> => {
+  const openRereviewDialog = useCallback((): void => {
+    setRereviewChapterIndexes(new Set(chapterIndex >= 0 && chapterIndex < chapterContent.length ? [chapterIndex] : []));
+    setIsRereviewDialogOpen(true);
+  }, [chapterContent.length, chapterIndex]);
+
+  const toggleRereviewChapter = useCallback((index: number): void => {
+    setRereviewChapterIndexes((previous) => {
+      const next = new Set(previous);
+      if (next.has(index)) next.delete(index);
+      else next.add(index);
+      return next;
+    });
+  }, []);
+
+  const rereviewSelectedChapters = useCallback(async (): Promise<void> => {
+    if (!rereviewChapterIndexes.size || isResettingReview) return;
     setIsResettingReview(true);
     try {
-      const ids = (chapterContent[chapterIndex]?.abilities ?? []).map(({ id }) => id);
+      const ids = chapterContent.flatMap(({ abilities }, index) => rereviewChapterIndexes.has(index) ? abilities.map(({ id }) => id) : []);
       await resetBookAbilityReviews(book.id, ids);
       setIsRereviewDialogOpen(false);
       refreshContent();
-      setNotice(`Review status reset for chapter ${chapterIndex + 1} only. Other chapters are unchanged.`);
+      const count = rereviewChapterIndexes.size;
+      setNotice(`Review status reset for ${count} selected chapter${count === 1 ? '' : 's'} (${ids.length} Abilities). Other chapters are unchanged.`);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Unable to reset Ability review status.');
     } finally {
       setIsResettingReview(false);
     }
-  }, [book.id, chapterContent, chapterIndex, refreshContent]);
+  }, [book.id, chapterContent, isResettingReview, refreshContent, rereviewChapterIndexes]);
 
   return <StyledSkills className={pipelineOnly ? 'pipelineOnly' : undefined}>
     {isReviewModeOpen && <AbilityReviewMode
       chapters={chapterContent}
+      key={activeReviewSessionKey}
+      navigationSessionKey={reviewNavigationSessionKey}
       isBusy={isBusy || externalSplitQueueBusy}
       onCancelFix={onCancelFix}
-      onClose={() => { setIsReviewModeOpen(false); refreshContent(); }}
+      onClose={closeAbilityReview}
       onContentChange={refreshContent}
       onError={setError}
       onQueueFix={onQueueFix}
@@ -2194,11 +2253,27 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
     />}
     {isRereviewDialogOpen && <Modal header='Rereview Abilities' onClose={() => { if (!isResettingReview) setIsRereviewDialogOpen(false); }} size='small'>
       <Modal.Content>
-        <p>Clear review status for Abilities in the current chapter ({chapterIndex + 1}. {chapters[chapterIndex]?.title}). Other chapters will not be affected.</p>
-        <Button.Group>
-          <Button icon='times' isDisabled={isResettingReview} label='Cancel' onClick={() => setIsRereviewDialogOpen(false)} />
-          <Button icon='redo' isDisabled={isResettingReview || !chapters.length} label={isResettingReview ? 'Resetting…' : 'Rereview this chapter'} onClick={() => { void rereviewFromChapter(); }} />
-        </Button.Group>
+        <RereviewChapterSelector>
+          <p>Select the chapters whose Abilities should be marked as not reviewed. Chapters you do not select will remain unchanged.</p>
+          <div className='rereviewSelectionToolbar'>
+            <strong>{rereviewChapterIndexes.size} of {chapterContent.length} chapters selected</strong>
+            <div>
+              <Button icon='check' isDisabled={isResettingReview || rereviewChapterIndexes.size === chapterContent.length} label='Select all' onClick={() => setRereviewChapterIndexes(new Set(chapterContent.map((_, index) => index)))} />
+              <Button icon='times' isDisabled={isResettingReview || rereviewChapterIndexes.size === 0} label='Clear selection' onClick={() => setRereviewChapterIndexes(new Set())} />
+            </div>
+          </div>
+          <div aria-label='Chapters to rereview' className='rereviewChapterList' role='group'>
+            {chapterContent.map(({ abilities, chapter }, index) => <label className='rereviewChapterOption' key={chapter.id ?? index}>
+              <input checked={rereviewChapterIndexes.has(index)} disabled={isResettingReview} onChange={() => toggleRereviewChapter(index)} type='checkbox' />
+              <span>{index + 1}. {chapter.title || 'Untitled chapter'}</span>
+              <small>{abilities.length} {abilities.length === 1 ? 'Ability' : 'Abilities'}</small>
+            </label>)}
+          </div>
+          <Button.Group>
+            <Button icon='times' isDisabled={isResettingReview} label='Cancel' onClick={() => setIsRereviewDialogOpen(false)} />
+            <Button icon='redo' isDisabled={isResettingReview || !rereviewChapterIndexes.size} label={isResettingReview ? 'Resetting…' : 'Rereview selected chapters'} onClick={() => { void rereviewSelectedChapters(); }} />
+          </Button.Group>
+        </RereviewChapterSelector>
       </Modal.Content>
     </Modal>}
     {editingChapter && <ChapterTitleEditor
@@ -2304,8 +2379,8 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
       scheduleAbilityFix={onQueueFix}
       queuedFixItems={queuedFixItems}
       onCancelFix={onCancelFix}
-      onStartReview={() => setIsReviewModeOpen(true)}
-      onRereview={() => setIsRereviewDialogOpen(true)}
+      onStartReview={startAbilityReview}
+      onRereview={openRereviewDialog}
       splitQueueConceptIds={queuedSplitIds}
       isBusy={isBusy || externalSplitQueueBusy}
       focusConceptAbility={focusConceptAbility}
