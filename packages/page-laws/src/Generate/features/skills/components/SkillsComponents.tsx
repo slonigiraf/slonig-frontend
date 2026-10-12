@@ -6,7 +6,7 @@ import type { AbilityFixInstructions, BookChapter, Skill } from '@slonigiraf/db'
 import type { GeneratedAbility } from '../../../../abilities/abilities.js';
 import type { StoredAbility } from '../../../book/application/abilities/abilityProcessing.js';
 
-import { ABILITY_FIX_FIELDS, emptyAbilityFixInstructions, effectiveAbilityFixInstructions, abilityFixHasChanges, addBookAbilityChangeLog, deleteAbilities, deleteAbility, deleteAbilityWithConcept, deleteSkill, getBookAbilityWorkQueue, getImage, putImage, relinkBookAbilityChangeLogRecord, storeAbility, updateBookChapterTitle } from '@slonigiraf/db';
+import { ABILITY_FIX_FIELDS, emptyAbilityFixInstructions, effectiveAbilityFixInstructions, addBookAbilityChangeLog, deleteAbilities, deleteAbility, deleteAbilityWithConcept, deleteSkill, getBookAbilityWorkQueue, getImage, putImage, relinkBookAbilityChangeLogRecord, storeAbility, updateBookChapterTitle } from '@slonigiraf/db';
 import { SpanWithTags } from '@slonigiraf/slonig-components';
 import React, { useCallback, useState } from 'react';
 
@@ -324,8 +324,11 @@ export function AbilityCard ({ isBusy = false, isAiUpdated = false, isQueuedForF
         const imageId = storedAbilityImageId(record, index, field);
         const image = imageId === undefined ? undefined : await getImage(imageId);
         const errors = [...new Set([...(image?.detectedIssues ?? []), ...(image?.reviewResult?.errors ?? []), ...(visualIssues?.[key] ?? [])])];
+        if (record.ability?.q[index]?.[field === 'p' ? 'pError' : 'iError'] || image?.valid === false) {
+          errors.push(`${field === 'p' ? 'Question' : 'Answer'} image is marked as incorrect; regenerate and recheck it.`);
+        }
         if (errors.length) {
-          const instructionKey = `exercise${index + 1}${field === 'p' ? 'QuestionImage' : 'AnswerImage'}` as keyof AbilityFixInstructions;
+          const instructionKey = `exercise${index + 1}${field === 'p' ? 'QuestionImage' : 'AnswerImage'}` as (typeof ABILITY_FIX_FIELDS)[number]['key'];
           instructions[instructionKey] = errors.join('\n');
         }
       })));
@@ -337,7 +340,7 @@ export function AbilityCard ({ isBusy = false, isAiUpdated = false, isQueuedForF
   }, [isQueuedForFix, record, visualIssues]);
 
   const scheduleFix = useCallback(async (): Promise<void> => {
-    if (!onQueueFix || !abilityFixHasChanges(fixInstructions)) return;
+    if (!onQueueFix) return;
     setIsScheduling(true);
     try {
       await onQueueFix(record, effectiveAbilityFixInstructions(fixInstructions));
@@ -405,17 +408,17 @@ export function AbilityCard ({ isBusy = false, isAiUpdated = false, isQueuedForF
                   aria-label='Whole Ability correction instructions'
                   disabled={isScheduling}
                   onChange={({ target }) => setFixInstructions((current) => ({ ...current, overall: target.value }))}
-                  placeholder='Briefly describe the changes for the entire Ability'
+                  placeholder='Optional — leave blank to regenerate both exercises'
                   rows={3}
                   value={fixInstructions.overall}
                 />
               </label>
-              <p>If filled in, this instruction replaces all notes in the detailed form.</p>
+              <p>Comments are optional. Leave this blank to regenerate both exercises; existing exercise and image errors will be passed along and flagged images repaired. A written whole-Ability instruction replaces detailed notes.</p>
             </>
             : <>
               {fixInstructions.overall.trim()
                 ? <p className='noticeMessage'>The whole-Ability instruction takes priority. These detailed notes will be ignored unless you clear it in the short form.</p>
-                : <p>Describe which parts to change. Leave fields blank to keep them unchanged. Detected image errors are added automatically. Image-only notes repair images; text notes regenerate Ability text.</p>}
+                : <p>Describe specific text changes here, or leave text fields empty to regenerate both exercises. Detected image errors are added automatically and flagged images are also repaired.</p>}
               {ABILITY_FIX_FIELDS.filter(({ key }) => !key.startsWith('exercise2') || (record.ability?.q.length ?? 2) > 1).map(({ key, label, image }) => <label key={key}>
                 <span>{label}</span>
                 <textarea
@@ -436,7 +439,7 @@ export function AbilityCard ({ isBusy = false, isAiUpdated = false, isQueuedForF
           />
           <Button.Group>
             <Button icon='times' isDisabled={isScheduling} label='Cancel' onClick={() => setIsFixDialogOpen(false)} />
-            <Button icon='calendar-plus' isDisabled={!onQueueFix || isScheduling || !abilityFixHasChanges(fixInstructions)} label={isScheduling ? 'Scheduling…' : 'Schedule'} onClick={() => { void scheduleFix(); }} />
+            <Button icon='calendar-plus' isDisabled={!onQueueFix || isScheduling} label={isScheduling ? 'Scheduling…' : 'Schedule'} onClick={() => { void scheduleFix(); }} />
           </Button.Group>
         </EditForm>
       </Modal.Content>

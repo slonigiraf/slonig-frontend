@@ -15,6 +15,7 @@ import { isTikzCode } from '../../../Edit/tikz.js';
 import { shouldSkipStoredTikzCompile } from '../../../Edit/tikzValidation.js';
 import { rasterizeTikzSvg } from '../../book/application/abilities/tikzRaster.js';
 import { parseStoredAbility } from '../../../abilities/abilities.js';
+import { assertAbilityFixResultChanged, isWholeAbilityRegenerationRequest } from './abilityFixValidation.js';
 import { bookProcessingManager } from '../../book/application/pipeline/bookProcessingManager.js';
 import { skipBookStage } from '../../book/application/pipeline/skipBookStage.js';
 import { nextUnresolvedStage } from '../../book/application/pipeline/bookStageNavigation.js';
@@ -1097,11 +1098,15 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
     const hasText = abilityFixHasTextChanges(instructions);
 
     if (hasText) {
+      // Vague feedback such as "Regenerate" must actually replace the exercises.
+      // Otherwise the model may echo the old JSON, which previously counted as a
+      // successful no-op and silently removed the work item from the queue.
+      const regenerateExercises = Boolean(instructions.regenerateExercises) || isWholeAbilityRegenerationRequest(instructions.overall);
       const corrected = await requestValidatedJson(
         client, effectiveModel,
         'You are an expert educational Ability editor. Return only one JSON Ability object of the same schema; do not return markdown. Preserve everything not requested.',
-        `Regenerate this Ability using the correction instructions. It must retain t:3, i, h and exactly two exercises in q. Each exercise has h, a, p, i, pPrompt and iPrompt as applicable. Preserve original image source and any fields not requested to change. Do not embed image source code in fields that previously held plain image prompts. Follow ONLY the instructions below.\nBook language: ${language}\nLearner age: ${book.age ?? 'unspecified'}\nOriginal Ability:\n${JSON.stringify(originalAbility)}\n${instructions.overall ? `Whole-Ability correction (takes priority over all field notes):\n${instructions.overall}` : `Corrections by field:\n${JSON.stringify(Object.fromEntries(ABILITY_FIX_FIELDS.filter(({ image, key }) => !image && instructions[key].trim()).map(({ key }) => [key, instructions[key]])))}`}`,
-        (response) => parseStoredAbility(response), true, addFixAbilitiesCost, 3_200, undefined, 2, signal
+        `Regenerate this Ability using the correction instructions. It must retain t:3, i, h and exactly two exercises in q. Each exercise has h, a, p, i, pPrompt and iPrompt as applicable. Preserve original image source and any fields not requested to change. Do not embed image source code in fields that previously held plain image prompts. Keep any existing image content consistent with rewritten questions and answers. The output MUST make a visible change to every specifically requested text field. ${regenerateExercises ? 'The instruction is to regenerate the whole Ability: write TWO substantially new exercises (new questions with correct matching answers), not paraphrases or copies. Both exercises MUST be different from their originals. Preserve the Concept-aligned title and existing image sources.' : ''} Follow ONLY the instructions below.\nBook language: ${language}\nLearner age: ${book.age ?? 'unspecified'}\nOriginal Ability:\n${JSON.stringify(originalAbility)}\n${instructions.overall ? `Whole-Ability correction (takes priority over all field notes):\n${instructions.overall}` : instructions.regenerateExercises ? `No short-form comment was provided. Regenerate both exercises. Existing exercise errors or corrections (if any) to incorporate:\n${JSON.stringify(Object.fromEntries(ABILITY_FIX_FIELDS.filter(({ key }) => instructions[key].trim()).map(({ key }) => [key, instructions[key]])))}` : `Corrections by field:\n${JSON.stringify(Object.fromEntries(ABILITY_FIX_FIELDS.filter(({ image, key }) => !image && instructions[key].trim()).map(({ key }) => [key, instructions[key]])))}`}`,
+        (response) => assertAbilityFixResultChanged(originalAbility, parseStoredAbility(response), instructions), true, addFixAbilitiesCost, 3_200, undefined, 3, signal
       );
       if (signal.aborted) throw new Error('Ability correction cancelled.');
       recordId = await storeAbility(moduleId, JSON.stringify(corrected), stored.displayOrder);

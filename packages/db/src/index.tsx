@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 import { db } from "./db/index.js";
 import type { AbilityFixInstructions, BookAbilityWorkItem, BookAbilityChangeLogEntry } from './db/AbilityWork.js';
-import { effectiveAbilityFixInstructions } from './db/AbilityWork.js';
-export { ABILITY_FIX_FIELDS, emptyAbilityFixInstructions, effectiveAbilityFixInstructions, abilityFixHasTextChanges, abilityFixHasChanges } from './db/AbilityWork.js';
+import { effectiveAbilityFixInstructions, prepareAbilityFixForScheduling } from './db/AbilityWork.js';
+export { ABILITY_FIX_FIELDS, emptyAbilityFixInstructions, effectiveAbilityFixInstructions, prepareAbilityFixForScheduling, abilityFixHasTextChanges, abilityFixHasChanges } from './db/AbilityWork.js';
 export type { AbilityFixInstructions, BookAbilityWorkItem, BookAbilityChangeLogEntry } from './db/AbilityWork.js';
 import type { Agreement } from "./db/Agreement.js";
 import type { LetterTemplate } from "./db/LetterTemplate.js";
@@ -3510,7 +3510,7 @@ export async function scheduleBookAbilityFix(bookId: number, conceptId: number, 
     if (!Number.isSafeInteger(conceptId) || conceptId <= 0 || !recordId) throw new Error('Invalid Ability for scheduling.');
     return db.transaction('rw', db.bookAbilityWorkQueues, async () => {
         const items = await getBookAbilityWorkQueue(bookId);
-        const item: BookAbilityWorkItem = { id: `fix:${recordId}`, kind: 'fix', conceptId, recordId, instructions: effectiveAbilityFixInstructions(instructions) };
+        const item: BookAbilityWorkItem = { id: `fix:${recordId}`, kind: 'fix', conceptId, recordId, instructions: prepareAbilityFixForScheduling(instructions) };
         const index = items.findIndex(({ id }) => id === item.id);
         if (index < 0) items.push(item);
         else items[index] = item;

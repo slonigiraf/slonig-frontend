@@ -47,6 +47,7 @@ describe('Persistent Ability work and change history', (): void => {
     await scheduleBookAbilityFix(second, 33, 'ability-33', instructions);
     let items = await getBookAbilityWorkQueue(first);
     assert.deepEqual(items.map(({ id }) => id), ['split:31', 'fix:ability-32']);
+    assert.equal(items[1].instructions?.regenerateExercises, true, 'an image error with no written text should also regenerate the exercises');
     assert.deepEqual((await getBookAbilityWorkQueue(second)).map(({ id }) => id), ['fix:ability-33']);
     instructions.exercise1QuestionImage = 'Repair the coordinate labels';
     items = await scheduleBookAbilityFix(first, 32, 'ability-32', instructions);
