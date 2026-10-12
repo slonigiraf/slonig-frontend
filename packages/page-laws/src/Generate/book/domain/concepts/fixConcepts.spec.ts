@@ -20,6 +20,7 @@ describe('fix concepts', (): void => {
 
     assert.match(prompt, /same narrowly teachable concept/);
     assert.match(prompt, /Fractions/);
+    assert.match(prompt, /native capitalization rules for concept titles/);
     assert.match(prompt, /ONLY permitted HTML-like markup is <kx>/);
     assert.match(prompt, /Treat unsupported HTML tags in the current title or description as errors/);
     assert.deepEqual(parseFixedConcept('{"title":"Denominator","description":"The bottom number shows how many equal parts make the whole."}'), {
@@ -28,13 +29,20 @@ describe('fix concepts', (): void => {
     });
   });
 
-  it('normalizes Fix with AI concept names', (): void => {
-    assert.equal(parseFixedConcept('{"title":"Finding the Main Idea","description":"An example description."}').title, 'Finding the main idea');
+  it('preserves Fix with AI concept capitalization', (): void => {
+    assert.equal(parseFixedConcept('{"title":"Finding the Main Idea","description":"An example description."}').title, 'Finding the Main Idea');
   });
 
   it('preserves native capitalized nouns in non-English repairs', (): void => {
     assert.equal(parseFixedConcept('{"title":"Die Grundlagen der Mathematik","description":"Ein Überblick."}', 'de').title, 'Die Grundlagen der Mathematik');
     assert.equal(parseMissingChapterConcepts('{"concepts":[{"title":"Die Grundlagen der Mathematik","description":"Ein Überblick.","pageNumber":1}]}', [], new Set([1]), 'de').concepts[0].title, 'Die Grundlagen der Mathematik');
+  });
+
+  it('keeps capitalization in new and saved Fix concepts', (): void => {
+    const result = parseMissingChapterConcepts(JSON.stringify({ concepts: [{ title: 'The Main Idea in DNA', description: 'An explanation.', pageNumber: 1 }] }), [], new Set([1]));
+
+    assert.equal(result.concepts[0].title, 'The Main Idea in DNA');
+    assert.equal(chapterLevelMissingConcept(42, 7, result.concepts[0]).title, 'The Main Idea in DNA');
   });
 
   it('stores Fix-generated concepts on their source page with the Fix attempt', (): void => {
@@ -57,6 +65,7 @@ describe('fix concepts', (): void => {
     assert.match(prompt, /Fractions/);
     assert.match(prompt, /en-math/);
     assert.match(prompt, /learner age 10/);
+    assert.match(prompt, /native capitalization rules for newly generated concept titles/);
     assert.match(prompt, /Numerator/);
     assert.match(prompt, /A fraction has a numerator and denominator/);
     assert.match(prompt, /primary evidence/);

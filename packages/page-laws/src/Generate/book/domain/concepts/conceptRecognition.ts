@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { assertSupportedLearnerTextMarkup } from '../learnerTextMarkup.js';
-import { formatSentenceCaseTitle } from '../naming/sentenceCase.js';
 
 export const CONCEPT_IDENTIFICATION_RUNS = 2;
 
@@ -53,7 +52,7 @@ function normalizeConceptTitle (title: string): string {
   return title.toLocaleLowerCase().replace(/\s+/g, ' ').trim();
 }
 
-export function parseGeneratedChapterConcepts (content: string, allowedPageNumbers: Set<number>, language = 'en'): GeneratedChapterConcepts {
+export function parseGeneratedChapterConcepts (content: string, allowedPageNumbers: Set<number>, _language = 'en'): GeneratedChapterConcepts {
   const json = content.replace(/^```json\s*|\s*```$/g, '').trim();
   let parsed: Partial<GeneratedChapterConcepts>;
 
@@ -73,7 +72,7 @@ export function parseGeneratedChapterConcepts (content: string, allowedPageNumbe
   });
 
   return mergeGeneratedChapterConcepts([{ concepts: parsed.concepts
-    .map(({ description, pageNumber, title }) => ({ description: description.trim(), pageNumber, title: formatSentenceCaseTitle(title, language) }))
+    .map(({ description, pageNumber, title }) => ({ description: description.trim(), pageNumber, title: title.replace(/\s+/g, ' ').trim() }))
     .filter(({ title }) => title) }]);
 }
 

@@ -30,6 +30,7 @@ describe('generated abilities', (): void => {
       assert.match(prompt, /Do not generate any other HTML\/XML tags/);
     }
     assert.match(FIX_ABILITIES_PROMPT, /Treat unsupported HTML tags in Ability\.h, q\[\]\.h, or q\[\]\.a as formatting errors/);
+    assert.match(ABILITY_GENERATION_INSTRUCTIONS_PROMPT, /native capitalization rules for every Ability name h/);
   });
 
   it('rejects unsupported HTML tags in generated questions, answers and titles without validating image prompts', (): void => {
@@ -64,6 +65,13 @@ describe('generated abilities', (): void => {
     assert.deepEqual(parsed, skill);
     assert.deepEqual(Object.keys(parsed).sort(), ['h', 'i', 'q', 't']);
     assert.deepEqual(Object.keys(parsed.q[0]).sort(), ['a', 'h', 'i', 'p']);
+  });
+
+  it('preserves AI-generated Ability title capitalization when no Concept title is fixed', (): void => {
+    const generated = { ...createSkill(), h: 'Convert Whole Kilometers To Meters' };
+
+    assert.equal(parseGeneratedAbilities(JSON.stringify([generated]))[0].h, generated.h);
+    assert.equal(parseGeneratedAbilities(JSON.stringify([generated]), 1, { fixedTitle: 'Convert Kilometers to Meters' })[0].h, 'Convert Kilometers to Meters');
   });
 
   it('accepts image-only answers but rejects exercises with no text answer or solution image', (): void => {

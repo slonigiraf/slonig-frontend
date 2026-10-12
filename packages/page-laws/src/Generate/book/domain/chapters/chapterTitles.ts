@@ -1,11 +1,9 @@
 // Copyright 2021-2026 @polkadot/app-laws authors & contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import { formatSentenceCaseTitle } from '../naming/sentenceCase.js';
-
-/** Course names follow the orthography of the book language, rather than English title case. */
-export function formatBookTitle (value: string, language = 'en'): string {
-  return formatSentenceCaseTitle(value, language);
+/** Keep author/model capitalization intact; the AI prompt determines casing. */
+export function formatBookTitle (value: string, _language = 'en'): string {
+  return value.replace(/\s+/g, ' ').trim();
 }
 
 /** Remove source-book chapter numbering before persisting or presenting its name. */

@@ -4,7 +4,6 @@
 import type { BookConcept, BookSubject } from '@slonigiraf/db';
 
 import { assertSupportedLearnerTextMarkup } from '../learnerTextMarkup.js';
-import { formatSentenceCaseTitle } from '../naming/sentenceCase.js';
 import { LEARNER_TEXT_MARKUP_PROMPT, MATH_DISPLAY_REQUIREMENTS_PROMPT } from '../../infrastructure/ai/prompts/shared.js';
 
 export type SplitConceptChild = Pick<BookConcept, 'title' | 'description'>;
@@ -27,7 +26,7 @@ ${MATH_DISPLAY_REQUIREMENTS_PROMPT}
 
 ${LEARNER_TEXT_MARKUP_PROMPT}
 
-Correct formatting, facts and mathematical notation in the children. Use sentence case for each title. Write exclusively in book language (${language || 'unknown'}), for learner age ${Number.isSafeInteger(learnerAge) ? learnerAge : 'unknown'} and book subject ${subject || 'unknown'}.
+Correct formatting, facts and mathematical notation in the children. Follow the book language's native capitalization rules for all child titles: in English use sentence case (capitalize the first word, proper nouns, and acronyms); in other languages follow native orthography. Write exclusively in book language (${language || 'unknown'}), for learner age ${Number.isSafeInteger(learnerAge) ? learnerAge : 'unknown'} and book subject ${subject || 'unknown'}.
 
 Chapter: ${chapterTitle || '(untitled)'}
 Original Concept (this is the sole target of the split):
@@ -43,7 +42,7 @@ Return ONLY valid JSON: {"concepts":[{"title":"Focused child title","description
 }
 
 /** Reject empty, duplicate, parent-shaped, or malformed proposals before any DB writes. */
-export function parseSplitConcepts (content: string, parent: SplitConceptChild, siblings: SplitConceptChild[], language = 'en'): SplitConceptChild[] {
+export function parseSplitConcepts (content: string, parent: SplitConceptChild, siblings: SplitConceptChild[], _language = 'en'): SplitConceptChild[] {
   const json = content.replace(/^```(?:json)?\s*|\s*```$/gi, '').trim();
   let parsed: { concepts?: unknown };
 
@@ -78,7 +77,7 @@ export function parseSplitConcepts (content: string, parent: SplitConceptChild, 
 
     assertSupportedLearnerTextMarkup(title, 'Split Concept title');
     assertSupportedLearnerTextMarkup(description, 'Split Concept description');
-    const child = { title: formatSentenceCaseTitle(title, language), description: description.trim() };
+    const child = { title: title.replace(/\s+/g, ' ').trim(), description: description.trim() };
     const key = normalized(child.title);
 
     if (existing.has(key) || seen.has(key)) {

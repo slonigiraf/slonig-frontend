@@ -78,10 +78,10 @@ describe('chapter concept recognition', (): void => {
     ]);
   });
 
-  it('normalizes model-generated concept names to sentence case', (): void => {
+  it('preserves model-generated concept capitalization', (): void => {
     const result = parseGeneratedChapterConcepts(JSON.stringify({ concepts: [{ description: 'Explore basics', pageNumber: 1, title: 'The Main Ideas in DNA' }] }), new Set([1]));
 
-    assert.equal(result.concepts[0].title, 'The main ideas in DNA');
+    assert.equal(result.concepts[0].title, 'The Main Ideas in DNA');
   });
 
   it('rejects unsupported HTML tags in generated Concept titles or descriptions', (): void => {

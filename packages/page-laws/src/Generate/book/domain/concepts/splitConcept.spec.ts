@@ -14,11 +14,20 @@ const valid = JSON.stringify({ concepts: [
 ] });
 
 describe('Split a Concept into children', () => {
-  it('parses independently teachable child concepts and sentence-cases titles', () => {
+  it('parses independently teachable child concepts without recasing titles', () => {
     assert.deepEqual(parseSplitConcepts(valid, parent, siblings), [
       { title: 'Reading numbers', description: 'Recognize printed numerals.' },
       { title: 'Writing numbers', description: 'Write each numeral.' }
     ]);
+  });
+
+  it('keeps model capitalization in child titles', (): void => {
+    const result = parseSplitConcepts(JSON.stringify({ concepts: [
+      { title: 'Reading Numbers', description: 'Recognize printed numerals.' },
+      { title: 'Writing DNA Codes', description: 'Write each code.' }
+    ] }), parent, siblings);
+
+    assert.deepEqual(result.map(({ title }) => title), ['Reading Numbers', 'Writing DNA Codes']);
   });
 
   it('keeps the parent on empty, single, malformed or duplicate suggestions', () => {
@@ -37,5 +46,6 @@ describe('Split a Concept into children', () => {
     assert.match(prompt, /Reading and writing numbers/);
     assert.match(prompt, /Do not duplicate any existing sibling Concepts/);
     assert.match(prompt, /already atomic/);
+    assert.match(prompt, /native capitalization rules for all child titles/);
   });
 });

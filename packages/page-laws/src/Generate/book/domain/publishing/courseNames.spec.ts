@@ -7,8 +7,17 @@ import { strict as assert } from 'node:assert';
 import { describe, it } from 'node:test';
 
 import { parseNameSuggestions } from './courseNames.js';
+import { COURSE_NAMES_PROMPT } from '../../infrastructure/ai/prompts/publishing.js';
 
 describe('parseNameSuggestions', (): void => {
+  it('asks the AI to use language-specific capitalization for books and chapters', (): void => {
+    const prompt = COURSE_NAMES_PROMPT({ chapters: [] });
+
+    assert.match(prompt, /native capitalization rules for the book and ALL chapter titles/);
+    assert.match(prompt, /For English, use sentence case/);
+    assert.match(prompt, /other languages, follow native orthographic rules/);
+  });
+
   it('parses and trims one name per requested chapter', (): void => {
     assert.deepEqual(parseNameSuggestions('{"bookName":" Better algebra ","chapters":[{"id":2,"title":" Linear equations "}]}', [2]), {
       bookName: 'Better algebra',
@@ -16,10 +25,10 @@ describe('parseNameSuggestions', (): void => {
     });
   });
 
-  it('removes leading numbers and uses English sentence case', (): void => {
+  it('removes leading numbers without changing AI-generated capitalization', (): void => {
     assert.deepEqual(parseNameSuggestions('{"bookName":"INTRODUCTION TO DNA AND BIOLOGY","chapters":[{"id":1,"title":"Chapter 2: the art of algebra"}]}', [1]), {
-      bookName: 'Introduction to DNA and biology',
-      chapters: [{ id: 1, title: 'The art of algebra' }]
+      bookName: 'INTRODUCTION TO DNA AND BIOLOGY',
+      chapters: [{ id: 1, title: 'the art of algebra' }]
     });
   });
 

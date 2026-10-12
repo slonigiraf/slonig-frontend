@@ -4,7 +4,6 @@
 import type { BookConcept } from '@slonigiraf/db';
 
 import { assertSupportedLearnerTextMarkup } from '../learnerTextMarkup.js';
-import { formatSentenceCaseTitle } from '../naming/sentenceCase.js';
 
 export const FIX_CONCEPTS_RUNS = 2;
 
@@ -25,7 +24,7 @@ export interface FixedConcept {
   title: string;
 }
 
-export function parseFixedConcept (content: string, language = 'en'): FixedConcept {
+export function parseFixedConcept (content: string, _language = 'en'): FixedConcept {
   const json = content.replace(/^```json\s*|\s*```$/gi, '').trim();
   let parsed: Partial<FixedConcept>;
 
@@ -42,7 +41,7 @@ export function parseFixedConcept (content: string, language = 'en'): FixedConce
   assertSupportedLearnerTextMarkup(parsed.title, 'Concept title');
   assertSupportedLearnerTextMarkup(parsed.description, 'Concept description');
 
-  return { description: parsed.description.trim(), title: formatSentenceCaseTitle(parsed.title, language) };
+  return { description: parsed.description.trim(), title: parsed.title.replace(/\s+/g, ' ').trim() };
 }
 
 export function chapterLevelMissingConcept (
@@ -50,18 +49,18 @@ export function chapterLevelMissingConcept (
   chapterId: BookConcept['chapterId'],
   concept: MissingChapterConcept,
   attempt = 0,
-  language = 'en'
+  _language = 'en'
 ): Pick<BookConcept, 'attempt' | 'bookPage' | 'chapterId' | 'description' | 'title'> {
   return {
     attempt,
     bookPage: [bookId, concept.pageNumber],
     chapterId,
     description: concept.description,
-    title: formatSentenceCaseTitle(concept.title, language)
+    title: concept.title.replace(/\s+/g, ' ').trim()
   };
 }
 
-export function parseMissingChapterConcepts (content: string, existingConcepts: Array<Pick<BookConcept, 'description' | 'title'>> = [], allowedPageNumbers?: Set<number>, language = 'en'): FixChapterConceptsResult {
+export function parseMissingChapterConcepts (content: string, existingConcepts: Array<Pick<BookConcept, 'description' | 'title'>> = [], allowedPageNumbers?: Set<number>, _language = 'en'): FixChapterConceptsResult {
   const json = content.replace(/^```json\s*|\s*```$/gi, '').trim();
   let parsed: Partial<FixChapterConceptsResult>;
 
@@ -86,7 +85,7 @@ export function parseMissingChapterConcepts (content: string, existingConcepts: 
       return [];
     }
 
-    const trimmedTitle = title.trim();
+    const trimmedTitle = title.replace(/\s+/g, ' ').trim();
     const trimmedDescription = description.trim();
 
     if (!trimmedTitle || !trimmedDescription) {
@@ -96,7 +95,7 @@ export function parseMissingChapterConcepts (content: string, existingConcepts: 
     assertSupportedLearnerTextMarkup(trimmedTitle, 'Fix concepts title');
     assertSupportedLearnerTextMarkup(trimmedDescription, 'Fix concepts description');
 
-    return [{ description: trimmedDescription, pageNumber, title: formatSentenceCaseTitle(trimmedTitle, language) }];
+    return [{ description: trimmedDescription, pageNumber, title: trimmedTitle }];
   });
 
   const removeConceptIndexes = Array.from(new Set((parsed.removeConceptIndexes ?? []).flatMap((value): number[] =>

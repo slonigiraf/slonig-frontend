@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { assertSupportedLearnerTextMarkup } from '../Generate/book/domain/learnerTextMarkup.js';
-import { formatSentenceCaseTitle } from '../Generate/book/domain/naming/sentenceCase.js';
 
 export interface GeneratedAbilityExercise {
   a: string;
@@ -272,12 +271,9 @@ function parseGeneratedAbilityValue (value: unknown, fixedTitle?: string, allowV
   // ignore any title a model might return despite the requested JSON shape.
   const template = parseAbilityValue(fixedTitle !== undefined && isRecord(value) ? { ...value, h: fixedTitle } : value);
 
-  if (fixedTitle === undefined) {
-    // Retain title formatting for generation without a fixed source title.
-    template.h = formatSentenceCaseTitle(template.h);
-  } else {
-    template.h = fixedTitle;
-  }
+  // Both generated titles and titles copied from source Concepts retain their
+  // original capitalization. Prompt instructions, not string rewriting, govern it.
+  template.h = fixedTitle !== undefined ? fixedTitle : template.h.replace(/\s+/g, ' ').trim();
 
   // Distinct concrete inputs are a quality requirement, not a schema
   // requirement. Do not make the whole Ability-generation workflow fail just
@@ -437,9 +433,8 @@ export function parseAbilityRepairResult (content: string, originals: Array<Gene
       throw new Error('Every erroneous Ability review must identify at least one error.');
     }
 
-    // Fix abilities must copy the source Concept title exactly. Unlike legacy
-    // generation, repairs must not sentence-case it back to the old title,
-    // which can turn a real title-only correction into an apparent no-op.
+    // Fix abilities must copy the source Concept title exactly. Rewriting its
+    // capitalization could turn a real title-only correction into a no-op.
     const parsedAbility = parseAbilityValue(value.ability);
 
     validateGeneratedAbilityText(parsedAbility, false, !options.allowVerboseText);

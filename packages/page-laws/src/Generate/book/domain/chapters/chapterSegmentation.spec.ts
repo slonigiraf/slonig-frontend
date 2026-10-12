@@ -72,8 +72,8 @@ describe('chapter segmentation', (): void => {
     ] }), 100);
 
     assert.deepEqual(chapterAssignmentsFromBoundaries(parsed, 100), [
-      { confidence: 0.9, startPage: 8, title: 'Chapter one' },
-      { confidence: 0.8, startPage: 40, title: 'Untitled chapter' }
+      { confidence: 0.9, startPage: 8, title: 'Chapter One' },
+      { confidence: 0.8, startPage: 40, title: 'Untitled Chapter' }
     ]);
   });
 
@@ -196,8 +196,8 @@ describe('chapter segmentation', (): void => {
     ];
 
     assert.deepEqual(stabilizeChapterBoundaries(model, [], 4, evidence).map(({ startPage, title }) => ({ startPage, title })), [
-      { startPage: 1, title: 'First topic' },
-      { startPage: 4, title: 'Second chapter' }
+      { startPage: 1, title: 'FIRST TOPIC' },
+      { startPage: 4, title: 'SECOND CHAPTER' }
     ]);
   });
 
@@ -224,7 +224,7 @@ describe('chapter segmentation', (): void => {
     const structural = [{ confidence: 0.985, startPage: 10, title: 'ОТЕЧЕСТВЕННАЯ ВОЙНА 1812 г.' }];
     const model = [{ confidence: 0.99, startPage: 10, title: 'Chapter 4' }];
 
-    assert.deepEqual(stabilizeChapterBoundaries(model, structural, 20), [{ ...structural[0], title: 'Отечественная война 1812 г.' }]);
+    assert.deepEqual(stabilizeChapterBoundaries(model, structural, 20), [structural[0]]);
   });
 
 
@@ -254,7 +254,7 @@ describe('chapter segmentation', (): void => {
     assert.deepEqual(stabilizeChapterBoundaries([
       { confidence: 0.99, startPage: 7, title: '1.1. Изучая жизнь, мы выявляем ее основные признаки' }
     ], structural, 20, evidence).map(({ startPage, title }) => ({ startPage, title })), [
-      { startPage: 4, title: 'Эволюция, основные темы биологии методы научного исследования' }
+      { startPage: 4, title: 'Эволюция, ОСНОВНЫЕ Темы биологии методы научного исследования' }
     ]);
   });
 
