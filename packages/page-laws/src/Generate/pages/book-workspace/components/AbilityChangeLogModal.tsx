@@ -13,8 +13,15 @@ import AbilityConceptCard from '../../../features/skills/components/AbilityConce
 import { AbilityCard } from '../../../features/skills/components/SkillsComponents.js';
 import { StyledSkills } from '../../../features/skills/SkillsStyles.js';
 import { groupAbilityChanges } from './abilityChangeLogGroups.js';
+import type { AbilityChangeGroup } from './abilityChangeLogGroups.js';
 
 type AbilityPreview = { concept?: BookConcept; record?: StoredAbility; visualIssues?: Record<string, string[]> };
+
+const StyledLogToolbar = styled.div`
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 0.8rem;
+`;
 
 const StyledLogPreview = styled(StyledSkills)`
   max-height: min(72vh, 56rem);
@@ -127,9 +134,29 @@ export default function AbilityChangeLogModal ({ bookId, entries, isQueueBusy, o
     }
   }, [onError, onReviewed]);
 
+  const reviewAll = useCallback(async (): Promise<void> => {
+    if (reviewing !== undefined || isQueueBusy || !groups.length) return;
+    setReviewing('#all');
+    try {
+      await onReviewed(groups.flatMap(({ entryIds }) => entryIds));
+    } catch (error) {
+      onError(error instanceof Error ? error.message : 'Unable to mark all Abilities as reviewed.');
+    } finally {
+      setReviewing(undefined);
+    }
+  }, [groups, isQueueBusy, onError, onReviewed, reviewing]);
+
   return <Modal header={`Ability change log (${groups.length})`} onClose={onClose} size='large'>
     <Modal.Content>
       {!groups.length && <p>No unreviewed Ability changes.</p>}
+      {!!groups.length && <StyledLogToolbar>
+        <Button
+          icon='check'
+          isDisabled={reviewing !== undefined || isQueueBusy}
+          label={reviewing === '#all' ? 'Marking all reviewed…' : 'Mark all reviewed'}
+          onClick={() => { void reviewAll(); }}
+        />
+      </StyledLogToolbar>}
       {!!groups.length && <StyledLogPreview className='abilityChangeLogPreview'>
         {groups.map((group) => {
           const { latest } = group;

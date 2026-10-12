@@ -8,7 +8,7 @@ import { IDBKeyRange, indexedDB } from 'fake-indexeddb';
 
 import { db } from './db/index.js';
 
-import { ABILITY_FIX_FIELDS, abilityFixHasChanges, abilityFixHasTextChanges, effectiveAbilityFixInstructions, addBookAbilityChangeLog, emptyAbilityFixInstructions, getBookAbilityChangeLog, getBookAbilityWorkQueue, getAbilities, removeBookAbilityWorkItem, relinkBookAbilityChangeLogRecord, replaceAbility, storeAbility, deleteAbility, reviewBookAbilityChangeLogEntry, scheduleBookAbilityFix, toggleBookAbilitySplitWorkItem } from './index.js';
+import { ABILITY_FIX_FIELDS, abilityFixHasChanges, abilityFixHasTextChanges, effectiveAbilityFixInstructions, addBookAbilityChangeLog, emptyAbilityFixInstructions, getBookAbilityChangeLog, getBookAbilityWorkQueue, getAbilities, removeBookAbilityWorkItem, relinkBookAbilityChangeLogRecord, replaceAbility, storeAbility, deleteAbility, reviewBookAbilityChangeLogEntries, reviewBookAbilityChangeLogEntry, resetBookAbilityReviews, setBookAbilityReviewed, scheduleBookAbilityFix, toggleBookAbilitySplitWorkItem } from './index.js';
 
 Dexie.dependencies.indexedDB = indexedDB;
 Dexie.dependencies.IDBKeyRange = IDBKeyRange;
@@ -93,15 +93,15 @@ describe('Persistent Ability work and change history', (): void => {
     assert.notEqual(firstId, originalId);
     assert.deepEqual((await getAbilities(moduleId)).map(({ id }) => id), [firstId]);
     assert.equal((await getAbilities(moduleId))[0].displayOrder, 7);
-    assert.equal((await getBookAbilityChangeLog(bookId))[0].recordId, firstId);
+    assert.deepEqual(await getBookAbilityChangeLog(bookId), [], 'scheduling Fix again removes its unreviewed previous change');
     assert.equal((await getBookAbilityWorkQueue(bookId))[0].recordId, firstId);
-    assert.equal((await db.bookAbilityChangeLog.get(initialLogId))?.recordId, firstId);
+    assert.equal(await db.bookAbilityChangeLog.get(initialLogId), undefined);
 
     const secondId = await replaceAbility(firstId, ability('10 + 11', '12 + 13'));
     assert.deepEqual((await getAbilities(moduleId)).map(({ id }) => id), [secondId],
       'repeating Fix with AI should keep only one version in IndexedDB');
     assert.equal((await getBookAbilityWorkQueue(bookId))[0].recordId, secondId);
-    assert.equal((await getBookAbilityChangeLog(bookId))[0].recordId, secondId);
+    assert.deepEqual(await getBookAbilityChangeLog(bookId), []);
 
     await assert.rejects(replaceAbility(firstId, ability('100 + 1', '200 + 2')), /already been changed/);
     assert.deepEqual((await getAbilities(moduleId)).map(({ id }) => id), [secondId],
@@ -126,6 +126,30 @@ describe('Persistent Ability work and change history', (): void => {
 
     const newId = await replaceAbility(oldId, replacementContent);
     assert.deepEqual(new Set((await getAbilities(moduleId)).map(({ id }) => id)), new Set([newId, siblingId]));
+  });
+
+  it('persists review flags, resets a chapter range, and reopens changed Abilities', async (): Promise<void> => {
+    const bookId = Date.now() + 260000;
+    const first = `book-${bookId}-concept-100`;
+    const second = `book-${bookId}-concept-101`;
+    const content = (title: string): string => JSON.stringify({ t: 3, h: title, i: '', q: [{ h: 'Question', a: 'Answer', p: null, i: null }] });
+    const firstId = await storeAbility(first, content('First'));
+    const secondId = await storeAbility(second, content('Second'));
+    await setBookAbilityReviewed(bookId, firstId, true);
+    await setBookAbilityReviewed(bookId, secondId, true);
+    assert.equal((await getAbilities(first))[0].reviewed, true);
+    assert.equal((await getAbilities(second))[0].reviewed, true);
+    await resetBookAbilityReviews(bookId, [secondId]);
+    assert.equal((await getAbilities(first))[0].reviewed, true, 'earlier chapters stay reviewed');
+    assert.equal((await getAbilities(second))[0].reviewed, false, 'selected and later chapters reopen');
+    const replaced = await replaceAbility(firstId, content('First edited'));
+    assert.equal((await getAbilities(first))[0].reviewed, false, 'edited content invalidates review');
+    await setBookAbilityReviewed(bookId, replaced, true);
+    await addBookAbilityChangeLog({ bookId, conceptId: 100, recordId: replaced, source: 'ai', title: 'First edited', summary: 'AI changed an image' });
+    assert.equal((await getAbilities(first))[0].reviewed, false, 'AI-only image fixes invalidate review');
+    assert.equal((await getBookAbilityChangeLog(bookId)).length, 1);
+    await scheduleBookAbilityFix(bookId, 100, replaced, emptyAbilityFixInstructions());
+    assert.deepEqual(await getBookAbilityChangeLog(bookId), [], 'another Fix removes superseded unreviewed change');
   });
 
   it('replaces the previous AI log when the same Concept Ability is regenerated', async (): Promise<void> => {
@@ -157,6 +181,36 @@ describe('Persistent Ability work and change history', (): void => {
     const otherId = await storeAbility(moduleId, JSON.stringify({ t: 3, h: 'Fractions 2', i: '', q: [{ h: '1/3 + 1/3', a: '2/3' }, { h: '1/5 + 1/5', a: '2/5' }] }));
     assert.notEqual(currentId, otherId);
     assert.deepEqual((await getBookAbilityChangeLog(bookId)).map(({ recordId }) => recordId), [currentId, 'stale-old-hash']);
+  });
+
+  it('marks every logged Ability reviewed in one operation without affecting another book', async (): Promise<void> => {
+    const bookId = Date.now() + 480000;
+    const otherBookId = bookId + 1;
+    const conceptA = bookId + 10;
+    const conceptB = bookId + 11;
+    const content = (title: string): string => JSON.stringify({ t: 3, h: title, i: '', q: [{ h: title, a: 'Answer', p: null, i: null }] });
+    const firstId = await storeAbility(`book-${bookId}-concept-${conceptA}`, content('First'));
+    const secondId = await storeAbility(`book-${bookId}-concept-${conceptB}`, content('Second'));
+    const foreignId = await storeAbility(`book-${otherBookId}-concept-3`, content('Foreign'));
+    const firstEntry = await addBookAbilityChangeLog({ bookId, conceptId: conceptA, recordId: firstId,
+      source: 'ai', title: 'First', summary: 'AI fixed' });
+    const secondEntry = await addBookAbilityChangeLog({ bookId, conceptId: conceptB, recordId: secondId,
+      source: 'ai', title: 'Second', summary: 'AI split' });
+    // Older logs can point to a retired content hash, still resolvable by Concept.
+    const legacyEntry = await db.bookAbilityChangeLog.add({ bookId, conceptId: conceptA, recordId: 'old-ability-id',
+      source: 'ai', title: 'First', summary: 'Previous AI fix', updatedAt: 1 });
+    const foreignEntry = await addBookAbilityChangeLog({ bookId: otherBookId, conceptId: 3, recordId: foreignId,
+      source: 'ai', title: 'Foreign', summary: 'AI fixed' });
+
+    await reviewBookAbilityChangeLogEntries(bookId, [firstEntry, legacyEntry, secondEntry, secondEntry, foreignEntry]);
+    assert.equal((await getAbilities(`book-${bookId}-concept-${conceptA}`))[0].reviewed, true);
+    assert.equal((await getAbilities(`book-${bookId}-concept-${conceptB}`))[0].reviewed, true);
+    assert.deepEqual(await getBookAbilityChangeLog(bookId), []);
+    assert.equal(await db.bookAbilityChangeLog.where('bookId').equals(bookId).count(), 0);
+    assert.equal((await getAbilities(`book-${otherBookId}-concept-3`))[0].reviewed, false);
+    assert.equal((await getBookAbilityChangeLog(otherBookId)).length, 1);
+    assert.notEqual(await db.bookAbilityChangeLog.get(foreignEntry), undefined);
+    await reviewBookAbilityChangeLogEntries(bookId, []);
   });
 
   it('shows unreviewed AI fixes and AI splits, but excludes legacy manual edits', async (): Promise<void> => {

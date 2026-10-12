@@ -393,6 +393,7 @@ export function AbilityCard ({ isBusy = false, queuedFixItemId, isQueuedForSplit
         <strong>Invalid Ability JSON</strong>
         <p>This record can be repaired with Fix abilities.</p>
       </>}
+    {record.reviewed && <div className='abilityReviewedIndicator' aria-label='Ability reviewed'>✓ Reviewed</div>}
     {isProcessing && <FixingOverlay label={isCancellingFix ? 'Cancelling scheduled correction' : 'Scheduling Ability correction'} />}
     {isFixDialogOpen && <Modal
       header='Fix Ability'

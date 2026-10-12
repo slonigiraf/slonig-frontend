@@ -6,9 +6,10 @@ import type { GeneratedAbility } from '../../../abilities/abilities.js';
 import type { AbilityWorkflowJsonRunner } from '../../book/domain/abilities/abilityWorkflow.js';
 import type { AiAction, ChapterContent, DuplicateAbilityReview, FixedImageReview, FixReviewResult, ImageFixReviewResult, UnresolvedImageReview, PipelineAction, SkillSource, SkillsProps, SkillsView } from './SkillsTypes.js';
 
-import { ABILITY_FIX_FIELDS, effectiveAbilityFixInstructions, addBookAbilityChangeLog, getBookAbilityWorkQueue, addBookStageSpend, completeBookProcessingStage, createBookConcept, ensureAbilityAnswerImage, ensureAbilityQuestionImage, deleteAbilities, deleteAbility, deleteBookConcept, getAbilities, getBookChapters, getBookCompletedStages, getBookConceptsForBookPage, getBookPages, getSetting, getSkillsForChapter, getImage, getBookVisualQaSummary, hydrateAbilityContent, isBookProcessingStageSatisfied, putImage, replaceBookConceptWithChildren, setTikzImageQaState, tikzSourceVersion, replaceAbility, replaceAbilities, replaceSkillsForChapter, resetBookProcessingStagesFrom, SettingKey } from '@slonigiraf/db';
+import { ABILITY_FIX_FIELDS, effectiveAbilityFixInstructions, addBookAbilityChangeLog, getBookAbilityWorkQueue, addBookStageSpend, completeBookProcessingStage, createBookConcept, ensureAbilityAnswerImage, ensureAbilityQuestionImage, deleteAbilities, deleteAbility, deleteBookConcept, getAbilities, getBookChapters, getBookCompletedStages, getBookConceptsForBookPage, getBookPages, getSetting, getSkillsForChapter, getImage, getBookVisualQaSummary, hydrateAbilityContent, setBookAbilityReviewed, resetBookAbilityReviews, isBookProcessingStageSatisfied, putImage, replaceBookConceptWithChildren, setTikzImageQaState, tikzSourceVersion, replaceAbility, replaceAbilities, replaceSkillsForChapter, resetBookProcessingStagesFrom, SettingKey } from '@slonigiraf/db';
 import OpenAI from 'openai';
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { Button, Modal } from '@polkadot/react-components';
 
 import type { TikzPreRenderResult } from '../../../Edit/TikzDisplay.js';
 import { isTikzCode } from '../../../Edit/tikz.js';
@@ -41,6 +42,7 @@ import { getSharedChapterSelection, storeSharedChapterSelection, subscribeShared
 import { abilityModuleId, abilityRepairInput, answerTikzRequestPrompt, exerciseNeedsCompletedFigure, cleanTikzResponse, conceptAbilityModuleId, parseGeneratedSkills, parseTikzAiReview, requestAbilityRepairResult, requestChatContent, requestChatContentWithTruncationRetry, requestValidatedJson, storedAbilityImageId, tikzCompileRepairPrompt, tikzDetectedProblemsRepairPrompt, tikzFixReviewPrompt, tikzRequestPrompt, type ImageFixTarget, type StoredAbility, type TikzAiReview } from '../../book/application/abilities/abilityProcessing.js';
 import { ChapterTitleEditor } from './components/SkillsComponents.js';
 import SkillsContentView from './components/SkillsContentView.js';
+import AbilityReviewMode from './components/AbilityReviewMode.js';
 import QueuedAbilityWorkList from './components/QueuedAbilityWorkList.js';
 import SkillsControls from './components/SkillsControls.js';
 import SkillsReviewModals from './components/SkillsReviewModals.js';
@@ -318,6 +320,9 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
   const [aiAction, setAiAction] = useState<AiAction>();
   const [chapterContent, setChapterContent] = useState<ChapterContent[]>([]);
   const [chapterIndex, setChapterIndex] = useState(() => getSessionChapter(book.id, view));
+  const [isReviewModeOpen, setIsReviewModeOpen] = useState(false);
+  const [isRereviewDialogOpen, setIsRereviewDialogOpen] = useState(false);
+  const [isResettingReview, setIsResettingReview] = useState(false);
   const [editingChapter, setEditingChapter] = useState<BookChapter>();
   const [error, setError] = useState('');
   const [fixReview, setFixReview] = useState<FixReviewResult | null>(null);
@@ -424,13 +429,13 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
         // Keep the already-sorted Concept sequence, not a global Ability
         // displayOrder/hash sort (which can differ from Concept learning order).
         const conceptRecords = (await Promise.all(chapterConcepts.flatMap(({ id }) => id === undefined ? [] : [getAbilities(conceptAbilityModuleId(book.id, id))]))).flat();
-        const abilities = await Promise.all(conceptRecords.map(async ({ content, displayOrder, id, moduleId }): Promise<StoredAbility> => {
+        const abilities = await Promise.all(conceptRecords.map(async ({ content, displayOrder, id, moduleId, reviewed }): Promise<StoredAbility> => {
           try {
             const hydratedContent = await hydrateAbilityContent(content);
 
-            return { ability: parseStoredAbility(hydratedContent), content, displayOrder, id, moduleId };
+            return { ability: parseStoredAbility(hydratedContent), content, displayOrder, id, moduleId, reviewed };
           } catch {
-            return { ability: null, content, displayOrder, id, moduleId };
+            return { ability: null, content, displayOrder, id, moduleId, reviewed };
           }
         }));
 
@@ -909,9 +914,9 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
     }
   }, [addAbilitiesCost, addFixAbilitiesCost, addFixAnswerImagesCost, addFixImagesCost, addAnswerImagesCost, addImagesCost, book.age, book.id, effectiveModel, language]);
 
-  // Keep the original Concept and Ability until ALL children have passed the
-  // complete pipeline. A failed or cancelled attempt removes its draft children
-  // and their generated Abilities/Images, without touching the original.
+  // Generate replacement Concepts and their Abilities first. Only after every
+  // child passes does the atomic commit delete the old Concept and Abilities.
+  // A failed/cancelled generation rolls back drafts, preserving the original.
   const splitAbility = useCallback(async (record: StoredAbility, signal: AbortSignal): Promise<void> => {
     if (signal.aborted) throw new Error('Concept split was cancelled.');
     const conceptLink = /-concept-(\d+)$/.exec(record.moduleId);
@@ -1543,10 +1548,9 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
           continue;
         }
 
-        const newRecordId = await replaceAbility(record.id, JSON.stringify(ability));
-        const sourceId = /-concept-(\d+)$/.exec(record.moduleId);
-        await addBookAbilityChangeLog({ bookId: book.id, conceptId: sourceId ? Number(sourceId[1]) : undefined,
-          recordId: newRecordId, title: ability.h, source: 'ai', summary: 'AI corrected Ability content' });
+        // Book processing (individual stages and Fast Forward) is not an
+        // Ability change-log event. Only explicit queued AI fixes/splits are logged.
+        await replaceAbility(record.id, JSON.stringify(ability));
         fixed += 1;
         setProgress((current) => current + 1);
       }
@@ -1847,9 +1851,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
         await putImage({ ...image, data: fixedTikz, prompt: prompt || image.prompt, type: 'tikz', valid: true,
           sourceVersion: finalReviewResult.sourceVersion, renderStatus: 'passed', visualQaStatus: 'passed',
           detectedIssues: [], reviewResult: finalReviewResult }, originalTikz);
-        const sourceId = /-concept-(\d+)$/.exec(record.moduleId);
-        await addBookAbilityChangeLog({ bookId: book.id, conceptId: sourceId ? Number(sourceId[1]) : undefined,
-          recordId: record.id, title: record.ability?.h ?? 'Ability', source: 'ai', summary: 'AI corrected an image after visual QA' });
+        // Stage-based image QA does not create an Ability change-log entry.
         applied += 1;
         setProgress(applied);
       }));
@@ -2146,7 +2148,48 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
     selectedPipelineAction.onClick();
   }, [selectedPipelineAction]);
 
+  const markAbilityReviewed = useCallback(async (record: StoredAbility): Promise<void> => {
+    await setBookAbilityReviewed(book.id, record.id, true);
+    await onAbilityLogChange?.();
+  }, [book.id, onAbilityLogChange]);
+
+  const rereviewFromChapter = useCallback(async (): Promise<void> => {
+    setIsResettingReview(true);
+    try {
+      const ids = (chapterContent[chapterIndex]?.abilities ?? []).map(({ id }) => id);
+      await resetBookAbilityReviews(book.id, ids);
+      setIsRereviewDialogOpen(false);
+      refreshContent();
+      setNotice(`Review status reset for chapter ${chapterIndex + 1} only. Other chapters are unchanged.`);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Unable to reset Ability review status.');
+    } finally {
+      setIsResettingReview(false);
+    }
+  }, [book.id, chapterContent, chapterIndex, refreshContent]);
+
   return <StyledSkills className={pipelineOnly ? 'pipelineOnly' : undefined}>
+    {isReviewModeOpen && <AbilityReviewMode
+      chapters={chapterContent}
+      isBusy={isBusy || externalSplitQueueBusy}
+      onCancelFix={onCancelFix}
+      onClose={() => { setIsReviewModeOpen(false); refreshContent(); }}
+      onContentChange={refreshContent}
+      onError={setError}
+      onQueueFix={onQueueFix}
+      onQueueSplit={onQueueSplit}
+      onReviewed={markAbilityReviewed}
+      queuedItems={queuedFixItems}
+    />}
+    {isRereviewDialogOpen && <Modal header='Rereview Abilities' onClose={() => { if (!isResettingReview) setIsRereviewDialogOpen(false); }} size='small'>
+      <Modal.Content>
+        <p>Clear review status for Abilities in the current chapter ({chapterIndex + 1}. {chapters[chapterIndex]?.title}). Other chapters will not be affected.</p>
+        <Button.Group>
+          <Button icon='times' isDisabled={isResettingReview} label='Cancel' onClick={() => setIsRereviewDialogOpen(false)} />
+          <Button icon='redo' isDisabled={isResettingReview || !chapters.length} label={isResettingReview ? 'Resetting…' : 'Rereview this chapter'} onClick={() => { void rereviewFromChapter(); }} />
+        </Button.Group>
+      </Modal.Content>
+    </Modal>}
     {editingChapter && <ChapterTitleEditor
       chapter={editingChapter}
       language={book.language}
@@ -2198,6 +2241,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
       isBusy={isBusy}
     />
     <SkillsControls
+      bookId={book.id}
       abilitiesMissingImagesCount={aiAction === 'answerImages' ? new Set(missingAnswerImageGenerationTargets.map(({ record }) => record.id)).size : abilitiesMissingImages.size}
       failedTikzCount={aiAction === 'fixAnswerImages' ? failedAnswerTikzAbilityCount : failedTikzAbilityCount}
       fixOnlyFailedTikz={fixOnlyFailedTikz}
@@ -2249,7 +2293,8 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
       scheduleAbilityFix={onQueueFix}
       queuedFixItems={queuedFixItems}
       onCancelFix={onCancelFix}
-      onAbilityLogChange={onAbilityLogChange}
+      onStartReview={() => setIsReviewModeOpen(true)}
+      onRereview={() => setIsRereviewDialogOpen(true)}
       splitQueueConceptIds={queuedSplitIds}
       isBusy={isBusy || externalSplitQueueBusy}
       focusConceptAbility={focusConceptAbility}

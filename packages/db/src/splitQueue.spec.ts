@@ -6,8 +6,9 @@ import { describe, it } from 'node:test';
 import { Dexie } from 'dexie';
 import { IDBKeyRange, indexedDB } from 'fake-indexeddb';
 
-import { createBook, createBookConcept, deleteBook, getAbilities, getBookAbilitySplitQueue, getBookConceptsForBookPage, putBookChapter, putBookPage, removeBookAbilitySplitQueueItem, replaceBookConceptWithChildren, replaceAbilities, toggleBookAbilitySplitQueueItem } from './index.js';
+import { createBook, createBookConcept, deleteBook, getAbilities, getBookAbilitySplitQueue, getBookConceptsForBookPage, putBookChapter, putBookPage, removeBookAbilitySplitQueueItem, replaceBookConceptWithChildren, replaceAbilities, addBookAbilityChangeLog, toggleBookAbilitySplitQueueItem } from './index.js';
 import { db } from './db/index.js';
+import type { Image } from './db/Image.js';
 
 Dexie.dependencies.indexedDB = indexedDB;
 Dexie.dependencies.IDBKeyRange = IDBKeyRange;
@@ -72,10 +73,15 @@ describe('Parallel Ability split commits', (): void => {
       const secondB = await add('Second B');
       const ability = (title: string) => JSON.stringify({ h: title, i: '', q: [{ a: 'ok', h: 'Question', i: null, p: null }], t: 3 });
       const moduleId = (id: number) => `book-${bookId}-concept-${id}`;
-      await replaceAbilities(moduleId(first.id as number), [ability('First')]);
+      const retiredImageId = await db.images.add({ type: 'tikz', data: 'retired visual', prompt: 'Image', valid: true } as Image);
+      await replaceAbilities(moduleId(first.id as number), [JSON.stringify({ h: 'First', i: '', q: [{ a: 'ok', h: 'Question', i: null, p: retiredImageId }], t: 3 })]);
       await replaceAbilities(moduleId(second.id as number), [ability('Second')]);
       await replaceAbilities(moduleId(firstA.id as number), [ability('First A')]);
       await replaceAbilities(moduleId(firstB.id as number), [ability('First B')]);
+      await replaceAbilities(moduleId(secondA.id as number), [ability('Second A')]);
+      await replaceAbilities(moduleId(secondB.id as number), [ability('Second B')]);
+      const [retiredFirst] = await getAbilities(moduleId(first.id as number));
+      await addBookAbilityChangeLog({ bookId, conceptId: first.id, recordId: retiredFirst.id, source: 'ai', title: 'First', summary: 'Retired Ability' });
 
       // Commit in parallel; Dexie serializes the short read/write transactions
       // while both AI workers may have generated their children concurrently.
@@ -88,13 +94,37 @@ describe('Parallel Ability split commits', (): void => {
         .map(({ title, displayOrder }) => [title, displayOrder]), [
         ['First A', 0], ['First B', 1], ['Second A', 2], ['Second B', 3], ['Third', 4]
       ]);
-      assert.equal((await db.bookConcepts.get(first.id as number)), undefined);
-      assert.equal((await db.bookConcepts.get(second.id as number)), undefined);
+      assert.equal(await db.bookConcepts.get(first.id as number), undefined, 'the split source Concept is deleted');
+      assert.equal(await db.bookConcepts.get(second.id as number), undefined);
+      assert.equal((await db.bookConcepts.get(firstA.id as number))?.parentConceptId, undefined, 'children must not refer to a deleted parent');
+      assert.equal((await db.bookConcepts.get(firstB.id as number))?.parentConceptId, undefined);
+      assert.equal((await db.bookConcepts.get(secondA.id as number))?.parentConceptId, undefined);
+      assert.equal((await db.bookConcepts.get(secondB.id as number))?.parentConceptId, undefined);
+      assert.equal(await db.bookAbilityChangeLog.where('bookId').equals(bookId).count(), 0, 'retired Ability log entries are removed');
+      assert.equal(await db.images.get(retiredImageId), undefined, 'unreferenced old Ability images are deleted');
       assert.ok(await db.bookConcepts.get(third.id as number));
       assert.deepEqual(await getAbilities(moduleId(first.id as number)), []);
       assert.deepEqual(await getAbilities(moduleId(second.id as number)), []);
       assert.deepEqual((await getAbilities(moduleId(firstA.id as number))).map(({ displayOrder }) => displayOrder), [0]);
       assert.deepEqual((await getAbilities(moduleId(firstB.id as number))).map(({ displayOrder }) => displayOrder), [1]);
+      assert.equal((await getAbilities(moduleId(secondA.id as number))).length, 1);
+      assert.equal((await getAbilities(moduleId(secondB.id as number))).length, 1);
+    } finally {
+      await deleteBook(bookId);
+    }
+  });
+
+  it('refuses to delete the source when a replacement Concept has no Ability', async (): Promise<void> => {
+    const bookId = await createBook({ contentHash: `missing-child-ability-${Date.now()}`, created: Date.now(), name: 'Partial split', opfsName: 'partial.pdf', size: 1 });
+    try {
+      const chapterId = await putBookChapter({ bookId, title: 'Chapter' });
+      const old = await createBookConcept({ bookPage: [bookId, 0], chapterId, description: '', title: 'Original' });
+      const child = await createBookConcept({ bookPage: [bookId, 0], chapterId, description: '', title: 'Replacement' });
+      const moduleId = `book-${bookId}-concept-${old.id}`;
+      await replaceAbilities(moduleId, [JSON.stringify({ h: 'Original', t: 3, q: [{ h: 'One', a: '1' }] })]);
+      await assert.rejects(replaceBookConceptWithChildren(old.id as number, [child.id as number]), /needs a generated Ability/);
+      assert.ok(await db.bookConcepts.get(old.id as number));
+      assert.equal((await getAbilities(moduleId)).length, 1);
     } finally {
       await deleteBook(bookId);
     }

@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { BookChapter, BookConcept, BookAbilityWorkItem, AbilityFixInstructions, BookAbilityChangeLogEntry } from '@slonigiraf/db';
-import { getBookAbilityWorkQueue, scheduleBookAbilityFix, toggleBookAbilitySplitWorkItem, removeBookAbilityWorkItem, getBookAbilityChangeLog, reviewBookAbilityChangeLogEntry, isBookProcessingStageComplete } from '@slonigiraf/db';
+import { getBookAbilityWorkQueue, scheduleBookAbilityFix, toggleBookAbilitySplitWorkItem, removeBookAbilityWorkItem, getBookAbilityChangeLog, reviewBookAbilityChangeLogEntries, isBookProcessingStageComplete } from '@slonigiraf/db';
 import { Confirmation, SpanWithTags, SelectableList, useInfo } from '@slonigiraf/slonig-components';
 import MathpixLoader from 'mathpix-markdown-it/lib/components/mathpix-loader/index.js';
 import MathpixMarkdown from 'mathpix-markdown-it/lib/components/mathpix-markdown/index.js';
@@ -289,11 +289,12 @@ export function BookReaderView ({ controller }: Props): React.ReactElement {
     const match = /^book-(\d+)-concept-(\d+)$/.exec(record.moduleId);
     if (!match || Number(match[1]) !== book.id) throw new Error('An Ability must be linked to this book and a Concept.');
     const items = await scheduleBookAbilityFix(book.id, Number(match[2]), record.id, instructions);
+    await refreshAbilityLog();
     if (activeBookIdRef.current === book.id) {
       setSplitQueueState({ bookId: book.id, items });
       showInfoRef.current('Ability correction scheduled.');
     }
-  }, [book.id, isSplitQueueReady, isSplitBatchRunning]);
+  }, [book.id, isSplitQueueReady, isSplitBatchRunning, refreshAbilityLog]);
 
   // User cancellations remove only the requested job. Running jobs use the
   // separate completion callback below so they cannot be cancelled mid-run.
@@ -325,9 +326,10 @@ export function BookReaderView ({ controller }: Props): React.ReactElement {
   const reportAbilityLogError = useCallback((message: string): void => { showInfoRef.current(message, 'error'); }, []);
 
   const markAbilityReviewed = useCallback(async (entryIds: number[]): Promise<void> => {
-    await Promise.all(entryIds.map((id) => reviewBookAbilityChangeLogEntry(book.id, id)));
+    await reviewBookAbilityChangeLogEntries(book.id, entryIds);
     await refreshAbilityLog();
-  }, [book.id, refreshAbilityLog]);
+    onSkillsContentChange();
+  }, [book.id, onSkillsContentChange, refreshAbilityLog]);
 
   const recognizedTextPane = (): React.ReactNode => (
     <div className='tabPanel'>
@@ -1087,6 +1089,7 @@ export function BookReaderView ({ controller }: Props): React.ReactElement {
         </Modal.Content>
       </Modal>}
       {isLanguageDetectionConfirmationOpen && !autoRunAll && <StageRunPricePopup
+        dataLoss={{ bookId: book.id, stage: 'language' }}
         header='Detect book language'
         onClose={closeLanguageDetectionConfirmation}
         onRun={confirmLanguageDetection}
@@ -1101,6 +1104,7 @@ export function BookReaderView ({ controller }: Props): React.ReactElement {
         />
       </StageRunPricePopup>}
       {isSubjectDetectionConfirmationOpen && !autoRunAll && <StageRunPricePopup
+        dataLoss={{ bookId: book.id, stage: 'subject' }}
         header='Detect book subject'
         onClose={closeSubjectDetectionConfirmation}
         onRun={confirmSubjectDetection}
@@ -1117,6 +1121,7 @@ export function BookReaderView ({ controller }: Props): React.ReactElement {
         />}
       </StageRunPricePopup>}
       {isAgeDetectionConfirmationOpen && !autoRunAll && <StageRunPricePopup
+        dataLoss={{ bookId: book.id, stage: 'age' }}
         header='Detect learner age'
         onClose={closeAgeDetectionConfirmation}
         onRun={confirmAgeDetection}

@@ -1,6 +1,7 @@
 // Copyright 2021-2026 @polkadot/app-laws authors & contributors
 // SPDX-License-Identifier: Apache-2.0
 
+import type { BookProcessingStageKey } from '@slonigiraf/db';
 import React from 'react';
 import type { AiAction, PipelineAction } from '../SkillsTypes.js';
 
@@ -12,6 +13,7 @@ import ProcessingPopup from '../../../shared/ui/ProcessingPopup.js';
 import StageRunPricePopup from '../../../shared/ui/StageRunPricePopup.js';
 
 interface SkillsControlsProps {
+  bookId: number;
   abilitiesMissingImagesCount: number;
   failedTikzCount: number;
   fixOnlyFailedTikz: boolean;
@@ -50,10 +52,11 @@ interface SkillsControlsProps {
   failedStageKeys: readonly string[];
 }
 
-export default function SkillsControls ({ abilitiesMissingImagesCount, failedTikzCount, fixOnlyFailedTikz, abortProcessing, aiAction, autoRunAll, autoRunCompletedCount, autoRunStageCount, closeConfirmation, confirm, skipStage, error, estimate, conceptsMissingAbilitiesCount, generateOnlyMissingAbilities, generateOnlyMissingImages, isBusy, notice, openRouterSpent, pipelineControls, progress, progressLabel, progressTotal, runSelectedPipelineAction, selectedModel, selectedPipelineAction, selectedPipelineKey, setGenerateOnlyMissingAbilities, setGenerateOnlyMissingImages, setFixOnlyFailedTikz, setSelectedModel, setSelectedPipelineKey, showPipeline, visiblePipelineActions, bypassedStageKeys, failedStageKeys }: SkillsControlsProps): React.ReactElement {
+export default function SkillsControls ({ bookId, abilitiesMissingImagesCount, failedTikzCount, fixOnlyFailedTikz, abortProcessing, aiAction, autoRunAll, autoRunCompletedCount, autoRunStageCount, closeConfirmation, confirm, skipStage, error, estimate, conceptsMissingAbilitiesCount, generateOnlyMissingAbilities, generateOnlyMissingImages, isBusy, notice, openRouterSpent, pipelineControls, progress, progressLabel, progressTotal, runSelectedPipelineAction, selectedModel, selectedPipelineAction, selectedPipelineKey, setGenerateOnlyMissingAbilities, setGenerateOnlyMissingImages, setFixOnlyFailedTikz, setSelectedModel, setSelectedPipelineKey, showPipeline, visiblePipelineActions, bypassedStageKeys, failedStageKeys }: SkillsControlsProps): React.ReactElement {
   return <>
   {aiAction && !autoRunAll && (
     <StageRunPricePopup
+      dataLoss={{ bookId, stage: (aiAction === 'fix' ? 'fixAbilities' : aiAction === 'skills' ? 'abilities' : aiAction) as BookProcessingStageKey, onlyMissing: aiAction === 'abilities' ? generateOnlyMissingAbilities : aiAction === 'images' || aiAction === 'answerImages' ? generateOnlyMissingImages : aiAction === 'fixImages' || aiAction === 'fixAnswerImages' ? fixOnlyFailedTikz : false }}
       header='Confirm AI processing'
       onClose={closeConfirmation}
       onRun={confirm}

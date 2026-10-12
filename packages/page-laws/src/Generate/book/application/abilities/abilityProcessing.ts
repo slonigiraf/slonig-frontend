@@ -29,6 +29,7 @@ export interface StoredAbility {
   ability: GeneratedAbility | null;
   content: string;
   displayOrder?: number;
+  reviewed?: boolean;
   id: string;
   moduleId: string;
 }

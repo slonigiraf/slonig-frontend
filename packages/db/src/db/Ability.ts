@@ -20,6 +20,8 @@ export interface Ability {
   moduleId: string;
   /** Chapter-local learning order. Reordering an Ability back-propagates through Exercise to BookConcept. */
   displayOrder?: number;
+  /** Human review state. An edited or regenerated Ability must be reviewed again. */
+  reviewed?: boolean;
   /** Serialized AbilityValue. Visual payloads live in Image rows referenced by q[].p/q[].i. */
   content: string;
 }

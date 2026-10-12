@@ -1,7 +1,7 @@
 // Copyright 2021-2026 @polkadot/app-laws authors & contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import type { Book } from '@slonigiraf/db';
+import type { Book, BookProcessingStageKey } from '@slonigiraf/db';
 import React from 'react';
 
 import { Dropdown, Toggle } from '@polkadot/react-components';
@@ -15,6 +15,7 @@ import { BOOK_PRICE_STAGES } from '../../../book/application/pipeline/bookPipeli
 import { AiPriceEstimate, UnitPriceEstimate } from '../../../shared/ui/PriceEstimate.js';
 import StageRunPricePopup from '../../../shared/ui/StageRunPricePopup.js';
 import { useTranslation } from '../../../../common/translate.js';
+import { loadStoredBookStandards } from '../../../book/infrastructure/storage/standardsStorage.js';
 import { BookStatisticsModal, FastForwardPricePopup } from './UploadPriceModals.js';
 
 interface UploadStageDialogsProps {
@@ -36,6 +37,8 @@ export function UploadStageDialogs ({ processing, selectedBook }: UploadStageDia
 
   return <>
     {pricing.isFastForwardConfirmationOpen && <FastForwardPricePopup
+      bookId={selectedBook?.id}
+      startStage={pricing.fastForwardStartKey as BookProcessingStageKey | undefined}
       canSkipRefineChapters={startIndex >= 0 && startIndex <= refineIndex}
       estimate={pricing.fastForwardEstimate}
       onClose={pricing.closeFastForwardConfirmation}
@@ -53,6 +56,7 @@ export function UploadStageDialogs ({ processing, selectedBook }: UploadStageDia
       stageTimes={pricing.priceStageTimes}
     />}
     {metadata.isRecognizeConfirmationOpen && !isFastForwardRunning && <StageRunPricePopup
+      dataLoss={selectedBook ? { bookId: selectedBook.id, stage: 'recognize', onlyMissing: false } : undefined}
       header={t('Recognize pages')}
       onClose={metadata.closeRecognizeConfirmation}
       onRun={metadata.confirmRecognize}
@@ -69,6 +73,7 @@ export function UploadStageDialogs ({ processing, selectedBook }: UploadStageDia
       />
     </StageRunPricePopup>}
     {metadata.isIdentifyChaptersConfirmationOpen && !isFastForwardRunning && <StageRunPricePopup
+      dataLoss={selectedBook ? { bookId: selectedBook.id, stage: 'chapters', onlyMissing: false } : undefined}
       header={t('Identify chapters')}
       onClose={metadata.closeIdentifyChaptersConfirmation}
       onRun={metadata.confirmIdentifyChapters}
@@ -91,6 +96,7 @@ export function UploadStageDialogs ({ processing, selectedBook }: UploadStageDia
       />
     </StageRunPricePopup>}
     {conceptGeneration.isGenerateConceptsConfirmationOpen && !isFastForwardRunning && <StageRunPricePopup
+      dataLoss={selectedBook ? { bookId: selectedBook.id, stage: 'concepts', onlyMissing: conceptGeneration.generateOnlyMissingConcepts } : undefined}
       header={t('Generate concepts')}
       onClose={conceptGeneration.closeGenerateConceptsConfirmation}
       onRun={conceptGeneration.confirmGenerateConcepts}
@@ -126,6 +132,7 @@ export function UploadStageDialogs ({ processing, selectedBook }: UploadStageDia
       />
     </StageRunPricePopup>}
     {conceptGeneration.isFixConceptsConfirmationOpen && !isFastForwardRunning && <StageRunPricePopup
+      dataLoss={selectedBook ? { bookId: selectedBook.id, stage: 'fixConcepts', onlyMissing: conceptGeneration.fixOnlyFailedConcepts } : undefined}
       header={t('Fix concepts')}
       onClose={conceptGeneration.closeFixConceptsConfirmation}
       onRun={conceptGeneration.confirmFixConcepts}
@@ -149,6 +156,7 @@ export function UploadStageDialogs ({ processing, selectedBook }: UploadStageDia
       />
     </StageRunPricePopup>}
     {conceptGeneration.isEmbeddingsConfirmationOpen && !isFastForwardRunning && <StageRunPricePopup
+      dataLoss={selectedBook ? { bookId: selectedBook.id, stage: 'embeddings', onlyMissing: false } : undefined}
       header={t('Embedings')}
       onClose={conceptGeneration.closeEmbeddingsConfirmation}
       onRun={conceptGeneration.confirmEmbeddings}
@@ -165,6 +173,7 @@ export function UploadStageDialogs ({ processing, selectedBook }: UploadStageDia
       />
     </StageRunPricePopup>}
     {conceptOrganization.isDeduplicateConceptsConfirmationOpen && !isFastForwardRunning && <StageRunPricePopup
+      dataLoss={selectedBook ? { bookId: selectedBook.id, stage: 'deduplicateConcepts', onlyMissing: false } : undefined}
       header={t('Deduplicate concepts')}
       onClose={conceptOrganization.closeDeduplicateConceptsConfirmation}
       onRun={conceptOrganization.confirmDeduplicateConcepts}
@@ -182,6 +191,7 @@ export function UploadStageDialogs ({ processing, selectedBook }: UploadStageDia
       />
     </StageRunPricePopup>}
     {conceptOrganization.isSortConceptsConfirmationOpen && !isFastForwardRunning && <StageRunPricePopup
+      dataLoss={selectedBook ? { bookId: selectedBook.id, stage: 'sortConcepts', onlyMissing: false } : undefined}
       header={t('Sort concepts')}
       onClose={conceptOrganization.closeSortConceptsConfirmation}
       onRun={conceptOrganization.confirmSortConcepts}
@@ -199,6 +209,7 @@ export function UploadStageDialogs ({ processing, selectedBook }: UploadStageDia
       />
     </StageRunPricePopup>}
     {conceptOrganization.isRefineChaptersConfirmationOpen && !isFastForwardRunning && <StageRunPricePopup
+      dataLoss={selectedBook ? { bookId: selectedBook.id, stage: 'refineChapters', onlyMissing: false } : undefined}
       header={t('Refine chapters')}
       onClose={conceptOrganization.closeRefineChaptersConfirmation}
       onRun={conceptOrganization.confirmRefineChapters}
@@ -216,6 +227,7 @@ export function UploadStageDialogs ({ processing, selectedBook }: UploadStageDia
       />
     </StageRunPricePopup>}
     {standardsProcessing.isStandardsConfirmationOpen && !isFastForwardRunning && <StageRunPricePopup
+      dataLoss={selectedBook ? { bookId: selectedBook.id, stage: 'standards', onlyMissing: standardsProcessing.generateOnlyMissingStandards, hasAdditionalDataToReplace: !standardsProcessing.generateOnlyMissingStandards && Object.keys(loadStoredBookStandards(selectedBook.id)).length > 0 } : undefined}
       header={t('Standards')}
       isRunDisabled={standardsProcessing.generateOnlyMissingStandards && standardsProcessing.standardsChapterCounts?.missing === 0}
       onClose={standardsProcessing.closeStandardsConfirmation}

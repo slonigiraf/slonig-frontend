@@ -1,7 +1,7 @@
 // Copyright 2021-2026 @polkadot/app-laws authors & contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import type { Book } from '@slonigiraf/db';
+import type { Book, BookProcessingStageKey } from '@slonigiraf/db';
 import React from 'react';
 
 import { Modal, Toggle, styled } from '@polkadot/react-components';
@@ -11,6 +11,7 @@ import type { BookStageTimes } from '../../../book/infrastructure/storage/bookSt
 
 import { BOOK_PRICE_STAGES } from '../../../book/application/pipeline/bookPipeline.js';
 import { bookExternalCallTotal } from '../../../book/infrastructure/storage/bookExternalCalls.js';
+import { loadStoredBookStandards } from '../../../book/infrastructure/storage/standardsStorage.js';
 import { formatBookStageTime } from '../../../book/infrastructure/storage/bookStageTime.js';
 import { formatOpenRouterSpend } from '../../../../openrouter/cost.js';
 import StageRunPricePopup from '../../../shared/ui/StageRunPricePopup.js';
@@ -26,6 +27,8 @@ export interface FastForwardEstimate {
 }
 
 interface FastForwardPricePopupProps {
+  bookId?: number;
+  startStage?: BookProcessingStageKey;
   estimate?: FastForwardEstimate;
   canSkipRefineChapters: boolean;
   onClose: () => void;
@@ -35,7 +38,7 @@ interface FastForwardPricePopupProps {
   skipRefineChapters: boolean;
 }
 
-export function FastForwardPricePopup ({ canSkipRefineChapters, estimate, onClose, onRun, onSkip, onSkipRefineChaptersChange, skipRefineChapters }: FastForwardPricePopupProps): React.ReactElement {
+export function FastForwardPricePopup ({ bookId, startStage, canSkipRefineChapters, estimate, onClose, onRun, onSkip, onSkipRefineChaptersChange, skipRefineChapters }: FastForwardPricePopupProps): React.ReactElement {
   const { t } = useTranslation();
   const skip = canSkipRefineChapters && skipRefineChapters;
   const remainingStages = Math.max(0, (estimate?.remainingStages ?? 0) - (skip ? 1 : 0));
@@ -44,6 +47,7 @@ export function FastForwardPricePopup ({ canSkipRefineChapters, estimate, onClos
 
   return (
     <StageRunPricePopup
+      dataLoss={bookId !== undefined && startStage ? { bookId, stage: startStage, hasAdditionalDataToReplace: Object.keys(loadStoredBookStandards(bookId)).length > 0 } : undefined}
       header={t('Run remaining stages')}
       isRunDisabled={!estimate || estimate.remainingStages === 0}
       onClose={onClose}

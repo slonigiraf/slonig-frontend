@@ -15,4 +15,8 @@ export interface BookConcept {
   displayOrder?: number;
   /** True when the concept was added manually rather than generated. */
   manuallyAdded?: boolean;
+  /** Optional ancestor from legacy split data (never reference a deleted split source). */
+  parentConceptId?: number;
+  /** Legacy flag for split parents created by older versions. */
+  isSplitParent?: boolean;
 }

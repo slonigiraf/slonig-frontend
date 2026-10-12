@@ -183,7 +183,7 @@ async function chapterConceptsForLearningOrder(chapterId: number): Promise<{ con
         }
     }
 
-    const concepts = [...conceptsById.values(), ...conceptsWithoutId];
+    const concepts = [...conceptsById.values(), ...conceptsWithoutId].filter(({ isSplitParent }) => !isSplitParent);
 
     // Repair only legacy page-backed Concepts whose chapterId is missing. Never
     // overwrite an explicit thematic assignment merely because its source page
@@ -507,6 +507,63 @@ export async function uncompleteBookProcessingStage(id: number, stage: BookProce
         await db.books.update(id, { completedStages });
 
         return getBook(id);
+    });
+}
+
+/**
+ * Inspect the actual stored artifacts that a stage reset would discard or
+ * invalidate. A failed/incomplete stage can still have generated data, so
+ * completedStages alone is not a safe indicator for deletion warnings.
+ * This mirrors clearBookEntitiesAfterProcessingStage above. No writes occur.
+ */
+export async function wouldResetBookGeneratedData (bookId: number, stage: BookProcessingStageKey, options: { onlyMissing?: boolean } = {}): Promise<boolean> {
+    const onlyMissing = options.onlyMissing ?? false;
+    const clears = (candidate: BookProcessingStageKey): boolean =>
+        isBookProcessingStageAfter(stage, candidate) || (!onlyMissing && stage === candidate);
+    const clearChapters = clears('chapters');
+    const clearConcepts = clears('concepts');
+    const clearEmbeddings = clears('embeddings');
+    const clearAbilities = clears('abilities');
+    const clearQuestionImages = stage === 'images' && !onlyMissing && !clearAbilities;
+    const clearAnswerImages = stage === 'answerImages' && !onlyMissing && !clearAbilities;
+    const clearQuestionReviews = stage === 'fixImages' && !onlyMissing && !clearAbilities;
+    const clearAnswerReviews = stage === 'fixAnswerImages' && !onlyMissing && !clearAbilities;
+
+    return db.transaction('r', db.books, db.bookPages, db.bookChapters, db.bookConcepts, db.conceptEmbeddings, db.skills, db.abilities, db.images, async () => {
+        if (stage === 'recognize' && !onlyMissing) {
+            const book = await db.books.get(bookId);
+            if (book?.language || book?.subject || book?.age !== undefined || await db.bookPages.where('bookId').equals(bookId).count()) return true;
+        }
+        if (clearChapters && (
+            await db.bookChapters.where('bookId').equals(bookId).count() ||
+            await db.bookPages.where('bookId').equals(bookId).filter(({ chapter, chapterId }) => Boolean(chapter || chapterId !== undefined)).count()
+        )) return true;
+        if (clearConcepts && (
+            await db.bookConcepts.filter(({ bookPage }) => bookPage[0] === bookId).count() ||
+            await db.bookPages.where('bookId').equals(bookId).filter(({ conceptsProcessed }) => Boolean(conceptsProcessed)).count()
+        )) return true;
+        if (clearEmbeddings && await db.conceptEmbeddings.where('bookId').equals(bookId).count()) return true;
+        if (!onlyMissing && stage === 'sortConcepts' && await db.bookConcepts.filter(({ bookPage, displayOrder }) => bookPage[0] === bookId && displayOrder !== undefined).count()) return true;
+
+        if (clearAbilities) {
+            if (await db.abilities.filter(({ moduleId }) => moduleId.startsWith(`book-${bookId}-`)).count()) return true;
+            const chapters = await db.bookChapters.where('bookId').equals(bookId).toArray();
+            for (const chapter of chapters) {
+                if (chapter.id !== undefined && await db.skills.where('chapterId').equals(chapter.id).count()) return true;
+            }
+        }
+        if (clearQuestionImages || clearAnswerImages || clearQuestionReviews || clearAnswerReviews) {
+            const field = clearQuestionImages || clearQuestionReviews ? 'p' : 'i';
+            const abilities = await db.abilities.filter(({ moduleId }) => moduleId.startsWith(`book-${bookId}-`)).toArray() as Ability[];
+            const ids = Array.from(new Set(abilities.flatMap(({ content }) => abilityImageIdsForField(content, field))));
+            const images = await db.images.bulkGet(ids);
+            if (images.some((image) => image && (
+                (clearQuestionImages || clearAnswerImages)
+                    ? image.type !== 'prompt' || image.data !== null && image.data !== undefined || image.valid !== undefined || image.renderStatus !== undefined || image.visualQaStatus !== undefined
+                    : image.valid !== undefined || image.renderStatus !== undefined || image.visualQaStatus !== undefined || image.reviewResult !== undefined || image.detectedIssues !== undefined || image.sourceVersion !== undefined
+            ))) return true;
+        }
+        return false;
     });
 }
 
@@ -1139,7 +1196,8 @@ export async function getBookConceptById(id: number): Promise<BookConcept | unde
 }
 
 export async function getBookConceptsForBookPage(bookId: number, pageNumber: number): Promise<BookConcept[]> {
-    return db.bookConcepts.where('bookPage').equals([bookId, pageNumber]).sortBy('id');
+    return (await db.bookConcepts.where('bookPage').equals([bookId, pageNumber]).sortBy('id'))
+        .filter(({ isSplitParent }) => !isSplitParent);
 }
 
 export async function createBookConcept(concept: Omit<BookConcept, 'id'>): Promise<BookConcept> {
@@ -1479,7 +1537,7 @@ export async function replaceBookConceptWithChildren(parentId: number, childIds:
         throw new Error('A split needs one parent and distinct saved child Concepts.');
     }
 
-    await db.transaction('rw', db.bookConcepts, db.conceptEmbeddings, db.skills, db.bookPages, db.abilities, db.images, async () => {
+    await db.transaction('rw', db.bookConcepts, db.conceptEmbeddings, db.skills, db.bookPages, db.abilities, db.images, db.bookAbilityChangeLog, async () => {
         const parent = await db.bookConcepts.get(parentId);
 
         if (!parent) throw new Error('The parent Concept was already removed.');
@@ -1491,6 +1549,11 @@ export async function replaceBookConceptWithChildren(parentId: number, childIds:
         for (const child of children) {
             if (!child || child.bookPage[0] !== parent.bookPage[0] || await chapterIdForConcept(child) !== chapterId) {
                 throw new Error('Every split child must exist in the same book chapter as its parent.');
+            }
+            // Do not destroy the original teaching material if even one child
+            // failed to generate its replacement Ability.
+            if (!await db.abilities.where('moduleId').equals(`book-${parent.bookPage[0]}-concept-${child.id}`).count()) {
+                throw new Error('Every split child needs a generated Ability before committing the split.');
             }
         }
 
@@ -1504,8 +1567,26 @@ export async function replaceBookConceptWithChildren(parentId: number, childIds:
         const replacements = children.filter((child): child is BookConcept => child !== undefined);
         const nextOrder = [...withoutDrafts.slice(0, parentIndex), ...replacements, ...withoutDrafts.slice(parentIndex + 1)];
 
-        await Promise.all(nextOrder.flatMap(({ id }, displayOrder) => id === undefined ? [] : [db.bookConcepts.update(id, { displayOrder, chapterId })]));
+        // A Split replaces the Concept, not the Ability: no retired parent
+        // Concept or parent Ability should survive. If this Concept itself
+        // belonged to an older split group, preserve only that *existing*
+        // ancestor relationship, never a reference to the deleted Concept.
+        await Promise.all(childIds.map((id) => db.bookConcepts.update(id, {
+            parentConceptId: parent.parentConceptId,
+            isSplitParent: false
+        })));
+        const oldAbilities = await db.abilities.where('moduleId').equals(`book-${parent.bookPage[0]}-concept-${parentId}`).toArray();
+        const oldAbilityIds = new Set(oldAbilities.map(({ id }) => id));
+        const staleLogIds = await db.bookAbilityChangeLog.where('bookId').equals(parent.bookPage[0])
+            .filter((entry) => entry.conceptId === parentId || oldAbilityIds.has(entry.recordId))
+            .primaryKeys() as number[];
+        if (staleLogIds.length) await db.bookAbilityChangeLog.bulkDelete(staleLogIds);
+        const linkedSkills = await db.skills.filter(({ bookConceptIds }) => (bookConceptIds ?? []).includes(parentId)).toArray();
+        await Promise.all(linkedSkills.flatMap((skill) => skill.id === undefined ? [] : [db.skills.update(skill.id, {
+            bookConceptIds: uniqueIdsInOrder((skill.bookConceptIds ?? []).flatMap((id) => id === parentId ? childIds : [id]))
+        })]));
         await deleteBookConceptRows(parentId, false);
+        await Promise.all(nextOrder.flatMap(({ id }, displayOrder) => id === undefined ? [] : [db.bookConcepts.update(id, { displayOrder, chapterId })]));
         await syncChapterLearningDisplayOrder(chapterId);
     });
 }
@@ -2229,6 +2310,7 @@ export async function storeAbility(moduleId: string, content: string, displayOrd
             id,
             moduleId,
             content: normalizedContent,
+            reviewed: existing?.moduleId === moduleId && existing.content === normalizedContent ? existing.reviewed ?? false : false,
             ...(inheritedDisplayOrder === undefined ? {} : { displayOrder: inheritedDisplayOrder })
         };
 
@@ -2268,7 +2350,8 @@ export async function replaceAbility(oldRecordId: string, content: string): Prom
         // Normalize image references within the same transaction. If image
         // normalization fails, both the old Ability and its images survive.
         const normalizedContent = await normalizeAbilityImages(content, db.images);
-        await db.abilities.put({ ...previous, id: nextId, content: normalizedContent });
+        await db.abilities.put({ ...previous, id: nextId, content: normalizedContent,
+            reviewed: normalizedContent === previous.content ? previous.reviewed ?? false : false });
 
         if (nextId !== oldRecordId) {
             await db.abilities.delete(oldRecordId);
@@ -3585,7 +3668,19 @@ export async function toggleBookAbilitySplitWorkItem(bookId: number, conceptId: 
 /** Scheduling the same Ability twice replaces its instructions, not its queue position. */
 export async function scheduleBookAbilityFix(bookId: number, conceptId: number, recordId: string, instructions: AbilityFixInstructions): Promise<BookAbilityWorkItem[]> {
     if (!Number.isSafeInteger(conceptId) || conceptId <= 0 || !recordId) throw new Error('Invalid Ability for scheduling.');
-    return db.transaction('rw', db.bookAbilityWorkQueues, async () => {
+    return db.transaction('rw', db.bookAbilityWorkQueues, db.abilities, db.bookAbilityChangeLog, async () => {
+        const ability = await db.abilities.get(recordId);
+        if (ability && ability.moduleId !== `book-${bookId}-concept-${conceptId}`) {
+            throw new Error('The scheduled Ability belongs to a different Concept.');
+        }
+        // An as-yet-unreviewed AI change is superseded by a new Fix request.
+        if (!ability?.reviewed) {
+            const onlyAbility = ability && await db.abilities.where('moduleId').equals(ability.moduleId).count() === 1;
+            const superseded = await db.bookAbilityChangeLog.where('bookId').equals(bookId)
+                .filter((entry) => entry.source === 'ai' && (entry.recordId === recordId ||
+                    (onlyAbility && entry.conceptId === conceptId))).primaryKeys() as number[];
+            if (superseded.length) await db.bookAbilityChangeLog.bulkDelete(superseded);
+        }
         const items = await getBookAbilityWorkQueue(bookId);
         const item: BookAbilityWorkItem = { id: `fix:${recordId}`, kind: 'fix', conceptId, recordId, instructions: prepareAbilityFixForScheduling(instructions) };
         const index = items.findIndex(({ id }) => id === item.id);
@@ -3647,12 +3742,19 @@ export async function getBookAbilityChangeLog(bookId: number): Promise<BookAbili
         const abilities = await records;
 
         return abilities.length === 1 ? { ...entry, recordId: abilities[0].id } : entry;
-    }));
+    })).then(async (resolved) => {
+        const records = await db.abilities.bulkGet(resolved.map(({ recordId }) => recordId));
+        return resolved.filter((_, index) => !records[index]?.reviewed);
+    });
 }
 
 export async function addBookAbilityChangeLog(entry: Omit<BookAbilityChangeLogEntry, 'id' | 'updatedAt'>): Promise<number> {
     return db.transaction('rw', db.bookAbilityChangeLog, db.abilities, async () => {
         if (entry.source === 'ai') {
+            const ability = await db.abilities.get(entry.recordId);
+            if (ability?.moduleId.startsWith(`book-${entry.bookId}-concept-`)) {
+                await db.abilities.update(ability.id, { reviewed: false });
+            }
             // A regenerated Ability is content-addressed and therefore has a new ID.
             // Keep only the latest AI change for this logical Ability, including
             // across ID changes. Multiple Abilities under one Concept remain distinct.
@@ -3670,9 +3772,56 @@ export async function addBookAbilityChangeLog(entry: Omit<BookAbilityChangeLogEn
     });
 }
 
-export async function reviewBookAbilityChangeLogEntry(bookId: number, entryId: number): Promise<void> {
-    await db.transaction('rw', db.bookAbilityChangeLog, async () => {
-        const entry = await db.bookAbilityChangeLog.get(entryId);
-        if (entry?.bookId === bookId) await db.bookAbilityChangeLog.delete(entryId);
+/** Persist review decisions independently of the content-addressed Ability ID. */
+export async function setBookAbilityReviewed(bookId: number, recordId: string, reviewed: boolean): Promise<void> {
+    await db.transaction('rw', db.abilities, db.bookAbilityChangeLog, async () => {
+        const ability = await db.abilities.get(recordId);
+        if (!ability || !ability.moduleId.startsWith(`book-${bookId}-concept-`)) {
+            throw new Error('The Ability is no longer available in this book.');
+        }
+        await db.abilities.update(recordId, { reviewed });
+        if (reviewed) {
+            const changes = await db.bookAbilityChangeLog.where('bookId').equals(bookId)
+                .filter((entry) => entry.recordId === recordId).primaryKeys() as number[];
+            if (changes.length) await db.bookAbilityChangeLog.bulkDelete(changes);
+        }
     });
+}
+
+/** Reset the selected chapter and all subsequent chapters in one transaction. */
+export async function resetBookAbilityReviews(bookId: number, recordIds: readonly string[]): Promise<void> {
+    await db.transaction('rw', db.abilities, async () => {
+        for (const id of new Set(recordIds)) {
+            const ability = await db.abilities.get(id);
+            if (ability?.moduleId.startsWith(`book-${bookId}-concept-`)) {
+                await db.abilities.update(id, { reviewed: false });
+            }
+        }
+    });
+}
+
+/** Review any number of logged AI changes in one transaction, so a bulk
+ * review cannot leave some entries marked and others pending if a write fails.
+ * Stale IDs are resolved only when their Concept has a single live Ability. */
+export async function reviewBookAbilityChangeLogEntries(bookId: number, entryIds: readonly number[]): Promise<void> {
+    if (!entryIds.length) return;
+    await db.transaction('rw', db.bookAbilityChangeLog, db.abilities, async () => {
+        for (const entryId of new Set(entryIds)) {
+            const entry = await db.bookAbilityChangeLog.get(entryId);
+            if (entry?.bookId !== bookId) continue;
+            let ability = await db.abilities.get(entry.recordId);
+            if (!ability && entry.conceptId !== undefined) {
+                const candidates = await db.abilities.where('moduleId').equals(`book-${bookId}-concept-${entry.conceptId}`).toArray();
+                if (candidates.length === 1) ability = candidates[0];
+            }
+            if (ability?.moduleId.startsWith(`book-${bookId}-concept-`)) {
+                await db.abilities.update(ability.id, { reviewed: true });
+            }
+            await db.bookAbilityChangeLog.delete(entryId);
+        }
+    });
+}
+
+export async function reviewBookAbilityChangeLogEntry(bookId: number, entryId: number): Promise<void> {
+    return reviewBookAbilityChangeLogEntries(bookId, [entryId]);
 }

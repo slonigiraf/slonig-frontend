@@ -565,6 +565,22 @@ export const StyledSkills = styled.div`
   .duplicateAbilitySide > strong { display: block; margin: 0.5rem 0; overflow-wrap: anywhere; }
   .duplicateAbilitySide pre { max-height: 12rem; overflow: auto; white-space: pre-wrap; }
   .abilitiesPane { width: 100%; }
+  .abilityReviewToolbar { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem; }
+  .abilityReviewToolbar h3 { margin: 0; }
+  .abilityReviewToolbar > div { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+  .abilityConceptParent { font-size: 0.85rem; opacity: 0.8; }
+  .abilityReviewedIndicator { font-size: 0.85rem; font-weight: 600; margin-top: 0.5rem; }
+  &.abilityReviewOverlay { position: fixed; inset: 0; z-index: 1000; overflow-y: auto; border-radius: 0; padding: 0; min-height: 100vh; }
+  .abilityReviewHeader { position: sticky; top: 0; z-index: 1; background: var(--bg-page); border-bottom: 1px solid var(--border-table); display: flex; align-items: center; justify-content: space-between; padding: 1rem 2rem; gap: 1rem; }
+  .abilityReviewHeader h2 { margin: 0; }
+  .abilityReviewHeader p { margin: 0.2rem 0 0; }
+  .abilityReviewProgress { height: 0.4rem; background: var(--border-table); }
+  .abilityReviewProgress > div { height: 100%; background: var(--color-primary, #f28c00); transition: width 180ms ease; }
+  .abilityReviewContent { max-width: 76rem; margin: 2rem auto; padding: 0 1rem 4rem; }
+  .abilityReviewLocation { font-weight: 600; margin-bottom: 1rem; }
+  .abilityReviewActions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 0.75rem; margin: 1rem 0; }
+  .abilityReviewDone { text-align: center; padding: 3rem 1rem; }
+
   .missingAbilityNavigation { align-items: baseline; display: flex; flex-wrap: wrap; gap: 0.35rem; margin: -0.2rem 0 0.75rem; }
   .missingAbilityLinks button { background: none; border: 0; color: var(--color-primary, #2f6feb); cursor: pointer; font: inherit; padding: 0; text-decoration: underline; }
   .missingAbilityLinks button:hover, .missingAbilityLinks button:focus-visible { text-decoration-thickness: 2px; }
