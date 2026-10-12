@@ -28,6 +28,9 @@ export interface SkillsProps {
   splitQueueConceptIds?: readonly number[];
   onQueueSplit?: (record: StoredAbility) => void;
   onQueueFix?: (record: StoredAbility, instructions: AbilityFixInstructions) => Promise<void>;
+  onCancelFix?: (itemId: string) => Promise<void>;
+  onRemoveWorkQueueItem?: (itemId: string) => Promise<void>;
+  removingWorkQueueItemId?: string;
   workQueueItems?: readonly BookAbilityWorkItem[];
   onAbilityLogChange?: () => Promise<void>;
   onWorkQueueItemComplete?: (itemId: string) => Promise<void>;
@@ -35,6 +38,7 @@ export interface SkillsProps {
   onSplitQueueBusyChange?: (busy: boolean) => void;
   externalSplitQueueBusy?: boolean;
   isSplitQueueConfirmationOpen?: boolean;
+  isQueueRunDisabled?: boolean;
   onCloseSplitQueueConfirmation?: () => void;
   pipelinePrefix?: PipelineAction[];
   pipelineSuffix?: PipelineAction[];

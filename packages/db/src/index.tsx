@@ -3550,9 +3550,11 @@ export async function relinkBookAbilityChangeLogRecord(bookId: number, oldRecord
     });
 }
 
-/** Unreviewed changes are retained across reloads; reviewing deletes only that entry. */
+/** Show unreviewed AI changes (both fixes and generated splits), excluding manual edits. */
 export async function getBookAbilityChangeLog(bookId: number): Promise<BookAbilityChangeLogEntry[]> {
-    return (await db.bookAbilityChangeLog.where('bookId').equals(bookId).toArray()).sort((a, b) => b.updatedAt - a.updatedAt);
+    return (await db.bookAbilityChangeLog.where('bookId').equals(bookId).toArray())
+        .filter(({ source }) => source === 'ai')
+        .sort((a, b) => b.updatedAt - a.updatedAt);
 }
 
 export async function addBookAbilityChangeLog(entry: Omit<BookAbilityChangeLogEntry, 'id' | 'updatedAt'>): Promise<number> {

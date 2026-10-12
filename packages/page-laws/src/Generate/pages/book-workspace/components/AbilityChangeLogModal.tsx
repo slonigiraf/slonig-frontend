@@ -40,11 +40,6 @@ const StyledLogPreview = styled(StyledSkills)`
   .abilityChangeLogMeta small { display: block; margin-top: 0.15rem; opacity: 0.8; }
   .abilityChangeLogMeta .ui--Button { margin: 0; }
   .abilityChangeLogEntry .abilityConceptCard { margin-bottom: 0; }
-  .abilityChangeLogEntry .abilityCardAiUpdated {
-    border-radius: 0.45rem;
-    outline: 3px solid #87cefa;
-    outline-offset: 1px;
-  }
   .abilityChangeLogUnavailable { margin: 0.8rem 0; }
 `;
 
@@ -57,12 +52,13 @@ interface Props {
   onError: (message: string) => void;
   onLogChange: () => Promise<void>;
   onQueueFix: (record: StoredAbility, instructions: AbilityFixInstructions) => Promise<void>;
+  onCancelFix: (itemId: string) => Promise<void>;
   onQueueSplit: (record: StoredAbility) => Promise<void>;
   onReviewed: (ids: number[]) => Promise<void>;
   workQueueItems: readonly BookAbilityWorkItem[];
 }
 
-export default function AbilityChangeLogModal ({ bookId, entries, isQueueBusy, onClose, onContentChange, onError, onLogChange, onQueueFix, onQueueSplit, onReviewed, workQueueItems }: Props): React.ReactElement {
+export default function AbilityChangeLogModal ({ bookId, entries, isQueueBusy, onClose, onContentChange, onError, onLogChange, onQueueFix, onCancelFix, onQueueSplit, onReviewed, workQueueItems }: Props): React.ReactElement {
   const groups = useMemo(() => groupAbilityChanges(entries), [entries]);
   const [previews, setPreviews] = useState<Map<string, AbilityPreview>>();
   const [refreshVersion, setRefreshVersion] = useState(0);
@@ -120,11 +116,6 @@ export default function AbilityChangeLogModal ({ bookId, entries, isQueueBusy, o
     void onLogChange().catch((error: unknown) => onError(error instanceof Error ? error.message : String(error)));
   }, [onContentChange, onError, onLogChange]);
 
-  const logChange = useCallback(async (): Promise<void> => {
-    await onLogChange();
-    setRefreshVersion((value) => value + 1);
-  }, [onLogChange]);
-
   const reviewGroup = useCallback(async (group: AbilityChangeGroup): Promise<void> => {
     setReviewing(group.latest.recordId);
     try {
@@ -149,7 +140,7 @@ export default function AbilityChangeLogModal ({ bookId, entries, isQueueBusy, o
           return <div className='abilityChangeLogEntry' key={latest.recordId}>
             <div className='abilityChangeLogMeta'>
               <div>
-                <strong>{latest.title}</strong> — {group.hasAiChanges ? 'AI updated' : 'User updated'}
+                <strong>{latest.title}</strong> — {latest.summary.startsWith('AI split Concept ') ? 'AI split' : 'AI fixed'}
                 <small>{latest.summary} · {new Date(latest.updatedAt).toLocaleString()}</small>
               </div>
               <Button
@@ -164,14 +155,13 @@ export default function AbilityChangeLogModal ({ bookId, entries, isQueueBusy, o
               : <AbilityConceptCard concept={preview?.concept} isSingleExercise={record?.ability?.q.length === 1} ordinal={preview?.concept?.displayOrder === undefined ? undefined : preview.concept.displayOrder + 1}>
                 {record
                   ? <AbilityCard
-                    isAiUpdated={group.hasAiChanges}
                     isBusy={isQueueBusy}
-                    isQueuedForFix={workQueueItems.some((item) => item.kind === 'fix' && (item.recordId === record.id || item.recordId === latest.recordId))}
+                    queuedFixItemId={workQueueItems.find((item) => item.kind === 'fix' && (item.recordId === record.id || item.recordId === latest.recordId))?.id}
                     isQueuedForSplit={conceptId !== undefined && workQueueItems.some((item) => item.kind === 'split' && item.conceptId === conceptId)}
-                    onAbilityLogChange={logChange}
                     onDeleted={refreshPreview}
                     onError={onError}
                     onQueueFix={onQueueFix}
+                    onCancelFix={onCancelFix}
                     onSplit={(ability) => { void onQueueSplit(ability).catch((error: unknown) => onError(error instanceof Error ? error.message : String(error))); }}
                     record={record}
                     visualIssues={preview?.visualIssues}

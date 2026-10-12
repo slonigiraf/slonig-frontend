@@ -225,6 +225,8 @@ export function BookReaderView ({ controller }: Props): React.ReactElement {
   const [isAbilityLogOpen, setIsAbilityLogOpen] = useState(false);
   const [isSplitQueueConfirmationOpen, setIsSplitQueueConfirmationOpen] = useState(false);
   const [isSplitBatchRunning, setIsSplitBatchRunning] = useState(false);
+  const [removingWorkQueueItemId, setRemovingWorkQueueItemId] = useState<string>();
+  const queueRemovalInProgressRef = useRef(false);
   const activeBookIdRef = useRef(book.id);
   const showInfoRef = useRef(showInfo);
 
@@ -248,6 +250,7 @@ export function BookReaderView ({ controller }: Props): React.ReactElement {
     setAbilityLogState(undefined);
     setIsAbilityLogOpen(false);
     setIsSplitQueueConfirmationOpen(false);
+    setRemovingWorkQueueItemId(undefined);
     void getBookAbilityWorkQueue(book.id).then((items) => {
       if (active) setSplitQueueState({ bookId: book.id, items });
     }).catch((error: unknown) => {
@@ -288,6 +291,27 @@ export function BookReaderView ({ controller }: Props): React.ReactElement {
       showInfoRef.current('Ability correction scheduled.');
     }
   }, [book.id, isSplitQueueReady, isSplitBatchRunning]);
+
+  // User cancellations remove only the requested job. Running jobs use the
+  // separate completion callback below so they cannot be cancelled mid-run.
+  const cancelQueuedWorkItem = useCallback(async (itemId: string): Promise<void> => {
+    if (!isSplitQueueReady || isSplitBatchRunning || queueRemovalInProgressRef.current) {
+      throw new Error('Queued Ability work cannot be changed while it is processing.');
+    }
+    if (!workQueueItems.some((item) => item.id === itemId)) return;
+    queueRemovalInProgressRef.current = true;
+    setRemovingWorkQueueItemId(itemId);
+    try {
+      const items = await removeBookAbilityWorkItem(book.id, itemId);
+      if (activeBookIdRef.current === book.id) {
+        setSplitQueueState({ bookId: book.id, items });
+        showInfoRef.current('Scheduled Ability action removed.');
+      }
+    } finally {
+      queueRemovalInProgressRef.current = false;
+      setRemovingWorkQueueItemId((current) => current === itemId ? undefined : current);
+    }
+  }, [book.id, isSplitBatchRunning, isSplitQueueReady, workQueueItems]);
 
   const onWorkQueueItemComplete = useCallback(async (itemId: string): Promise<void> => {
     const items = await removeBookAbilityWorkItem(book.id, itemId);
@@ -1132,6 +1156,8 @@ export function BookReaderView ({ controller }: Props): React.ReactElement {
         onQueueSplit={queueSplitAbility}
         onQueueFix={queueFixAbility}
         onWorkQueueItemComplete={onWorkQueueItemComplete}
+        onRemoveWorkQueueItem={cancelQueuedWorkItem}
+        removingWorkQueueItemId={removingWorkQueueItemId}
         onAbilityLogChange={refreshAbilityLog}
         onSplitQueueBusyChange={(busy) => {
           setIsSplitBatchRunning(busy);
@@ -1140,7 +1166,8 @@ export function BookReaderView ({ controller }: Props): React.ReactElement {
           }).catch(console.error);
         }}
         isSplitQueueConfirmationOpen={isSplitQueueConfirmationOpen}
-        externalSplitQueueBusy={isSplitBatchRunning || !isSplitQueueReady}
+        isQueueRunDisabled={isPriceDisabled}
+        externalSplitQueueBusy={isSplitBatchRunning || !isSplitQueueReady || removingWorkQueueItemId !== undefined}
         onCloseSplitQueueConfirmation={() => setIsSplitQueueConfirmationOpen(false)}
         pipelineControls={<>
           <Button
@@ -1155,7 +1182,7 @@ export function BookReaderView ({ controller }: Props): React.ReactElement {
             aria-label={t('Run queued Ability work')}
             className='pipelineSplitQueueButton'
             icon='wand-magic-sparkles'
-            isDisabled={isPriceDisabled || autoRunAll || isSplitBatchRunning || !isSplitQueueReady || workQueueItems.length === 0}
+            isDisabled={autoRunAll || isSplitBatchRunning || removingWorkQueueItemId !== undefined || !isSplitQueueReady || workQueueItems.length === 0}
             label={String(workQueueItems.length)}
             onClick={() => setIsSplitQueueConfirmationOpen(true)}
             title={t('Run queued Ability work')}
@@ -1190,7 +1217,8 @@ export function BookReaderView ({ controller }: Props): React.ReactElement {
       {isAbilityLogOpen && <AbilityChangeLogModal
         bookId={book.id}
         entries={abilityLogEntries}
-        isQueueBusy={isSplitBatchRunning || !isSplitQueueReady}
+        isQueueBusy={isSplitBatchRunning || !isSplitQueueReady || removingWorkQueueItemId !== undefined}
+        onCancelFix={cancelQueuedWorkItem}
         onClose={() => setIsAbilityLogOpen(false)}
         onContentChange={onSkillsContentChange}
         onError={reportAbilityLogError}
@@ -1460,8 +1488,9 @@ export function BookReaderView ({ controller }: Props): React.ReactElement {
                           workQueueItems={workQueueItems}
                           onQueueSplit={queueSplitAbility}
                           onQueueFix={queueFixAbility}
-                                            onAbilityLogChange={refreshAbilityLog}
-                          externalSplitQueueBusy={isSplitBatchRunning || !isSplitQueueReady}
+                          onCancelFix={cancelQueuedWorkItem}
+                          onAbilityLogChange={refreshAbilityLog}
+                          externalSplitQueueBusy={isSplitBatchRunning || !isSplitQueueReady || removingWorkQueueItemId !== undefined}
                           showPipeline={false}
                           view='preExercisesExercises'
                         /></div>

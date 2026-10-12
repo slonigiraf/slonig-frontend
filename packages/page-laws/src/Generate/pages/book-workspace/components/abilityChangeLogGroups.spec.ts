@@ -7,17 +7,20 @@ import { describe, it } from 'node:test';
 import { groupAbilityChanges } from './abilityChangeLogGroups.js';
 
 describe('Ability change log grouping', (): void => {
-  it('counts distinct Abilities, not change events, and retains AI highlighting', (): void => {
+  it('groups AI fixes and AI splits, excluding legacy manual edits', (): void => {
     const groups = groupAbilityChanges([
       { id: 1, bookId: 1, conceptId: 10, recordId: 'a', title: 'A', summary: 'Fixed image', source: 'ai', updatedAt: 1 },
       { id: 2, bookId: 1, conceptId: 10, recordId: 'a', title: 'A', summary: 'Edited question', source: 'user', updatedAt: 2 },
-      { id: 3, bookId: 1, conceptId: 10, recordId: 'b', title: 'B', summary: 'Edited answer', source: 'user', updatedAt: 3 }
+      { id: 3, bookId: 1, conceptId: 10, recordId: 'b', title: 'B', summary: 'Edited answer', source: 'user', updatedAt: 3 },
+      { id: 4, bookId: 1, conceptId: 11, recordId: 'c', title: 'C', summary: 'AI split Concept Foo and generated this Ability', source: 'ai', updatedAt: 4 },
+      { id: 5, bookId: 1, conceptId: 12, recordId: 'd', title: 'D', summary: 'AI corrected Ability content', source: 'ai', updatedAt: 5 }
     ]);
-    assert.equal(groups.length, 2);
-    assert.equal(groups[0].latest.recordId, 'b');
-    assert.equal(groups[0].hasAiChanges, false);
-    assert.deepEqual(groups[1].entryIds, [2, 1]);
-    assert.equal(groups[1].hasAiChanges, true);
+    assert.equal(groups.length, 3);
+    assert.equal(groups[0].latest.recordId, 'd');
+    assert.equal(groups[1].latest.recordId, 'c');
+    assert.deepEqual(groups[1].entryIds, [4]);
+    assert.equal(groups[2].latest.recordId, 'a');
+    assert.deepEqual(groups[2].entryIds, [1]);
   });
 
   it('returns no Abilities for an empty log', (): void => {

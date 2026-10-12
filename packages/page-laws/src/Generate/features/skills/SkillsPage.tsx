@@ -40,6 +40,7 @@ import { getSharedChapterSelection, storeSharedChapterSelection, subscribeShared
 import { abilityModuleId, abilityRepairInput, answerTikzRequestPrompt, exerciseNeedsCompletedFigure, cleanTikzResponse, conceptAbilityModuleId, parseGeneratedSkills, parseTikzAiReview, requestAbilityRepairResult, requestChatContent, requestChatContentWithTruncationRetry, requestValidatedJson, storedAbilityImageId, tikzCompileRepairPrompt, tikzDetectedProblemsRepairPrompt, tikzFixReviewPrompt, tikzRequestPrompt, type ImageFixTarget, type StoredAbility, type TikzAiReview } from '../../book/application/abilities/abilityProcessing.js';
 import { ChapterTitleEditor } from './components/SkillsComponents.js';
 import SkillsContentView from './components/SkillsContentView.js';
+import QueuedAbilityWorkList from './components/QueuedAbilityWorkList.js';
 import SkillsControls from './components/SkillsControls.js';
 import SkillsReviewModals from './components/SkillsReviewModals.js';
 import { StyledSkills } from './SkillsStyles.js';
@@ -309,7 +310,7 @@ function getSessionChapter (bookId: number, view: SkillsView): number {
   }
 }
 
-function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapters = false, book, externalAutoRunBusy = false, externalRefreshToken = 0, onAction, onAutoRunComplete, onAutoRunProcessingChange, onAutoRunProgressChange, onAbortAutoRun, onBookChange, onContentChange, onEntityCountsChange, onPipelineSelectionChange, pipelineOnly = false, pipelineControls, pipelinePrefix, pipelineSuffix, showPipeline = true, view, splitQueueConceptIds, workQueueItems, onQueueSplit, onQueueFix, onAbilityLogChange, onWorkQueueItemComplete, onSplitQueueBusyChange, externalSplitQueueBusy = false, isSplitQueueConfirmationOpen = false, onCloseSplitQueueConfirmation }: SkillsProps): React.ReactElement {
+function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapters = false, book, externalAutoRunBusy = false, externalRefreshToken = 0, onAction, onAutoRunComplete, onAutoRunProcessingChange, onAutoRunProgressChange, onAbortAutoRun, onBookChange, onContentChange, onEntityCountsChange, onPipelineSelectionChange, pipelineOnly = false, pipelineControls, pipelinePrefix, pipelineSuffix, showPipeline = true, view, splitQueueConceptIds, workQueueItems, onQueueSplit, onQueueFix, onCancelFix, onRemoveWorkQueueItem, removingWorkQueueItemId, onAbilityLogChange, onWorkQueueItemComplete, onSplitQueueBusyChange, externalSplitQueueBusy = false, isSplitQueueConfirmationOpen = false, isQueueRunDisabled = false, onCloseSplitQueueConfirmation }: SkillsProps): React.ReactElement {
   const language = book.language ?? '';
   const hasBookLanguage = Boolean(language);
   const hasBookSubject = Boolean(book.subject);
@@ -327,11 +328,12 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
   const [tikzIssuesByImageId, setTikzIssuesByImageId] = useState<Record<number, string[]>>({});
   const [notice, setNotice] = useState('');
   const [splitQueueEstimateState, setSplitQueueEstimateState] = useState<{ key: string; estimate: AiInputEstimate | string }>();
+  const [queueRemovalError, setQueueRemovalError] = useState('');
   const splitBatchRunningRef = useRef(false);
   const splitBatchCancelledRef = useRef(false);
   const queuedWorkItems = workQueueItems ?? EMPTY_WORK_QUEUE;
   const queuedSplitIds = splitQueueConceptIds ?? EMPTY_SPLIT_QUEUE;
-  const queuedFixRecordIds = queuedWorkItems.flatMap((item) => item.kind === 'fix' && item.recordId ? [item.recordId] : []);
+  const queuedFixItems = queuedWorkItems.filter((item) => item.kind === 'fix');
   const [isBusy, setIsBusy] = useState(false);
   const [openRouterSpent, setOpenRouterSpent] = useState(0);
   const [progress, setProgress] = useState(0);
@@ -2136,20 +2138,33 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
       onSaved={refresh}
                        />}
     {isSplitQueueConfirmationOpen && <StageRunPricePopup
-      header={`Run ${queuedWorkItems.length} queued Ability ${queuedWorkItems.length === 1 ? 'job' : 'jobs'}?`}
-      isRunDisabled={isBusy || autoRunAll || externalAutoRunBusy || !splitQueueEstimate || typeof splitQueueEstimate === 'string' || queuedWorkItems.length === 0}
-      onClose={() => onCloseSplitQueueConfirmation?.()}
+      header={queuedWorkItems.length ? `Run ${queuedWorkItems.length} queued Ability ${queuedWorkItems.length === 1 ? 'job' : 'jobs'}?` : 'Scheduled Ability actions'}
+      isRunDisabled={isQueueRunDisabled || isBusy || autoRunAll || externalAutoRunBusy || externalSplitQueueBusy || !splitQueueEstimate || typeof splitQueueEstimate === 'string' || queuedWorkItems.length === 0}
+      onClose={() => { setQueueRemovalError(''); onCloseSplitQueueConfirmation?.(); }}
       onRun={() => { void runSplitQueue(); }}
     >
-      <p>All {queuedWorkItems.length} queued jobs will run in parallel. Split jobs create new Concepts and checked images; Fix Ability jobs follow the submitted field corrections. Failed jobs stay in the queue for retry.</p>
-      <AiPriceEstimate estimate={splitQueueEstimate} />
-      <p><small>Approximate estimate: two children and up to two question and answer visuals per child. Actual cost depends on the number of children, required visuals, AI retries and usage.</small></p>
-      <OpenRouterModelSelector
-        className='modelSelect'
-        isDisabled={isBusy}
-        onChange={setSelectedModel}
-        value={selectedModel}
+      {!!queuedWorkItems.length && <p>All {queuedWorkItems.length} queued jobs will run in parallel. Split jobs create new Concepts and checked images; Fix Ability jobs follow the submitted field corrections. Failed jobs stay in the queue for retry.</p>}
+      <QueuedAbilityWorkList
+        chapterContent={chapterContent}
+        isBusy={isBusy || autoRunAll || externalAutoRunBusy || externalSplitQueueBusy}
+        items={queuedWorkItems}
+        onRemove={onRemoveWorkQueueItem ? (itemId) => {
+          setQueueRemovalError('');
+          void onRemoveWorkQueueItem(itemId).catch((error: unknown) => setQueueRemovalError(error instanceof Error ? error.message : String(error)));
+        } : undefined}
+        removingItemId={removingWorkQueueItemId}
       />
+      {queueRemovalError && <p role='alert'>{queueRemovalError}</p>}
+      {!!queuedWorkItems.length && <>
+        <AiPriceEstimate estimate={splitQueueEstimate} />
+        <p><small>Approximate estimate: two children and up to two question and answer visuals per child. Actual cost depends on the number of children, required visuals, AI retries and usage.</small></p>
+        <OpenRouterModelSelector
+          className='modelSelect'
+          isDisabled={isBusy}
+          onChange={setSelectedModel}
+          value={selectedModel}
+        />
+      </>}
     </StageRunPricePopup>}
     <SkillsReviewModals
       applyAbilityFixReview={applyAbilityFixReview}
@@ -2212,7 +2227,8 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
       deleteConceptAndAbilities={deleteConceptAndAbilities}
       splitSingleAbility={(record) => onQueueSplit?.(record)}
       scheduleAbilityFix={onQueueFix}
-      queuedFixRecordIds={queuedFixRecordIds}
+      queuedFixItems={queuedFixItems}
+      onCancelFix={onCancelFix}
       onAbilityLogChange={onAbilityLogChange}
       splitQueueConceptIds={queuedSplitIds}
       isBusy={isBusy || externalSplitQueueBusy}

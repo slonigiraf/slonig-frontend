@@ -7,23 +7,21 @@ export interface AbilityChangeGroup {
   /** Newest change for this Ability. */
   latest: BookAbilityChangeLogEntry;
   entryIds: number[];
-  hasAiChanges: boolean;
 }
 
 /** A repeated edit is one unreviewed Ability, not several entries in the badge. */
 export function groupAbilityChanges (entries: readonly BookAbilityChangeLogEntry[]): AbilityChangeGroup[] {
   const byAbility = new Map<string, AbilityChangeGroup>();
 
-  for (const entry of [...entries].sort((a, b) => b.updatedAt - a.updatedAt)) {
+  // Include AI-fixed and AI-split Abilities, but never manually edited ones.
+  for (const entry of entries.filter(({ source }) => source === 'ai').sort((a, b) => b.updatedAt - a.updatedAt)) {
     const group = byAbility.get(entry.recordId);
 
     if (group) {
       if (entry.id !== undefined) group.entryIds.push(entry.id);
-      group.hasAiChanges ||= entry.source === 'ai';
     } else {
       byAbility.set(entry.recordId, {
         entryIds: entry.id === undefined ? [] : [entry.id],
-        hasAiChanges: entry.source === 'ai',
         latest: entry
       });
     }

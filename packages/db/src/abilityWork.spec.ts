@@ -70,21 +70,24 @@ describe('Persistent Ability work and change history', (): void => {
     await addBookAbilityChangeLog({ bookId, recordId: 'old', source: 'user', title: 'Ability', summary: 'Changed answer' });
     await addBookAbilityChangeLog({ bookId: otherBook, recordId: 'old', source: 'ai', title: 'Different book', summary: 'Fixed' });
     await relinkBookAbilityChangeLogRecord(bookId, 'old', 'new');
-    assert.deepEqual((await getBookAbilityChangeLog(bookId)).map(({ recordId }) => recordId), ['new', 'new']);
+    assert.deepEqual((await getBookAbilityChangeLog(bookId)).map(({ recordId }) => recordId), ['new']);
     assert.equal((await getBookAbilityChangeLog(otherBook))[0].recordId, 'old');
     await relinkBookAbilityChangeLogRecord(bookId, 'new', 'new');
   });
 
-  it('keeps unreviewed AI and user edits until each is marked reviewed', async (): Promise<void> => {
+  it('shows unreviewed AI fixes and AI splits, but excludes legacy manual edits', async (): Promise<void> => {
     const bookId = Date.now() + 9000;
     const aiId = await addBookAbilityChangeLog({ bookId, recordId: 'ability-a', source: 'ai', title: 'A', summary: 'Fixed image' });
     const userId = await addBookAbilityChangeLog({ bookId, recordId: 'ability-b', source: 'user', title: 'B', summary: 'Edited question' });
-    assert.equal((await getBookAbilityChangeLog(bookId)).length, 2);
+    const splitId = await addBookAbilityChangeLog({ bookId, recordId: 'ability-c', source: 'ai', title: 'C', summary: 'AI split Concept Algebra and generated this Ability' });
+    assert.deepEqual(new Set((await getBookAbilityChangeLog(bookId)).map(({ recordId }) => recordId)), new Set(['ability-a', 'ability-c']));
     await reviewBookAbilityChangeLogEntry(bookId + 1, aiId);
     assert.equal((await getBookAbilityChangeLog(bookId)).length, 2);
     await reviewBookAbilityChangeLogEntry(bookId, aiId);
-    assert.deepEqual((await getBookAbilityChangeLog(bookId)).map(({ source }) => source), ['user']);
+    assert.deepEqual((await getBookAbilityChangeLog(bookId)).map(({ recordId }) => recordId), ['ability-c']);
     await reviewBookAbilityChangeLogEntry(bookId, userId);
+    assert.deepEqual((await getBookAbilityChangeLog(bookId)).map(({ recordId }) => recordId), ['ability-c']);
+    await reviewBookAbilityChangeLogEntry(bookId, splitId);
     assert.deepEqual(await getBookAbilityChangeLog(bookId), []);
   });
 });

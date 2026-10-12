@@ -6,7 +6,7 @@ import type { AbilityFixInstructions, BookChapter, Skill } from '@slonigiraf/db'
 import type { GeneratedAbility } from '../../../../abilities/abilities.js';
 import type { StoredAbility } from '../../../book/application/abilities/abilityProcessing.js';
 
-import { ABILITY_FIX_FIELDS, emptyAbilityFixInstructions, effectiveAbilityFixInstructions, addBookAbilityChangeLog, deleteAbilities, deleteAbility, deleteAbilityWithConcept, deleteSkill, getBookAbilityWorkQueue, getImage, putImage, relinkBookAbilityChangeLogRecord, storeAbility, updateBookChapterTitle } from '@slonigiraf/db';
+import { ABILITY_FIX_FIELDS, emptyAbilityFixInstructions, effectiveAbilityFixInstructions, deleteAbilities, deleteAbility, deleteAbilityWithConcept, deleteSkill, getBookAbilityWorkQueue, getImage, putImage, relinkBookAbilityChangeLogRecord, storeAbility, updateBookChapterTitle } from '@slonigiraf/db';
 import { SpanWithTags } from '@slonigiraf/slonig-components';
 import React, { useCallback, useState } from 'react';
 
@@ -186,11 +186,13 @@ function cloneAbility (ability: GeneratedAbility): GeneratedAbility {
   return { ...ability, q: ability.q.map((exercise) => ({ ...exercise })) };
 }
 
-export function AbilityCard ({ isBusy = false, isAiUpdated = false, isQueuedForFix = false, isQueuedForSplit = false, onDeleted, onError, onQueueFix, onAbilityLogChange, onSplit, record, visualIssues }: { isBusy?: boolean; isAiUpdated?: boolean; isQueuedForFix?: boolean; isQueuedForSplit?: boolean; onDeleted: () => void; onError: (message: string) => void; onQueueFix?: (record: StoredAbility, instructions: AbilityFixInstructions) => Promise<void>; onAbilityLogChange?: () => Promise<void>; onSplit: (record: StoredAbility) => void; record: StoredAbility; visualIssues?: Record<string, string[]> }): React.ReactElement {
+export function AbilityCard ({ isBusy = false, queuedFixItemId, isQueuedForSplit = false, onDeleted, onError, onQueueFix, onCancelFix, onSplit, record, visualIssues }: { isBusy?: boolean; queuedFixItemId?: string; isQueuedForSplit?: boolean; onDeleted: () => void; onError: (message: string) => void; onQueueFix?: (record: StoredAbility, instructions: AbilityFixInstructions) => Promise<void>; onCancelFix?: (itemId: string) => Promise<void>; onSplit: (record: StoredAbility) => void; record: StoredAbility; visualIssues?: Record<string, string[]> }): React.ReactElement {
   const [isFixDialogOpen, setIsFixDialogOpen] = useState(false);
   const [showDetailedFixForm, setShowDetailedFixForm] = useState(false);
   const [fixInstructions, setFixInstructions] = useState<AbilityFixInstructions>(emptyAbilityFixInstructions);
   const [isScheduling, setIsScheduling] = useState(false);
+  const [isCancellingFix, setIsCancellingFix] = useState(false);
+  const isQueuedForFix = queuedFixItemId !== undefined;
   const [isEditing, setIsEditing] = useState(false);
   const [editingExerciseIndex, setEditingExerciseIndex] = useState<number | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -199,13 +201,7 @@ export function AbilityCard ({ isBusy = false, isAiUpdated = false, isQueuedForF
   const remove = useCallback((): void => {
     deleteAbilityWithConcept(record.id).then(onDeleted).catch((error) => onError(error instanceof Error ? error.message : 'Unable to delete the Ability and its Concept.'));
   }, [onDeleted, onError, record.id]);
-  const logUserChange = useCallback(async (summary: string, recordId = record.id, title = record.ability?.h ?? 'Ability'): Promise<void> => {
-    const match = /^book-(\d+)-concept-(\d+)$/.exec(record.moduleId);
-    if (!match) return;
-    await addBookAbilityChangeLog({ bookId: Number(match[1]), conceptId: Number(match[2]), recordId, title, source: 'user', summary });
-    await onAbilityLogChange?.();
-  }, [record, onAbilityLogChange]);
-  const persistAbility = useCallback(async (ability: GeneratedAbility, summary = 'Edited Ability text or exercise fields'): Promise<void> => {
+  const persistAbility = useCallback(async (ability: GeneratedAbility): Promise<void> => {
     const validated = parseStoredAbility(JSON.stringify(ability));
     const newRecordId = await storeAbility(record.moduleId, JSON.stringify(validated), record.displayOrder);
 
@@ -215,9 +211,10 @@ export function AbilityCard ({ isBusy = false, isAiUpdated = false, isQueuedForF
       if (match) await relinkBookAbilityChangeLogRecord(Number(match[1]), record.id, newRecordId);
     }
 
-    await logUserChange(summary, newRecordId, validated.h);
+    // Manual edits do not enter the AI-fix log. Still relink any earlier AI
+    // correction when the edited Ability receives a new content-based ID.
     onDeleted();
-  }, [logUserChange, onDeleted, record.id, record.moduleId]);
+  }, [onDeleted, record.id, record.moduleId]);
   const saveVisual = useCallback(async (exerciseIndex: number, field: 'p' | 'i', value: string): Promise<void> => {
     if (!record.ability) {
       throw new Error('Unable to save image for invalid Ability JSON.');
@@ -236,9 +233,8 @@ export function AbilityCard ({ isBusy = false, isAiUpdated = false, isQueuedForF
     const prompt = exercise[promptField]?.trim() || (tikz ? image.prompt : value.trim());
 
     await putImage({ ...image, data: tikz ? value : null, prompt, type: tikz ? 'tikz' : 'prompt', valid: undefined });
-    await logUserChange(`Edited exercise ${exerciseIndex + 1} ${field === 'p' ? 'question' : 'answer'} image`);
     onDeleted();
-  }, [logUserChange, onDeleted, record]);
+  }, [onDeleted, record]);
   const saveVisualError = useCallback(async (exerciseIndex: number, field: 'p' | 'i', hasError: boolean, renderedValue: string): Promise<void> => {
     if (!record.ability) {
       throw new Error('Unable to save image error state for invalid Ability JSON.');
@@ -302,9 +298,7 @@ export function AbilityCard ({ isBusy = false, isAiUpdated = false, isQueuedForF
           }
           : parseStoredAbility(rawDraft);
 
-        return persistAbility(nextAbility, editingExerciseIndex === null
-          ? 'Edited Ability text or exercise fields'
-          : `Edited exercise ${editingExerciseIndex + 1} fields`);
+        return persistAbility(nextAbility);
       })
       .then(() => setIsEditing(false))
       .catch((error) => onError(error instanceof Error ? error.message : 'Unable to save the Ability.'))
@@ -314,7 +308,7 @@ export function AbilityCard ({ isBusy = false, isAiUpdated = false, isQueuedForF
   const openFix = useCallback(async (): Promise<void> => {
     const bookMatch = /^book-(\d+)-concept-\d+$/.exec(record.moduleId);
     const queued = isQueuedForFix && bookMatch
-      ? (await getBookAbilityWorkQueue(Number(bookMatch[1]))).find((item) => item.kind === 'fix' && item.recordId === record.id)?.instructions
+      ? (await getBookAbilityWorkQueue(Number(bookMatch[1]))).find((item) => item.kind === 'fix' && item.id === queuedFixItemId)?.instructions
       : undefined;
     const instructions = { ...emptyAbilityFixInstructions(), ...queued };
 
@@ -337,7 +331,7 @@ export function AbilityCard ({ isBusy = false, isAiUpdated = false, isQueuedForF
     setFixInstructions(instructions);
     setShowDetailedFixForm(false);
     setIsFixDialogOpen(true);
-  }, [isQueuedForFix, record, visualIssues]);
+  }, [isQueuedForFix, queuedFixItemId, record, visualIssues]);
 
   const scheduleFix = useCallback(async (): Promise<void> => {
     if (!onQueueFix) return;
@@ -352,6 +346,18 @@ export function AbilityCard ({ isBusy = false, isAiUpdated = false, isQueuedForF
     }
   }, [fixInstructions, onError, onQueueFix, record]);
 
+  const cancelFix = useCallback(async (): Promise<void> => {
+    if (!queuedFixItemId || !onCancelFix) return;
+    setIsCancellingFix(true);
+    try {
+      await onCancelFix(queuedFixItemId);
+    } catch (error) {
+      onError(error instanceof Error ? error.message : 'Unable to cancel the scheduled Ability correction.');
+    } finally {
+      setIsCancellingFix(false);
+    }
+  }, [onCancelFix, onError, queuedFixItemId]);
+
   const split = useCallback((): void => {
     try {
       onSplit(record);
@@ -360,14 +366,15 @@ export function AbilityCard ({ isBusy = false, isAiUpdated = false, isQueuedForF
     }
   }, [onError, onSplit, record]);
 
-  const isProcessing = isScheduling;
+  const isProcessing = isScheduling || isCancellingFix;
   const hasLinkedConcept = /-concept-\d+$/.test(record.moduleId);
 
-  return <article aria-busy={isProcessing} className={`contentCard abilityCard${isQueuedForFix ? ' abilityCardQueuedForFix' : ''}${isAiUpdated ? ' abilityCardAiUpdated' : ''}${record.ability?.q.length === 1 ? ' abilityCardSingleExercise' : ''}`} tabIndex={-1}>
+  return <article aria-busy={isProcessing} className={`contentCard abilityCard${isQueuedForFix ? ' abilityCardQueuedForFix' : ''}${record.ability?.q.length === 1 ? ' abilityCardSingleExercise' : ''}`} tabIndex={-1}>
     <div className='contentCardActions'>
       <ItemActionsMenu
         actions={[
           { label: isQueuedForFix ? 'Edit scheduled Fix Ability' : 'Fix Ability', isDisabled: !onQueueFix || isBusy || isProcessing || isSaving, onClick: () => { void openFix().catch((error: unknown) => onError(error instanceof Error ? error.message : String(error))); } },
+          ...(isQueuedForFix ? [{ label: 'Cancel fixing', isDisabled: !onCancelFix || isBusy || isProcessing || isSaving, onClick: () => { void cancelFix(); } }] : []),
           { label: isQueuedForSplit ? 'Remove from split queue' : 'Split', isDisabled: !hasLinkedConcept || isBusy || isProcessing || isSaving || isEditing, onClick: split },
           { label: 'Edit', isDisabled: isBusy || isProcessing, onClick: openEdit },
           { label: 'Delete', isDestructive: true, isDisabled: isBusy || isProcessing || isSaving, onClick: remove }
@@ -392,7 +399,7 @@ export function AbilityCard ({ isBusy = false, isAiUpdated = false, isQueuedForF
         <strong>Invalid Ability JSON</strong>
         <p>This record can be repaired with Fix abilities.</p>
       </>}
-    {isProcessing && <FixingOverlay label='Scheduling Ability correction' />}
+    {isProcessing && <FixingOverlay label={isCancellingFix ? 'Cancelling scheduled correction' : 'Scheduling Ability correction'} />}
     {isFixDialogOpen && <Modal
       header='Fix Ability'
       onClose={() => { if (!isScheduling) setIsFixDialogOpen(false); }}
