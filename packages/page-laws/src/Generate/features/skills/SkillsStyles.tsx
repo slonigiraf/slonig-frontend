@@ -654,9 +654,7 @@ export const StyledSkills = styled.div`
   /* The larger review text must leave room for the edit control inside each exercise. */
   .abilityReviewContent .abilityCard .abilityExerciseEditable .exercise-header { padding-right: 3.25rem; }
   .abilityReviewContent .abilityCard .abilityAnswer { margin-top: 0.35rem; padding: 0.45rem; }
-  .abilityReviewContent .abilityConceptParent,
-  .abilityReviewContent .abilityCard .abilityReviewedIndicator { font-size: 1.7rem; }
-  .abilityReviewContent .abilityCard .abilityReviewedIndicator { margin-top: 0.2rem; }
+  .abilityReviewContent .abilityConceptParent { font-size: 1.7rem; }
   .abilityReviewPending { font-size: 1.64rem; margin: 0 auto 0.35rem; max-width: 100%; width: 60vw; }
   .abilityReviewDone { text-align: center; padding: 3rem 1rem; }
   /* Keep the spinner and its Loading label centered in the whole viewport,

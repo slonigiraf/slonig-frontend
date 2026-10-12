@@ -133,6 +133,31 @@ export default function AbilityReviewMode ({ chapters, hasLoadError, isBusy, isL
   const queuedFixId = current && queuedItems.find((item) => item.kind === 'fix' && item.recordId === current.record.id)?.id;
   const queuedSplit = current && queuedItems.some((item) => item.kind === 'split' && item.conceptId === current.concept?.id);
 
+  // Space reviews an unreviewed Ability, or moves one step forward when the
+  // current Ability is already reviewed. Leave typing and native controls alone.
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent): void => {
+      if (event.key !== ' ' || event.repeat || event.isComposing || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey ||
+          !current || isLoading || hasLoadError || saving || document.querySelector('.ui--Modal')) return;
+
+      const target = event.target;
+      if (target instanceof Element && target.closest('input, textarea, select, button, a, [role="button"], [role="textbox"], [contenteditable="true"], [contenteditable=""]')) return;
+
+      if (isCurrentReviewed) {
+        event.preventDefault();
+        skip();
+        return;
+      }
+
+      if (isBusy || queuedFixId || queuedSplit) return;
+      event.preventDefault();
+      void markReviewed();
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [current, hasLoadError, isBusy, isCurrentReviewed, isLoading, markReviewed, queuedFixId, queuedSplit, saving, skip]);
+
   // Keep all question/answer visuals at the same height, but don't expand a
   // simple exercise with only one visual into an almost full-screen blank card.
   // More image-heavy Abilities may still use the full available review area.
@@ -200,7 +225,14 @@ export default function AbilityReviewMode ({ chapters, hasLoadError, isBusy, isL
         {!isLoading && !hasLoadError && current && <span className='abilityReviewLocation' title={current.chapter.title}>Chapter {current.chapterIndex + 1}/{chapters.length}: {current.chapter.title}</span>}
       </div>
       <div className='abilityReviewActions'>
-        <Button icon='arrow-left' isDisabled={saving || isLoading || hasLoadError || historyIndex === 0} label='Back' onClick={() => setHistoryIndex((previous) => Math.max(0, previous - 1))} />
+        <Button className='abilityReviewBackButton' icon='arrow-left' isDisabled={saving || isLoading || hasLoadError || historyIndex === 0} label='Back' onClick={() => {
+          setHistoryIndex((previous) => Math.max(0, previous - 1));
+          // A clicked button keeps keyboard focus. Without blurring it, the
+          // next Space press clicks Back again instead of reviewing/advancing.
+          if (document.activeElement instanceof HTMLButtonElement && document.activeElement.classList.contains('abilityReviewBackButton')) {
+            document.activeElement.blur();
+          }
+        }} />
         {!isLoading && !hasLoadError && current && <>
           <Button icon='arrow-right' isDisabled={saving} label={isCurrentReviewed ? 'Next' : 'Skip for now'} onClick={skip} />
           <Button icon='check' isDisabled={saving || isBusy || isCurrentReviewed || Boolean(queuedFixId) || Boolean(queuedSplit)} label={saving ? 'Saving…' : 'Reviewed'} onClick={() => { void markReviewed(); }} />
@@ -222,6 +254,7 @@ export default function AbilityReviewMode ({ chapters, hasLoadError, isBusy, isL
         {(queuedFixId || queuedSplit) && <p className='abilityReviewPending'>This Ability has a pending AI job. Review it after the job finishes, or skip it for now.</p>}
         <AbilityConceptCard concept={current.concept} isSingleExercise={current.record.ability?.q.length === 1}>
           <AbilityCard
+            hideReviewedIndicator
             isBusy={isBusy || saving}
             queuedFixItemId={queuedFixId}
             isQueuedForSplit={Boolean(queuedSplit)}

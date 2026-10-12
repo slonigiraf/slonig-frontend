@@ -186,7 +186,7 @@ function cloneAbility (ability: GeneratedAbility): GeneratedAbility {
   return { ...ability, q: ability.q.map((exercise) => ({ ...exercise })) };
 }
 
-export function AbilityCard ({ isBusy = false, queuedFixItemId, isQueuedForSplit = false, onDeleted, onError, onQueueFix, onCancelFix, onSplit, record, visualIssues }: { isBusy?: boolean; queuedFixItemId?: string; isQueuedForSplit?: boolean; onDeleted: () => void; onError: (message: string) => void; onQueueFix?: (record: StoredAbility, instructions: AbilityFixInstructions) => Promise<void>; onCancelFix?: (itemId: string) => Promise<void>; onSplit: (record: StoredAbility) => void; record: StoredAbility; visualIssues?: Record<string, string[]> }): React.ReactElement {
+export function AbilityCard ({ hideReviewedIndicator = false, isBusy = false, queuedFixItemId, isQueuedForSplit = false, onDeleted, onError, onQueueFix, onCancelFix, onSplit, record, visualIssues }: { hideReviewedIndicator?: boolean; isBusy?: boolean; queuedFixItemId?: string; isQueuedForSplit?: boolean; onDeleted: () => void; onError: (message: string) => void; onQueueFix?: (record: StoredAbility, instructions: AbilityFixInstructions) => Promise<void>; onCancelFix?: (itemId: string) => Promise<void>; onSplit: (record: StoredAbility) => void; record: StoredAbility; visualIssues?: Record<string, string[]> }): React.ReactElement {
   const [isFixDialogOpen, setIsFixDialogOpen] = useState(false);
   const [showDetailedFixForm, setShowDetailedFixForm] = useState(false);
   const [fixInstructions, setFixInstructions] = useState<AbilityFixInstructions>(emptyAbilityFixInstructions);
@@ -393,7 +393,7 @@ export function AbilityCard ({ isBusy = false, queuedFixItemId, isQueuedForSplit
         <strong>Invalid Ability JSON</strong>
         <p>This record can be repaired with Fix abilities.</p>
       </>}
-    {record.reviewed && <div className='abilityReviewedIndicator' aria-label='Ability reviewed'>✓ Reviewed</div>}
+    {!hideReviewedIndicator && record.reviewed && <div className='abilityReviewedIndicator' aria-label='Ability reviewed'>✓ Reviewed</div>}
     {isProcessing && <FixingOverlay label={isCancellingFix ? 'Cancelling scheduled correction' : 'Scheduling Ability correction'} />}
     {isFixDialogOpen && <Modal
       header='Fix Ability'
