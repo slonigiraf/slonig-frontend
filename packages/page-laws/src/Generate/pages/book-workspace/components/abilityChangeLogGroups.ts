@@ -13,14 +13,16 @@ export interface AbilityChangeGroup {
 export function groupAbilityChanges (entries: readonly BookAbilityChangeLogEntry[]): AbilityChangeGroup[] {
   const byAbility = new Map<string, AbilityChangeGroup>();
 
-  // Include AI-fixed and AI-split Abilities, but never manually edited ones.
-  for (const entry of entries.filter(({ source }) => source === 'ai').sort((a, b) => b.updatedAt - a.updatedAt)) {
-    const group = byAbility.get(entry.recordId);
+  // The database resolves older content-hashed IDs to the current Ability
+  // before grouping. Keep separate Abilities under the same Concept distinct.
+  for (const entry of entries.filter(({ source }) => source === 'ai').sort((a, b) => b.updatedAt - a.updatedAt || (b.id ?? 0) - (a.id ?? 0))) {
+    const key = entry.recordId;
+    const group = byAbility.get(key);
 
     if (group) {
       if (entry.id !== undefined) group.entryIds.push(entry.id);
     } else {
-      byAbility.set(entry.recordId, {
+      byAbility.set(key, {
         entryIds: entry.id === undefined ? [] : [entry.id],
         latest: entry
       });

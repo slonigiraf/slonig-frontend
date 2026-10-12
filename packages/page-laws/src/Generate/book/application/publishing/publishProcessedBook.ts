@@ -8,7 +8,7 @@ import type { DispatchError } from '@polkadot/types/interfaces';
 import type { Book, BookChapter } from '@slonigiraf/db';
 import type { GeneratedAbility, PreparedAbilityForPublishing } from '../../../../abilities/abilities.js';
 
-import { deleteAbility, putBookChapter, storeAbility, updateBookFields } from '@slonigiraf/db';
+import { putBookChapter, replaceAbility, updateBookFields } from '@slonigiraf/db';
 import { LawType } from '@slonigiraf/slonig-components';
 import BN from 'bn.js';
 
@@ -364,15 +364,14 @@ export async function publishProcessedBook ({ api, bookId, courseName, coursePri
       const didLocalTemplateChange = JSON.stringify(localAbility) !== JSON.stringify(row.template);
       let recordId = row.recordId;
 
-      // Persist only the local representation. storeAbility moves q[].p/q[].i
+      // Persist only the local representation. replaceAbility moves q[].p/q[].i
       // visual payloads into Image rows and leaves image ids in the stored
       // Ability. The IPFS CID substitutions in publishAbility exist only for
       // this final publishing operation.
       if (didLocalTemplateChange) {
-        const newRecordId = await storeAbility(row.moduleId, JSON.stringify(localAbility), row.displayOrder);
+        const newRecordId = await replaceAbility(row.recordId, JSON.stringify(localAbility));
 
         if (newRecordId !== row.recordId) {
-          await deleteAbility(row.recordId);
           templateRecordChanges.set(row.recordId, newRecordId);
           recordId = newRecordId;
         }

@@ -6,7 +6,7 @@ import type { GeneratedAbility } from '../../../abilities/abilities.js';
 import type { AbilityWorkflowJsonRunner } from '../../book/domain/abilities/abilityWorkflow.js';
 import type { AiAction, ChapterContent, DuplicateAbilityReview, FixedImageReview, FixReviewResult, ImageFixReviewResult, UnresolvedImageReview, PipelineAction, SkillSource, SkillsProps, SkillsView } from './SkillsTypes.js';
 
-import { ABILITY_FIX_FIELDS, abilityFixHasTextChanges, effectiveAbilityFixInstructions, addBookAbilityChangeLog, getBookAbilityWorkQueue, updateBookAbilityFixRecordId, addBookStageSpend, completeBookProcessingStage, createBookConcept, ensureAbilityAnswerImage, deleteAbilities, deleteAbility, deleteBookConcept, getAbilities, getBookChapters, getBookCompletedStages, getBookConceptsForBookPage, getBookPages, getSetting, getSkillsForChapter, getImage, getBookVisualQaSummary, hydrateAbilityContent, isBookProcessingStageSatisfied, putImage, replaceBookConceptWithChildren, relinkBookAbilityChangeLogRecord, setTikzImageQaState, tikzSourceVersion, replaceAbilities, replaceSkillsForChapter, resetBookProcessingStagesFrom, SettingKey, storeAbility } from '@slonigiraf/db';
+import { ABILITY_FIX_FIELDS, abilityFixHasTextChanges, effectiveAbilityFixInstructions, addBookAbilityChangeLog, getBookAbilityWorkQueue, addBookStageSpend, completeBookProcessingStage, createBookConcept, ensureAbilityAnswerImage, deleteAbilities, deleteAbility, deleteBookConcept, getAbilities, getBookChapters, getBookCompletedStages, getBookConceptsForBookPage, getBookPages, getSetting, getSkillsForChapter, getImage, getBookVisualQaSummary, hydrateAbilityContent, isBookProcessingStageSatisfied, putImage, replaceBookConceptWithChildren, setTikzImageQaState, tikzSourceVersion, replaceAbility, replaceAbilities, replaceSkillsForChapter, resetBookProcessingStagesFrom, SettingKey } from '@slonigiraf/db';
 import OpenAI from 'openai';
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 
@@ -1107,16 +1107,13 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
       const corrected = await requestValidatedJson(
         client, effectiveModel,
         'You are an expert educational Ability editor. Return only one JSON Ability object of the same schema; do not return markdown. Preserve everything not requested.',
-        `Regenerate this Ability using the correction instructions. It must retain t:3, i, h and exactly two exercises in q. Each exercise has h, a, p, i, pPrompt and iPrompt as applicable. Preserve original image source and any fields not requested to change. Do not embed image source code in fields that previously held plain image prompts. Keep any existing image content consistent with rewritten questions and answers. The output MUST make a visible change to every specifically requested text field. ${regenerateExercises ? 'The instruction is to regenerate the whole Ability: write TWO substantially new exercises (new questions with correct matching answers), not paraphrases or copies. Both exercises MUST be different from their originals. Preserve the Concept-aligned title and existing image sources.' : ''} Follow ONLY the instructions below.\nBook language: ${language}\nLearner age: ${book.age ?? 'unspecified'}\nOriginal Ability:\n${JSON.stringify(originalAbility)}\n${instructions.overall ? `Whole-Ability correction (takes priority over all field notes):\n${instructions.overall}` : instructions.regenerateExercises ? `No short-form comment was provided. Regenerate both exercises. Existing exercise errors or corrections (if any) to incorporate:\n${JSON.stringify(Object.fromEntries(ABILITY_FIX_FIELDS.filter(({ key }) => instructions[key].trim()).map(({ key }) => [key, instructions[key]])))}` : `Corrections by field:\n${JSON.stringify(Object.fromEntries(ABILITY_FIX_FIELDS.filter(({ image, key }) => !image && instructions[key].trim()).map(({ key }) => [key, instructions[key]])))}`}`,
+        `Regenerate this Ability using the correction instructions. It must retain t:3, i, h and exactly two exercises in q. Each exercise has h, a, p, i, pPrompt and iPrompt as applicable. Preserve original image source and any fields not requested to change. Do not embed image source code in fields that previously held plain image prompts. Keep any existing image content consistent with rewritten questions and answers. The output MUST make a visible change to every specifically requested text field. The two exercises must have DISTINCT questions (not copies or trivial rewordings of each other), with their own correct answers. ${regenerateExercises ? 'The instruction is to regenerate the whole Ability: write TWO substantially new exercises (new questions with correct matching answers), not paraphrases or copies. Both exercises MUST be different from their originals. Preserve the Concept-aligned title and existing image sources.' : ''} Follow ONLY the instructions below.\nBook language: ${language}\nLearner age: ${book.age ?? 'unspecified'}\nOriginal Ability:\n${JSON.stringify(originalAbility)}\n${instructions.overall ? `Whole-Ability correction (takes priority over all field notes):\n${instructions.overall}` : instructions.regenerateExercises ? `No short-form comment was provided. Regenerate both exercises. Existing exercise errors or corrections (if any) to incorporate:\n${JSON.stringify(Object.fromEntries(ABILITY_FIX_FIELDS.filter(({ key }) => instructions[key].trim()).map(({ key }) => [key, instructions[key]])))}` : `Corrections by field:\n${JSON.stringify(Object.fromEntries(ABILITY_FIX_FIELDS.filter(({ image, key }) => !image && instructions[key].trim()).map(({ key }) => [key, instructions[key]])))}`}`,
         (response) => assertAbilityFixResultChanged(originalAbility, parseStoredAbility(response), instructions), true, addFixAbilitiesCost, 3_200, undefined, 3, signal
       );
       if (signal.aborted) throw new Error('Ability correction cancelled.');
-      recordId = await storeAbility(moduleId, JSON.stringify(corrected), stored.displayOrder);
-      if (recordId !== stored.id) {
-        await deleteAbility(stored.id);
-        await relinkBookAbilityChangeLogRecord(book.id, stored.id, recordId);
-        await updateBookAbilityFixRecordId(book.id, item.id, recordId);
-      }
+      // One transaction replaces the old DB row and relinks logs/queued fixes.
+      // A repeat click can no longer leave two versions of this Ability stored.
+      recordId = await replaceAbility(stored.id, JSON.stringify(corrected));
       ability = corrected;
     }
 
@@ -1521,12 +1518,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
           continue;
         }
 
-        const newRecordId = await storeAbility(record.moduleId, JSON.stringify(ability), record.displayOrder);
-
-        if (newRecordId !== record.id) {
-          await deleteAbility(record.id);
-          await relinkBookAbilityChangeLogRecord(book.id, record.id, newRecordId);
-        }
+        const newRecordId = await replaceAbility(record.id, JSON.stringify(ability));
         const sourceId = /-concept-(\d+)$/.exec(record.moduleId);
         await addBookAbilityChangeLog({ bookId: book.id, conceptId: sourceId ? Number(sourceId[1]) : undefined,
           recordId: newRecordId, title: ability.h, source: 'ai', summary: 'AI corrected Ability content' });

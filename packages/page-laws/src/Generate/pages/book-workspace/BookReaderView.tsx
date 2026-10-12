@@ -26,6 +26,7 @@ import { StyledReader } from './BookReader.styles.js';
 import { ChapterTitleEditor, ConceptForm, ConceptItem, FixConceptsReviewContent } from './components/index.js';
 import AbilityChangeLogModal from './components/AbilityChangeLogModal.js';
 import { groupAbilityChanges } from './components/abilityChangeLogGroups.js';
+import { useBookReaderScrollRestoration } from './hooks/useBookReaderScrollRestoration.js';
 import { conceptDisplayPage, conceptReferenceKey } from '../../book/application/workspace/bookReaderWorkspace.js';
 import type { FixConceptsReviewChapter } from './BookReaderTypes.js';
 import type { ConceptEmbeddingHeatmapEntry, ReaderPane } from '../../shared/types/bookWorkspace.js';
@@ -218,6 +219,8 @@ export function BookReaderView ({ controller }: Props): React.ReactElement {
   } = controller;
 
   const { showInfo } = useInfo();
+  const readerRootRef = useRef<HTMLDivElement>(null);
+  useBookReaderScrollRestoration(readerRootRef, book.id, activePane, isMaximized);
   // Keep the owning book alongside the IDs: an old book's queue must never
   // appear while the new book's IndexedDB read is still pending.
   const [splitQueueState, setSplitQueueState] = useState<{ bookId: number; items: BookAbilityWorkItem[] }>();
@@ -929,7 +932,7 @@ export function BookReaderView ({ controller }: Props): React.ReactElement {
   };
 
   return (
-    <StyledReader className={`bookReader${isMaximized ? ' isMaximized' : ''}`}>
+    <StyledReader className={`bookReader${isMaximized ? ' isMaximized' : ''}`} ref={readerRootRef}>
       {editingChapter && <ChapterTitleEditor
         chapter={editingChapter}
         language={book.language}

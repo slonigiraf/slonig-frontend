@@ -17,6 +17,11 @@ function changed (before: string, after: string): boolean {
   return comparableText(before) !== comparableText(after);
 }
 
+/** AI fixes must not create two copies of one exercise in the same Ability. */
+function comparableQuestion (text: string): string {
+  return comparableText(text).toLocaleLowerCase().replace(/[.!?]+$/g, '');
+}
+
 /**
  * Validate the AI's *visible* change before writing a content-addressed Ability.
  * A well-formed but unchanged response used to be treated as a successful fix,
@@ -29,6 +34,11 @@ export function assertAbilityFixResultChanged (
   instructions: AbilityFixInstructions
 ): GeneratedAbility {
   const note = instructions.overall?.trim();
+
+  if (candidate.q.length !== 2 || !candidate.q.every(({ h }) => h.trim()) ||
+      comparableQuestion(candidate.q[0].h) === comparableQuestion(candidate.q[1].h)) {
+    throw new Error('The two exercises in this Ability must have different, non-empty questions. Rewrite the duplicated exercise with a distinct question and matching answer.');
+  }
 
   const regenerateExercises = Boolean(instructions.regenerateExercises) || (note ? isWholeAbilityRegenerationRequest(note) : false);
 

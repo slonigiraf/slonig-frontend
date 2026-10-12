@@ -78,6 +78,17 @@ describe('scheduled Fix Ability result validation', (): void => {
     assert.equal(assertAbilityFixResultChanged(original, corrected, notes('Regenerate')), corrected);
   });
 
+  it('rejects duplicated exercises returned by AI even if both differ from the originals', (): void => {
+    const corrected = structuredClone(original);
+    corrected.q[0].h = 'What is 8 + 6?';
+    corrected.q[0].a = '14';
+    corrected.q[1].h = '  what  is 8 + 6?!  ';
+    corrected.q[1].a = '14';
+
+    assert.throws(() => assertAbilityFixResultChanged(original, corrected, notes('Regenerate')), /different, non-empty questions/);
+    assert.throws(() => assertAbilityFixResultChanged(original, corrected, { ...notes(), regenerateExercises: true }), /duplicated exercise/);
+  });
+
   it('rejects whitespace-only changes for general feedback', (): void => {
     const same = structuredClone(original);
     same.q[0].h = ' What is 2  + 3?  ';

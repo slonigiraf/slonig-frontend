@@ -2220,6 +2220,55 @@ export async function storeAbility(moduleId: string, content: string, displayOrd
     });
 }
 
+/** Atomically replace one existing Ability rather than temporarily inserting a second
+ * content-addressed row. A failed or stale save must never leave two versions
+ * under the same Concept. Keep other, genuinely distinct Abilities untouched. */
+export async function replaceAbility(oldRecordId: string, content: string): Promise<string> {
+    return db.transaction('rw', db.abilities, db.images, db.bookConcepts, db.bookPages,
+        db.bookAbilityChangeLog, db.bookAbilityWorkQueues, async () => {
+        const previous = await db.abilities.get(oldRecordId);
+        if (!previous) {
+            throw new Error('This Ability has already been changed or deleted. Reload before saving again.');
+        }
+
+        const nextId = blake2AsHex(content);
+        const existing = await db.abilities.get(nextId);
+        if (existing && existing.moduleId !== previous.moduleId) {
+            throw new Error('The generated Ability conflicts with an Ability belonging to another Concept.');
+        }
+
+        // Normalize image references within the same transaction. If image
+        // normalization fails, both the old Ability and its images survive.
+        const normalizedContent = await normalizeAbilityImages(content, db.images);
+        await db.abilities.put({ ...previous, id: nextId, content: normalizedContent });
+
+        if (nextId !== oldRecordId) {
+            await db.abilities.delete(oldRecordId);
+            const concept = CONCEPT_ABILITY_MODULE.exec(previous.moduleId);
+
+            if (concept) {
+                const bookId = Number(concept[1]);
+                const changes = await db.bookAbilityChangeLog.where('bookId').equals(bookId)
+                    .filter(({ recordId }) => recordId === oldRecordId).toArray();
+                if (changes.length) {
+                    await db.bookAbilityChangeLog.bulkPut(changes.map((entry) => ({ ...entry, recordId: nextId })));
+                }
+
+                const queue = await db.bookAbilityWorkQueues.get(bookId);
+                if (queue?.items.some((item) => item.kind === 'fix' && item.recordId === oldRecordId)) {
+                    await db.bookAbilityWorkQueues.put({ ...queue, items: queue.items.map((item) =>
+                        item.kind === 'fix' && item.recordId === oldRecordId
+                            ? { ...item, recordId: nextId }
+                            : item) });
+                }
+            }
+        }
+
+        await deleteUnreferencedAbilityImages(abilityImageIds(previous.content));
+        return nextId;
+    });
+}
+
 export async function updateAbilityDisplayOrder(id: string, displayOrder: number): Promise<Ability | undefined> {
     validateDisplayOrderIndex(displayOrder, 'Ability');
 
@@ -3552,13 +3601,45 @@ export async function relinkBookAbilityChangeLogRecord(bookId: number, oldRecord
 
 /** Show unreviewed AI changes (both fixes and generated splits), excluding manual edits. */
 export async function getBookAbilityChangeLog(bookId: number): Promise<BookAbilityChangeLogEntry[]> {
-    return (await db.bookAbilityChangeLog.where('bookId').equals(bookId).toArray())
+    const entries = (await db.bookAbilityChangeLog.where('bookId').equals(bookId).toArray())
         .filter(({ source }) => source === 'ai')
-        .sort((a, b) => b.updatedAt - a.updatedAt);
+        .sort((a, b) => b.updatedAt - a.updatedAt || (b.id ?? 0) - (a.id ?? 0));
+    const currentRecords = new Map<number, Promise<Ability[]>>();
+
+    // Reconcile history written before record-ID relinking existed. Only resolve
+    // by Concept when there is ONE live Ability; multiple records must not be
+    // accidentally merged into one change-log card.
+    return Promise.all(entries.map(async (entry) => {
+        if (entry.conceptId === undefined) return entry;
+        let records = currentRecords.get(entry.conceptId);
+        if (!records) {
+            records = getAbilities(`book-${bookId}-concept-${entry.conceptId}`);
+            currentRecords.set(entry.conceptId, records);
+        }
+        const abilities = await records;
+
+        return abilities.length === 1 ? { ...entry, recordId: abilities[0].id } : entry;
+    }));
 }
 
 export async function addBookAbilityChangeLog(entry: Omit<BookAbilityChangeLogEntry, 'id' | 'updatedAt'>): Promise<number> {
-    return db.bookAbilityChangeLog.add({ ...entry, updatedAt: Date.now() });
+    return db.transaction('rw', db.bookAbilityChangeLog, db.abilities, async () => {
+        if (entry.source === 'ai') {
+            // A regenerated Ability is content-addressed and therefore has a new ID.
+            // Keep only the latest AI change for this logical Ability, including
+            // across ID changes. Multiple Abilities under one Concept remain distinct.
+            const oneAbilityForConcept = entry.conceptId !== undefined &&
+                await db.abilities.where('moduleId').equals(`book-${entry.bookId}-concept-${entry.conceptId}`).count() === 1;
+            const previous = await db.bookAbilityChangeLog.where('bookId').equals(entry.bookId)
+                .filter((item) => item.source === 'ai' && (item.recordId === entry.recordId ||
+                    (oneAbilityForConcept && item.conceptId === entry.conceptId)))
+                .primaryKeys() as number[];
+
+            if (previous.length) await db.bookAbilityChangeLog.bulkDelete(previous);
+        }
+
+        return db.bookAbilityChangeLog.add({ ...entry, updatedAt: Date.now() });
+    });
 }
 
 export async function reviewBookAbilityChangeLogEntry(bookId: number, entryId: number): Promise<void> {

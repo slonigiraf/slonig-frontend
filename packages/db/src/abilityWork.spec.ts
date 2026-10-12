@@ -6,7 +6,9 @@ import { describe, it } from 'node:test';
 import { Dexie } from 'dexie';
 import { IDBKeyRange, indexedDB } from 'fake-indexeddb';
 
-import { ABILITY_FIX_FIELDS, abilityFixHasChanges, abilityFixHasTextChanges, effectiveAbilityFixInstructions, addBookAbilityChangeLog, emptyAbilityFixInstructions, getBookAbilityChangeLog, getBookAbilityWorkQueue, removeBookAbilityWorkItem, relinkBookAbilityChangeLogRecord, reviewBookAbilityChangeLogEntry, scheduleBookAbilityFix, toggleBookAbilitySplitWorkItem } from './index.js';
+import { db } from './db/index.js';
+
+import { ABILITY_FIX_FIELDS, abilityFixHasChanges, abilityFixHasTextChanges, effectiveAbilityFixInstructions, addBookAbilityChangeLog, emptyAbilityFixInstructions, getBookAbilityChangeLog, getBookAbilityWorkQueue, getAbilities, removeBookAbilityWorkItem, relinkBookAbilityChangeLogRecord, replaceAbility, storeAbility, deleteAbility, reviewBookAbilityChangeLogEntry, scheduleBookAbilityFix, toggleBookAbilitySplitWorkItem } from './index.js';
 
 Dexie.dependencies.indexedDB = indexedDB;
 Dexie.dependencies.IDBKeyRange = IDBKeyRange;
@@ -73,6 +75,88 @@ describe('Persistent Ability work and change history', (): void => {
     assert.deepEqual((await getBookAbilityChangeLog(bookId)).map(({ recordId }) => recordId), ['new']);
     assert.equal((await getBookAbilityChangeLog(otherBook))[0].recordId, 'old');
     await relinkBookAbilityChangeLogRecord(bookId, 'new', 'new');
+  });
+
+  it('atomically replaces an AI-fixed Ability instead of appending a second DB record', async (): Promise<void> => {
+    const bookId = Date.now() + 55000;
+    const conceptId = bookId + 1;
+    const moduleId = `book-${bookId}-concept-${conceptId}`;
+    const ability = (first: string, second: string): string => JSON.stringify({
+      t: 3, h: 'Addition', i: '', q: [{ h: first, a: '5', p: null, i: null }, { h: second, a: '9', p: null, i: null }]
+    });
+    const originalId = await storeAbility(moduleId, ability('2 + 3', '4 + 5'), 7);
+    const initialLogId = await addBookAbilityChangeLog({ bookId, conceptId, recordId: originalId,
+      title: 'Addition', source: 'ai', summary: 'First fix' });
+    await scheduleBookAbilityFix(bookId, conceptId, originalId, emptyAbilityFixInstructions());
+
+    const firstId = await replaceAbility(originalId, ability('6 + 7', '8 + 9'));
+    assert.notEqual(firstId, originalId);
+    assert.deepEqual((await getAbilities(moduleId)).map(({ id }) => id), [firstId]);
+    assert.equal((await getAbilities(moduleId))[0].displayOrder, 7);
+    assert.equal((await getBookAbilityChangeLog(bookId))[0].recordId, firstId);
+    assert.equal((await getBookAbilityWorkQueue(bookId))[0].recordId, firstId);
+    assert.equal((await db.bookAbilityChangeLog.get(initialLogId))?.recordId, firstId);
+
+    const secondId = await replaceAbility(firstId, ability('10 + 11', '12 + 13'));
+    assert.deepEqual((await getAbilities(moduleId)).map(({ id }) => id), [secondId],
+      'repeating Fix with AI should keep only one version in IndexedDB');
+    assert.equal((await getBookAbilityWorkQueue(bookId))[0].recordId, secondId);
+    assert.equal((await getBookAbilityChangeLog(bookId))[0].recordId, secondId);
+
+    await assert.rejects(replaceAbility(firstId, ability('100 + 1', '200 + 2')), /already been changed/);
+    assert.deepEqual((await getAbilities(moduleId)).map(({ id }) => id), [secondId],
+      'stale concurrent saves must not insert orphan Ability records');
+  });
+
+  it('keeps unrelated Abilities under a Concept and rolls back conflicts with other Concepts', async (): Promise<void> => {
+    const bookId = Date.now() + 65000;
+    const moduleId = `book-${bookId}-concept-${bookId + 1}`;
+    const otherModuleId = `book-${bookId}-concept-${bookId + 2}`;
+    const originalContent = JSON.stringify({ t: 3, h: 'A', i: '', q: [{ h: '2 + 3', a: '5' }, { h: '4 + 5', a: '9' }] });
+    const otherContent = JSON.stringify({ t: 3, h: 'B', i: '', q: [{ h: '2 × 3', a: '6' }, { h: '4 × 5', a: '20' }] });
+    const replacementContent = JSON.stringify({ t: 3, h: 'A', i: '', q: [{ h: '6 + 7', a: '13' }, { h: '8 + 9', a: '17' }] });
+    const oldId = await storeAbility(moduleId, originalContent);
+    const siblingId = await storeAbility(moduleId, otherContent);
+    const foreignContent = JSON.stringify({ t: 3, h: 'C', i: '', q: [{ h: '10', a: '10' }, { h: '20', a: '20' }] });
+    const foreignId = await storeAbility(otherModuleId, foreignContent);
+
+    await assert.rejects(replaceAbility(oldId, foreignContent), /another Concept/);
+    assert.deepEqual(new Set((await getAbilities(moduleId)).map(({ id }) => id)), new Set([oldId, siblingId]));
+    assert.equal((await getAbilities(otherModuleId))[0].id, foreignId);
+
+    const newId = await replaceAbility(oldId, replacementContent);
+    assert.deepEqual(new Set((await getAbilities(moduleId)).map(({ id }) => id)), new Set([newId, siblingId]));
+  });
+
+  it('replaces the previous AI log when the same Concept Ability is regenerated', async (): Promise<void> => {
+    const bookId = Date.now() + 19000;
+    const conceptId = bookId + 100;
+    const moduleId = `book-${bookId}-concept-${conceptId}`;
+    const oldId = await storeAbility(moduleId, JSON.stringify({ t: 3, h: 'Addition', i: '', q: [{ h: '2 + 3', a: '5' }, { h: '4 + 5', a: '9' }] }));
+    await addBookAbilityChangeLog({ bookId, conceptId, recordId: oldId, title: 'Addition', source: 'ai', summary: 'First fix' });
+    const newId = await storeAbility(moduleId, JSON.stringify({ t: 3, h: 'Addition', i: '', q: [{ h: '6 + 7', a: '13' }, { h: '8 + 9', a: '17' }] }));
+    await deleteAbility(oldId);
+    // Simulate a historical edit whose old log was not relinked.
+    await addBookAbilityChangeLog({ bookId, conceptId, recordId: newId, title: 'Addition', source: 'ai', summary: 'Second fix' });
+    const entries = await getBookAbilityChangeLog(bookId);
+
+    assert.equal(entries.length, 1);
+    assert.equal(entries[0].recordId, newId);
+    assert.equal(entries[0].summary, 'Second fix');
+  });
+
+  it('resolves legacy Ability IDs without merging distinct Abilities under one Concept', async (): Promise<void> => {
+    const bookId = Date.now() + 29000;
+    const conceptId = bookId + 100;
+    const moduleId = `book-${bookId}-concept-${conceptId}`;
+    const currentId = await storeAbility(moduleId, JSON.stringify({ t: 3, h: 'Fractions', i: '', q: [{ h: '1/2 + 1/2', a: '1' }, { h: '1/4 + 1/4', a: '1/2' }] }));
+    await db.bookAbilityChangeLog.add({ bookId, conceptId, recordId: 'stale-old-hash', title: 'Fractions', source: 'ai', summary: 'Old', updatedAt: 10 });
+    await db.bookAbilityChangeLog.add({ bookId, conceptId, recordId: currentId, title: 'Fractions', source: 'ai', summary: 'New', updatedAt: 20 });
+    assert.deepEqual((await getBookAbilityChangeLog(bookId)).map(({ recordId }) => recordId), [currentId, currentId]);
+
+    const otherId = await storeAbility(moduleId, JSON.stringify({ t: 3, h: 'Fractions 2', i: '', q: [{ h: '1/3 + 1/3', a: '2/3' }, { h: '1/5 + 1/5', a: '2/5' }] }));
+    assert.notEqual(currentId, otherId);
+    assert.deepEqual((await getBookAbilityChangeLog(bookId)).map(({ recordId }) => recordId), [currentId, 'stale-old-hash']);
   });
 
   it('shows unreviewed AI fixes and AI splits, but excludes legacy manual edits', async (): Promise<void> => {

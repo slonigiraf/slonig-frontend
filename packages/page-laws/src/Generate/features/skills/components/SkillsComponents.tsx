@@ -6,7 +6,7 @@ import type { AbilityFixInstructions, BookChapter, Skill } from '@slonigiraf/db'
 import type { GeneratedAbility } from '../../../../abilities/abilities.js';
 import type { StoredAbility } from '../../../book/application/abilities/abilityProcessing.js';
 
-import { ABILITY_FIX_FIELDS, emptyAbilityFixInstructions, effectiveAbilityFixInstructions, deleteAbilities, deleteAbility, deleteAbilityWithConcept, deleteSkill, getBookAbilityWorkQueue, getImage, putImage, relinkBookAbilityChangeLogRecord, storeAbility, updateBookChapterTitle } from '@slonigiraf/db';
+import { ABILITY_FIX_FIELDS, emptyAbilityFixInstructions, effectiveAbilityFixInstructions, deleteAbilities, deleteAbilityWithConcept, deleteSkill, getBookAbilityWorkQueue, getImage, putImage, replaceAbility, updateBookChapterTitle } from '@slonigiraf/db';
 import { SpanWithTags } from '@slonigiraf/slonig-components';
 import React, { useCallback, useState } from 'react';
 
@@ -203,13 +203,7 @@ export function AbilityCard ({ isBusy = false, queuedFixItemId, isQueuedForSplit
   }, [onDeleted, onError, record.id]);
   const persistAbility = useCallback(async (ability: GeneratedAbility): Promise<void> => {
     const validated = parseStoredAbility(JSON.stringify(ability));
-    const newRecordId = await storeAbility(record.moduleId, JSON.stringify(validated), record.displayOrder);
-
-    if (newRecordId !== record.id) {
-      await deleteAbility(record.id);
-      const match = /^book-(\d+)-concept-\d+$/.exec(record.moduleId);
-      if (match) await relinkBookAbilityChangeLogRecord(Number(match[1]), record.id, newRecordId);
-    }
+    await replaceAbility(record.id, JSON.stringify(validated));
 
     // Manual edits do not enter the AI-fix log. Still relink any earlier AI
     // correction when the edited Ability receives a new content-based ID.
