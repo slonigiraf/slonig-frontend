@@ -23,14 +23,14 @@ interface Props {
   className?: string;
 }
 
-function checkVisible({ api, isApiConnected, isApiReady, isDevelopment: isApiDevelopment }: ApiProps, allowTeleport: boolean, hasAccounts: boolean, hasSudo: boolean, { isDevelopment, isHidden, needsAccounts, needsApi, needsApiCheck, needsApiInstances, needsSudo, needsTeleport }: Route['display']): boolean {
+function checkVisible({ api, isApiReady, isDevelopment: isApiDevelopment }: ApiProps, allowTeleport: boolean, hasAccounts: boolean, hasSudo: boolean, { isDevelopment, isHidden, needsAccounts, needsApi, needsApiCheck, needsApiInstances, needsSudo, needsTeleport }: Route['display']): boolean {
   if (isHidden) {
     return false;
   } else if (needsAccounts && !hasAccounts) {
     return false;
   } else if (!needsApi) {
     return true;
-  } else if (!isApiReady || !isApiConnected) {
+  } else if (!isApiReady) {
     return false;
   } else if (needsSudo && !hasSudo) {
     return false;

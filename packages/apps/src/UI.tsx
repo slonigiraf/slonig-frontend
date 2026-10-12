@@ -27,9 +27,9 @@ import AskToReload from './AskToReload.js';
 
 function UI({ className = '' }: Props): React.ReactElement<Props> {
   const { isLoginReady, isLoggedIn, currentPair, setLoginIsRequired, onCreateAccount } = useLoginContext();
-  const { isApiReady, isWaitingInjected } = useApi();
+  const { isApiConnected, isApiReady, isWaitingInjected } = useApi();
   const { isIpfsReady } = useIpfsContext();
-  const connected = isLoginReady && isIpfsReady && isApiReady && !isWaitingInjected
+  const connected = isLoginReady && isIpfsReady && isApiReady && isApiConnected && !isWaitingInjected;
   // Transient readiness changes must not unmount the Book processing adapters.
   // The standalone BookProcessingManager owns the run, but these mounted views
   // still provide the current per-stage handlers and progress snapshots.
@@ -228,7 +228,7 @@ function UI({ className = '' }: Props): React.ReactElement<Props> {
     </StyledDiv>}
     {!connected && <CenterItems $overlay={hasConnectedOnce} role='status'>
       <div className='connecting'>
-        <Spinner label={t('Loading')} />
+        <Spinner label={hasConnectedOnce && !isApiConnected ? t('Reconnecting to blockchain') : t('Loading')} />
       </div>
     </CenterItems>}
     </>

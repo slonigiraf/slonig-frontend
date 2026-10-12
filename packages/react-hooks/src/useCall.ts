@@ -48,9 +48,12 @@ type CallFn = (...params: unknown[]) => Promise<VoidFn>;
 export type TrackFn = PromiseResult<AnyFunction> | QueryFn;
 
 export interface Tracker {
+  api: ApiPromise | null;
   error: Error | null;
+  generation: number;
   fn: TrackFn | undefined | null | false;
   isActive: boolean;
+  retryTimer: ReturnType<typeof setTimeout> | null;
   serialized: string | null;
   subscriber: TrackFnResult | null;
   type: 'useCall' | 'useCallMulti';
@@ -99,65 +102,104 @@ export function handleError (error: Error, tracker: TrackerRef, fn?: unknown): v
   );
 }
 
-// unsubscribe and remove from  the tracker
+// Invalidate outstanding subscription creation, callbacks and scheduled retries.
+// A pending unsubscribe may only resolve after the provider reconnects.
 export function unsubscribe (tracker: TrackerRef): void {
+  tracker.current.generation++;
   tracker.current.isActive = false;
 
-  if (tracker.current.subscriber) {
-    tracker.current.subscriber
+  if (tracker.current.retryTimer) {
+    clearTimeout(tracker.current.retryTimer);
+    tracker.current.retryTimer = null;
+  }
+
+  const subscriber = tracker.current.subscriber;
+
+  tracker.current.subscriber = null;
+
+  if (subscriber) {
+    subscriber
       .then((u) => isFunction(u) && (u as VoidFn)())
       .catch((e) => handleError(e as Error, tracker));
-    tracker.current.subscriber = null;
+  }
+}
+
+// A subscribe promise can reject *after* the connected event has fired.
+// Retry recoverable creation failures even if there is no further connection
+// transition; unsubscribe() cancels the timer on disconnect or unmount.
+export function scheduleSubscriptionRetry (tracker: TrackerRef, mountedRef: MountedRef, generation: number, retry: () => void): void {
+  if (tracker.current.generation === generation && mountedRef.current && !tracker.current.retryTimer) {
+    tracker.current.retryTimer = setTimeout((): void => {
+      tracker.current.retryTimer = null;
+
+      if (mountedRef.current && tracker.current.generation === generation) {
+        retry();
+      }
+    }, 1500);
   }
 }
 
 // subscribe, trying to play nice with the browser threads
-function subscribe <T> (api: ApiPromise, mountedRef: MountedRef, tracker: TrackerRef, fn: TrackFn | undefined, params: CallParams, setValue: (value: any) => void, { transform = transformIdentity, withParams, withParamsTransform }: CallOptions<T> = {}): void {
+function subscribe <T> (api: ApiPromise, mountedRef: MountedRef, tracker: TrackerRef, fn: TrackFn | undefined, params: CallParams, setValue: (value: any) => void, retry: () => void, { transform = transformIdentity, withParams, withParamsTransform }: CallOptions<T> = {}): void {
   const validParams = params.filter((p) => !isUndefined(p));
 
   unsubscribe(tracker);
+  const generation = tracker.current.generation;
 
   nextTick((): void => {
-    if (mountedRef.current) {
-      const canQuery = !!fn && (
-        isMapFn(fn)
-          ? fn.meta.type.asMap.hashers.length === validParams.length
-          : true
-      );
+    if (!mountedRef.current || tracker.current.generation !== generation) {
+      return;
+    }
 
-      if (canQuery) {
-        // swap to active mode
-        tracker.current.isActive = true;
-        const subscriber = (fn as CallFn)(...params, (value: Codec): void => {
-          // we use the isActive flag here since .subscriber may not be set on immediate callback)
-          if (mountedRef.current && tracker.current.isActive) {
-            try {
-              setValue(
-                withParams
-                  ? [params, transform(value, api)]
-                  : withParamsTransform
-                    ? transform([params, value], api)
-                    : transform(value, api)
-              );
-            } catch (error) {
-              handleError(error as Error, tracker, fn);
-            }
+    const canQuery = !!fn && (
+      isMapFn(fn)
+        ? fn.meta.type.asMap.hashers.length === validParams.length
+        : true
+    );
+
+    if (!canQuery) {
+      return;
+    }
+
+    // A callback from an old subscription must never update the new one.
+    tracker.current.isActive = true;
+
+    try {
+      const subscriber = (fn as CallFn)(...params, (value: Codec): void => {
+        if (mountedRef.current && tracker.current.isActive && tracker.current.generation === generation) {
+          try {
+            setValue(
+              withParams
+                ? [params, transform(value, api)]
+                : withParamsTransform
+                  ? transform([params, value], api)
+                  : transform(value, api)
+            );
+          } catch (error) {
+            handleError(error as Error, tracker, fn);
           }
-        }).catch((error) => {
-          // A subscription that was still being created when the WebSocket
-          // dropped is not part of WsProvider's automatic re-subscription set.
-          // Mark it inactive so the reconnect transition below can retry it.
-          if (tracker.current.subscriber === subscriber) {
-            tracker.current.isActive = false;
-            tracker.current.subscriber = null;
-          }
+        }
+      }).catch((error: Error) => {
+        if (tracker.current.generation !== generation) {
+          return;
+        }
 
-          handleError(error as Error, tracker, fn);
-        });
-
-        tracker.current.subscriber = subscriber;
-      } else {
+        tracker.current.isActive = false;
         tracker.current.subscriber = null;
+        handleError(error, tracker, fn);
+
+        if (isRecoverableWsError(error)) {
+          scheduleSubscriptionRetry(tracker, mountedRef, generation, retry);
+        }
+      });
+
+      tracker.current.subscriber = subscriber;
+    } catch (error) {
+      tracker.current.isActive = false;
+      handleError(error as Error, tracker, fn);
+
+      if (isRecoverableWsError(error)) {
+        scheduleSubscriptionRetry(tracker, mountedRef, generation, retry);
       }
     }
   });
@@ -181,28 +223,40 @@ export function throwOnError (tracker: Tracker): void {
 export function useCall <T> (fn: TrackFn | undefined | null | false, params?: CallParams | null, options?: CallOptions<T>): T | undefined {
   const { api, isApiConnected } = useApi();
   const mountedRef = useIsMountedRef();
-  const tracker = useRef<Tracker>({ error: null, fn: null, isActive: false, serialized: null, subscriber: null, type: 'useCall' });
+  const tracker = useRef<Tracker>({ api: null, error: null, fn: null, generation: 0, isActive: false, retryTimer: null, serialized: null, subscriber: null, type: 'useCall' });
   const [value, setValue] = useState<T | undefined>((options || {}).defaultValue);
+  const [retryCount, setRetry] = useState(0);
 
   // initial effect, we need an un-subscription
   useEffect((): () => void => {
     return () => unsubscribe(tracker);
   }, []);
 
-  // on changes, re-subscribe
+  // Stop subscriptions on disconnect without unmounting the component.
+  // On reconnect, start a fresh subscription to obtain an up-to-date snapshot.
   useEffect((): void => {
-    // check if we have a function & that we are mounted
-    if (mountedRef.current && fn && isApiConnected) {
-      const [serialized, mappedParams] = extractParams(fn, params || [], options);
+    if (!mountedRef.current || !fn || !isApiConnected) {
+      unsubscribe(tracker);
 
-      if (mappedParams && ((fn !== tracker.current.fn) || (serialized !== tracker.current.serialized) || !tracker.current.isActive)) {
-        tracker.current.fn = fn;
-        tracker.current.serialized = serialized;
-
-        subscribe(api, mountedRef, tracker, fn, mappedParams, setValue, options);
-      }
+      return;
     }
-  }, [api, fn, isApiConnected, options, mountedRef, params]);
+
+    const [serialized, mappedParams] = extractParams(fn, params || [], options);
+
+    if (!mappedParams) {
+      unsubscribe(tracker);
+
+      return;
+    }
+
+    if (api !== tracker.current.api || fn !== tracker.current.fn || serialized !== tracker.current.serialized || !tracker.current.isActive) {
+      tracker.current.api = api;
+      tracker.current.fn = fn;
+      tracker.current.serialized = serialized;
+
+      subscribe(api, mountedRef, tracker, fn, mappedParams, setValue, () => setRetry((count) => count + 1), options);
+    }
+  }, [api, fn, isApiConnected, options, mountedRef, params, retryCount]);
 
   // throwOnError(tracker.current);
 

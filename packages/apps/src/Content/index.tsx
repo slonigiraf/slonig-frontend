@@ -33,7 +33,7 @@ const NOT_FOUND: Route = {
 function Content({ className }: Props): React.ReactElement<Props> {
   const location = useLocation();
   const { t } = useTranslation();
-  const { api, isApiConnected, isApiReady, isDevelopment } = useApi();
+  const { api, isApiReady, isDevelopment } = useApi();
   const { queueAction } = useQueue();
 
   const { Component, display: { needsApi, needsApiCheck, needsApiInstances }, icon, name, text } = useMemo(
@@ -51,11 +51,13 @@ function Content({ className }: Props): React.ReactElement<Props> {
 
   const missingApis = useMemo(
     () => needsApi
-      ? isApiReady && isApiConnected
+      ? isApiReady
+        // API metadata stays available while WsProvider reconnects. Do not
+        // unmount the active route (and lose its local state) on a socket drop.
         ? findMissingApis(api, needsApi, needsApiInstances, needsApiCheck)
         : null
       : [],
-    [api, isApiConnected, isApiReady, needsApi, needsApiCheck, needsApiInstances]
+    [api, isApiReady, needsApi, needsApiCheck, needsApiInstances]
   );
 
   return (<StyledDiv className={className}>
