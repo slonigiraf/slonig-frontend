@@ -42,7 +42,7 @@ export function prepareAbilityFixForScheduling (instructions: AbilityFixInstruct
   const effective = effectiveAbilityFixInstructions(instructions);
   const hasTextNotes = Boolean(effective.overall) || ABILITY_FIX_FIELDS.some(({ key, image }) => !image && Boolean(effective[key]?.trim()));
 
-  return { ...effective, regenerateExercises: !hasTextNotes };
+  return { ...effective, regenerateExercises: Boolean(effective.overall) || !hasTextNotes };
 }
 
 export const abilityFixHasTextChanges = (instructions: AbilityFixInstructions): boolean => Boolean(instructions.regenerateExercises) || Boolean(instructions.overall?.trim()) || ABILITY_FIX_FIELDS.some(({ key, image }) => !image && Boolean(instructions[key]?.trim()));

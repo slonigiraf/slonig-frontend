@@ -33,6 +33,15 @@ function transientRendererError (message: string): TikzEditorRenderError {
 // writes for one source so an older autosave cannot overwrite a newer Save.
 const pendingSvgWrites = new Map<string, Promise<void>>();
 const renderRequests = new Map<string, Promise<string>>();
+// The visible editor has already rendered its just-saved SVG. Keep a small
+// synchronous handoff so a parent DB refresh/remount cannot display an empty
+// placeholder while the asynchronous IndexedDB cache opens.
+const recentEditorSvgs = new Map<string, string>();
+const MAX_RECENT_EDITOR_SVGS = 24;
+
+export function peekRecentTikzEditorSvg (source: string): string | undefined {
+  return recentEditorSvgs.get(source.trim());
+}
 
 /** Cache misses and storage failures must not prevent a diagram from rendering.
  * Do not access the old standalone `slonig-tikz-svg-*` databases: their data
@@ -121,7 +130,7 @@ export function normalizeTikzEditorSvg (value: string): string {
 
 /** Persist an SVG produced by the visible TikZ Editor for this exact source.
  * Return its normalized markup immediately so the editor can display it.
- * Only Dexie keeps completed SVGs; no module-level SVG cache is maintained. */
+ * A bounded in-memory handoff also supports immediate previews after saving. */
 export function cacheTikzEditorSvg (source: string, value: string): string {
   const key = source.trim();
   const svg = normalizeTikzEditorSvg(value);
@@ -130,6 +139,11 @@ export function cacheTikzEditorSvg (source: string, value: string): string {
     throw new Error('Cannot cache TikZ Editor SVG for empty source.');
   }
 
+  recentEditorSvgs.delete(key);
+  recentEditorSvgs.set(key, svg);
+  if (recentEditorSvgs.size > MAX_RECENT_EDITOR_SVGS) {
+    recentEditorSvgs.delete(recentEditorSvgs.keys().next().value as string);
+  }
   persistSvg(key, svg);
 
   return svg;
@@ -142,6 +156,9 @@ export async function getCachedTikzEditorSvg (source: string): Promise<string | 
   if (!key) {
     return undefined;
   }
+
+  const hot = peekRecentTikzEditorSvg(key);
+  if (hot !== undefined) return hot;
 
   await pendingSvgWrites.get(key);
 

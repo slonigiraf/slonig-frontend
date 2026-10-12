@@ -7,7 +7,7 @@ import { strict as assert } from 'node:assert';
 
 import 'fake-indexeddb/auto';
 
-import { cacheTikzEditorSvg, getCachedTikzEditorSvg, isRetryableTikzEditorError, normalizeTikzEditorSvg, parseTikzEditorMessage, TikzEditorRenderError } from './tikzEditorBridge.js';
+import { cacheTikzEditorSvg, getCachedTikzEditorSvg, peekRecentTikzEditorSvg, isRetryableTikzEditorError, normalizeTikzEditorSvg, parseTikzEditorMessage, TikzEditorRenderError } from './tikzEditorBridge.js';
 
 describe('TikZ Editor renderer bridge', (): void => {
   it('parses the JSON-stringified postMessage format used by the embed', (): void => {
@@ -44,10 +44,11 @@ describe('TikZ Editor renderer bridge', (): void => {
     assert.match(svg, /человек без признака/);
   });
 
-  it('persists SVG produced by the visible editor without an in-memory cache', async (): Promise<void> => {
+  it('persists SVG produced by the visible editor and exposes it immediately', async (): Promise<void> => {
     const source = '\\begin{tikzpicture}\\node {человек без признака};\\end{tikzpicture}';
     const svg = cacheTikzEditorSvg(source, '<svg><text>человек без признака</text></svg>');
 
+    assert.equal(peekRecentTikzEditorSvg(source), svg, 'Save/exit preview must mount before IndexedDB returns');
     assert.equal(await getCachedTikzEditorSvg(source), svg);
     assert.match(svg, /человек без признака/);
   });
@@ -58,6 +59,7 @@ describe('TikZ Editor renderer bridge', (): void => {
     cacheTikzEditorSvg(source, '<svg><text>first</text></svg>');
     const latest = cacheTikzEditorSvg(source, '<svg><text>latest</text></svg>');
 
+    assert.equal(peekRecentTikzEditorSvg(source), latest);
     assert.equal(await getCachedTikzEditorSvg(source), latest);
   });
 

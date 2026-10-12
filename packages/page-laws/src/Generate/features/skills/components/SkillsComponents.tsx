@@ -414,12 +414,12 @@ export function AbilityCard ({ isBusy = false, queuedFixItemId, isQueuedForSplit
                   value={fixInstructions.overall}
                 />
               </label>
-              <p>Comments are optional. Leave this blank to regenerate both exercises; existing exercise and image errors will be passed along and flagged images repaired. A written whole-Ability instruction replaces detailed notes.</p>
+              <p>Comments are optional. Fix Ability regenerates both exercises, creates new question images, checks them, then builds and checks answer images FROM the updated question figures (9 baseline AI requests). A written whole-Ability instruction replaces detailed notes.</p>
             </>
             : <>
               {fixInstructions.overall.trim()
                 ? <p className='noticeMessage'>The whole-Ability instruction takes priority. These detailed notes will be ignored unless you clear it in the short form.</p>
-                : <p>Describe specific text changes here, or leave text fields empty to regenerate both exercises. Detected image errors are added automatically and flagged images are also repaired.</p>}
+                : <p>Describe specific text changes for a targeted fix. Leave text fields empty for full regeneration of both exercises and their question/answer images. Detected visual issues are included automatically.</p>}
               {ABILITY_FIX_FIELDS.filter(({ key }) => !key.startsWith('exercise2') || (record.ability?.q.length ?? 2) > 1).map(({ key, label, image }) => <label key={key}>
                 <span>{label}</span>
                 <textarea

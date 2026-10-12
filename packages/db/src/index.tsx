@@ -1976,6 +1976,34 @@ export async function hydrateAbilityContent(content: string): Promise<string> {
     return JSON.stringify(value.parsed);
 }
 
+/** Ensure the question figure has a persisted Image key before generation.
+ * Adding a missing visual does not replace the text or other figure. */
+export async function ensureAbilityQuestionImage(abilityId: string, exerciseIndex: number, prompt: string): Promise<number> {
+    return db.transaction('rw', db.abilities, db.images, async () => {
+        const ability = await db.abilities.get(abilityId);
+        const parsed = ability && parseAbilityJson(ability.content);
+        const exercise = parsed?.root.q[exerciseIndex];
+
+        if (!ability || !parsed || !exercise || typeof exercise !== 'object') {
+            throw new Error('Cannot attach a question image to a missing Ability exercise.');
+        }
+
+        const row = exercise as Record<string, unknown>;
+        const existingId = row.p;
+
+        if (typeof existingId === 'number' && existingId > 0) {
+            if (!await db.images.get(existingId)) throw new Error('Question image reference is missing.');
+            return existingId;
+        }
+
+        const id = await db.images.add({ type: 'prompt', prompt, data: null, valid: undefined } as Image);
+
+        row.p = id;
+        await db.abilities.update(abilityId, { content: JSON.stringify(parsed.parsed) });
+        return id;
+    });
+}
+
 /** Create an answer image foreign key only when an exercise needs a visual solution.
  * Unlike replacing the entire Ability, this does not touch its question image. */
 export async function ensureAbilityAnswerImage(abilityId: string, exerciseIndex: number, prompt: string): Promise<number> {

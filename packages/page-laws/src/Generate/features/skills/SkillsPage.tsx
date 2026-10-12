@@ -6,7 +6,7 @@ import type { GeneratedAbility } from '../../../abilities/abilities.js';
 import type { AbilityWorkflowJsonRunner } from '../../book/domain/abilities/abilityWorkflow.js';
 import type { AiAction, ChapterContent, DuplicateAbilityReview, FixedImageReview, FixReviewResult, ImageFixReviewResult, UnresolvedImageReview, PipelineAction, SkillSource, SkillsProps, SkillsView } from './SkillsTypes.js';
 
-import { ABILITY_FIX_FIELDS, abilityFixHasTextChanges, effectiveAbilityFixInstructions, addBookAbilityChangeLog, getBookAbilityWorkQueue, addBookStageSpend, completeBookProcessingStage, createBookConcept, ensureAbilityAnswerImage, deleteAbilities, deleteAbility, deleteBookConcept, getAbilities, getBookChapters, getBookCompletedStages, getBookConceptsForBookPage, getBookPages, getSetting, getSkillsForChapter, getImage, getBookVisualQaSummary, hydrateAbilityContent, isBookProcessingStageSatisfied, putImage, replaceBookConceptWithChildren, setTikzImageQaState, tikzSourceVersion, replaceAbility, replaceAbilities, replaceSkillsForChapter, resetBookProcessingStagesFrom, SettingKey } from '@slonigiraf/db';
+import { ABILITY_FIX_FIELDS, effectiveAbilityFixInstructions, addBookAbilityChangeLog, getBookAbilityWorkQueue, addBookStageSpend, completeBookProcessingStage, createBookConcept, ensureAbilityAnswerImage, ensureAbilityQuestionImage, deleteAbilities, deleteAbility, deleteBookConcept, getAbilities, getBookChapters, getBookCompletedStages, getBookConceptsForBookPage, getBookPages, getSetting, getSkillsForChapter, getImage, getBookVisualQaSummary, hydrateAbilityContent, isBookProcessingStageSatisfied, putImage, replaceBookConceptWithChildren, setTikzImageQaState, tikzSourceVersion, replaceAbility, replaceAbilities, replaceSkillsForChapter, resetBookProcessingStagesFrom, SettingKey } from '@slonigiraf/db';
 import OpenAI from 'openai';
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 
@@ -15,7 +15,8 @@ import { isTikzCode } from '../../../Edit/tikz.js';
 import { shouldSkipStoredTikzCompile } from '../../../Edit/tikzValidation.js';
 import { rasterizeTikzSvg } from '../../book/application/abilities/tikzRaster.js';
 import { parseStoredAbility } from '../../../abilities/abilities.js';
-import { assertAbilityFixResultChanged, isWholeAbilityRegenerationRequest } from './abilityFixValidation.js';
+import { assertAbilityFixResultChanged } from './abilityFixValidation.js';
+import { planAbilityFix, prepareRegeneratedAbilityVisuals } from './abilityFixPlan.js';
 import { bookProcessingManager } from '../../book/application/pipeline/bookProcessingManager.js';
 import { skipBookStage } from '../../book/application/pipeline/skipBookStage.js';
 import { nextUnresolvedStage } from '../../book/application/pipeline/bookStageNavigation.js';
@@ -1063,14 +1064,29 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
       for (const item of queuedWorkItems) {
         if (item.kind !== 'fix' || !item.instructions) continue;
         const instructions = effectiveAbilityFixInstructions(item.instructions);
-        if (abilityFixHasTextChanges(instructions)) {
-          requests.push({ input: `Regenerate Ability from feedback: ${JSON.stringify(instructions)}`, outputTokens: 3_200 });
+        const moduleId = conceptAbilityModuleId(book.id, item.conceptId);
+        const storedRecords = await getAbilities(moduleId);
+        const stored = storedRecords.find(({ id }) => id === item.recordId) ?? (storedRecords.length === 1 ? storedRecords[0] : undefined);
+        if (!stored) throw new Error(`Queued Ability for Concept ${item.conceptId} was not found.`);
+        const ability = parseStoredAbility(await hydrateAbilityContent(stored.content));
+        const plan = planAbilityFix(instructions, ability);
+        if (plan.regenerateText) {
+          requests.push({ input: `Regenerate Ability from feedback: ${JSON.stringify(instructions)}\n${JSON.stringify(ability)}`, outputTokens: 3_200 });
         }
-        for (const field of ABILITY_FIX_FIELDS) {
-          if (field.image && instructions[field.key]?.trim()) {
-            requests.push({ input: `Regenerate image: ${instructions[field.key]}`, outputTokens: 2_400 });
-            requests.push({ input: `Render and visually review corrected image: ${instructions[field.key]}`, outputTokens: TIKZ_REVIEW_MAX_OUTPUT_TOKENS });
-          }
+        // Estimates and execution must use the SAME work plan. Question
+        // generation/QA always precedes answer generation/QA; each answer is
+        // based on the verified question TikZ, not the original drawing.
+        for (const exerciseIndex of plan.questionImages) {
+          const exercise = ability.q[exerciseIndex];
+          const visualPrompt = exercise.pPrompt?.trim() || `Draw a question diagram for: ${exercise.h}`;
+          requests.push({ input: tikzRequestPrompt(language, ability, exerciseIndex, 'p', visualPrompt, book.age), outputTokens: 2_400 });
+          requests.push({ input: `Render and visually review question ${exerciseIndex + 1}: ${visualPrompt}`, outputTokens: TIKZ_REVIEW_MAX_OUTPUT_TOKENS });
+        }
+        for (const exerciseIndex of plan.answerImages) {
+          const exercise = ability.q[exerciseIndex];
+          const visualPrompt = exercise.iPrompt?.trim() || `Show the completed question figure for: ${exercise.a}`;
+          requests.push({ input: answerTikzRequestPrompt(language, ability, exerciseIndex, visualPrompt, book.age), outputTokens: 2_400 });
+          requests.push({ input: `Render and visually review answer ${exerciseIndex + 1}: ${visualPrompt}`, outputTokens: TIKZ_REVIEW_MAX_OUTPUT_TOKENS });
         }
       }
       if (active) setSplitQueueEstimateState({ key: splitEstimateKey, estimate: estimateAiRequests(effectiveModel, requests) });
@@ -1082,8 +1098,8 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
     return () => { active = false; };
   }, [isSplitQueueConfirmationOpen, queuedSplitIds, queuedWorkItems, chapterContent, book.id, book.subject, book.age, language, effectiveModel, splitEstimateKey]);
 
-  /** Image-only feedback never replaces the Ability. Each changed image is
-   * generated, rendered, assessed as a PNG, and only approved after fresh QA. */
+  /** Use the same plan as the estimate. Full Fix regenerates both exercises,
+   * then question diagrams + QA, then answers FROM those verified questions. */
   const fixQueuedAbility = useCallback(async (item: BookAbilityWorkItem, signal: AbortSignal): Promise<void> => {
     if (item.kind !== 'fix' || !item.instructions) throw new Error('Missing scheduled Ability correction.');
     if (!language) throw new Error('Set the book language before fixing an Ability.');
@@ -1094,27 +1110,22 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
     const stored = existing.find(({ id }) => id === (liveJob?.recordId ?? item.recordId)) ?? (existing.length === 1 ? existing[0] : undefined);
     if (!stored) throw new Error('Queued Ability no longer exists. Remove or reschedule this job.');
     const originalAbility = parseStoredAbility(await hydrateAbilityContent(stored.content));
+    const plan = planAbilityFix(instructions, originalAbility);
     const client = await createClient();
     let recordId = stored.id;
     let ability = originalAbility;
-    const hasText = abilityFixHasTextChanges(instructions);
 
-    if (hasText) {
-      // Vague feedback such as "Regenerate" must actually replace the exercises.
-      // Otherwise the model may echo the old JSON, which previously counted as a
-      // successful no-op and silently removed the work item from the queue.
-      const regenerateExercises = Boolean(instructions.regenerateExercises) || isWholeAbilityRegenerationRequest(instructions.overall);
+    if (plan.regenerateText) {
       const corrected = await requestValidatedJson(
         client, effectiveModel,
         'You are an expert educational Ability editor. Return only one JSON Ability object of the same schema; do not return markdown. Preserve everything not requested.',
-        `Regenerate this Ability using the correction instructions. It must retain t:3, i, h and exactly two exercises in q. Each exercise has h, a, p, i, pPrompt and iPrompt as applicable. Preserve original image source and any fields not requested to change. Do not embed image source code in fields that previously held plain image prompts. Keep any existing image content consistent with rewritten questions and answers. The output MUST make a visible change to every specifically requested text field. The two exercises must have DISTINCT questions (not copies or trivial rewordings of each other), with their own correct answers. ${regenerateExercises ? 'The instruction is to regenerate the whole Ability: write TWO substantially new exercises (new questions with correct matching answers), not paraphrases or copies. Both exercises MUST be different from their originals. Preserve the Concept-aligned title and existing image sources.' : ''} Follow ONLY the instructions below.\nBook language: ${language}\nLearner age: ${book.age ?? 'unspecified'}\nOriginal Ability:\n${JSON.stringify(originalAbility)}\n${instructions.overall ? `Whole-Ability correction (takes priority over all field notes):\n${instructions.overall}` : instructions.regenerateExercises ? `No short-form comment was provided. Regenerate both exercises. Existing exercise errors or corrections (if any) to incorporate:\n${JSON.stringify(Object.fromEntries(ABILITY_FIX_FIELDS.filter(({ key }) => instructions[key].trim()).map(({ key }) => [key, instructions[key]])))}` : `Corrections by field:\n${JSON.stringify(Object.fromEntries(ABILITY_FIX_FIELDS.filter(({ image, key }) => !image && instructions[key].trim()).map(({ key }) => [key, instructions[key]])))}`}`,
-        (response) => assertAbilityFixResultChanged(originalAbility, parseStoredAbility(response), instructions), true, addFixAbilitiesCost, 3_200, undefined, 3, signal
+        `Regenerate this Ability using the correction instructions. It must retain t:3, i, h and exactly two exercises in q. Each exercise has h, a, p, i, pPrompt and iPrompt as applicable. The two exercises must have DISTINCT questions (not copies or trivial rewordings of each other), with their own correct answers. The output MUST make a visible change to every specifically requested text field. ${plan.fullRegeneration ? 'Regenerate the ENTIRE Ability: create TWO substantially new exercises, with new questions and correct matching answers. Both exercises MUST be different from their originals. Generate fresh, detailed pPrompt and iPrompt descriptions for the NEW questions and answers. Do not include any TikZ source code; set p and i to empty strings because figures will be generated in separate subsequent requests.' : 'Preserve fields not requested for changes, including any existing image sources, except update visual specifications to match rewritten text.'} Follow ONLY the instructions below.\nBook language: ${language}\nLearner age: ${book.age ?? 'unspecified'}\nOriginal Ability:\n${JSON.stringify(originalAbility)}\n${instructions.overall ? `Whole-Ability correction:\n${instructions.overall}` : instructions.regenerateExercises ? `Regenerate both exercises. Incorporate these existing errors and image notes:\n${JSON.stringify(Object.fromEntries(ABILITY_FIX_FIELDS.filter(({ key }) => instructions[key].trim()).map(({ key }) => [key, instructions[key]])))}` : `Corrections by field:\n${JSON.stringify(Object.fromEntries(ABILITY_FIX_FIELDS.filter(({ image, key }) => !image && instructions[key].trim()).map(({ key }) => [key, instructions[key]])))}`}`,
+        (response) => assertAbilityFixResultChanged(originalAbility, parseStoredAbility(response), { ...instructions, regenerateExercises: plan.fullRegeneration }), true, addFixAbilitiesCost, 3_200, undefined, 3, signal
       );
       if (signal.aborted) throw new Error('Ability correction cancelled.');
-      // One transaction replaces the old DB row and relinks logs/queued fixes.
-      // A repeat click can no longer leave two versions of this Ability stored.
-      recordId = await replaceAbility(stored.id, JSON.stringify(corrected));
-      ability = corrected;
+      // Full regeneration must not retain figures that describe old questions.
+      ability = plan.fullRegeneration ? prepareRegeneratedAbilityVisuals(corrected, originalAbility) : corrected;
+      recordId = await replaceAbility(stored.id, JSON.stringify(ability));
     }
 
     const liveRecord = async (): Promise<StoredAbility> => {
@@ -1123,39 +1134,47 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
       const hydrated = await hydrateAbilityContent(row.content);
       return { ...row, ability: parseStoredAbility(hydrated) };
     };
-    for (const field of ABILITY_FIX_FIELDS) {
-      if (!field.image || !instructions[field.key].trim()) continue;
+
+    const regenerateImage = async (exerciseIndex: number, imageField: 'p' | 'i'): Promise<void> => {
       if (signal.aborted) throw new Error('Ability image correction cancelled.');
-      const exerciseIndex = field.key.startsWith('exercise1') ? 0 : 1;
-      const imageField = field.key.endsWith('QuestionImage') ? 'p' : 'i';
       const current = await liveRecord();
       const exercise = current.ability?.q[exerciseIndex];
       if (!exercise) throw new Error(`Exercise ${exerciseIndex + 1} was not found.`);
+      if (imageField === 'i' && !isTikzCode(exercise.p)) {
+        throw new Error(`Exercise ${exerciseIndex + 1}: generate and verify the question image before its answer image.`);
+      }
+      const promptField = imageField === 'p' ? 'pPrompt' : 'iPrompt';
+      const noteField = `exercise${exerciseIndex + 1}${imageField === 'p' ? 'QuestionImage' : 'AnswerImage'}` as 'exercise1QuestionImage' | 'exercise1AnswerImage' | 'exercise2QuestionImage' | 'exercise2AnswerImage';
+      const repairNote = instructions[noteField].trim();
+      const existingPrompt = exercise[promptField]?.trim() || (!isTikzCode(exercise[imageField]) ? exercise[imageField].trim() : '');
+      const visualPrompt = existingPrompt || (imageField === 'p'
+        ? `Draw a question diagram suitable for: ${exercise.h}. Do not reveal the solution.`
+        : `Show the correctly completed question diagram for: ${exercise.h}. Answer: ${exercise.a}`);
+      const imagePrompt = `${visualPrompt}${repairNote ? `\nCorrections requested: ${repairNote}` : ''}`;
       let imageId = storedAbilityImageId(current, exerciseIndex, imageField);
-      const imagePromptField = imageField === 'p' ? 'pPrompt' : 'iPrompt';
-      const existingPrompt = exercise[imagePromptField]?.trim() || (!isTikzCode(exercise[imageField]) ? exercise[imageField].trim() : '');
-      const repairNote = instructions[field.key].trim();
-      const storedImage = imageId === undefined ? undefined : await getImage(imageId);
-      const previousErrors = [...new Set([...(storedImage?.detectedIssues ?? []), ...(storedImage?.reviewResult?.errors ?? [])])];
-      const imagePrompt = `${existingPrompt || `Draw the ${imageField === 'p' ? 'question' : 'answer'} image required by this exercise.`}\nCorrections requested: ${repairNote}\nPreviously detected issues: ${previousErrors.join('; ') || 'none'}`;
-      if (imageId === undefined && imageField === 'i') imageId = await ensureAbilityAnswerImage(recordId, exerciseIndex, imagePrompt);
-      if (imageId === undefined) throw new Error(`Exercise ${exerciseIndex + 1} question image has no stored image. Generate images first.`);
+      if (imageId === undefined) imageId = imageField === 'p'
+        ? await ensureAbilityQuestionImage(recordId, exerciseIndex, visualPrompt)
+        : await ensureAbilityAnswerImage(recordId, exerciseIndex, visualPrompt);
       const image = await getImage(imageId);
       if (!image) throw new Error(`Image ${imageId} no longer exists.`);
+      const previousErrors = [...new Set([...(image.detectedIssues ?? []), ...(image.reviewResult?.errors ?? [])])];
+      const correctedPrompt = previousErrors.length ? `${imagePrompt}\nPreviously detected issues: ${previousErrors.join('; ')}` : imagePrompt;
       const source = cleanTikzResponse(await requestChatContentWithTruncationRetry(
         client, effectiveModel,
-        'Apply the requested corrections to generate a complete educational image as valid TikZ code. Return only one TikZ picture.',
-        imageField === 'p' ? tikzRequestPrompt(language, current.ability as GeneratedAbility, exerciseIndex, 'p', imagePrompt, book.age)
-          : answerTikzRequestPrompt(language, current.ability as GeneratedAbility, exerciseIndex, imagePrompt, book.age),
+        'Produce one complete, accurate, browser-renderable educational TikZ figure. Return only one TikZ picture.',
+        imageField === 'p'
+          ? tikzRequestPrompt(language, current.ability as GeneratedAbility, exerciseIndex, 'p', correctedPrompt, book.age)
+          : answerTikzRequestPrompt(language, current.ability as GeneratedAbility, exerciseIndex, correctedPrompt, book.age),
         false, imageField === 'p' ? addImagesCost : addAnswerImagesCost, 2_400, signal
       ));
-      if (!isTikzCode(source)) throw new Error('Image generation did not return a valid image source.');
-      await putImage({ ...image, data: source, prompt: existingPrompt || imagePrompt, type: 'tikz', valid: undefined });
+      if (signal.aborted) throw new Error('Ability image correction cancelled.');
+      if (!isTikzCode(source)) throw new Error('Image generation did not return valid TikZ.');
+      await putImage({ ...image, data: source, prompt: visualPrompt, type: 'tikz', valid: undefined });
       const refreshed = await liveRecord();
       const target: ImageFixTarget = {
         ability: refreshed.ability as GeneratedAbility, record: refreshed,
         exerciseIndex, field: imageField, imageId, originalTikz: source,
-        prompt: existingPrompt || imagePrompt, previousAssessmentErrors: [...previousErrors, repairNote]
+        prompt: visualPrompt // Previous issues are already included in generation, not fed into a redundant first repair.
       };
       const review = await reviewConceptImage(target, client, effectiveModel, language, book.age,
         imageField === 'p' ? addFixImagesCost : addFixAnswerImagesCost, signal);
@@ -1167,11 +1186,17 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
           sourceVersion: review.item.finalReviewResult.sourceVersion, renderStatus: 'passed', visualQaStatus: 'passed',
           detectedIssues: [], reviewResult: review.item.finalReviewResult }, source);
       }
-    }
+    };
+
+    // Never generate an answer from an old/unfinished question figure. A
+    // question QA fix can change coordinates, so hydrate it again for answers.
+    for (const exerciseIndex of plan.questionImages) await regenerateImage(exerciseIndex, 'p');
+    for (const exerciseIndex of plan.answerImages) await regenerateImage(exerciseIndex, 'i');
+
     if (signal.aborted) throw new Error('Ability correction cancelled.');
-    const summary = hasText ? 'AI regenerated Ability text' : 'AI repaired images only';
     await addBookAbilityChangeLog({ bookId: book.id, conceptId: item.conceptId, recordId,
-      title: ability.h, source: 'ai', summary });
+      title: ability.h, source: 'ai',
+      summary: plan.fullRegeneration ? 'AI regenerated Ability and synchronized question/answer images' : plan.regenerateText ? 'AI corrected Ability text and selected images' : 'AI repaired selected images' });
     await onAbilityLogChange?.();
   }, [addAnswerImagesCost, addFixAbilitiesCost, addFixAnswerImagesCost, addFixImagesCost, addImagesCost, book.age, book.id, createClient, effectiveModel, language, onAbilityLogChange]);
 
@@ -2135,7 +2160,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
       onClose={() => { setQueueRemovalError(''); onCloseSplitQueueConfirmation?.(); }}
       onRun={() => { void runSplitQueue(); }}
     >
-      {!!queuedWorkItems.length && <p>All {queuedWorkItems.length} queued jobs will run in parallel. Split jobs create new Concepts and checked images; Fix Ability jobs follow the submitted field corrections. Failed jobs stay in the queue for retry.</p>}
+      {!!queuedWorkItems.length && <p>Queued jobs for different Concepts run in parallel. Fix Ability rewrites both exercises and regenerates/visually checks their question images before producing answer images from the checked questions. Detailed text edits can target specific fields. Failed jobs remain queued for retry.</p>}
       <QueuedAbilityWorkList
         chapterContent={chapterContent}
         isBusy={isBusy || autoRunAll || externalAutoRunBusy || externalSplitQueueBusy}
@@ -2149,7 +2174,10 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
       {queueRemovalError && <p role='alert'>{queueRemovalError}</p>}
       {!!queuedWorkItems.length && <>
         <AiPriceEstimate estimate={splitQueueEstimate} />
-        <p><small>Approximate estimate: two children and up to two question and answer visuals per child. Actual cost depends on the number of children, required visuals, AI retries and usage.</small></p>
+        <p><small>{queuedSplitIds.length
+          ? 'Split estimate assumes two children with question and answer figures per child. '
+          : 'A full Fix Ability plans 1 Ability rewrite, 2 question images, 2 question-image reviews, 2 answer images based on the reviewed questions, and 2 answer-image reviews. '}
+        Actual cost may be higher when AI validation or image QA requires repairs and retries.</small></p>
         <OpenRouterModelSelector
           className='modelSelect'
           isDisabled={isBusy}

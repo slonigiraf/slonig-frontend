@@ -42,7 +42,7 @@ describe('Fix Ability scheduling without comments', (): void => {
     instructions.overall = 'Change the age level';
     instructions.exercise1QuestionImage = 'Overlapping labels';
     const scheduled = prepareAbilityFixForScheduling(instructions);
-    assert.equal(scheduled.regenerateExercises, false);
+    assert.equal(scheduled.regenerateExercises, true);
     assert.equal(scheduled.overall, 'Change the age level');
     assert.equal(scheduled.exercise1QuestionImage, '');
   });

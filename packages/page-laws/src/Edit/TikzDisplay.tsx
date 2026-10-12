@@ -4,7 +4,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { styled } from '@polkadot/react-components';
 import { embedTikzSourceInSvg } from './tikz.js';
-import { getCachedTikzEditorSvg, isRetryableTikzEditorError, renderTikzWithEditor } from './tikzEditorBridge.js';
+import { getCachedTikzEditorSvg, peekRecentTikzEditorSvg, isRetryableTikzEditorError, renderTikzWithEditor } from './tikzEditorBridge.js';
 
 interface Props {
   alt: string;
@@ -108,6 +108,20 @@ export default function TikzDisplay ({ alt, displayMode = 'default', hasCompileE
         console.error('Unable to persist TikZ render state.', reason);
       });
     };
+
+    // Save and exit already supplied an authoritative, rendered SVG. Install
+    // it synchronously even after the Ability list is rehydrated/remounted.
+    // Never clear it just to repeat an expensive hidden iframe compilation.
+    const justSavedSvg = peekRecentTikzEditorSvg(value);
+    if (justSavedSvg !== undefined) {
+      try {
+        mountSvg(host, justSavedSvg);
+        if (hasCompileError) reportCompileState(false);
+        return () => { isCancelled = true; host.replaceChildren(); };
+      } catch {
+        // A malformed cached SVG should still be retried by the renderer.
+      }
+    }
 
     // A visible editor Save/Autosave produces a known-good SVG even when a
     // stale compile-error flag has not yet been cleared by the parent. Look
