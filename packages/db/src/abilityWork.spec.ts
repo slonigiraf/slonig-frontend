@@ -8,7 +8,7 @@ import { IDBKeyRange, indexedDB } from 'fake-indexeddb';
 
 import { db } from './db/index.js';
 
-import { ABILITY_FIX_FIELDS, abilityFixHasChanges, abilityFixHasTextChanges, effectiveAbilityFixInstructions, addBookAbilityChangeLog, emptyAbilityFixInstructions, getBookAbilityChangeLog, getBookAbilityWorkQueue, getAbilities, removeBookAbilityWorkItem, relinkBookAbilityChangeLogRecord, replaceAbility, storeAbility, deleteAbility, reviewBookAbilityChangeLogEntries, reviewBookAbilityChangeLogEntry, resetBookAbilityReviews, setBookAbilityReviewed, scheduleBookAbilityFix, toggleBookAbilitySplitWorkItem } from './index.js';
+import { ABILITY_FIX_FIELDS, abilityFixHasChanges, abilityFixHasTextChanges, effectiveAbilityFixInstructions, addBookAbilityChangeLog, emptyAbilityFixInstructions, getBookAbilityChangeLog, getBookAbilityWorkQueue, getAbilities, removeBookAbilityWorkItem, relinkBookAbilityChangeLogRecord, replaceAbility, replaceAbilities, storeAbility, reviewBookAbilityChangeLogEntries, reviewBookAbilityChangeLogEntry, resetBookAbilityReviews, setBookAbilityReviewed, scheduleBookAbilityFix, toggleBookAbilitySplitWorkItem } from './index.js';
 
 Dexie.dependencies.indexedDB = indexedDB;
 Dexie.dependencies.IDBKeyRange = IDBKeyRange;
@@ -108,24 +108,36 @@ describe('Persistent Ability work and change history', (): void => {
       'stale concurrent saves must not insert orphan Ability records');
   });
 
-  it('keeps unrelated Abilities under a Concept and rolls back conflicts with other Concepts', async (): Promise<void> => {
+  it('enforces one Ability per Concept while preserving atomic regeneration and other modules', async (): Promise<void> => {
     const bookId = Date.now() + 65000;
     const moduleId = `book-${bookId}-concept-${bookId + 1}`;
     const otherModuleId = `book-${bookId}-concept-${bookId + 2}`;
     const originalContent = JSON.stringify({ t: 3, h: 'A', i: '', q: [{ h: '2 + 3', a: '5' }, { h: '4 + 5', a: '9' }] });
-    const otherContent = JSON.stringify({ t: 3, h: 'B', i: '', q: [{ h: '2 × 3', a: '6' }, { h: '4 × 5', a: '20' }] });
+    const secondContent = JSON.stringify({ t: 3, h: 'B', i: '', q: [{ h: '2 × 3', a: '6' }, { h: '4 × 5', a: '20' }] });
     const replacementContent = JSON.stringify({ t: 3, h: 'A', i: '', q: [{ h: '6 + 7', a: '13' }, { h: '8 + 9', a: '17' }] });
-    const oldId = await storeAbility(moduleId, originalContent);
-    const siblingId = await storeAbility(moduleId, otherContent);
     const foreignContent = JSON.stringify({ t: 3, h: 'C', i: '', q: [{ h: '10', a: '10' }, { h: '20', a: '20' }] });
+    const oldId = await storeAbility(moduleId, originalContent);
     const foreignId = await storeAbility(otherModuleId, foreignContent);
 
+    await assert.rejects(storeAbility(moduleId, secondContent), /Only one Ability/);
+    assert.equal(await storeAbility(moduleId, originalContent), oldId, 'saving identical content is idempotent');
+    await assert.rejects(storeAbility(otherModuleId, originalContent), /another Concept or module/);
+    await assert.rejects(replaceAbilities(moduleId, [replacementContent, secondContent]), /Only one Ability/);
     await assert.rejects(replaceAbility(oldId, foreignContent), /another Concept/);
-    assert.deepEqual(new Set((await getAbilities(moduleId)).map(({ id }) => id)), new Set([oldId, siblingId]));
+    assert.deepEqual((await getAbilities(moduleId)).map(({ id }) => id), [oldId], 'rejected writes leave existing data unchanged');
     assert.equal((await getAbilities(otherModuleId))[0].id, foreignId);
 
-    const newId = await replaceAbility(oldId, replacementContent);
-    assert.deepEqual(new Set((await getAbilities(moduleId)).map(({ id }) => id)), new Set([newId, siblingId]));
+    const [newId] = await replaceAbilities(moduleId, [replacementContent]);
+    assert.deepEqual((await getAbilities(moduleId)).map(({ id }) => id), [newId]);
+    assert.equal((await getAbilities(otherModuleId))[0].id, foreignId);
+
+    const editedId = await replaceAbility(newId, originalContent);
+    assert.deepEqual((await getAbilities(moduleId)).map(({ id }) => id), [editedId]);
+    // The restriction applies to Concept-backed Abilities, not generic modules.
+    const genericModule = `skill-${bookId}`;
+    await storeAbility(genericModule, secondContent);
+    await storeAbility(genericModule, replacementContent);
+    assert.equal((await getAbilities(genericModule)).length, 2);
   });
 
   it('persists review flags, resets a chapter range, and reopens changed Abilities', async (): Promise<void> => {
@@ -158,8 +170,7 @@ describe('Persistent Ability work and change history', (): void => {
     const moduleId = `book-${bookId}-concept-${conceptId}`;
     const oldId = await storeAbility(moduleId, JSON.stringify({ t: 3, h: 'Addition', i: '', q: [{ h: '2 + 3', a: '5' }, { h: '4 + 5', a: '9' }] }));
     await addBookAbilityChangeLog({ bookId, conceptId, recordId: oldId, title: 'Addition', source: 'ai', summary: 'First fix' });
-    const newId = await storeAbility(moduleId, JSON.stringify({ t: 3, h: 'Addition', i: '', q: [{ h: '6 + 7', a: '13' }, { h: '8 + 9', a: '17' }] }));
-    await deleteAbility(oldId);
+    const newId = await replaceAbility(oldId, JSON.stringify({ t: 3, h: 'Addition', i: '', q: [{ h: '6 + 7', a: '13' }, { h: '8 + 9', a: '17' }] }));
     // Simulate a historical edit whose old log was not relinked.
     await addBookAbilityChangeLog({ bookId, conceptId, recordId: newId, title: 'Addition', source: 'ai', summary: 'Second fix' });
     const entries = await getBookAbilityChangeLog(bookId);
@@ -178,7 +189,12 @@ describe('Persistent Ability work and change history', (): void => {
     await db.bookAbilityChangeLog.add({ bookId, conceptId, recordId: currentId, title: 'Fractions', source: 'ai', summary: 'New', updatedAt: 20 });
     assert.deepEqual((await getBookAbilityChangeLog(bookId)).map(({ recordId }) => recordId), [currentId, currentId]);
 
-    const otherId = await storeAbility(moduleId, JSON.stringify({ t: 3, h: 'Fractions 2', i: '', q: [{ h: '1/3 + 1/3', a: '2/3' }, { h: '1/5 + 1/5', a: '2/5' }] }));
+    // Imported legacy databases may already contain duplicates. Do not delete
+    // them implicitly just to enforce the restriction on *new* writes.
+    const legacyContent = JSON.stringify({ t: 3, h: 'Fractions 2', i: '', q: [{ h: '1/3 + 1/3', a: '2/3' }, { h: '1/5 + 1/5', a: '2/5' }] });
+    const otherId = `legacy-second-${bookId}`;
+
+    await db.abilities.put({ id: otherId, moduleId, content: legacyContent });
     assert.notEqual(currentId, otherId);
     assert.deepEqual((await getBookAbilityChangeLog(bookId)).map(({ recordId }) => recordId), [currentId, 'stale-old-hash']);
   });

@@ -21,10 +21,13 @@ export function sortConceptsForDisplay (concepts: BookConcept[]): BookConcept[] 
 }
 
 export async function getBookConceptInventory (bookId: number, pageNumbers: Iterable<number>): Promise<BookConcept[]> {
-  return [
-    ...(await Promise.all(Array.from(new Set(pageNumbers)).map((pageNumber) => getBookConceptsForBookPage(bookId, pageNumber)))).flat(),
-    ...await getBookConceptsForBookPage(bookId, 0)
-  ];
+  // Manually added Concepts can have page 0. Include it exactly once,
+  // even if a caller already includes 0 among the requested page numbers.
+  const allPageNumbers = new Set(pageNumbers);
+
+  allPageNumbers.add(0);
+
+  return (await Promise.all(Array.from(allPageNumbers, (pageNumber) => getBookConceptsForBookPage(bookId, pageNumber)))).flat();
 }
 
 export function conceptsForNavigationChapter (concepts: BookConcept[], chapter: ConceptChapterNavigationItem): BookConcept[] {

@@ -2298,6 +2298,19 @@ export async function storeAbility(moduleId: string, content: string, displayOrd
 
     return db.transaction('rw', db.abilities, db.images, db.bookConcepts, db.bookPages, async () => {
         const existing = await db.abilities.get(id);
+
+        if (existing && existing.moduleId !== moduleId) {
+            throw new Error('The Ability already belongs to another Concept or module.');
+        }
+
+        if (CONCEPT_ABILITY_MODULE.test(moduleId)) {
+            const previousIds = await db.abilities.where('moduleId').equals(moduleId).primaryKeys();
+
+            if (previousIds.some((previousId) => previousId !== id)) {
+                throw new Error('Only one Ability is allowed per Concept. Edit or regenerate the existing Ability instead.');
+            }
+        }
+
         const oldImageIds = existing ? abilityImageIds(existing.content) : [];
         const normalizedContent = await normalizeAbilityImages(content, db.images);
         const displayOrderChanged = existing?.moduleId === moduleId
@@ -2330,9 +2343,9 @@ export async function storeAbility(moduleId: string, content: string, displayOrd
     });
 }
 
-/** Atomically replace one existing Ability rather than temporarily inserting a second
- * content-addressed row. A failed or stale save must never leave two versions
- * under the same Concept. Keep other, genuinely distinct Abilities untouched. */
+/** Atomically replace an Ability rather than temporarily inserting a second
+ * content-addressed row. A failed or stale save must never create a second
+ * version. Leave any pre-existing legacy siblings untouched. */
 export async function replaceAbility(oldRecordId: string, content: string): Promise<string> {
     return db.transaction('rw', db.abilities, db.images, db.bookConcepts, db.bookPages,
         db.bookAbilityChangeLog, db.bookAbilityWorkQueues, async () => {
@@ -2420,6 +2433,12 @@ export async function deleteAbilities(moduleId: string): Promise<void> {
 }
 
 export async function replaceAbilities(moduleId: string, contents: string[]): Promise<string[]> {
+    // A book Concept has exactly one generated Ability (or none). Do not
+    // silently discard additional results: reject invalid writes atomically.
+    if (CONCEPT_ABILITY_MODULE.test(moduleId) && contents.length > 1) {
+        throw new Error('Only one Ability can be generated per Concept.');
+    }
+
     return db.transaction('rw', db.abilities, db.images, db.bookConcepts, db.bookPages, async () => {
         const oldRows = await db.abilities.where('moduleId').equals(moduleId).toArray() as Ability[];
         const oldImageIds: number[] = Array.from(new Set<number>(oldRows.flatMap(({ content }) => abilityImageIds(content))));

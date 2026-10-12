@@ -1326,7 +1326,10 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
   }, [addOpenRouterCost, allSkills, beginProgress, book.id, endProgress, chapters, createClient, language, refresh, effectiveModel, skillSources]);
 
   const generateAbilities = useCallback(async (): Promise<void> => {
-    const targets = generateOnlyMissingAbilities ? conceptsMissingAbilities : allConcepts;
+    // A Concept can only generate one Ability, even if it occurs twice in the
+    // loaded chapter inventory (for example after an older import).
+    const selectedConcepts = generateOnlyMissingAbilities ? conceptsMissingAbilities : allConcepts;
+    const targets = [...new Map(selectedConcepts.map((concept) => [concept.id, concept])).values()];
     const signal = beginProgress('Generating Abilities from Concepts', targets.length, 'abilities');
 
     try {
@@ -1343,9 +1346,17 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
       const maxAttempts = 3;
 
       for (let attempt = 1; attempt <= maxAttempts && pending.size; attempt++) {
-        const sources = chapterContent.flatMap(({ chapter, concepts }) => concepts
-          .filter(({ id }) => id !== undefined && pending.has(id))
-          .map((concept) => ({ chapterTitle: chapter.title, concept })));
+        const sourcesByConceptId = new Map<number, { chapterTitle: string; concept: BookConcept }>();
+
+        for (const { chapter, concepts } of chapterContent) {
+          for (const concept of concepts) {
+            if (concept.id !== undefined && pending.has(concept.id) && !sourcesByConceptId.has(concept.id)) {
+              sourcesByConceptId.set(concept.id, { chapterTitle: chapter.title, concept });
+            }
+          }
+        }
+
+        const sources = [...sourcesByConceptId.values()];
         await mapConcurrent(sources, OPENROUTER_CONCURRENCY, async ({ chapterTitle, concept }) => {
           const runJson: AbilityWorkflowJsonRunner = (prompt, parse, options) => requestValidatedJson(
             client, effectiveModel, CONCEPT_ABILITY_WORKFLOW_SYSTEM_PROMPT(language, chapterTitle, book.age),

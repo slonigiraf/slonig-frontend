@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { Book, BookConcept, BookPage } from '@slonigiraf/db';
-import { getAbilities, getBookConceptsForBookPage, getBookPages, isBookProcessingStageComplete } from '@slonigiraf/db';
+import { getAbilities, getBookPages, isBookProcessingStageComplete } from '@slonigiraf/db';
 import type { Dispatch, MutableRefObject, SetStateAction } from 'react';
 import { useCallback, useEffect, useMemo } from 'react';
 import { conceptBelongsToChapter } from '../../../book/domain/chapters/refineChapters.js';
@@ -209,7 +209,7 @@ export function useBookReaderNavigationModel ({
   const embeddingHeatmapDistances = useMemo(() => conceptEmbeddingDistanceMatrix(embeddingHeatmapEntries), [embeddingHeatmapEntries]);
   const refreshEntityCounts = useCallback(async (): Promise<void> => {
     const storedPages = await getBookPages(book.id);
-    const concepts = (await Promise.all(storedPages.map(({ pageNumber }) => getBookConceptsForBookPage(book.id, pageNumber)))).flat();
+    const concepts = await getBookConceptInventory(book.id, storedPages.map(({ pageNumber }) => pageNumber));
     const abilities = (await Promise.all(concepts.flatMap(({ id }) => id === undefined ? [] : [getAbilities(conceptAbilityModuleId(book.id, id))]))).flat();
 
     setEntityCounts({ abilities: abilities.length, concepts: concepts.length });
