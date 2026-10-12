@@ -41,6 +41,7 @@ export interface ImageFixTarget {
   originalTikz: string;
   prompt: string;
   record: StoredAbility;
+  previousAssessmentErrors?: string[];
 }
 
 export interface TikzAiReview {
@@ -458,6 +459,9 @@ Correct answer: ${exercise.a}
 Visual role: ${purpose}
 Original visual prompt: ${target.prompt || '(No stored visual prompt is available; use the exercise and answer as the semantic source.)'}
 ${target.field === 'i' ? `Question TikZ source (must stay synchronized with the answer diagram):\n${isTikzSource(exercise.p) ? exercise.p : '(none)'}` : 'Question figure: must not reveal the answer.'}
+
+PREVIOUS ASSESSMENT ERRORS (repair each of these; do not repeat a known failure):
+${JSON.stringify(target.previousAssessmentErrors ?? [])}
 
 ORIGINAL TIKZ:
 ${target.originalTikz}

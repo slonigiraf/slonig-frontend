@@ -1,6 +1,9 @@
 // Copyright 2021-2022 @slonigiraf/db authors & contributors
 // SPDX-License-Identifier: Apache-2.0
 import { db } from "./db/index.js";
+import type { AbilityFixInstructions, BookAbilityWorkItem, BookAbilityChangeLogEntry } from './db/AbilityWork.js';
+export { ABILITY_FIX_FIELDS, emptyAbilityFixInstructions, abilityFixHasTextChanges, abilityFixHasChanges } from './db/AbilityWork.js';
+export type { AbilityFixInstructions, BookAbilityWorkItem, BookAbilityChangeLogEntry } from './db/AbilityWork.js';
 import type { Agreement } from "./db/Agreement.js";
 import type { LetterTemplate } from "./db/LetterTemplate.js";
 import type { Letter } from "./db/Letter.js";
@@ -569,7 +572,7 @@ export async function getBookByContentHash(contentHash: string): Promise<Book | 
 }
 
 export async function deleteBook(id: number): Promise<void> {
-    await db.transaction('rw', db.books, db.bookPages, db.bookChapters, db.bookConcepts, db.conceptEmbeddings, db.skills, db.exerciseTemplates, db.abilities, db.images, db.mathpixPdfJobs, db.bookProcessingRuns, db.fixConceptsChapterStatuses, db.bookAbilitySplitQueues, async () => {
+    await db.transaction('rw', db.books, db.bookPages, db.bookChapters, db.bookConcepts, db.conceptEmbeddings, db.skills, db.exerciseTemplates, db.abilities, db.images, db.mathpixPdfJobs, db.bookProcessingRuns, db.fixConceptsChapterStatuses, db.bookAbilitySplitQueues, db.bookAbilityWorkQueues, db.bookAbilityChangeLog, async () => {
         const pageKeys = await db.bookPages.where('bookId').equals(id).primaryKeys();
         const chapterIds = (await db.bookChapters.where('bookId').equals(id).primaryKeys()) as number[];
         const skillIds = (await Promise.all(chapterIds.map((chapterId) => db.skills.where('chapterId').equals(chapterId).primaryKeys()))).flat() as number[];
@@ -597,6 +600,8 @@ export async function deleteBook(id: number): Promise<void> {
         await db.bookProcessingRuns.delete(id);
         await db.fixConceptsChapterStatuses.delete(id);
         await db.bookAbilitySplitQueues.delete(id);
+        await db.bookAbilityWorkQueues.delete(id);
+        await db.bookAbilityChangeLog.where('bookId').equals(id).delete();
     });
 }
 
@@ -1125,6 +1130,11 @@ export async function deleteBookPage(bookId: number, pageNumber: number): Promis
             await db.conceptEmbeddings.bulkDelete(conceptIds);
         }
     });
+}
+
+/** Fetch one Concept for the Ability change log without scanning every page. */
+export async function getBookConceptById(id: number): Promise<BookConcept | undefined> {
+    return db.bookConcepts.get(id);
 }
 
 export async function getBookConceptsForBookPage(bookId: number, pageNumber: number): Promise<BookConcept[]> {
@@ -2098,6 +2108,11 @@ export async function updateAbilityDisplayOrder(id: string, displayOrder: number
     validateDisplayOrderIndex(displayOrder, 'Ability');
 
     return db.transaction('rw', db.abilities, db.bookConcepts, db.bookPages, async () => moveAbilityToDisplayOrder(id, displayOrder));
+}
+
+/** Fetch one current Ability by its stored record ID. */
+export async function getAbility(id: string): Promise<Ability | undefined> {
+    return db.abilities.get(id);
 }
 
 export async function getAbilities(moduleId: string): Promise<Ability[]> {
@@ -3354,5 +3369,83 @@ export async function removeBookAbilitySplitQueueItem(bookId: number, conceptId:
         else await table.delete(bookId);
 
         return conceptIds;
+    });
+}
+
+/** All queued work is stored under its book, including former split-only tasks. */
+export async function getBookAbilityWorkQueue(bookId: number): Promise<BookAbilityWorkItem[]> {
+    return (await db.bookAbilityWorkQueues.get(bookId))?.items ?? [];
+}
+
+export async function toggleBookAbilitySplitWorkItem(bookId: number, conceptId: number): Promise<BookAbilityWorkItem[]> {
+    if (!Number.isSafeInteger(conceptId) || conceptId <= 0) throw new Error('Invalid Concept ID.');
+    return db.transaction('rw', db.bookAbilityWorkQueues, async () => {
+        const current = await getBookAbilityWorkQueue(bookId);
+        const items = current.filter((item) => item.id !== `split:${conceptId}`);
+        if (items.length === current.length) items.push({ id: `split:${conceptId}`, kind: 'split', conceptId });
+        if (items.length) await db.bookAbilityWorkQueues.put({ bookId, items });
+        else await db.bookAbilityWorkQueues.delete(bookId);
+        return items;
+    });
+}
+
+/** Scheduling the same Ability twice replaces its instructions, not its queue position. */
+export async function scheduleBookAbilityFix(bookId: number, conceptId: number, recordId: string, instructions: AbilityFixInstructions): Promise<BookAbilityWorkItem[]> {
+    if (!Number.isSafeInteger(conceptId) || conceptId <= 0 || !recordId) throw new Error('Invalid Ability for scheduling.');
+    return db.transaction('rw', db.bookAbilityWorkQueues, async () => {
+        const items = await getBookAbilityWorkQueue(bookId);
+        const item: BookAbilityWorkItem = { id: `fix:${recordId}`, kind: 'fix', conceptId, recordId, instructions };
+        const index = items.findIndex(({ id }) => id === item.id);
+        if (index < 0) items.push(item);
+        else items[index] = item;
+        await db.bookAbilityWorkQueues.put({ bookId, items });
+        return items;
+    });
+}
+
+/** Preserve a fix job's stable queue key if regeneration changes the Ability ID.
+ * This makes partial failures retryable even when a Concept has many Abilities. */
+export async function updateBookAbilityFixRecordId(bookId: number, itemId: string, recordId: string): Promise<void> {
+    await db.transaction('rw', db.bookAbilityWorkQueues, async () => {
+        const items = await getBookAbilityWorkQueue(bookId);
+        const index = items.findIndex((item) => item.id === itemId && item.kind === 'fix');
+        if (index < 0) return;
+        items[index] = { ...items[index], recordId };
+        await db.bookAbilityWorkQueues.put({ bookId, items });
+    });
+}
+
+export async function removeBookAbilityWorkItem(bookId: number, itemId: string): Promise<BookAbilityWorkItem[]> {
+    return db.transaction('rw', db.bookAbilityWorkQueues, async () => {
+        const items = (await getBookAbilityWorkQueue(bookId)).filter(({ id }) => id !== itemId);
+        if (items.length) await db.bookAbilityWorkQueues.put({ bookId, items });
+        else await db.bookAbilityWorkQueues.delete(bookId);
+        return items;
+    });
+}
+
+/** A saved edit can change the content-hashed Ability ID. Keep earlier
+ * unreviewed entries linked to the current Ability rather than showing stale duplicates. */
+export async function relinkBookAbilityChangeLogRecord(bookId: number, oldRecordId: string, newRecordId: string): Promise<void> {
+    if (oldRecordId === newRecordId) return;
+    await db.transaction('rw', db.bookAbilityChangeLog, async () => {
+        const entries = await db.bookAbilityChangeLog.where('bookId').equals(bookId).filter(({ recordId }) => recordId === oldRecordId).toArray();
+        if (entries.length) await db.bookAbilityChangeLog.bulkPut(entries.map((entry) => ({ ...entry, recordId: newRecordId })));
+    });
+}
+
+/** Unreviewed changes are retained across reloads; reviewing deletes only that entry. */
+export async function getBookAbilityChangeLog(bookId: number): Promise<BookAbilityChangeLogEntry[]> {
+    return (await db.bookAbilityChangeLog.where('bookId').equals(bookId).toArray()).sort((a, b) => b.updatedAt - a.updatedAt);
+}
+
+export async function addBookAbilityChangeLog(entry: Omit<BookAbilityChangeLogEntry, 'id' | 'updatedAt'>): Promise<number> {
+    return db.bookAbilityChangeLog.add({ ...entry, updatedAt: Date.now() });
+}
+
+export async function reviewBookAbilityChangeLogEntry(bookId: number, entryId: number): Promise<void> {
+    await db.transaction('rw', db.bookAbilityChangeLog, async () => {
+        const entry = await db.bookAbilityChangeLog.get(entryId);
+        if (entry?.bookId === bookId) await db.bookAbilityChangeLog.delete(entryId);
     });
 }

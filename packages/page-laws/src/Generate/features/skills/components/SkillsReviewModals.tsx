@@ -127,16 +127,16 @@ export default function SkillsReviewModals ({ applyAbilityFixReview, applyImageF
       <Modal.Content>
         <FixResultsReviewContent>
           <div className='fixResultsReviewIntro'>
-            <p><strong>No TikZ source changes have been saved yet.</strong></p>
-            <p>Checked {imageFixReview.checked} TikZ visual{imageFixReview.checked === 1 ? '' : 's'}. Render failures: {imageFixReview.renderFailures}; PNG-reviewed corrections: {imageFixReview.items.length}; unresolved: {imageFixReview.unresolved.length}. Each changed candidate was separately rendered and visually reviewed (maximum three attempts). Rendering success alone does not count as QA approval.</p>
+            <p><strong>No image changes have been saved yet.</strong></p>
+            <p>Checked {imageFixReview.checked} image{imageFixReview.checked === 1 ? '' : 's'}. Render failures: {imageFixReview.renderFailures}; PNG-reviewed corrections: {imageFixReview.items.length}; unresolved: {imageFixReview.unresolved.length}. Each changed candidate was separately rendered and visually reviewed (maximum three attempts). Rendering success alone does not count as QA approval.</p>
             {imageFixReview.unresolved.length > 0 && <section>
-              <strong>Flagged TikZ visuals — processing can continue; these images remain highlighted in Abilities:</strong>
+              <strong>Flagged images — processing can continue; these images remain highlighted in Abilities:</strong>
               <div className='fixResultsFailedVisuals'>{imageFixReview.unresolved.map(({ abilityTitle, errors, exerciseIndex, exerciseTitle, field, imageId, originalCompiled, originalTikz }) => <article className='fixResultsFailedVisual' key={imageId}>
                 <strong><SpanWithTags content={abilityTitle} /> — task {exerciseIndex + 1} {field === 'p' ? 'question' : 'solution'} (image {imageId})</strong>
                 {exerciseTitle && <p><small><SpanWithTags content={exerciseTitle} /></small></p>}
                 <div className='fixResultsFailedVisualPreview'>
                   {originalCompiled
-                    ? <React.Suspense fallback={<small>Loading TikZ renderer…</small>}><TikzDisplay alt='Failed visual QA preview' value={originalTikz} /></React.Suspense>
+                    ? <React.Suspense fallback={<small>Loading image…</small>}><TikzDisplay alt='Failed visual QA preview' value={originalTikz} /></React.Suspense>
                     : <pre>{originalTikz}</pre>}
                 </div>
                 <ul>{errors.map((error, errorIndex) => <li key={errorIndex}>{error}</li>)}</ul>
@@ -165,7 +165,7 @@ export default function SkillsReviewModals ({ applyAbilityFixReview, applyImageF
                       <p><small>Pre-render: {originalPreRender.compiled ? 'rendered successfully' : 'FAILED to render'}</small></p>
                       {!originalPreRender.compiled && originalPreRender.diagnostics.length > 0 && <pre className='tikzDiagnostics'>{originalPreRender.diagnostics.slice(-8).join('\n')}</pre>}
                       <pre className='tikzCodeDiff'>{originalTikz}</pre>
-                      {originalPreRender.compiled && <React.Suspense fallback={<small>Loading TikZ renderer…</small>}><TikzDisplay alt={`Original ${role} visual`} value={originalTikz} /></React.Suspense>}
+                      {originalPreRender.compiled && <React.Suspense fallback={<small>Loading image…</small>}><TikzDisplay alt={`Original ${role} visual`} value={originalTikz} /></React.Suspense>}
                     </div>
                   </div>
                   <div className='fixResultsReviewCell'>
@@ -180,7 +180,7 @@ export default function SkillsReviewModals ({ applyAbilityFixReview, applyImageF
                       <p><small>Pre-render: {fixedPreRender.compiled ? 'rendered successfully' : 'FAILED'} · Vision QA: approved from actual PNG</small></p>
                       {!fixedPreRender.compiled && fixedPreRender.diagnostics.length > 0 && <pre className='tikzDiagnostics'>{fixedPreRender.diagnostics.slice(-8).join('\n')}</pre>}
                       <pre className='tikzCodeDiff'>{fixedTikz}</pre>
-                      <React.Suspense fallback={<small>Loading TikZ renderer…</small>}><TikzDisplay alt={`Corrected ${role} visual`} value={fixedTikz} /></React.Suspense>
+                      <React.Suspense fallback={<small>Loading image…</small>}><TikzDisplay alt={`Corrected ${role} visual`} value={fixedTikz} /></React.Suspense>
                     </div>
                   </div>
                 </div>
@@ -188,7 +188,7 @@ export default function SkillsReviewModals ({ applyAbilityFixReview, applyImageF
                   <h3>Difference</h3>
                   {errors.length
                     ? <ul>{errors.map((message, errorIndex) => <li key={`${record.id}-${exerciseIndex}-${field}-${errorIndex}`}><SpanWithTags content={message} /></li>)}</ul>
-                    : <p>The {role.toLowerCase()} TikZ source will be replaced by the proposed correction shown above.</p>}
+                    : <p>The {role.toLowerCase()} image will be replaced by the proposed correction shown above.</p>}
                 </section>
               </article>;
             })}

@@ -502,6 +502,7 @@ export const StyledSkills = styled.div`
 
   .pipelineFastForwardButton,
   .pipelineSplitQueueButton,
+  .pipelineLogButton,
   .pipelinePriceButton,
   .pipelineZoomButton {
     flex: 0 0 auto;
@@ -515,6 +516,8 @@ export const StyledSkills = styled.div`
   .pipelineSplitQueueButton {
     margin-left: 0 !important;
   }
+
+  .pipelineLogButton { margin-left: 0 !important; }
 
   .pipelinePriceButton {
     margin-left: 0 !important;

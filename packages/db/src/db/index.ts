@@ -32,6 +32,7 @@ import type { ConceptEmbedding } from './ConceptEmbedding.js';
 import type { MathpixPdfJob } from './MathpixPdfJob.js';
 import type { TikzSvgCacheEntry } from './TikzSvgCache.js';
 import type { BookProcessingRun } from './BookProcessingRun.js';
+import type { BookAbilityWorkItem, BookAbilityChangeLogEntry } from './AbilityWork.js';
 
 // Ordinal checkpoints are only understood while upgrading databases created
 // before named checkpoints were introduced. Runtime Book objects never use them.
@@ -131,6 +132,8 @@ export class SlonigDB extends Dexie {
   bookProcessingRuns!: Table<BookProcessingRun, number>;
   fixConceptsChapterStatuses!: Table<{ bookId: number; statuses: Record<string, 'fixed' | 'failed'> }, number>;
   bookAbilitySplitQueues!: Table<{ bookId: number; conceptIds: number[] }, number>;
+  bookAbilityWorkQueues!: Table<{ bookId: number; items: BookAbilityWorkItem[] }, number>;
+  bookAbilityChangeLog!: Table<BookAbilityChangeLogEntry, number>;
 
   constructor(name = 'slonig') {
     super(name);
@@ -726,6 +729,20 @@ export class SlonigDB extends Dexie {
     this.version(103).stores({ fixConceptsChapterStatuses: '&bookId' });
     // Pending Ability splits survive page reloads and are isolated by book.
     this.version(104).stores({ bookAbilitySplitQueues: '&bookId' });
+    // Promote existing split jobs to a general-purpose persistent AI work queue.
+    this.version(105).stores({
+      bookAbilityWorkQueues: '&bookId',
+      bookAbilityChangeLog: '++id,bookId,[bookId+recordId]'
+    }).upgrade(async (transaction) => {
+      const legacy = transaction.table<{ bookId: number; conceptIds: number[] }>('bookAbilitySplitQueues');
+      const queue = transaction.table<{ bookId: number; items: BookAbilityWorkItem[] }>('bookAbilityWorkQueues');
+      await forEachMigrationBatch(legacy, async (rows) => {
+        for (const { bookId, conceptIds } of rows) {
+          const ids = [...new Set(conceptIds.filter((id) => Number.isSafeInteger(id) && id > 0))];
+          if (ids.length) await queue.put({ bookId, items: ids.map((conceptId) => ({ id: `split:${conceptId}`, kind: 'split', conceptId })) });
+        }
+      });
+    });
 
   }
 }

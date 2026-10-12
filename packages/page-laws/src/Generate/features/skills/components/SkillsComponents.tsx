@@ -2,12 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { formatChapterTitle } from '../../../book/domain/chapters/chapterTitles.js';
-import type { BookChapter, Skill } from '@slonigiraf/db';
+import type { AbilityFixInstructions, BookChapter, Skill } from '@slonigiraf/db';
 import type { GeneratedAbility } from '../../../../abilities/abilities.js';
 import type { StoredAbility } from '../../../book/application/abilities/abilityProcessing.js';
-import type { ConceptRedoStage } from '../conceptRedoStages.js';
 
-import { deleteAbilities, deleteAbility, deleteSkill, getImage, putImage, storeAbility, updateBookChapterTitle } from '@slonigiraf/db';
+import { ABILITY_FIX_FIELDS, emptyAbilityFixInstructions, abilityFixHasChanges, addBookAbilityChangeLog, deleteAbilities, deleteAbility, deleteSkill, getImage, putImage, relinkBookAbilityChangeLogRecord, storeAbility, updateBookChapterTitle } from '@slonigiraf/db';
 import { SpanWithTags } from '@slonigiraf/slonig-components';
 import React, { useCallback, useState } from 'react';
 
@@ -19,7 +18,6 @@ import { nextStoredTikzValidity } from '../../../../Edit/tikzValidation.js';
 import { parseStoredAbility, withAbilityVisualSource } from '../../../../abilities/abilities.js';
 import { abilityModuleId, storedAbilityImageId } from '../../../book/application/abilities/abilityProcessing.js';
 import { EditForm } from '../SkillsStyles.js';
-import { CONCEPT_REDO_STAGES } from '../conceptRedoStages.js';
 import FixingOverlay from '../../../shared/ui/FixingOverlay.js';
 import ItemActionsMenu from '../../../shared/ui/ItemActionsMenu.js';
 
@@ -52,7 +50,7 @@ export function ChapterNavigation ({ chapters, failedVisualCounts, index, matchA
             return <option
               key={id ?? `${title}:${chapterIndex}`}
               value={chapterIndex}
-            >{title || 'Chapter not identified'}{missingCount ? ` (${missingCount} exercise${missingCount === 1 ? '' : 's'} missing abilities)` : ''}{failedVisualCounts?.[chapterIndex] ? ` (${failedVisualCounts[chapterIndex]} TikZ issue${failedVisualCounts[chapterIndex] === 1 ? '' : 's'})` : ''}</option>;
+            >{title || 'Chapter not identified'}{missingCount ? ` (${missingCount} exercise${missingCount === 1 ? '' : 's'} missing abilities)` : ''}{failedVisualCounts?.[chapterIndex] ? ` (${failedVisualCounts[chapterIndex]} image issue${failedVisualCounts[chapterIndex] === 1 ? '' : 's'})` : ''}</option>;
           })}
         </select></label>
         <Button
@@ -188,30 +186,39 @@ function cloneAbility (ability: GeneratedAbility): GeneratedAbility {
   return { ...ability, q: ability.q.map((exercise) => ({ ...exercise })) };
 }
 
-export function AbilityCard ({ isBusy = false, isQueuedForSplit = false, onDeleted, onError, onFix, onSplit, record, visualIssues }: { isBusy?: boolean; isQueuedForSplit?: boolean; onDeleted: () => void; onError: (message: string) => void; onFix: (record: StoredAbility, stage: ConceptRedoStage) => Promise<void>; onSplit: (record: StoredAbility) => void; record: StoredAbility; visualIssues?: Record<string, string[]> }): React.ReactElement {
-  const [isRedoDialogOpen, setIsRedoDialogOpen] = useState(false);
-  const [redoStart, setRedoStart] = useState<ConceptRedoStage>('exercises');
+export function AbilityCard ({ isBusy = false, isAiUpdated = false, isQueuedForFix = false, isQueuedForSplit = false, onDeleted, onError, onQueueFix, onAbilityLogChange, onSplit, record, visualIssues }: { isBusy?: boolean; isAiUpdated?: boolean; isQueuedForFix?: boolean; isQueuedForSplit?: boolean; onDeleted: () => void; onError: (message: string) => void; onQueueFix?: (record: StoredAbility, instructions: AbilityFixInstructions) => Promise<void>; onAbilityLogChange?: () => Promise<void>; onSplit: (record: StoredAbility) => void; record: StoredAbility; visualIssues?: Record<string, string[]> }): React.ReactElement {
+  const [isFixDialogOpen, setIsFixDialogOpen] = useState(false);
+  const [fixInstructions, setFixInstructions] = useState<AbilityFixInstructions>(emptyAbilityFixInstructions);
+  const [isScheduling, setIsScheduling] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
-  const [isFixing, setIsFixing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [draft, setDraft] = useState<GeneratedAbility | null>(() => record.ability ? cloneAbility(record.ability) : null);
   const [rawDraft, setRawDraft] = useState(record.content);
   const remove = useCallback((): void => {
     deleteAbility(record.id).then(onDeleted).catch((error) => onError(error instanceof Error ? error.message : 'Unable to delete the Ability.'));
   }, [onDeleted, onError, record.id]);
+  const logUserChange = useCallback(async (summary: string, recordId = record.id, title = record.ability?.h ?? 'Ability'): Promise<void> => {
+    const match = /^book-(\d+)-concept-(\d+)$/.exec(record.moduleId);
+    if (!match) return;
+    await addBookAbilityChangeLog({ bookId: Number(match[1]), conceptId: Number(match[2]), recordId, title, source: 'user', summary });
+    await onAbilityLogChange?.();
+  }, [record, onAbilityLogChange]);
   const persistAbility = useCallback(async (ability: GeneratedAbility): Promise<void> => {
     const validated = parseStoredAbility(JSON.stringify(ability));
     const newRecordId = await storeAbility(record.moduleId, JSON.stringify(validated), record.displayOrder);
 
     if (newRecordId !== record.id) {
       await deleteAbility(record.id);
+      const match = /^book-(\d+)-concept-\d+$/.exec(record.moduleId);
+      if (match) await relinkBookAbilityChangeLogRecord(Number(match[1]), record.id, newRecordId);
     }
 
+    await logUserChange('Edited Ability text or exercise fields', newRecordId, validated.h);
     onDeleted();
-  }, [onDeleted, record.id, record.moduleId]);
+  }, [logUserChange, onDeleted, record.id, record.moduleId]);
   const saveVisual = useCallback(async (exerciseIndex: number, field: 'p' | 'i', value: string): Promise<void> => {
     if (!record.ability) {
-      throw new Error('Unable to save TikZ for invalid Ability JSON.');
+      throw new Error('Unable to save image for invalid Ability JSON.');
     }
 
     const imageId = storedAbilityImageId(record, exerciseIndex, field);
@@ -227,11 +234,12 @@ export function AbilityCard ({ isBusy = false, isQueuedForSplit = false, onDelet
     const prompt = exercise[promptField]?.trim() || (tikz ? image.prompt : value.trim());
 
     await putImage({ ...image, data: tikz ? value : null, prompt, type: tikz ? 'tikz' : 'prompt', valid: undefined });
+    await logUserChange(`Edited exercise ${exerciseIndex + 1} ${field === 'p' ? 'question' : 'answer'} image`);
     onDeleted();
-  }, [onDeleted, record]);
+  }, [logUserChange, onDeleted, record]);
   const saveVisualError = useCallback(async (exerciseIndex: number, field: 'p' | 'i', hasError: boolean, renderedValue: string): Promise<void> => {
     if (!record.ability) {
-      throw new Error('Unable to save TikZ error state for invalid Ability JSON.');
+      throw new Error('Unable to save image error state for invalid Ability JSON.');
     }
 
     const exercise = record.ability.q[exerciseIndex];
@@ -289,13 +297,34 @@ export function AbilityCard ({ isBusy = false, isQueuedForSplit = false, onDelet
       .finally(() => setIsSaving(false));
   }, [draft, onError, persistAbility, rawDraft]);
 
-  const fix = useCallback((): void => {
-    setIsRedoDialogOpen(false);
-    setIsFixing(true);
-    onFix(record, redoStart)
-      .catch((error) => onError(error instanceof Error ? error.message : 'Unable to regenerate this Concept with AI.'))
-      .finally(() => setIsFixing(false));
-  }, [onError, onFix, record, redoStart]);
+  const openFix = useCallback(async (): Promise<void> => {
+    const instructions = emptyAbilityFixInstructions();
+    await Promise.all((record.ability?.q ?? []).slice(0, 2).flatMap((_, index) => (['p', 'i'] as const).map(async (field) => {
+      const key = `${index}-${field}`;
+      const imageId = storedAbilityImageId(record, index, field);
+      const image = imageId === undefined ? undefined : await getImage(imageId);
+      const errors = [...new Set([...(image?.detectedIssues ?? []), ...(image?.reviewResult?.errors ?? []), ...(visualIssues?.[key] ?? [])])];
+      if (errors.length) {
+        const instructionKey = `exercise${index + 1}${field === 'p' ? 'QuestionImage' : 'AnswerImage'}` as keyof AbilityFixInstructions;
+        instructions[instructionKey] = errors.join('\n');
+      }
+    })));
+    setFixInstructions(instructions);
+    setIsFixDialogOpen(true);
+  }, [record, visualIssues]);
+
+  const scheduleFix = useCallback(async (): Promise<void> => {
+    if (!onQueueFix || !abilityFixHasChanges(fixInstructions)) return;
+    setIsScheduling(true);
+    try {
+      await onQueueFix(record, fixInstructions);
+      setIsFixDialogOpen(false);
+    } catch (error) {
+      onError(error instanceof Error ? error.message : 'Unable to schedule Ability correction.');
+    } finally {
+      setIsScheduling(false);
+    }
+  }, [fixInstructions, onError, onQueueFix, record]);
 
   const split = useCallback((): void => {
     try {
@@ -305,14 +334,14 @@ export function AbilityCard ({ isBusy = false, isQueuedForSplit = false, onDelet
     }
   }, [onError, onSplit, record]);
 
-  const isProcessing = isFixing;
+  const isProcessing = isScheduling;
   const hasLinkedConcept = /-concept-\d+$/.test(record.moduleId);
 
-  return <article aria-busy={isProcessing} className={`contentCard abilityCard${record.ability?.q.length === 1 ? ' abilityCardSingleExercise' : ''}`} tabIndex={-1}>
+  return <article aria-busy={isProcessing} className={`contentCard abilityCard${isAiUpdated ? ' abilityCardAiUpdated' : ''}${record.ability?.q.length === 1 ? ' abilityCardSingleExercise' : ''}`} tabIndex={-1}>
     <div className='contentCardActions'>
       <ItemActionsMenu
         actions={[
-          { label: isFixing ? 'Regenerating…' : 'Fix with AI', isDisabled: isBusy || isProcessing || isSaving, onClick: () => setIsRedoDialogOpen(true) },
+          { label: isQueuedForFix ? 'Edit scheduled Fix Ability' : 'Fix Ability', isDisabled: !onQueueFix || isBusy || isProcessing || isSaving, onClick: () => { void openFix().catch((error: unknown) => onError(error instanceof Error ? error.message : String(error))); } },
           { label: isQueuedForSplit ? 'Remove from split queue' : 'Split', isDisabled: !hasLinkedConcept || isBusy || isProcessing || isSaving || isEditing, onClick: split },
           { label: 'Edit', isDisabled: isBusy || isProcessing, onClick: openEdit },
           { label: 'Delete', isDestructive: true, isDisabled: isBusy || isProcessing || isSaving, onClick: remove }
@@ -335,27 +364,31 @@ export function AbilityCard ({ isBusy = false, isQueuedForSplit = false, onDelet
         <strong>Invalid Ability JSON</strong>
         <p>This record can be repaired with Fix abilities.</p>
       </>}
-    {isProcessing && <FixingOverlay label='Fixing with AI' />}
-    {isRedoDialogOpen && <Modal
-      header='Redo this Concept with AI'
-      onClose={() => setIsRedoDialogOpen(false)}
-      size='small'
+    {isProcessing && <FixingOverlay label='Scheduling Ability correction' />}
+    {isFixDialogOpen && <Modal
+      header='Fix Ability'
+      onClose={() => { if (!isScheduling) setIsFixDialogOpen(false); }}
+      size='large'
     >
       <Modal.Content>
-        <div className='chapterEditor'>
-          <p>Choose where to restart. The selected stage and every subsequent stage will run again for this Concept only. Other Concepts will not be changed.</p>
-          <Dropdown
-            isFull
-            label='Start from'
-            onChange={setRedoStart}
-            options={CONCEPT_REDO_STAGES.map(({ key, label }) => ({ key, text: label, value: key }))}
-            value={redoStart}
-          />
-          <p><small>Results are replaced as each stage succeeds. Earlier stages are kept, and an interrupted run may leave this Concept partially regenerated.</small></p>
+        <EditForm>
+          <p>Describe what should be updated in each part. Leave parts unchanged by leaving their fields blank. Existing image errors are inserted automatically. Image-only instructions repair images without regenerating the Ability; instructions for text or title regenerate the Ability.</p>
+          {ABILITY_FIX_FIELDS.filter(({ key }) => !key.startsWith('exercise2') || (record.ability?.q.length ?? 2) > 1).map(({ key, label, image }) => <label key={key}>
+            <span>{label}</span>
+            <textarea
+              aria-label={`${label} correction instructions`}
+              disabled={isScheduling}
+              onChange={({ target }) => setFixInstructions((current) => ({ ...current, [key]: target.value }))}
+              placeholder={image ? 'Describe how to correct or regenerate this image' : 'Describe the text changes to make'}
+              rows={image ? 3 : 2}
+              value={fixInstructions[key]}
+            />
+          </label>)}
           <Button.Group>
-            <Button icon='play' label='Run' onClick={fix} />
+            <Button icon='times' isDisabled={isScheduling} label='Cancel' onClick={() => setIsFixDialogOpen(false)} />
+            <Button icon='calendar-plus' isDisabled={!onQueueFix || isScheduling || !abilityFixHasChanges(fixInstructions)} label={isScheduling ? 'Scheduling…' : 'Schedule'} onClick={() => { void scheduleFix(); }} />
           </Button.Group>
-        </div>
+        </EditForm>
       </Modal.Content>
     </Modal>}
     {isEditing && <Modal

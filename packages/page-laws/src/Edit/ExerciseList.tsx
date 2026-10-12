@@ -44,7 +44,7 @@ const ExerciseVisual: React.FC<{ alt: string; hasCompileError?: boolean; isAbili
         return <>
             <div className={qaIssues?.length ? 'tikzQaFailed' : undefined} title={qaIssues?.join(' | ')}>
                 {qaIssues?.length ? <small className='tikzQaFailedLabel'>Visual QA failed — {qaIssues[0]}</small> : null}
-                <React.Suspense fallback={<small>Loading TikZ renderer…</small>}>
+                <React.Suspense fallback={<small>Loading image…</small>}>
                     {isAbilityInfo
                         ? <TikzVisual alt={alt} expandedPrompt={expandedPrompt} hasCompileError={hasCompileError} onCompileStateChange={onCompileStateChange} onSave={onSave} value={value} />
                         : <TikzDisplay alt={alt} hasCompileError={hasCompileError} onCompileStateChange={onCompileStateChange} value={value} />}

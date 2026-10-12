@@ -1,15 +1,14 @@
 // Copyright 2021-2026 @polkadot/app-laws authors & contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import type { BookChapter } from '@slonigiraf/db';
-import { SpanWithTags } from '@slonigiraf/slonig-components';
+import type { AbilityFixInstructions, BookChapter } from '@slonigiraf/db';
 import React from 'react';
 import type { ChapterContent, SkillsView } from '../SkillsTypes.js';
 import type { StoredAbility } from '../../../book/application/abilities/abilityProcessing.js';
-import type { ConceptRedoStage } from '../conceptRedoStages.js';
 
 import { conceptAbilityModuleId, storedAbilityImageId } from '../../../book/application/abilities/abilityProcessing.js';
 import { AbilityCard, BookItem, ChapterNavigation, SkillCard } from './SkillsComponents.js';
+import AbilityConceptCard from './AbilityConceptCard.js';
 import { groupAbilitiesByConcept } from './abilityConceptGroups.js';
 
 interface SkillsContentViewProps {
@@ -22,8 +21,10 @@ interface SkillsContentViewProps {
   current?: ChapterContent;
   currentMissingAbilityIndexes: number[];
   deleteConceptAndAbilities: (conceptId: number) => Promise<void>;
-  fixSingleAbility: (record: StoredAbility, stage: ConceptRedoStage) => Promise<void>;
   splitSingleAbility: (record: StoredAbility) => void;
+  scheduleAbilityFix?: (record: StoredAbility, instructions: AbilityFixInstructions) => Promise<void>;
+  queuedFixRecordIds: readonly string[];
+  onAbilityLogChange?: () => Promise<void>;
   splitQueueConceptIds: readonly number[];
   isBusy: boolean;
   focusConceptAbility: (exerciseIndex: number) => void;
@@ -38,7 +39,7 @@ interface SkillsContentViewProps {
   tikzIssuesByImageId: Record<number, string[]>;
 }
 
-export default function SkillsContentView ({ abilitiesOutputRef, bookId, chapterContentOutputRef, chapterIndex, chapters, changeChapter, current, currentMissingAbilityIndexes, deleteConceptAndAbilities, fixSingleAbility, splitSingleAbility, splitQueueConceptIds, focusConceptAbility, failedVisualCountsByChapter, isBusy, missingAbilityCountsByChapter, onError, openChapterEditor, pipelineOnly, refresh, refreshContent, tikzIssuesByImageId, view }: SkillsContentViewProps): React.ReactElement {
+export default function SkillsContentView ({ abilitiesOutputRef, bookId, chapterContentOutputRef, chapterIndex, chapters, changeChapter, current, currentMissingAbilityIndexes, deleteConceptAndAbilities, splitSingleAbility, scheduleAbilityFix, queuedFixRecordIds, onAbilityLogChange, splitQueueConceptIds, focusConceptAbility, failedVisualCountsByChapter, isBusy, missingAbilityCountsByChapter, onError, openChapterEditor, pipelineOnly, refresh, refreshContent, tikzIssuesByImageId, view }: SkillsContentViewProps): React.ReactElement {
   const abilityGroups = current
     ? groupAbilitiesByConcept(current.concepts, current.abilities, (id) => conceptAbilityModuleId(bookId, id))
     : undefined;
@@ -127,34 +128,29 @@ export default function SkillsContentView ({ abilitiesOutputRef, bookId, chapter
               </React.Fragment>)}</span>
             </div>}
             {!!failedConceptIndexes.length && <div className='missingAbilityNavigation tikzIssueNavigation'>
-              <span>Abilities with failed TikZ visuals:</span>
+              <span>Abilities with failed images:</span>
               <span className='missingAbilityLinks'>{failedConceptIndexes.map((conceptIndex, index) => <React.Fragment key={conceptIndex}>
                 {index > 0 && <span aria-hidden='true'>, </span>}
                 <button
-                  aria-label={`Go to Ability ${conceptIndex + 1} with a failed TikZ visual`}
+                  aria-label={`Go to Ability ${conceptIndex + 1} with a failed image`}
                   onClick={() => focusConceptAbility(conceptIndex)}
                   type='button'
                 >{conceptIndex + 1}</button>
               </React.Fragment>)}</span>
             </div>}
-            {abilityGroups?.groups.map(({ abilities, concept }, conceptIndex) => <section
-              className={`abilityExerciseCard abilityConceptCard${abilities.length > 0 && abilities.every(({ ability }) => ability?.q.length === 1) ? ' abilityConceptCardSingleExercise' : ''}`}
-              data-concept-id={concept.id}
-              data-concept-rank={conceptIndex + 1}
+            {abilityGroups?.groups.map(({ abilities, concept }, conceptIndex) => <AbilityConceptCard
+              concept={concept}
+              isSingleExercise={abilities.length > 0 && abilities.every(({ ability }) => ability?.q.length === 1)}
               key={`concept-${concept.id ?? conceptIndex}`}
-              tabIndex={-1}
+              ordinal={conceptIndex + 1}
             >
-              <h4><span>{conceptIndex + 1}. </span><SpanWithTags content={concept.title} /></h4>
-              {concept.description && <p><SpanWithTags content={concept.description} /></p>}
-              <div className='matchedAbilities'>
-                {abilities.length
-                  ? abilities.map((record) => <AbilityCard isBusy={isBusy} isQueuedForSplit={splitQueueConceptIds.includes(Number(/-concept-(\d+)$/.exec(record.moduleId)?.[1]))} key={record.id} onDeleted={refreshContent} onError={onError} onFix={fixSingleAbility} onSplit={splitSingleAbility} record={record} visualIssues={visualIssuesFor(record)} />)
-                  : <p className='noAbility'>No Ability generated for this Concept.</p>}
-              </div>
-            </section>)}
+              {abilities.length
+                ? abilities.map((record) => <AbilityCard isBusy={isBusy} isQueuedForFix={queuedFixRecordIds.includes(record.id)} onQueueFix={scheduleAbilityFix} onAbilityLogChange={onAbilityLogChange} isQueuedForSplit={splitQueueConceptIds.includes(Number(/-concept-(\d+)$/.exec(record.moduleId)?.[1]))} key={record.id} onDeleted={refreshContent} onError={onError} onSplit={splitSingleAbility} record={record} visualIssues={visualIssuesFor(record)} />)
+                : <p className='noAbility'>No Ability generated for this Concept.</p>}
+            </AbilityConceptCard>)}
             {!!abilityGroups?.unmatched.length && <section className='unmatchedAbilities' tabIndex={-1}>
               <h4>Unmatched Abilities</h4>
-              {abilityGroups.unmatched.map((record) => <AbilityCard isBusy={isBusy} isQueuedForSplit={splitQueueConceptIds.includes(Number(/-concept-(\d+)$/.exec(record.moduleId)?.[1]))} key={record.id} onDeleted={refreshContent} onError={onError} onFix={fixSingleAbility} onSplit={splitSingleAbility} record={record} visualIssues={visualIssuesFor(record)} />)}
+              {abilityGroups.unmatched.map((record) => <AbilityCard isBusy={isBusy} isQueuedForFix={queuedFixRecordIds.includes(record.id)} onQueueFix={scheduleAbilityFix} onAbilityLogChange={onAbilityLogChange} isQueuedForSplit={splitQueueConceptIds.includes(Number(/-concept-(\d+)$/.exec(record.moduleId)?.[1]))} key={record.id} onDeleted={refreshContent} onError={onError} onSplit={splitSingleAbility} record={record} visualIssues={visualIssuesFor(record)} />)}
             </section>}
           </div>
         )}

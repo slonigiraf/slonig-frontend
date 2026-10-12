@@ -180,7 +180,7 @@ class TikzEditorRenderer {
     this.#iframe.allow = 'clipboard-read; clipboard-write';
     this.#iframe.setAttribute('aria-hidden', 'true');
     this.#iframe.tabIndex = -1;
-    this.#iframe.title = 'TikZ Editor renderer';
+    this.#iframe.title = 'Image editor renderer';
     this.#iframe.src = TIKZ_EDITOR_URL;
 
     Object.assign(this.#iframe.style, {

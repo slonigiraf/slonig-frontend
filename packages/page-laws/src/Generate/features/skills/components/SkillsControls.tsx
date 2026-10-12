@@ -74,7 +74,7 @@ export default function SkillsControls ({ abilitiesMissingImagesCount, failedTik
       />}
       {(aiAction === 'fixImages' || aiAction === 'fixAnswerImages') && <Toggle
         isDisabled={!failedTikzCount}
-        label={`Only retry Abilities with failed TikZ visuals (${failedTikzCount})`}
+        label={`Only retry Abilities with failed images (${failedTikzCount})`}
         onChange={setFixOnlyFailedTikz}
         value={fixOnlyFailedTikz}
       />}

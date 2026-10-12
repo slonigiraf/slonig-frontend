@@ -1,8 +1,8 @@
 // Copyright 2021-2026 @polkadot/app-laws authors & contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import type { BookChapter, BookConcept } from '@slonigiraf/db';
-import { getBookAbilitySplitQueue, isBookProcessingStageComplete, removeBookAbilitySplitQueueItem, toggleBookAbilitySplitQueueItem } from '@slonigiraf/db';
+import type { BookChapter, BookConcept, BookAbilityWorkItem, AbilityFixInstructions, BookAbilityChangeLogEntry } from '@slonigiraf/db';
+import { getBookAbilityWorkQueue, scheduleBookAbilityFix, toggleBookAbilitySplitWorkItem, removeBookAbilityWorkItem, getBookAbilityChangeLog, reviewBookAbilityChangeLogEntry, isBookProcessingStageComplete } from '@slonigiraf/db';
 import { Confirmation, SpanWithTags, SelectableList, useInfo } from '@slonigiraf/slonig-components';
 import MathpixLoader from 'mathpix-markdown-it/lib/components/mathpix-loader/index.js';
 import MathpixMarkdown from 'mathpix-markdown-it/lib/components/mathpix-markdown/index.js';
@@ -24,6 +24,8 @@ import { skipBookStage } from '../../book/application/pipeline/skipBookStage.js'
 
 import { StyledReader } from './BookReader.styles.js';
 import { ChapterTitleEditor, ConceptForm, ConceptItem, FixConceptsReviewContent } from './components/index.js';
+import AbilityChangeLogModal from './components/AbilityChangeLogModal.js';
+import { groupAbilityChanges } from './components/abilityChangeLogGroups.js';
 import { conceptDisplayPage, conceptReferenceKey } from '../../book/application/workspace/bookReaderWorkspace.js';
 import type { FixConceptsReviewChapter } from './BookReaderTypes.js';
 import type { ConceptEmbeddingHeatmapEntry, ReaderPane } from '../../shared/types/bookWorkspace.js';
@@ -218,7 +220,9 @@ export function BookReaderView ({ controller }: Props): React.ReactElement {
   const { showInfo } = useInfo();
   // Keep the owning book alongside the IDs: an old book's queue must never
   // appear while the new book's IndexedDB read is still pending.
-  const [splitQueueState, setSplitQueueState] = useState<{ bookId: number; conceptIds: number[] }>();
+  const [splitQueueState, setSplitQueueState] = useState<{ bookId: number; items: BookAbilityWorkItem[] }>();
+  const [abilityLogState, setAbilityLogState] = useState<{ bookId: number; entries: BookAbilityChangeLogEntry[] }>();
+  const [isAbilityLogOpen, setIsAbilityLogOpen] = useState(false);
   const [isSplitQueueConfirmationOpen, setIsSplitQueueConfirmationOpen] = useState(false);
   const [isSplitBatchRunning, setIsSplitBatchRunning] = useState(false);
   const activeBookIdRef = useRef(book.id);
@@ -228,21 +232,31 @@ export function BookReaderView ({ controller }: Props): React.ReactElement {
   showInfoRef.current = showInfo;
 
   const isSplitQueueReady = splitQueueState?.bookId === book.id;
-  const splitQueueConceptIds = isSplitQueueReady ? splitQueueState.conceptIds : [];
+  const workQueueItems = isSplitQueueReady ? splitQueueState.items : [];
+  const splitQueueConceptIds = workQueueItems.filter(({ kind }) => kind === 'split').map(({ conceptId }) => conceptId);
+  const abilityLogEntries = abilityLogState?.bookId === book.id ? abilityLogState.entries : [];
+  const abilityLogCount = groupAbilityChanges(abilityLogEntries).length;
+  const refreshAbilityLog = useCallback(async (): Promise<void> => {
+    const entries = await getBookAbilityChangeLog(book.id);
+    if (activeBookIdRef.current === book.id) setAbilityLogState({ bookId: book.id, entries });
+  }, [book.id]);
 
   useEffect(() => {
     let active = true;
 
     setSplitQueueState(undefined);
+    setAbilityLogState(undefined);
+    setIsAbilityLogOpen(false);
     setIsSplitQueueConfirmationOpen(false);
-    void getBookAbilitySplitQueue(book.id).then((conceptIds) => {
-      if (active) setSplitQueueState({ bookId: book.id, conceptIds });
+    void getBookAbilityWorkQueue(book.id).then((items) => {
+      if (active) setSplitQueueState({ bookId: book.id, items });
     }).catch((error: unknown) => {
       if (active) showInfoRef.current(`Could not load the split queue: ${error instanceof Error ? error.message : String(error)}`, 'error');
     });
 
+    void refreshAbilityLog().catch(console.error);
     return () => { active = false; };
-  }, [book.id]);
+  }, [book.id, refreshAbilityLog]);
 
   const queueSplitAbility = useCallback(async (record: StoredAbility): Promise<void> => {
     if (!isSplitQueueReady || isSplitBatchRunning) return;
@@ -251,23 +265,42 @@ export function BookReaderView ({ controller }: Props): React.ReactElement {
     const conceptId = Number(match[2]);
 
     try {
-      const { conceptIds, queued } = await toggleBookAbilitySplitQueueItem(book.id, conceptId);
+      const queuedBefore = workQueueItems.some((item) => item.id === `split:${conceptId}`);
+      const items = await toggleBookAbilitySplitWorkItem(book.id, conceptId);
+      const queued = !queuedBefore;
 
       if (activeBookIdRef.current === book.id) {
-        setSplitQueueState({ bookId: book.id, conceptIds });
+        setSplitQueueState({ bookId: book.id, items });
         showInfoRef.current(t(queued ? '+1 ability marked for splitting' : '-1 ability removed from split queue'));
       }
     } catch (error) {
       showInfoRef.current(`Could not save the split queue: ${error instanceof Error ? error.message : String(error)}`, 'error');
     }
-  }, [book.id, isSplitQueueReady, isSplitBatchRunning, t]);
+  }, [book.id, isSplitQueueReady, isSplitBatchRunning, t, workQueueItems]);
 
-  const onSplitQueueItemComplete = useCallback(async (conceptId: number): Promise<void> => {
-    // Await the database commit before counting the Ability as completed.
-    const conceptIds = await removeBookAbilitySplitQueueItem(book.id, conceptId);
+  const queueFixAbility = useCallback(async (record: StoredAbility, instructions: AbilityFixInstructions): Promise<void> => {
+    if (!isSplitQueueReady || isSplitBatchRunning) throw new Error('The Ability work queue is busy.');
+    const match = /^book-(\d+)-concept-(\d+)$/.exec(record.moduleId);
+    if (!match || Number(match[1]) !== book.id) throw new Error('An Ability must be linked to this book and a Concept.');
+    const items = await scheduleBookAbilityFix(book.id, Number(match[2]), record.id, instructions);
+    if (activeBookIdRef.current === book.id) {
+      setSplitQueueState({ bookId: book.id, items });
+      showInfoRef.current('Ability correction scheduled.');
+    }
+  }, [book.id, isSplitQueueReady, isSplitBatchRunning]);
 
-    if (activeBookIdRef.current === book.id) setSplitQueueState({ bookId: book.id, conceptIds });
-  }, [book.id]);
+  const onWorkQueueItemComplete = useCallback(async (itemId: string): Promise<void> => {
+    const items = await removeBookAbilityWorkItem(book.id, itemId);
+    if (activeBookIdRef.current === book.id) setSplitQueueState({ bookId: book.id, items });
+    await refreshAbilityLog();
+  }, [book.id, refreshAbilityLog]);
+
+  const reportAbilityLogError = useCallback((message: string): void => { showInfoRef.current(message, 'error'); }, []);
+
+  const markAbilityReviewed = useCallback(async (entryIds: number[]): Promise<void> => {
+    await Promise.all(entryIds.map((id) => reviewBookAbilityChangeLogEntry(book.id, id)));
+    await refreshAbilityLog();
+  }, [book.id, refreshAbilityLog]);
 
   const recognizedTextPane = (): React.ReactNode => (
     <div className='tabPanel'>
@@ -1095,9 +1128,17 @@ export function BookReaderView ({ controller }: Props): React.ReactElement {
         onEntityCountsChange={onSkillsEntityCountsChange}
         onPipelineSelectionChange={setSelectedPipelineKey}
         splitQueueConceptIds={splitQueueConceptIds}
+        workQueueItems={workQueueItems}
         onQueueSplit={queueSplitAbility}
-        onSplitQueueItemComplete={onSplitQueueItemComplete}
-        onSplitQueueBusyChange={setIsSplitBatchRunning}
+        onQueueFix={queueFixAbility}
+        onWorkQueueItemComplete={onWorkQueueItemComplete}
+        onAbilityLogChange={refreshAbilityLog}
+        onSplitQueueBusyChange={(busy) => {
+          setIsSplitBatchRunning(busy);
+          if (!busy) void getBookAbilityWorkQueue(book.id).then((items) => {
+            if (activeBookIdRef.current === book.id) setSplitQueueState({ bookId: book.id, items });
+          }).catch(console.error);
+        }}
         isSplitQueueConfirmationOpen={isSplitQueueConfirmationOpen}
         externalSplitQueueBusy={isSplitBatchRunning || !isSplitQueueReady}
         onCloseSplitQueueConfirmation={() => setIsSplitQueueConfirmationOpen(false)}
@@ -1111,13 +1152,22 @@ export function BookReaderView ({ controller }: Props): React.ReactElement {
             title={t('Run all remaining stages')}
           />
           <Button
-            aria-label={t('Split queued Abilities')}
+            aria-label={t('Run queued Ability work')}
             className='pipelineSplitQueueButton'
             icon='wand-magic-sparkles'
-            isDisabled={isPriceDisabled || autoRunAll || isSplitBatchRunning || !isSplitQueueReady || splitQueueConceptIds.length === 0}
-            label={String(splitQueueConceptIds.length)}
+            isDisabled={isPriceDisabled || autoRunAll || isSplitBatchRunning || !isSplitQueueReady || workQueueItems.length === 0}
+            label={String(workQueueItems.length)}
             onClick={() => setIsSplitQueueConfirmationOpen(true)}
-            title={t('Split queued Abilities')}
+            title={t('Run queued Ability work')}
+          />
+          <Button
+            aria-label='Ability change log'
+            className='pipelineLogButton'
+            icon='history'
+            isDisabled={abilityLogState?.bookId !== book.id || abilityLogCount === 0}
+            label={String(abilityLogCount)}
+            onClick={() => { void refreshAbilityLog(); setIsAbilityLogOpen(true); }}
+            title='Ability change log'
           />
           <Button
             className='pipelinePriceButton'
@@ -1137,6 +1187,19 @@ export function BookReaderView ({ controller }: Props): React.ReactElement {
         pipelineSuffix={processingToolbarAfterFixImages}
         view='conceptsSkills'
       />
+      {isAbilityLogOpen && <AbilityChangeLogModal
+        bookId={book.id}
+        entries={abilityLogEntries}
+        isQueueBusy={isSplitBatchRunning || !isSplitQueueReady}
+        onClose={() => setIsAbilityLogOpen(false)}
+        onContentChange={onSkillsContentChange}
+        onError={reportAbilityLogError}
+        onLogChange={refreshAbilityLog}
+        onQueueFix={queueFixAbility}
+        onQueueSplit={queueSplitAbility}
+        onReviewed={markAbilityReviewed}
+        workQueueItems={workQueueItems}
+      />}
       {error && <p
         className='readerError'
         role='alert'
@@ -1394,7 +1457,10 @@ export function BookReaderView ({ controller }: Props): React.ReactElement {
                           onBookChange={onBookChange}
                           onEntityCountsChange={onSkillsEntityCountsChange}
                           splitQueueConceptIds={splitQueueConceptIds}
+                          workQueueItems={workQueueItems}
                           onQueueSplit={queueSplitAbility}
+                          onQueueFix={queueFixAbility}
+                                            onAbilityLogChange={refreshAbilityLog}
                           externalSplitQueueBusy={isSplitBatchRunning || !isSplitQueueReady}
                           showPipeline={false}
                           view='preExercisesExercises'

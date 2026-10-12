@@ -109,14 +109,14 @@ export default function TikzVisual ({ alt, editorTitle, expandedPrompt, hasCompi
 
   const requestEditorSave = useCallback((): Promise<{ source: string; svg: string }> => {
     if (!editorRef.current?.contentWindow) {
-      return Promise.reject(new Error('TikZ Editor is not ready.'));
+      return Promise.reject(new Error('image editor is not ready.'));
     }
 
     const previous = pendingEditorSaveRef.current;
 
     if (previous) {
       clearTimeout(previous.timer);
-      previous.reject(new Error('TikZ Editor save was superseded by another save request.'));
+      previous.reject(new Error('image editor save was superseded by another save request.'));
       pendingEditorSaveRef.current = undefined;
     }
 
@@ -124,7 +124,7 @@ export default function TikzVisual ({ alt, editorTitle, expandedPrompt, hasCompi
       const timer = setTimeout(() => {
         if (pendingEditorSaveRef.current?.timer === timer) {
           pendingEditorSaveRef.current = undefined;
-          reject(new Error('TikZ Editor save timed out.'));
+          reject(new Error('image editor save timed out.'));
         }
       }, EDITOR_SAVE_TIMEOUT_MS);
 
@@ -150,7 +150,7 @@ export default function TikzVisual ({ alt, editorTitle, expandedPrompt, hasCompi
       const nextValue = saved.source.trim();
 
       if (!nextValue) {
-        throw new Error('TikZ Editor returned empty source.');
+        throw new Error('image editor returned empty source.');
       }
 
       cacheTikzEditorSvg(nextValue, saved.svg);
@@ -170,7 +170,7 @@ export default function TikzVisual ({ alt, editorTitle, expandedPrompt, hasCompi
     } catch (error) {
       retrySourceRef.current = undefined;
       setRetrySource(undefined);
-      setMessage(error instanceof Error ? error.message : 'Unable to save TikZ.');
+      setMessage(error instanceof Error ? error.message : 'Unable to save image.');
     } finally {
       setIsSaving(false);
     }
@@ -224,7 +224,7 @@ export default function TikzVisual ({ alt, editorTitle, expandedPrompt, hasCompi
           if (pending) {
             clearTimeout(pending.timer);
             pendingEditorSaveRef.current = undefined;
-            pending.reject(new Error('TikZ Editor did not return SVG with the save response.'));
+            pending.reject(new Error('image editor did not return SVG with the save response.'));
           }
           return;
         }
@@ -263,7 +263,7 @@ export default function TikzVisual ({ alt, editorTitle, expandedPrompt, hasCompi
     if (pending) {
       clearTimeout(pending.timer);
       pendingEditorSaveRef.current = undefined;
-      pending.reject(new Error('TikZ Editor was closed before save completed.'));
+      pending.reject(new Error('image editor was closed before save completed.'));
     }
   }, []);
 
@@ -326,7 +326,7 @@ export default function TikzVisual ({ alt, editorTitle, expandedPrompt, hasCompi
     {showPreview && <PreviewBlock>
       <PreviewRow>
         <ZoomablePreview
-          aria-label={`Open ${alt} TikZ preview`}
+          aria-label={`Open ${alt} image preview`}
           onClick={() => setIsPreviewBig(true)}
           onKeyDown={(event) => {
             if (event.key === 'Enter' || event.key === ' ') {
@@ -338,7 +338,7 @@ export default function TikzVisual ({ alt, editorTitle, expandedPrompt, hasCompi
           tabIndex={0}
         >
           <TikzDisplay
-            alt={`${alt} TikZ preview`}
+            alt={`${alt} image preview`}
             displayMode='thumbnail'
             hasCompileError={hasCompileError && rendered === value && retrySource !== rendered}
             onCompileStateChange={handleCompileStateChange}
@@ -371,7 +371,7 @@ export default function TikzVisual ({ alt, editorTitle, expandedPrompt, hasCompi
         >
           <ScaledPreview className={expandedPrompt ? 'withExpandedPrompt' : undefined} style={{ transform: `scale(${previewScale})` }}>
             <TikzDisplay
-              alt={`${alt} TikZ preview`}
+              alt={`${alt} image preview`}
               displayMode='modal'
               hasCompileError={hasCompileError && rendered === value && retrySource !== rendered}
               value={rendered}
@@ -383,7 +383,7 @@ export default function TikzVisual ({ alt, editorTitle, expandedPrompt, hasCompi
     </ImageModal>}
     {showPreview && !isVisualEditorShown && message && <EditorMessage>{message}</EditorMessage>}
     {isVisualEditorShown && createPortal(
-      <VisualEditorOverlay role='dialog' aria-label={`${alt} visual TikZ editor`} aria-modal='true'>
+      <VisualEditorOverlay role='dialog' aria-label={`${alt} image editor`} aria-modal='true'>
         <VisualEditorHeader>
           <strong>{editorTitle ?? `Edit ${alt}`}</strong>
           <VisualEditorHeaderActions>
@@ -407,7 +407,7 @@ export default function TikzVisual ({ alt, editorTitle, expandedPrompt, hasCompi
             allow='clipboard-read; clipboard-write'
             ref={editorRef}
             src={TIKZ_EDITOR_URL}
-            title={`${alt} visual TikZ editor`}
+            title={`${alt} image editor`}
           />
         </VisualEditorBody>
       </VisualEditorOverlay>,

@@ -1,7 +1,7 @@
 // Copyright 2021-2026 @polkadot/app-laws authors & contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import type { Book, BookChapter, BookConcept, Skill, TikzReviewResult } from '@slonigiraf/db';
+import type { AbilityFixInstructions, BookAbilityWorkItem, Book, BookChapter, BookConcept, Skill, TikzReviewResult } from '@slonigiraf/db';
 import type { GeneratedAbility } from '../../../abilities/abilities.js';
 import type { TikzPreRenderResult } from '../../../Edit/TikzDisplay.js';
 import type { AutoRunProgress, PipelineAction, ProcessingStatus } from '../../shared/types/processing.js';
@@ -27,6 +27,10 @@ export interface SkillsProps {
   /** Book-wide queue shared by the toolbar and the Abilities pane. */
   splitQueueConceptIds?: readonly number[];
   onQueueSplit?: (record: StoredAbility) => void;
+  onQueueFix?: (record: StoredAbility, instructions: AbilityFixInstructions) => Promise<void>;
+  workQueueItems?: readonly BookAbilityWorkItem[];
+  onAbilityLogChange?: () => Promise<void>;
+  onWorkQueueItemComplete?: (itemId: string) => Promise<void>;
   onSplitQueueItemComplete?: (conceptId: number) => Promise<void> | void;
   onSplitQueueBusyChange?: (busy: boolean) => void;
   externalSplitQueueBusy?: boolean;

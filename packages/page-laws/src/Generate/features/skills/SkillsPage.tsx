@@ -1,12 +1,12 @@
 // Copyright 2021-2026 @polkadot/app-laws authors & contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import type { Book, BookChapter, BookConcept, BookPage, BookProcessingStageKey, BookStageSpendKey, Skill, TikzReviewResult } from '@slonigiraf/db';
+import type { Book, BookAbilityWorkItem, BookChapter, BookConcept, BookPage, BookProcessingStageKey, BookStageSpendKey, Skill, TikzReviewResult } from '@slonigiraf/db';
 import type { GeneratedAbility } from '../../../abilities/abilities.js';
 import type { AbilityWorkflowJsonRunner } from '../../book/domain/abilities/abilityWorkflow.js';
 import type { AiAction, ChapterContent, DuplicateAbilityReview, FixedImageReview, FixReviewResult, ImageFixReviewResult, UnresolvedImageReview, PipelineAction, SkillSource, SkillsProps, SkillsView } from './SkillsTypes.js';
 
-import { addBookStageSpend, completeBookProcessingStage, createBookConcept, ensureAbilityAnswerImage, deleteAbilities, deleteAbility, deleteBookConcept, getAbilities, getBookChapters, getBookCompletedStages, getBookConceptsForBookPage, getBookPages, getSetting, getSkillsForChapter, getImage, getBookVisualQaSummary, hydrateAbilityContent, isBookProcessingStageSatisfied, putImage, replaceBookConceptWithChildren, setTikzImageQaState, tikzSourceVersion, replaceAbilities, replaceSkillsForChapter, resetBookProcessingStagesFrom, SettingKey, storeAbility } from '@slonigiraf/db';
+import { ABILITY_FIX_FIELDS, abilityFixHasTextChanges, addBookAbilityChangeLog, getBookAbilityWorkQueue, updateBookAbilityFixRecordId, addBookStageSpend, completeBookProcessingStage, createBookConcept, ensureAbilityAnswerImage, deleteAbilities, deleteAbility, deleteBookConcept, getAbilities, getBookChapters, getBookCompletedStages, getBookConceptsForBookPage, getBookPages, getSetting, getSkillsForChapter, getImage, getBookVisualQaSummary, hydrateAbilityContent, isBookProcessingStageSatisfied, putImage, replaceBookConceptWithChildren, relinkBookAbilityChangeLogRecord, setTikzImageQaState, tikzSourceVersion, replaceAbilities, replaceSkillsForChapter, resetBookProcessingStagesFrom, SettingKey, storeAbility } from '@slonigiraf/db';
 import OpenAI from 'openai';
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 
@@ -102,7 +102,6 @@ async function preRenderStoredTikz (imageId: number, value: string, forceCompile
 
 async function reviewConceptImage (target: ImageFixTarget, client: OpenAI, model: string, language: string, age: number | undefined, onCost: (cost: number) => void, signal: AbortSignal): Promise<{ renderFailure: boolean; item?: FixedImageReview; unresolved?: UnresolvedImageReview }> {
   const originalPreRender = await preRenderStoredTikz(target.imageId, target.originalTikz, true);
-  const originalVersion = tikzSourceVersion(target.originalTikz);
   const role = target.field === 'p' ? 'question' : 'solution';
   const regenerateFromSpecification = async (source: string): Promise<string> => {
     const visualPrompt = target.prompt || `Create the required ${role} visual for this exercise from the exercise text and correct answer.`;
@@ -123,9 +122,16 @@ async function reviewConceptImage (target: ImageFixTarget, client: OpenAI, model
     return proposal;
   };
 
+  const previouslyReviewed = await getImage(target.imageId);
+  const previousAssessmentErrors = [...new Set([
+    ...(previouslyReviewed?.detectedIssues ?? []),
+    ...(previouslyReviewed?.reviewResult?.errors ?? []),
+    ...(target.previousAssessmentErrors ?? [])
+  ].filter(Boolean))];
+  const assessedTarget: ImageFixTarget = { ...target, previousAssessmentErrors };
   let source = target.originalTikz;
   let preRender = originalPreRender;
-  let detectedIssues: string[] = [];
+  let detectedIssues: string[] = [...previousAssessmentErrors];
   let renderFailure = !originalPreRender.compiled;
   let originalReviewed = false;
 
@@ -152,6 +158,19 @@ async function reviewConceptImage (target: ImageFixTarget, client: OpenAI, model
   };
 
   try {
+    // Known failed images start with a targeted repair, not a redundant
+    // assessment of the already rejected original. Every proposed correction
+    // must still render and undergo its own NEW PNG visual review.
+    if (previousAssessmentErrors.length) {
+      const repaired = await requestValidatedJson(
+        client, model,
+        'Repair the previously diagnosed image errors. Return JSON with corrected TikZ source.',
+        tikzDetectedProblemsRepairPrompt(language, assessedTarget, { hasErrors: true, errors: previousAssessmentErrors, tikz: source }, originalPreRender, age),
+        parseTikzAiReview, true, onCost, TIKZ_REVIEW_MAX_OUTPUT_TOKENS, undefined, 2, signal
+      );
+      source = repaired.tikz.trim() !== source.trim() ? repaired.tikz : await regenerateFromSpecification(source);
+      preRender = await preRenderTikzLazy(source);
+    }
     // Maximum three candidate versions. Every source that passes rendering is
     // rasterized and sent through a NEW vision-model request. Never accept a
     // correction just because it produced SVG (or because a previous PNG passed).
@@ -187,7 +206,7 @@ async function reviewConceptImage (target: ImageFixTarget, client: OpenAI, model
       // This throws when a browser cannot decode/draw the actual SVG; there is
       // deliberately NO SVG-text or SVG-data-URL fallback for the AI reviewer.
       const png = await rasterizeTikzSvg(preRender.renderedSvg);
-      const reviewTarget = { ...target, originalTikz: source };
+      const reviewTarget = { ...assessedTarget, originalTikz: source };
       const review = await requestValidatedJson(
         client, model,
         'You are a strict educational diagram QA reviewer and TikZ repair expert. Inspect the ATTACHED PNG, not just the TikZ text. Return only JSON.',
@@ -245,7 +264,7 @@ async function reviewConceptImage (target: ImageFixTarget, client: OpenAI, model
       if (nextSource.trim() === source.trim()) {
         const repair = await requestValidatedJson(
           client, model,
-          'Apply the specific TikZ issues found by visual QA. Return JSON with an actually changed TikZ source.',
+          'Apply the specific image issues found by visual QA. Return JSON with an actually changed TikZ source.',
           tikzDetectedProblemsRepairPrompt(language, reviewTarget, { ...review, errors: issues, hasErrors: true }, preRender, age),
           parseTikzAiReview, true, onCost, TIKZ_REVIEW_MAX_OUTPUT_TOKENS, undefined, 2, signal
         );
@@ -276,6 +295,7 @@ const TIKZ_RENDER_CONCURRENCY = 4;
 const TIKZ_REVIEW_MAX_OUTPUT_TOKENS = 6_000;
 const MAX_TIKZ_VISUAL_REVIEW_ATTEMPTS = 3;
 const EMPTY_SPLIT_QUEUE: readonly number[] = [];
+const EMPTY_WORK_QUEUE: readonly BookAbilityWorkItem[] = [];
 
 const chapterSessionKey = (bookId: number, view: SkillsView): string => `knowledge-upload-book-${bookId}-${view}-chapter`;
 
@@ -289,7 +309,7 @@ function getSessionChapter (bookId: number, view: SkillsView): number {
   }
 }
 
-function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapters = false, book, externalAutoRunBusy = false, externalRefreshToken = 0, onAction, onAutoRunComplete, onAutoRunProcessingChange, onAutoRunProgressChange, onAbortAutoRun, onBookChange, onContentChange, onEntityCountsChange, onPipelineSelectionChange, pipelineOnly = false, pipelineControls, pipelinePrefix, pipelineSuffix, showPipeline = true, view, splitQueueConceptIds, onQueueSplit, onSplitQueueItemComplete, onSplitQueueBusyChange, externalSplitQueueBusy = false, isSplitQueueConfirmationOpen = false, onCloseSplitQueueConfirmation }: SkillsProps): React.ReactElement {
+function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapters = false, book, externalAutoRunBusy = false, externalRefreshToken = 0, onAction, onAutoRunComplete, onAutoRunProcessingChange, onAutoRunProgressChange, onAbortAutoRun, onBookChange, onContentChange, onEntityCountsChange, onPipelineSelectionChange, pipelineOnly = false, pipelineControls, pipelinePrefix, pipelineSuffix, showPipeline = true, view, splitQueueConceptIds, workQueueItems, onQueueSplit, onQueueFix, onAbilityLogChange, onWorkQueueItemComplete, onSplitQueueBusyChange, externalSplitQueueBusy = false, isSplitQueueConfirmationOpen = false, onCloseSplitQueueConfirmation }: SkillsProps): React.ReactElement {
   const language = book.language ?? '';
   const hasBookLanguage = Boolean(language);
   const hasBookSubject = Boolean(book.subject);
@@ -309,7 +329,9 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
   const [splitQueueEstimateState, setSplitQueueEstimateState] = useState<{ key: string; estimate: AiInputEstimate | string }>();
   const splitBatchRunningRef = useRef(false);
   const splitBatchCancelledRef = useRef(false);
+  const queuedWorkItems = workQueueItems ?? EMPTY_WORK_QUEUE;
   const queuedSplitIds = splitQueueConceptIds ?? EMPTY_SPLIT_QUEUE;
+  const queuedFixRecordIds = queuedWorkItems.flatMap((item) => item.kind === 'fix' && item.recordId ? [item.recordId] : []);
   const [isBusy, setIsBusy] = useState(false);
   const [openRouterSpent, setOpenRouterSpent] = useState(0);
   const [progress, setProgress] = useState(0);
@@ -321,7 +343,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
   const effectiveModel = autoRunAll ? DEFAULT_PROCESSING_MODEL : selectedModel;
   const [effectiveCompletedStages, setEffectiveCompletedStages] = useState<BookProcessingStageKey[]>(() => getBookCompletedStages(book));
   const [loadedContentSnapshotKey, setLoadedContentSnapshotKey] = useState('');
-  const splitEstimateKey = `${book.id}:${effectiveModel}:${queuedSplitIds.join(',')}:${loadedContentSnapshotKey}`;
+  const splitEstimateKey = `${book.id}:${effectiveModel}:${JSON.stringify(queuedWorkItems)}:${loadedContentSnapshotKey}`;
   const splitQueueEstimate = splitQueueEstimateState?.key === splitEstimateKey ? splitQueueEstimateState.estimate : undefined;
   const processingRun = useBookProcessingRun(book.id);
   const autoRunStageKeys = processingRun?.mode === 'fastForward' ? processingRun.stages : [];
@@ -569,7 +591,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
       const image = await getImage(imageId);
       const failed = image?.renderStatus === 'failed' || image?.visualQaStatus === 'failed' || image?.valid === false;
 
-      return { imageId, issues: failed ? image?.detectedIssues?.length ? image.detectedIssues : [`Image ${imageId} failed TikZ QA.`] : [] };
+      return { imageId, issues: failed ? image?.detectedIssues?.length ? image.detectedIssues : [`Image ${imageId} failed image QA.`] : [] };
     })).then((entries) => {
       if (active) {
         setTikzIssuesByImageId(Object.fromEntries(entries.filter(({ issues }) => issues.length).map(({ imageId, issues }) => [imageId, issues])));
@@ -882,32 +904,6 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
     }
   }, [addAbilitiesCost, addFixAbilitiesCost, addFixAnswerImagesCost, addFixImagesCost, addAnswerImagesCost, addImagesCost, book.age, book.id, effectiveModel, language]);
 
-  const redoConceptFromStage = useCallback(async (record: StoredAbility, start: ConceptRedoStage): Promise<void> => {
-    if (processingAbortControllerRef.current) throw new Error('Another AI operation is currently running.');
-    const conceptLink = /-concept-(\d+)$/.exec(record.moduleId);
-    const conceptId = conceptLink ? Number(conceptLink[1]) : undefined;
-    const chapterRow = conceptId === undefined ? undefined : chapterContent.find(({ concepts }) => concepts.some(({ id }) => id === conceptId));
-    const concept = chapterRow?.concepts.find(({ id }) => id === conceptId);
-
-    if (!concept || !chapterRow) throw new Error('This Ability has no linked Concept. Link it to a Concept before regenerating.');
-    if (!language || !book.subject) throw new Error('Book language and subject must be configured before regenerating a Concept.');
-    const stages = conceptRedoStagesFrom(start);
-    const signal = beginProgress(`Regenerating Concept: ${concept.title}`, stages.length, start);
-
-    try {
-      const client = await createClient();
-
-      await runConceptStages(concept, chapterRow.chapter.title, stages, client, signal, (index, stage, completed) => {
-        setProcessingStage(stage);
-        setProgress(index + (completed ? 1 : 0));
-        setProgressLabel(`${index + 1}/${stages.length}: ${stage} — ${concept.title}`);
-      });
-      setNotice(`Regenerated Concept “${concept.title}” from ${start} through Fix answer images. Other Concepts were not changed.`);
-    } finally {
-      try { refreshContent(); } finally { endProgress(); }
-    }
-  }, [beginProgress, book.subject, chapterContent, createClient, endProgress, language, refreshContent, runConceptStages]);
-
   // Keep the original Concept and Ability until ALL children have passed the
   // complete pipeline. A failed or cancelled attempt removes its draft children
   // and their generated Abilities/Images, without touching the original.
@@ -997,6 +993,16 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
       // Replace the parent and order children in one IndexedDB transaction.
       await replaceBookConceptWithChildren(conceptId, savedChildren.flatMap(({ id }) => id === undefined ? [] : [id]));
       originalDeleted = true;
+      // The new child Abilities are AI updates and need a reviewable audit entry.
+      for (const child of savedChildren) {
+        if (child.id === undefined) continue;
+        for (const row of await getAbilities(conceptAbilityModuleId(book.id, child.id))) {
+          const updatedAbility = parseStoredAbility(await hydrateAbilityContent(row.content));
+          await addBookAbilityChangeLog({ bookId: book.id, conceptId: child.id,
+            recordId: row.id, title: updatedAbility.h, source: 'ai', summary: `AI split Concept ${concept.title} and generated this Ability` });
+        }
+      }
+      await onAbilityLogChange?.();
     } catch (error) {
       if (!originalDeleted) {
         const rollback = await Promise.allSettled(savedChildren.flatMap(({ id }) => id === undefined ? [] : [deleteBookConcept(id)]));
@@ -1007,17 +1013,18 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
       }
       throw error;
     }
-  }, [addStageCost, book.age, book.id, book.subject, chapterContent, createClient, effectiveModel, language, runConceptStages]);
+  }, [addStageCost, book.age, book.id, book.subject, chapterContent, createClient, effectiveModel, language, runConceptStages, onAbilityLogChange]);
 
   // Estimate against the actual queued Concepts and their source chapters. The
   // number of child Concepts and visual requests is unknown until AI responds;
   // two children with two potential exercises per child is our planning basis.
   useEffect(() => {
-    if (!isSplitQueueConfirmationOpen || queuedSplitIds.length === 0) return;
+    if (!isSplitQueueConfirmationOpen || queuedWorkItems.length === 0) return;
     let active = true;
 
     const estimateQueue = async (): Promise<void> => {
-      if (!language || !book.subject) throw new Error('Set the book language and subject before splitting.');
+      if (!language) throw new Error('Set the book language before running queued jobs.');
+      if (queuedSplitIds.length && !book.subject) throw new Error('Set the book subject before splitting.');
       const pages = await getBookPages(book.id);
       const requests: AiRequestEstimate[] = [];
 
@@ -1049,6 +1056,18 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
         }
       }
 
+      for (const item of queuedWorkItems) {
+        if (item.kind !== 'fix' || !item.instructions) continue;
+        if (abilityFixHasTextChanges(item.instructions)) {
+          requests.push({ input: `Regenerate Ability from targeted feedback: ${JSON.stringify(item.instructions)}`, outputTokens: 3_200 });
+        }
+        for (const field of ABILITY_FIX_FIELDS) {
+          if (field.image && item.instructions[field.key]?.trim()) {
+            requests.push({ input: `Regenerate image: ${item.instructions[field.key]}`, outputTokens: 2_400 });
+            requests.push({ input: `Render and visually review corrected image: ${item.instructions[field.key]}`, outputTokens: TIKZ_REVIEW_MAX_OUTPUT_TOKENS });
+          }
+        }
+      }
       if (active) setSplitQueueEstimateState({ key: splitEstimateKey, estimate: estimateAiRequests(effectiveModel, requests) });
     };
 
@@ -1056,63 +1075,164 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
       if (active) setSplitQueueEstimateState({ key: splitEstimateKey, estimate: error instanceof Error ? error.message : 'Unable to estimate split costs.' });
     });
     return () => { active = false; };
-  }, [isSplitQueueConfirmationOpen, queuedSplitIds, chapterContent, book.id, book.subject, book.age, language, effectiveModel, splitEstimateKey]);
+  }, [isSplitQueueConfirmationOpen, queuedSplitIds, queuedWorkItems, chapterContent, book.id, book.subject, book.age, language, effectiveModel, splitEstimateKey]);
+
+  /** Image-only feedback never replaces the Ability. Each changed image is
+   * generated, rendered, assessed as a PNG, and only approved after fresh QA. */
+  const fixQueuedAbility = useCallback(async (item: BookAbilityWorkItem, signal: AbortSignal): Promise<void> => {
+    if (item.kind !== 'fix' || !item.instructions) throw new Error('Missing scheduled Ability correction.');
+    if (!language) throw new Error('Set the book language before fixing an Ability.');
+    const instructions = item.instructions;
+    const moduleId = conceptAbilityModuleId(book.id, item.conceptId);
+    const liveJob = (await getBookAbilityWorkQueue(book.id)).find(({ id }) => id === item.id);
+    const existing = await getAbilities(moduleId);
+    const stored = existing.find(({ id }) => id === (liveJob?.recordId ?? item.recordId)) ?? (existing.length === 1 ? existing[0] : undefined);
+    if (!stored) throw new Error('Queued Ability no longer exists. Remove or reschedule this job.');
+    const originalAbility = parseStoredAbility(await hydrateAbilityContent(stored.content));
+    const client = await createClient();
+    let recordId = stored.id;
+    let ability = originalAbility;
+    const hasText = abilityFixHasTextChanges(instructions);
+
+    if (hasText) {
+      const corrected = await requestValidatedJson(
+        client, effectiveModel,
+        'You are an expert educational Ability editor. Return only one JSON Ability object of the same schema; do not return markdown. Preserve everything not requested.',
+        `Regenerate this Ability with targeted corrections. It must retain t:3, i, h and exactly two exercises in q. Each exercise has h, a, p, i, pPrompt and iPrompt as applicable. Preserve original image source and unchanged fields. Do not embed image source code in fields that previously held plain image prompts. Follow ONLY the nonempty correction notes below.\nBook language: ${language}\nLearner age: ${book.age ?? 'unspecified'}\nOriginal Ability:\n${JSON.stringify(originalAbility)}\nCorrections by field:\n${JSON.stringify(Object.fromEntries(ABILITY_FIX_FIELDS.filter(({ image, key }) => !image && instructions[key].trim()).map(({ key }) => [key, instructions[key]])))}`,
+        (response) => parseStoredAbility(response), true, addFixAbilitiesCost, 3_200, undefined, 2, signal
+      );
+      if (signal.aborted) throw new Error('Ability correction cancelled.');
+      recordId = await storeAbility(moduleId, JSON.stringify(corrected), stored.displayOrder);
+      if (recordId !== stored.id) {
+        await deleteAbility(stored.id);
+        await relinkBookAbilityChangeLogRecord(book.id, stored.id, recordId);
+        await updateBookAbilityFixRecordId(book.id, item.id, recordId);
+      }
+      ability = corrected;
+    }
+
+    const liveRecord = async (): Promise<StoredAbility> => {
+      const row = (await getAbilities(moduleId)).find(({ id }) => id === recordId);
+      if (!row) throw new Error('Corrected Ability disappeared before image repair.');
+      const hydrated = await hydrateAbilityContent(row.content);
+      return { ...row, ability: parseStoredAbility(hydrated) };
+    };
+    for (const field of ABILITY_FIX_FIELDS) {
+      if (!field.image || !instructions[field.key].trim()) continue;
+      if (signal.aborted) throw new Error('Ability image correction cancelled.');
+      const exerciseIndex = field.key.startsWith('exercise1') ? 0 : 1;
+      const imageField = field.key.endsWith('QuestionImage') ? 'p' : 'i';
+      const current = await liveRecord();
+      const exercise = current.ability?.q[exerciseIndex];
+      if (!exercise) throw new Error(`Exercise ${exerciseIndex + 1} was not found.`);
+      let imageId = storedAbilityImageId(current, exerciseIndex, imageField);
+      const imagePromptField = imageField === 'p' ? 'pPrompt' : 'iPrompt';
+      const existingPrompt = exercise[imagePromptField]?.trim() || (!isTikzCode(exercise[imageField]) ? exercise[imageField].trim() : '');
+      const repairNote = instructions[field.key].trim();
+      const storedImage = imageId === undefined ? undefined : await getImage(imageId);
+      const previousErrors = [...new Set([...(storedImage?.detectedIssues ?? []), ...(storedImage?.reviewResult?.errors ?? [])])];
+      const imagePrompt = `${existingPrompt || `Draw the ${imageField === 'p' ? 'question' : 'answer'} image required by this exercise.`}\nCorrections requested: ${repairNote}\nPreviously detected issues: ${previousErrors.join('; ') || 'none'}`;
+      if (imageId === undefined && imageField === 'i') imageId = await ensureAbilityAnswerImage(recordId, exerciseIndex, imagePrompt);
+      if (imageId === undefined) throw new Error(`Exercise ${exerciseIndex + 1} question image has no stored image. Generate images first.`);
+      const image = await getImage(imageId);
+      if (!image) throw new Error(`Image ${imageId} no longer exists.`);
+      const source = cleanTikzResponse(await requestChatContentWithTruncationRetry(
+        client, effectiveModel,
+        'Apply the requested corrections to generate a complete educational image as valid TikZ code. Return only one TikZ picture.',
+        imageField === 'p' ? tikzRequestPrompt(language, current.ability as GeneratedAbility, exerciseIndex, 'p', imagePrompt, book.age)
+          : answerTikzRequestPrompt(language, current.ability as GeneratedAbility, exerciseIndex, imagePrompt, book.age),
+        false, imageField === 'p' ? addImagesCost : addAnswerImagesCost, 2_400, signal
+      ));
+      if (!isTikzCode(source)) throw new Error('Image generation did not return a valid image source.');
+      await putImage({ ...image, data: source, prompt: existingPrompt || imagePrompt, type: 'tikz', valid: undefined });
+      const refreshed = await liveRecord();
+      const target: ImageFixTarget = {
+        ability: refreshed.ability as GeneratedAbility, record: refreshed,
+        exerciseIndex, field: imageField, imageId, originalTikz: source,
+        prompt: existingPrompt || imagePrompt, previousAssessmentErrors: [...previousErrors, repairNote]
+      };
+      const review = await reviewConceptImage(target, client, effectiveModel, language, book.age,
+        imageField === 'p' ? addFixImagesCost : addFixAnswerImagesCost, signal);
+      if (review.unresolved) throw new Error(`Image ${imageId} failed visual QA: ${review.unresolved.errors.join('; ')}`);
+      if (review.item) {
+        const latest = await getImage(imageId);
+        if (!latest || latest.data !== source) throw new Error('Image changed during review; discarding stale correction.');
+        await putImage({ ...latest, data: review.item.fixedTikz, valid: true, type: 'tikz',
+          sourceVersion: review.item.finalReviewResult.sourceVersion, renderStatus: 'passed', visualQaStatus: 'passed',
+          detectedIssues: [], reviewResult: review.item.finalReviewResult }, source);
+      }
+    }
+    if (signal.aborted) throw new Error('Ability correction cancelled.');
+    const summary = hasText ? 'AI regenerated Ability text' : 'AI repaired images only';
+    await addBookAbilityChangeLog({ bookId: book.id, conceptId: item.conceptId, recordId,
+      title: ability.h, source: 'ai', summary });
+    await onAbilityLogChange?.();
+  }, [addAnswerImagesCost, addFixAbilitiesCost, addFixAnswerImagesCost, addFixImagesCost, addImagesCost, book.age, book.id, createClient, effectiveModel, language, onAbilityLogChange]);
 
   const runSplitQueue = useCallback(async (): Promise<void> => {
-    if (splitBatchRunningRef.current || processingAbortControllerRef.current || isBusy || autoRunAll || externalAutoRunBusy || externalSplitQueueBusy || queuedSplitIds.length === 0 || !splitQueueEstimate || typeof splitQueueEstimate === 'string') return;
+    if (splitBatchRunningRef.current || processingAbortControllerRef.current || isBusy || autoRunAll || externalAutoRunBusy || externalSplitQueueBusy || queuedWorkItems.length === 0 || !splitQueueEstimate || typeof splitQueueEstimate === 'string') return;
     splitBatchRunningRef.current = true;
     splitBatchCancelledRef.current = false;
     onSplitQueueBusyChange?.(true);
     onCloseSplitQueueConfirmation?.();
-    const pending = [...queuedSplitIds];
-    const signal = beginProgress(`Splitting ${pending.length} queued Abilities in parallel`, pending.length);
+    // Fixes run before splits for the same Concept; unrelated Concepts stay parallel.
+    const pending = [...queuedWorkItems].sort((a, b) => a.conceptId === b.conceptId ? (a.kind === b.kind ? 0 : a.kind === 'fix' ? -1 : 1) : 0);
+    const signal = beginProgress(`Processing ${pending.length} queued Ability jobs in parallel`, pending.length);
     let finished = 0;
     let completed = 0;
     let failed = 0;
 
     try {
-      // Launch every queued split immediately. Each job owns its own child
-      // Concepts and rollback, and only successful jobs leave IndexedDB.
-      // allSettled waits for every job even if one fails unexpectedly.
-      const results = await Promise.allSettled(pending.map(async (conceptId) => {
-        if (signal.aborted) return undefined;
-
-        try {
-          const chapterRow = chapterContent.find(({ concepts }) => concepts.some(({ id }) => id === conceptId));
-          const record = chapterRow?.abilities.find(({ moduleId }) => moduleId === conceptAbilityModuleId(book.id, conceptId));
-
-          if (!record) throw new Error(`Queued Ability for Concept ${conceptId} was not found.`);
-          await splitAbility(record, signal);
-          await onSplitQueueItemComplete?.(conceptId);
-          completed++;
-          return undefined;
-        } catch (error) {
-          if (!signal.aborted) failed++;
-          return `${conceptId}: ${error instanceof Error ? error.message : String(error)}`;
-        } finally {
-          finished++;
-          setProgress(finished);
-          setProgressLabel(`Split ${finished}/${pending.length} processed (${completed} successful, ${failed} failed)`);
-        }
-      }));
+      // Different Concepts run in parallel; same-Concept jobs are serialized
+      // to prevent a split from deleting an Ability while a fix is writing it.
+      const conceptTails = new Map<number, Promise<void>>();
+      const jobs = pending.map((item) => {
+        const predecessor = conceptTails.get(item.conceptId) ?? Promise.resolve();
+        const task = predecessor.then(async (): Promise<string | undefined> => {
+          if (signal.aborted) return undefined;
+          try {
+            if (item.kind === 'split') {
+              const chapterRow = chapterContent.find(({ concepts }) => concepts.some(({ id }) => id === item.conceptId));
+              const record = chapterRow?.abilities.find(({ moduleId }) => moduleId === conceptAbilityModuleId(book.id, item.conceptId));
+              if (!record) throw new Error(`Queued Ability for Concept ${item.conceptId} was not found.`);
+              await splitAbility(record, signal);
+            } else {
+              await fixQueuedAbility(item, signal);
+            }
+            await onWorkQueueItemComplete?.(item.id);
+            completed++;
+            return undefined;
+          } catch (error) {
+            if (!signal.aborted) failed++;
+            return `${item.id}: ${error instanceof Error ? error.message : String(error)}`;
+          } finally {
+            finished++;
+            setProgress(finished);
+            setProgressLabel(`Work ${finished}/${pending.length} processed (${completed} successful, ${failed} failed)`);
+          }
+        });
+        conceptTails.set(item.conceptId, task.then(() => undefined, () => undefined));
+        return task;
+      });
+      const results = await Promise.allSettled(jobs);
 
       const failures = results.flatMap((result, index): string[] => {
         if (result.status === 'rejected') {
           if (!signal.aborted) failed++;
-          return [`${pending[index]}: ${result.reason instanceof Error ? result.reason.message : String(result.reason)}`];
+          return [`${pending[index].id}: ${result.reason instanceof Error ? result.reason.message : String(result.reason)}`];
         }
         return result.value ? [result.value] : [];
       });
 
       if (signal.aborted || splitBatchCancelledRef.current) {
-        setNotice(`Split batch cancelled: ${completed} completed. Unfinished Abilities remain queued.`);
+        setNotice(`Ability work batch cancelled: ${completed} completed. Unfinished Abilities remain queued.`);
       } else if (failures.length) {
-        setError(`Split ${completed} of ${pending.length} Abilities. ${failed} failed and remain queued. First error: ${failures[0]}`);
+        setError(`Processed ${completed} of ${pending.length} Abilities. ${failed} failed and remain queued. First error: ${failures[0]}`);
       } else {
-        setNotice(`Split ${completed} queued ${completed === 1 ? 'Ability' : 'Abilities'} successfully.`);
+        setNotice(`Completed ${completed} queued ${completed === 1 ? 'Ability' : 'Abilities'} successfully.`);
       }
     } catch (error) {
-      setError(`Batch split failed: ${error instanceof Error ? error.message : String(error)}. Remaining Abilities stay queued.`);
+      setError(`Ability work batch failed: ${error instanceof Error ? error.message : String(error)}. Remaining Abilities stay queued.`);
     } finally {
       splitBatchRunningRef.current = false;
       try { refreshContent(); } finally {
@@ -1120,7 +1240,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
         onSplitQueueBusyChange?.(false);
       }
     }
-  }, [autoRunAll, beginProgress, book.id, chapterContent, endProgress, externalAutoRunBusy, externalSplitQueueBusy, isBusy, onCloseSplitQueueConfirmation, onSplitQueueItemComplete, onSplitQueueBusyChange, queuedSplitIds, refreshContent, splitAbility, splitQueueEstimate]);
+  }, [autoRunAll, beginProgress, book.id, chapterContent, endProgress, externalAutoRunBusy, externalSplitQueueBusy, isBusy, onCloseSplitQueueConfirmation, onWorkQueueItemComplete, onSplitQueueBusyChange, queuedWorkItems, fixQueuedAbility, refreshContent, splitAbility, splitQueueEstimate]);
 
   const generateSkills = useCallback(async (): Promise<void> => {
     const signal = beginProgress('Generating Skills', skillSources.length);
@@ -1396,8 +1516,11 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
 
         if (newRecordId !== record.id) {
           await deleteAbility(record.id);
+          await relinkBookAbilityChangeLogRecord(book.id, record.id, newRecordId);
         }
-
+        const sourceId = /-concept-(\d+)$/.exec(record.moduleId);
+        await addBookAbilityChangeLog({ bookId: book.id, conceptId: sourceId ? Number(sourceId[1]) : undefined,
+          recordId: newRecordId, title: ability.h, source: 'ai', summary: 'AI corrected Ability content' });
         fixed += 1;
         setProgress((current) => current + 1);
       }
@@ -1424,6 +1547,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
       }
 
       const deleted = fixReview.duplicatePairs.length;
+      await onAbilityLogChange?.();
 
       setProgress(Math.max(1, fixReview.items.length + fixReview.duplicatePairs.length + 1));
       setFixReview(null);
@@ -1436,7 +1560,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
     } finally {
       setIsBusy(false);
     }
-  }, [deleteConceptAndAbilities, fixReview, onAction, onContentChange, refresh, completeStage, stageDone]);
+  }, [book.id, deleteConceptAndAbilities, fixReview, onAbilityLogChange, onAction, onContentChange, refresh, completeStage, stageDone]);
   const openAbilityGeneration = useCallback((): void => {
     setGenerateOnlyMissingAbilities(conceptsMissingAbilities.length > 0 && conceptsMissingAbilities.length < allConcepts.length);
     setAiAction('abilities');
@@ -1455,7 +1579,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
   }, []);
   const completeImagesStage = useCallback(async (): Promise<void> => {
     const targets = imageGenerationTargetsForRun;
-    const signal = beginProgress('Generating question image TikZ', targets.length, 'images');
+    const signal = beginProgress('Generating question images', targets.length, 'images');
     let completed = 0;
 
     try {
@@ -1503,7 +1627,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
       });
 
       await completeStage(IMAGES_STAGE, true);
-      setNotice(`Question Images complete: converted ${targets.length} visual prompt${targets.length === 1 ? '' : 's'} to TikZ${generateOnlyMissingImages ? ` for ${abilitiesMissingImages.size} ${abilitiesMissingImages.size === 1 ? 'Ability' : 'Abilities'} with missing question images` : ''}.`);
+      setNotice(`Question Images complete: converted ${targets.length} visual prompt${targets.length === 1 ? '' : 's'} to images${generateOnlyMissingImages ? ` for ${abilitiesMissingImages.size} ${abilitiesMissingImages.size === 1 ? 'Ability' : 'Abilities'} with missing question images` : ''}.`);
       refreshContent();
       onAction?.('preExercisesExercises');
     } catch (caught) {
@@ -1514,7 +1638,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
       }
 
       if (!signal.aborted) {
-        setError(caught instanceof Error ? caught.message : 'Unable to convert Ability visuals to TikZ.');
+        setError(caught instanceof Error ? caught.message : 'Unable to generate Ability images.');
       }
     } finally {
       endProgress();
@@ -1522,7 +1646,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
   }, [abilitiesMissingImages.size, addImagesCost, beginProgress, book.age, endProgress, completeStage, createClient, effectiveModel, generateOnlyMissingImages, imageGenerationTargetsForRun, language, onAction, refreshContent]);
   const completeAnswerImagesStage = useCallback(async (): Promise<void> => {
     const targets = answerImageGenerationTargetsForRun;
-    const signal = beginProgress('Generating answer image TikZ', targets.length, 'answerImages');
+    const signal = beginProgress('Generating answer images', targets.length, 'answerImages');
     let completed = 0;
 
     try {
@@ -1579,12 +1703,12 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
       if (!targets.length) {
         if (autoRunAll) {
           await completeStage(stage);
-          setNotice(`${stageName} finished: no TikZ visuals needed review.`);
+          setNotice(`${stageName} finished: no images needed review.`);
           refreshContent();
         } else {
           setImageFixReviewStage(stage);
           setImageFixReview({ checked: 0, renderFailures: 0, items: [], unresolved: [] });
-          setNotice(`There are no TikZ visuals matching this ${stageName} run.`);
+          setNotice(`There are no images matching this ${stageName} run.`);
         }
         return;
       }
@@ -1641,7 +1765,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
         const failedIds = new Set(unresolved.map(({ imageId }) => imageId));
         const retryTargets = targets.filter(({ imageId }) => failedIds.has(imageId));
 
-        setProgressLabel(`Retrying ${retryTargets.length} failed TikZ visual${retryTargets.length === 1 ? '' : 's'}`);
+        setProgressLabel(`Retrying ${retryTargets.length} failed image${retryTargets.length === 1 ? '' : 's'}`);
         setProgressTotal(targets.length + retryTargets.length);
         const retryResults = await reviewTargets(retryTargets);
 
@@ -1657,7 +1781,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
       onAction?.('preExercisesExercises');
     } catch (caught) {
       if (!signal.aborted) {
-        setError(caught instanceof Error ? caught.message : 'Unable to review and fix TikZ visuals.');
+        setError(caught instanceof Error ? caught.message : 'Unable to review and fix images.');
       }
       refreshContent();
     } finally {
@@ -1667,7 +1791,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
 
   const closeImageFixReview = useCallback((): void => {
     setImageFixReview(null);
-    setNotice('Proposed TikZ corrections were discarded. Failed visual QA flags remain on the original images for later retry.');
+    setNotice('Proposed image corrections were discarded. Failed visual QA flags remain on the original images for later retry.');
   }, []);
 
   const applyImageFixReview = useCallback(async (): Promise<void> => {
@@ -1678,7 +1802,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
     setIsBusy(true);
     setError('');
     setProgress(0);
-    setProgressLabel('Applying TikZ corrections');
+    setProgressLabel('Applying image corrections');
     setProgressTotal(Math.max(1, imageFixReview.items.length));
     let applied = 0;
 
@@ -1697,6 +1821,9 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
         await putImage({ ...image, data: fixedTikz, prompt: prompt || image.prompt, type: 'tikz', valid: true,
           sourceVersion: finalReviewResult.sourceVersion, renderStatus: 'passed', visualQaStatus: 'passed',
           detectedIssues: [], reviewResult: finalReviewResult }, originalTikz);
+        const sourceId = /-concept-(\d+)$/.exec(record.moduleId);
+        await addBookAbilityChangeLog({ bookId: book.id, conceptId: sourceId ? Number(sourceId[1]) : undefined,
+          recordId: record.id, title: record.ability?.h ?? 'Ability', source: 'ai', summary: 'AI corrected an image after visual QA' });
         applied += 1;
         setProgress(applied);
       }));
@@ -1709,9 +1836,10 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
 
       const fixed = imageFixReview.items.length;
       const failed = imageFixReview.unresolved.length;
+      await onAbilityLogChange?.();
 
       setImageFixReview(null);
-      setNotice(`${imageFixReviewStage === 'fixImages' ? 'Fix question images' : 'Fix answer images'} completed: ${fixed} approved TikZ correction${fixed === 1 ? '' : 's'} applied; ${failed} visual${failed === 1 ? '' : 's'} still flagged for retry in Abilities. Processing can continue.`);
+      setNotice(`${imageFixReviewStage === 'fixImages' ? 'Fix question images' : 'Fix answer images'} completed: ${fixed} approved image correction${fixed === 1 ? '' : 's'} applied; ${failed} visual${failed === 1 ? '' : 's'} still flagged for retry in Abilities. Processing can continue.`);
       refreshContent();
       onAction?.('preExercisesExercises');
     } catch (caught) {
@@ -1721,7 +1849,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
     } finally {
       setIsBusy(false);
     }
-  }, [imageFixReview, imageFixReviewStage, onAction, refreshContent, completeStage, stageDone]);
+  }, [book.id, imageFixReview, imageFixReviewStage, onAbilityLogChange, onAction, refreshContent, completeStage, stageDone]);
 
   const openImageFix = useCallback((): void => {
     setFixOnlyFailedTikz(failedTikzTargets.some(({ field }) => field === 'p'));
@@ -2001,12 +2129,12 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
       onSaved={refresh}
                        />}
     {isSplitQueueConfirmationOpen && <StageRunPricePopup
-      header={`Split ${queuedSplitIds.length} queued ${queuedSplitIds.length === 1 ? 'Ability' : 'Abilities'}?`}
-      isRunDisabled={isBusy || autoRunAll || externalAutoRunBusy || !splitQueueEstimate || typeof splitQueueEstimate === 'string' || queuedSplitIds.length === 0}
+      header={`Run ${queuedWorkItems.length} queued Ability ${queuedWorkItems.length === 1 ? 'job' : 'jobs'}?`}
+      isRunDisabled={isBusy || autoRunAll || externalAutoRunBusy || !splitQueueEstimate || typeof splitQueueEstimate === 'string' || queuedWorkItems.length === 0}
       onClose={() => onCloseSplitQueueConfirmation?.()}
       onRun={() => { void runSplitQueue(); }}
     >
-      <p>All {queuedSplitIds.length} queued {queuedSplitIds.length === 1 ? 'Ability' : 'Abilities'} will start splitting in parallel. Each split generates child Concepts, Abilities and checked images. Originals remain until their replacements succeed.</p>
+      <p>All {queuedWorkItems.length} queued jobs will run in parallel. Split jobs create new Concepts and checked images; Fix Ability jobs follow the submitted field corrections. Failed jobs stay in the queue for retry.</p>
       <AiPriceEstimate estimate={splitQueueEstimate} />
       <p><small>Approximate estimate: two children and up to two question and answer visuals per child. Actual cost depends on the number of children, required visuals, AI retries and usage.</small></p>
       <OpenRouterModelSelector
@@ -2075,8 +2203,10 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
       current={current}
       currentMissingAbilityIndexes={currentMissingAbilityIndexes}
       deleteConceptAndAbilities={deleteConceptAndAbilities}
-      fixSingleAbility={redoConceptFromStage}
       splitSingleAbility={(record) => onQueueSplit?.(record)}
+      scheduleAbilityFix={onQueueFix}
+      queuedFixRecordIds={queuedFixRecordIds}
+      onAbilityLogChange={onAbilityLogChange}
       splitQueueConceptIds={queuedSplitIds}
       isBusy={isBusy || externalSplitQueueBusy}
       focusConceptAbility={focusConceptAbility}
