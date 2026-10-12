@@ -192,6 +192,7 @@ export function AbilityCard ({ isBusy = false, isAiUpdated = false, isQueuedForF
   const [fixInstructions, setFixInstructions] = useState<AbilityFixInstructions>(emptyAbilityFixInstructions);
   const [isScheduling, setIsScheduling] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+  const [editingExerciseIndex, setEditingExerciseIndex] = useState<number | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [draft, setDraft] = useState<GeneratedAbility | null>(() => record.ability ? cloneAbility(record.ability) : null);
   const [rawDraft, setRawDraft] = useState(record.content);
@@ -204,7 +205,7 @@ export function AbilityCard ({ isBusy = false, isAiUpdated = false, isQueuedForF
     await addBookAbilityChangeLog({ bookId: Number(match[1]), conceptId: Number(match[2]), recordId, title, source: 'user', summary });
     await onAbilityLogChange?.();
   }, [record, onAbilityLogChange]);
-  const persistAbility = useCallback(async (ability: GeneratedAbility): Promise<void> => {
+  const persistAbility = useCallback(async (ability: GeneratedAbility, summary = 'Edited Ability text or exercise fields'): Promise<void> => {
     const validated = parseStoredAbility(JSON.stringify(ability));
     const newRecordId = await storeAbility(record.moduleId, JSON.stringify(validated), record.displayOrder);
 
@@ -214,7 +215,7 @@ export function AbilityCard ({ isBusy = false, isAiUpdated = false, isQueuedForF
       if (match) await relinkBookAbilityChangeLogRecord(Number(match[1]), record.id, newRecordId);
     }
 
-    await logUserChange('Edited Ability text or exercise fields', newRecordId, validated.h);
+    await logUserChange(summary, newRecordId, validated.h);
     onDeleted();
   }, [logUserChange, onDeleted, record.id, record.moduleId]);
   const saveVisual = useCallback(async (exerciseIndex: number, field: 'p' | 'i', value: string): Promise<void> => {
@@ -266,8 +267,16 @@ export function AbilityCard ({ isBusy = false, isAiUpdated = false, isQueuedForF
   const openEdit = useCallback((): void => {
     setDraft(record.ability ? cloneAbility(record.ability) : null);
     setRawDraft(record.content);
+    setEditingExerciseIndex(null);
     setIsEditing(true);
   }, [record.ability, record.content]);
+  const openExerciseEdit = useCallback((exerciseIndex: number): void => {
+    if (!record.ability?.q[exerciseIndex]) return;
+
+    setDraft(cloneAbility(record.ability));
+    setEditingExerciseIndex(exerciseIndex);
+    setIsEditing(true);
+  }, [record.ability]);
   const closeEdit = useCallback((): void => {
     if (!isSaving) {
       setIsEditing(false);
@@ -286,17 +295,21 @@ export function AbilityCard ({ isBusy = false, isAiUpdated = false, isQueuedForF
         const nextAbility = draft
           ? {
             ...draft,
-            h: draft.h.trim(),
-            q: draft.q.map((exercise) => ({ ...exercise, a: exercise.a.trim(), h: exercise.h.trim() }))
+            h: editingExerciseIndex === null ? draft.h.trim() : draft.h,
+            q: draft.q.map((exercise, index) => editingExerciseIndex === null || index === editingExerciseIndex
+              ? { ...exercise, a: exercise.a.trim(), h: exercise.h.trim() }
+              : exercise)
           }
           : parseStoredAbility(rawDraft);
 
-        return persistAbility(nextAbility);
+        return persistAbility(nextAbility, editingExerciseIndex === null
+          ? 'Edited Ability text or exercise fields'
+          : `Edited exercise ${editingExerciseIndex + 1} fields`);
       })
       .then(() => setIsEditing(false))
       .catch((error) => onError(error instanceof Error ? error.message : 'Unable to save the Ability.'))
       .finally(() => setIsSaving(false));
-  }, [draft, onError, persistAbility, rawDraft]);
+  }, [draft, editingExerciseIndex, onError, persistAbility, rawDraft]);
 
   const openFix = useCallback(async (): Promise<void> => {
     const bookMatch = /^book-(\d+)-concept-\d+$/.exec(record.moduleId);
@@ -364,7 +377,9 @@ export function AbilityCard ({ isBusy = false, isAiUpdated = false, isQueuedForF
         <ExerciseList
           areShownInitially
           exercises={record.ability.q}
+          isExerciseEditDisabled={isBusy || isProcessing || isSaving || isEditing}
           location='ability_info'
+          onEditExercise={openExerciseEdit}
           onAbilityVisualErrorChange={saveVisualError}
           onAbilityVisualSave={saveVisual}
           visualIssues={visualIssues}
@@ -427,7 +442,7 @@ export function AbilityCard ({ isBusy = false, isAiUpdated = false, isQueuedForF
       </Modal.Content>
     </Modal>}
     {isEditing && <Modal
-      header='Edit Ability'
+      header={editingExerciseIndex === null ? 'Edit Ability' : `Edit exercise ${editingExerciseIndex + 1}`}
       onClose={closeEdit}
       size='small'
     >
@@ -435,7 +450,7 @@ export function AbilityCard ({ isBusy = false, isAiUpdated = false, isQueuedForF
         <EditForm>
           {draft
             ? <>
-              <label>
+              {editingExerciseIndex === null && <label>
                 <span>Ability name</span>
                 <input
                   disabled={isSaving}
@@ -443,8 +458,8 @@ export function AbilityCard ({ isBusy = false, isAiUpdated = false, isQueuedForF
                   type='text'
                   value={draft.h}
                 />
-              </label>
-              {draft.q.map((exercise, exerciseIndex) => <fieldset key={exerciseIndex}>
+              </label>}
+              {draft.q.map((exercise, exerciseIndex) => (editingExerciseIndex === null || editingExerciseIndex === exerciseIndex) && <fieldset key={exerciseIndex}>
                 <legend>Exercise {exerciseIndex + 1}</legend>
                 <label>
                   <span>Question</span>

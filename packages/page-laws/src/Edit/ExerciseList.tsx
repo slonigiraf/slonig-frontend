@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from 'react';
-import { Button, styled } from '@polkadot/react-components';
+import { Button, Icon, styled } from '@polkadot/react-components';
 import { useTranslation } from '../common/translate.js';
 import { Exercise, SpanWithTags, useLog } from '@slonigiraf/slonig-components';
 import ExerciseImage, { isLocalOrRemoteImageUrl } from './ExerciseImage.js';
@@ -77,12 +77,14 @@ interface ExerciseListProps {
     areShownInitially?: boolean;
     isPreview?: boolean;
     location?: ExerciseListLocation;
+    onEditExercise?: (exerciseIndex: number) => void;
+    isExerciseEditDisabled?: boolean;
     onAbilityVisualErrorChange?: (exerciseIndex: number, field: 'p' | 'i', hasError: boolean, value: string) => Promise<void> | void;
     onAbilityVisualSave?: (exerciseIndex: number, field: 'p' | 'i', value: string) => Promise<void>;
     visualIssues?: Record<string, string[]>;
 }
 
-const ExerciseList: React.FC<ExerciseListProps> = ({ exercises, areShownInitially = false, isPreview = false, location = 'default', onAbilityVisualErrorChange, onAbilityVisualSave, visualIssues }) => {
+const ExerciseList: React.FC<ExerciseListProps> = ({ exercises, areShownInitially = false, isPreview = false, location = 'default', onEditExercise, isExerciseEditDisabled = false, onAbilityVisualErrorChange, onAbilityVisualSave, visualIssues }) => {
     const [areAnswersShown, setAreAnswersShown] = useState(areShownInitially);
     const { t } = useTranslation();
     const { logEvent } = useLog();
@@ -116,12 +118,20 @@ const ExerciseList: React.FC<ExerciseListProps> = ({ exercises, areShownInitiall
             :
             <ExercisesContainer>
                 {exercises.map((exercise, index) => (
-                    <div className='ui--row' key={index}
+                    <div className={`ui--row${isAbilityInfo && onEditExercise ? ' abilityExerciseEditable' : ''}`} key={index}
                         style={{
                             alignItems: 'center',
                             marginBottom: '10px',
                         }}
                     >
+                        {isAbilityInfo && onEditExercise && <button
+                            aria-label={`Edit exercise ${index + 1}`}
+                            className='abilityExerciseEditButton'
+                            disabled={isExerciseEditDisabled}
+                            onClick={() => onEditExercise(index)}
+                            title={`Edit exercise ${index + 1}`}
+                            type='button'
+                        ><Icon icon='edit' /></button>}
                         <div className="exercise-display">
                             <div className="exercise-header">
                                 <span><SpanWithTags content={isAbilityInfo ? exercise.h : ` ${index + 1}. ` + exercise.h} /></span>
@@ -182,6 +192,48 @@ const AbilityExercisesGrid = styled.div`
     padding: 0.75rem;
     min-width: 0;
     width: 100%;
+  }
+
+  > .abilityExerciseEditable {
+    position: relative;
+  }
+
+  .abilityExerciseEditButton {
+    align-items: center;
+    background: var(--bg-input, #fff);
+    border: 1px solid var(--border-table, #d4d4d5);
+    border-radius: 0.4rem;
+    color: var(--color-text);
+    cursor: pointer;
+    display: inline-flex;
+    font-size: 1rem;
+    height: 2.25rem;
+    justify-content: center;
+    padding: 0;
+    position: absolute;
+    right: 0;
+    top: 0;
+    transform: translate(50%, -50%);
+    width: 2.25rem;
+    z-index: 1;
+  }
+
+  .abilityExerciseEditButton:hover:not(:disabled) {
+    background: var(--bg-menu, #f3f3f3);
+  }
+
+  .abilityExerciseEditButton:focus-visible {
+    outline: 2px solid var(--color-primary, #1682d4);
+    outline-offset: 2px;
+  }
+
+  .abilityExerciseEditButton:disabled {
+    cursor: default;
+    opacity: 0.45;
+  }
+
+  .abilityExerciseEditable .exercise-header {
+    padding-right: 1rem;
   }
 
   > .ui--row > .exercise-display {
