@@ -226,11 +226,11 @@ const AbilityVisualWithDelete = styled.div`
 
   .abilityImageDeleteButton {
     align-items: center;
-    background: #fff4f4;
-    border: 1px solid #d84a4a;
+    background: transparent;
+    border: 0;
     border-radius: 0.3rem;
     top: 0.25rem;
-    color: #b52626;
+    color: var(--color-text, #555);
     cursor: pointer;
     display: inline-flex;
     height: 1.45rem;
@@ -248,8 +248,8 @@ const AbilityVisualWithDelete = styled.div`
       width: 0.85rem;
     }
 
-    &:hover:not(:disabled) { background: #fce4e4; }
-    &:focus-visible { outline: 2px solid #b52626; outline-offset: 2px; }
+    &:hover:not(:disabled) { background: var(--bg-menu, #f3f3f3); }
+    &:focus-visible { outline: 2px solid var(--color-primary, #1682d4); outline-offset: 2px; }
     &:disabled { cursor: not-allowed; opacity: 0.5; }
   }
 

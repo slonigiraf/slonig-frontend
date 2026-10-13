@@ -242,7 +242,7 @@ export function AbilityCard ({ hideReviewedIndicator = false, isBusy = false, qu
     const promptField = field === 'p' ? 'pPrompt' : 'iPrompt';
     const prompt = exercise[promptField]?.trim() || image.prompt;
 
-    await putImage({ ...image, data: value, prompt, type: 'tikz', valid: undefined });
+    await putImage({ ...image, data: value, prompt, type: 'tikz', valid: undefined }, undefined, { preserveDependentAnswerImages: true });
     // Refresh after the image editor has finished closing, not while its Save
     // promise is in progress (which unmounts the editor in Review Abilities).
     hasSavedVisualRef.current = true;

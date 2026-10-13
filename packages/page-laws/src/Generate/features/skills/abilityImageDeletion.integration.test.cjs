@@ -109,6 +109,7 @@ test('Image Save does not refresh/unmount the editor until Save and exit finishe
   assert.equal(refreshes, 0);
   assert.equal(pending.current, true);
   assert.equal(writes[0].data, 'valid TikZ');
+  assert.match(abilityCardSource, /preserveDependentAnswerImages: true/);
   assert.equal(writes[0].prompt, 'Make diagram');
   closed();
   assert.equal(refreshes, 1);
@@ -140,14 +141,15 @@ test('Review scope follows content-addressed Ability ID changes and persists the
   assert.deepEqual(Array.from(notified), ['old', 'new']);
 });
 
-test('Both question and answer images offer a top-left red Delete control and confirmation', () => {
+test('Delete controls match the edit style while retaining the original image action positioning', () => {
   assert.match(visualsSource, /className='abilityImageDeleteButton'/);
   assert.match(visualsSource, /header=\{`Delete \$\{alt\.toLowerCase\(\)\} image\?`\}/);
   assert.match(visualsSource, /onAbilityVisualDelete\(index, 'p'\)/);
   assert.match(visualsSource, /onAbilityVisualDelete\(index, 'i'\)/);
-  assert.match(visualsSource, /top: 0\.25rem/);
-  assert.match(visualsSource, /left: 0\.05rem/);
+  assert.match(visualsSource, /\.abilityImageDeleteButton \{[\s\S]*?background: transparent/);
+  assert.match(visualsSource, /\.abilityImageDeleteButton \{[\s\S]*?border: 0/);
+  assert.match(visualsSource, /\.abilityImageDeleteButton \{[\s\S]*?color: var\(--color-text/);
   assert.match(visualsSource, /padding-left: 1\.55rem/);
-  assert.doesNotMatch(visualsSource, /bottom: 0\.25rem/);
-  assert.match(visualsSource, /color: #b52626/);
+  assert.match(visualsSource, /position: absolute/);
+  assert.match(visualsSource, /left: 0\.05rem/);
 });

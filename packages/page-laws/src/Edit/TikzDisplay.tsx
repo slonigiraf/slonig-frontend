@@ -4,6 +4,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { styled } from '@polkadot/react-components';
 import { embedTikzSourceInSvg } from './tikz.js';
+import { hasTikzBallShading } from './tikzShading.js';
 import { getCachedTikzEditorSvg, peekRecentTikzEditorSvg, isRetryableTikzEditorError, renderTikzWithEditor } from './tikzEditorBridge.js';
 
 interface Props {
@@ -23,6 +24,50 @@ export interface TikzPreRenderResult {
   texInput: string;
 }
 
+let nextSvgInstanceId = 0;
+
+/**
+ * SVG URL paint references resolve in the containing HTML document, not just
+ * in their nearest <svg>. Multiple TikZ previews can all export the same
+ * id="tikz-shading-ball-1", so rename the IDs AND their URL references when
+ * mounting each copy. Keep the stored/downloaded SVG and source unchanged.
+ */
+function scopeSvgIdsForMount (root: SVGSVGElement): void {
+  const prefix = `slonig-tikz-instance-${++nextSvgInstanceId}-`;
+  const ids = new Map<string, string>();
+
+  root.querySelectorAll('[id]').forEach((element) => {
+    if (element.localName === 'metadata') return;
+    const id = element.getAttribute('id');
+    if (!id) return;
+    const unique = `${prefix}${id}`;
+    ids.set(id, unique);
+    element.setAttribute('id', unique);
+  });
+  if (!ids.size) return;
+
+  root.querySelectorAll('*').forEach((element) => {
+    for (const attribute of Array.from(element.attributes)) {
+      if (attribute.name === 'id') continue;
+      const original = attribute.value;
+      let updated = original.replace(/url\(\s*(['"]?)#([^\s'"\)]+)\1\s*\)/g, (url, quote: string, id: string) => {
+        const scoped = ids.get(id);
+        return scoped ? `url(#${scoped})` : url;
+      });
+      if ((attribute.localName === 'href' || attribute.name === 'xlink:href') && updated.startsWith('#')) {
+        updated = `#${ids.get(updated.slice(1)) ?? updated.slice(1)}`;
+      }
+      if (original !== updated) element.setAttributeNS(attribute.namespaceURI, attribute.name, updated);
+    }
+    if (element.localName === 'style' && element.textContent) {
+      element.textContent = element.textContent.replace(/url\(\s*(['"]?)#([^\s'"\)]+)\1\s*\)/g, (url, quote: string, id: string) => {
+        const scoped = ids.get(id);
+        return scoped ? `url(#${scoped})` : url;
+      });
+    }
+  });
+}
+
 function mountSvg (host: HTMLElement, svg: string): void {
   const documentResult = new DOMParser().parseFromString(svg, 'image/svg+xml');
   const parserError = documentResult.querySelector('parsererror');
@@ -31,6 +76,8 @@ function mountSvg (host: HTMLElement, svg: string): void {
   if (parserError || svgElement.nodeName.toLowerCase() !== 'svg') {
     throw new Error('TikZ Editor returned SVG that could not be parsed.');
   }
+
+  scopeSvgIdsForMount(svgElement as SVGSVGElement);
 
   // Preserve the SVG's viewBox proportions when an Ability preview is fitted
   // to the available width/viewport height (rather than a 150px thumbnail).
@@ -135,11 +182,14 @@ export default function TikzDisplay ({ alt, displayMode = 'default', hasCompileE
       }
     }
 
+    // An image marked failed by the old ball-color rewrite should be retried
+    // using the original TikZ, rather than permanently hidden by the stale
+    // compile-error flag.
     // A visible editor Save/Autosave produces a known-good SVG even when a
     // stale compile-error flag has not yet been cleared by the parent. Look
     // for it in Dexie before suppressing rendering due to that flag.
     // Normal rendering checks Dexie itself, avoiding a duplicate DB lookup.
-    if (hasCompileError && !forceCompile) {
+    if (hasCompileError && !forceCompile && !hasTikzBallShading(value)) {
       void getCachedTikzEditorSvg(value).then((cachedSvg) => {
         if (isCancelled) {
           return;

@@ -152,6 +152,10 @@ export default function AbilityReviewMode ({ chapters, hasLoadError, isBusy, isL
     const content = contentRef.current;
     if (!content || !current || isLoading || hasLoadError) return;
 
+    // Discard the outgoing Ability's fitted image size and scroll position
+    // before painting the next one. Its async images will measure afresh.
+    content.style.setProperty('--review-visual-height', '150px');
+    content.scrollTop = 0;
     let frame = 0;
     const fitVisuals = (): void => {
       if (!content.clientHeight || !content.clientWidth) return;
@@ -243,7 +247,7 @@ export default function AbilityReviewMode ({ chapters, hasLoadError, isBusy, isL
       </div> : current ? <>
         {queuedFixId && <p className='abilityReviewPending'>An AI fix is scheduled. Select Next to continue; review the updated Ability after processing.</p>}
         {!queuedFixId && queuedSplit && <p className='abilityReviewPending'>This Ability has a pending AI job. Review it after the job finishes.</p>}
-        <AbilityConceptCard concept={current.concept} isSingleExercise={current.record.ability?.q.length === 1}>
+        <AbilityConceptCard key={current.record.id} concept={current.concept} isSingleExercise={current.record.ability?.q.length === 1}>
           <AbilityCard
             hideReviewedIndicator
             isBusy={isBusy || saving}

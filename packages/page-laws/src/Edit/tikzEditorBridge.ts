@@ -2,10 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { getPersistedTikzSvg, putPersistedTikzSvg } from '@slonigiraf/db';
+import { restoreTikzSvgShading } from './tikzShading.js';
 
 export const TIKZ_EDITOR_URL = 'https://texlyre.github.io/tikz-editor-embed-mirror/tikz-editor/index.html';
 export const TIKZ_EDITOR_ORIGIN = 'https://texlyre.github.io';
-export const TIKZ_EDITOR_RENDERER_ID = 'tikz-editor@0.5.2-texlyre.1';
+// Renderer/cache revision: repair missing or black ball gradient definitions in exported SVG.
+export const TIKZ_EDITOR_RENDERER_ID = 'tikz-editor@0.5.2-texlyre.4-ball-gradient-urls';
 
 const TIKZ_EDITOR_RENDER_TIMEOUT_MS = 30_000;
 const TIKZ_EDITOR_EXPORT_RETRY_MS = 100;
@@ -133,7 +135,7 @@ export function normalizeTikzEditorSvg (value: string): string {
  * A bounded in-memory handoff also supports immediate previews after saving. */
 export function cacheTikzEditorSvg (source: string, value: string): string {
   const key = source.trim();
-  const svg = normalizeTikzEditorSvg(value);
+  const svg = restoreTikzSvgShading(normalizeTikzEditorSvg(value), key);
 
   if (!key) {
     throw new Error('Cannot cache TikZ Editor SVG for empty source.');
@@ -392,6 +394,10 @@ class TikzEditorRenderer {
         this.#failPending(transientRendererError('TikZ Editor rendering timed out.'));
       }, TIKZ_EDITOR_RENDER_TIMEOUT_MS);
 
+      // Always send the ORIGINAL TikZ to the embedded compiler. Rewriting
+      // ball color into radial TikZ can make otherwise valid images fail to
+      // compile. A best-effort SVG shading correction happens only AFTER a
+      // valid SVG has been exported, and never affects compilation.
       this.#pending = { reject, resolve, source, timer };
       this.#post({ action: 'load', autosave: 1, source });
     });

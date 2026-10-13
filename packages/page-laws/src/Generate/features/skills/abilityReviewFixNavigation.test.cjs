@@ -170,3 +170,9 @@ test('The next Ability and progress come exclusively from IndexedDB-backed revie
   assert.equal(evaluate('reviewedCount', { entries, pending: remaining }), 2);
   assert.doesNotMatch(source, /reviewedIds|setReviewedIds|sessionStorage|navigationSessionKey|skippedIds/);
 });
+
+test('Review card is keyed by Ability ID so previous images and editors unmount before the next is rendered', () => {
+  assert.match(source, /<AbilityConceptCard key=\{current\.record\.id\}/);
+  assert.match(source, /content\.style\.setProperty\('--review-visual-height', '150px'\)/);
+  assert.match(source, /content\.scrollTop = 0/);
+});

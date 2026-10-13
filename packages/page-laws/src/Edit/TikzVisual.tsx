@@ -142,10 +142,9 @@ export default function TikzVisual ({ alt, editorTitle, expandedPrompt, hasCompi
     setMessage('');
 
     try {
-      // Ask the already-visible editor to save first. Its documented save
-      // response contains both the authoritative source and the SVG currently
-      // shown by the editor. Cache that exact SVG before any parent refresh so
-      // closing the editor never requires an immediate hidden re-render.
+      // Cache the SVG from the original, successfully compiled TikZ. Any
+      // unambiguous ball shading fix applies only to the resulting SVG and
+      // never changes the source passed to the compiler.
       const saved = await requestEditorSave();
       const nextValue = saved.source.trim();
 

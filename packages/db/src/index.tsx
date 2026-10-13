@@ -2242,7 +2242,7 @@ export async function createImage(image: Omit<Image, 'id'>): Promise<number> {
     return db.images.add(normalizedImageForStorage(image as Image));
 }
 
-export async function putImage(image: Image, expectedSource?: string | null): Promise<number> {
+export async function putImage(image: Image, expectedSource?: string | null, options: { preserveDependentAnswerImages?: boolean } = {}): Promise<number> {
     return db.transaction('rw', db.images, db.abilities, db.books, async () => {
         const previous = await db.images.get(image.id);
 
@@ -2254,8 +2254,9 @@ export async function putImage(image: Image, expectedSource?: string | null): Pr
         const result = await db.images.put(next);
 
         // An answer Image edit invalidates only answer-image QA. A question
-        // Image edit invalidates question QA and dependent answer generation,
-        // but an answer edit must NEVER revoke the approved question stage.
+        // Image edit also invalidates linked answer review. AI regeneration
+        // normally discards obsolete generated answers, but a manual edit in
+        // the visual editor must never erase an existing answer drawing.
         if (previous?.data !== next.data || (previous !== undefined && isTikzImageQaPassed(previous) && !isTikzImageQaPassed(next))) {
             const linked = await db.abilities.toArray();
             const invalidationByBook = new Map<number, Set<BookProcessingStageKey>>();
@@ -2281,7 +2282,7 @@ export async function putImage(image: Image, expectedSource?: string | null): Pr
                     if (field === 'p') {
                         stages.add('fixImages');
                         if (questionSourceChanged) {
-                            stages.add('answerImages');
+                            if (!options.preserveDependentAnswerImages) stages.add('answerImages');
                             stages.add('fixAnswerImages');
                             if (typeof row.i === 'number' && row.i !== image.id) dependentAnswerIds.add(row.i);
                         }
@@ -2292,15 +2293,18 @@ export async function putImage(image: Image, expectedSource?: string | null): Pr
                 }
             }
 
-            // Only answers attached to modified question figures lose their
-            // generated TikZ and QA. No other exercise images are touched.
+            // Manual edits preserve the answer SVG/TikZ and its Image id: only
+            // its old visual QA result is stale. Automated question generation
+            // retains the existing dependency-regeneration behavior.
             for (const answerId of dependentAnswerIds) {
                 const answer = await db.images.get(answerId);
 
                 if (answer) {
-                    await db.images.put({ ...answer, type: 'prompt', data: null, valid: undefined,
-                        renderStatus: undefined, visualQaStatus: undefined, detectedIssues: undefined,
-                        sourceVersion: undefined, reviewResult: undefined });
+                    await db.images.put(options.preserveDependentAnswerImages
+                        ? { ...answer, valid: undefined, visualQaStatus: 'pending', detectedIssues: [], reviewResult: undefined }
+                        : { ...answer, type: 'prompt', data: null, valid: undefined,
+                            renderStatus: undefined, visualQaStatus: undefined, detectedIssues: undefined,
+                            sourceVersion: undefined, reviewResult: undefined });
                 }
             }
 

@@ -309,6 +309,41 @@ describe('book stage entity invalidation', (): void => {
     }
   });
 
+  it('preserves the existing answer drawing after a manual question edit and reopens only visual QA', async (): Promise<void> => {
+    const seeded = await seedLearningArtifacts('manual-question-edit');
+    const originalQuestion = '\\begin{tikzpicture}\\draw (0,0) circle (1);\\end{tikzpicture}';
+    const revisedQuestion = '\\begin{tikzpicture}\\draw (0,0) circle (2);\\end{tikzpicture}';
+    const answerSource = '\\begin{tikzpicture}\\draw (0,0) circle (1);\\fill (0,0) circle (2pt);\\end{tikzpicture}';
+    const questionId = await createImage({ type: 'tikz', prompt: 'Question', data: originalQuestion, valid: true });
+    const answerId = await createImage({ type: 'tikz', prompt: 'Answer', data: answerSource, valid: true });
+
+    try {
+      await storeAbility(seeded.abilityModuleId, JSON.stringify({ h: 'Figures', q: [
+        { h: 'First', p: questionId, i: answerId }
+      ], t: 1 }));
+      for (const stage of ['images', 'fixImages', 'answerImages', 'fixAnswerImages'] as const) {
+        await completeBookProcessingStage(seeded.bookId, stage);
+      }
+      const question = await getImage(questionId);
+      assert.ok(question);
+      await putImage({ ...question, data: revisedQuestion }, undefined, { preserveDependentAnswerImages: true });
+
+      assert.equal((await getImage(answerId))?.data, answerSource, 'manual question editing must not erase the answer');
+      assert.equal((await getImage(answerId))?.type, 'tikz');
+      assert.equal((await getImage(answerId))?.visualQaStatus, 'pending');
+      const stored = (await getAbilities(seeded.abilityModuleId))[0];
+      const refs = (JSON.parse(stored.content) as { q: Array<{ p: number; i: number }> }).q[0];
+      assert.equal(refs.p, questionId);
+      assert.equal(refs.i, answerId);
+      const stages = (await getBook(seeded.bookId))?.completedStages ?? [];
+      assert.equal(stages.includes('answerImages'), true, 'must not schedule answer regeneration');
+      assert.equal(stages.includes('fixImages'), false);
+      assert.equal(stages.includes('fixAnswerImages'), false);
+    } finally {
+      await deleteBook(seeded.bookId);
+    }
+  });
+
   it('invalidates only the answer linked to an edited question figure', async (): Promise<void> => {
     const seeded = await seedLearningArtifacts('question-linked');
     const firstQ = await createImage({ type: 'tikz', prompt: 'First question', data: 'old question', valid: true });
