@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from 'react';
-import { Button, Icon, styled } from '@polkadot/react-components';
+import { Button, Icon, Modal, styled } from '@polkadot/react-components';
 import { useTranslation } from '../common/translate.js';
 import { Exercise, SpanWithTags, useLog } from '@slonigiraf/slonig-components';
 import ExerciseImage, { isLocalOrRemoteImageUrl } from './ExerciseImage.js';
@@ -20,12 +20,61 @@ const isGeneratedAbilityVisual = (value: string): boolean => {
 
 type AbilityExerciseWithPrompts = Exercise & { iError?: boolean; iPrompt?: string; pError?: boolean; pPrompt?: string };
 
-const ExerciseVisual: React.FC<{ alt: string; hasCompileError?: boolean; isAbilityInfo: boolean; label: string; onCompileStateChange?: (hasError: boolean, renderedValue: string) => Promise<void> | void; onSave?: (value: string) => Promise<void>; prompt?: string; value: string; qaIssues?: string[] }> = ({ alt, hasCompileError = false, isAbilityInfo, label, onCompileStateChange, onSave, prompt, qaIssues, value }) => {
+/** The delete control is kept outside the zoom target so a click cannot
+ * accidentally open the image preview instead of its confirmation dialog. */
+const DeletableAbilityVisual: React.FC<{ alt: string; children: React.ReactNode; onDelete?: () => Promise<void> }> = ({ alt, children, onDelete }) => {
+    const [isConfirming, setIsConfirming] = useState(false);
+    const [isDeleting, setIsDeleting] = useState(false);
+    const [deleteError, setDeleteError] = useState('');
+    const confirmDelete = useCallback(async (): Promise<void> => {
+        if (!onDelete || isDeleting) return;
+        setIsDeleting(true);
+        setDeleteError('');
+        try {
+            await onDelete();
+            setIsConfirming(false);
+        } catch (error) {
+            setDeleteError(error instanceof Error ? error.message : 'Unable to delete the image.');
+        } finally {
+            setIsDeleting(false);
+        }
+    }, [isDeleting, onDelete]);
+
+    if (!onDelete) return <>{children}</>;
+
+    return <AbilityVisualWithDelete>
+        {children}
+        <button
+            aria-label={`Delete ${alt.toLowerCase()} image`}
+            className='abilityImageDeleteButton'
+            disabled={isDeleting}
+            onClick={() => { setDeleteError(''); setIsConfirming(true); }}
+            title={`Delete ${alt.toLowerCase()} image`}
+            type='button'
+        ><Icon icon='trash' /></button>
+        {isConfirming && <Modal
+            header={`Delete ${alt.toLowerCase()} image?`}
+            onClose={() => { if (!isDeleting) setIsConfirming(false); }}
+            size='small'
+        >
+            <Modal.Content>
+                <p>Delete this image and remove its link and image-generation prompt from the Ability exercise? This cannot be undone.</p>
+                {deleteError && <p role='alert' className='abilityImageDeleteError'>{deleteError}</p>}
+                <Button.Group>
+                    <Button icon='times' isDisabled={isDeleting} label='Cancel' onClick={() => setIsConfirming(false)} />
+                    <Button icon='trash' isDisabled={isDeleting} label={isDeleting ? 'Deleting…' : 'Delete image'} onClick={() => { void confirmDelete(); }} />
+                </Button.Group>
+            </Modal.Content>
+        </Modal>}
+    </AbilityVisualWithDelete>;
+};
+
+const ExerciseVisual: React.FC<{ alt: string; hasCompileError?: boolean; isAbilityInfo: boolean; label: string; onCompileStateChange?: (hasError: boolean, renderedValue: string) => Promise<void> | void; onDelete?: () => Promise<void>; onEditorClose?: () => void; onSave?: (value: string) => Promise<void>; prompt?: string; value: string; qaIssues?: string[] }> = ({ alt, hasCompileError = false, isAbilityInfo, label, onCompileStateChange, onDelete, onEditorClose, onSave, prompt, qaIssues, value }) => {
     if (!value.trim()) {
         const promptOnly = isAbilityInfo ? prompt?.trim() ?? '' : '';
 
         return promptOnly
-            ? <VisualPrompt><strong>{label}:</strong> <SpanWithTags content={promptOnly} /></VisualPrompt>
+            ? <DeletableAbilityVisual alt={alt} onDelete={onDelete}><VisualPrompt><strong>{label}:</strong> <SpanWithTags content={promptOnly} /></VisualPrompt></DeletableAbilityVisual>
             : null;
     }
 
@@ -42,14 +91,16 @@ const ExerciseVisual: React.FC<{ alt: string; hasCompileError?: boolean; isAbili
 
     if (isTikzCode(value)) {
         return <>
-            <div className={qaIssues?.length ? 'tikzQaFailed' : undefined} title={qaIssues?.join(' | ')}>
-                {qaIssues?.length ? <small className='tikzQaFailedLabel'>Visual QA failed — {qaIssues[0]}</small> : null}
-                <React.Suspense fallback={<small>Loading image…</small>}>
-                    {isAbilityInfo
-                        ? <TikzVisual alt={alt} expandedPrompt={expandedPrompt} hasCompileError={hasCompileError} onCompileStateChange={onCompileStateChange} onSave={onSave} value={value} />
-                        : <TikzDisplay alt={alt} hasCompileError={hasCompileError} onCompileStateChange={onCompileStateChange} value={value} />}
-                </React.Suspense>
-            </div>
+            <DeletableAbilityVisual alt={alt} onDelete={onDelete}>
+                <div className={qaIssues?.length ? 'tikzQaFailed' : undefined} title={qaIssues?.join(' | ')}>
+                    {qaIssues?.length ? <small className='tikzQaFailedLabel'>Visual QA failed — {qaIssues[0]}</small> : null}
+                    <React.Suspense fallback={<small>Loading image…</small>}>
+                        {isAbilityInfo
+                            ? <TikzVisual alt={alt} expandedPrompt={expandedPrompt} hasCompileError={hasCompileError} onCompileStateChange={onCompileStateChange} onEditorClose={onEditorClose} onSave={onSave} value={value} />
+                            : <TikzDisplay alt={alt} hasCompileError={hasCompileError} onCompileStateChange={onCompileStateChange} value={value} />}
+                    </React.Suspense>
+                </div>
+            </DeletableAbilityVisual>
             {!hasZoomableImage && promptElement}
         </>;
     }
@@ -62,14 +113,16 @@ const ExerciseVisual: React.FC<{ alt: string; hasCompileError?: boolean; isAbili
         const imageValue = value.trim();
 
         return <>
-            {isLocalOrRemoteImageUrl(imageValue)
-                ? <KnowledgeResizableImage alt={alt} expandedPrompt={expandedPrompt} src={imageValue} />
-                : <KnowledgeResizableImage alt={alt} cid={imageValue} expandedPrompt={expandedPrompt} />}
+            <DeletableAbilityVisual alt={alt} onDelete={onDelete}>
+                {isLocalOrRemoteImageUrl(imageValue)
+                    ? <KnowledgeResizableImage alt={alt} expandedPrompt={expandedPrompt} src={imageValue} />
+                    : <KnowledgeResizableImage alt={alt} cid={imageValue} expandedPrompt={expandedPrompt} />}
+            </DeletableAbilityVisual>
             {!hasZoomableImage && promptElement}
         </>;
     }
 
-    return <VisualPrompt><strong>{label}:</strong> <SpanWithTags content={visiblePrompt || value} /></VisualPrompt>;
+    return <DeletableAbilityVisual alt={alt} onDelete={onDelete}><VisualPrompt><strong>{label}:</strong> <SpanWithTags content={visiblePrompt || value} /></VisualPrompt></DeletableAbilityVisual>;
 };
 
 interface ExerciseListProps {
@@ -81,10 +134,12 @@ interface ExerciseListProps {
     isExerciseEditDisabled?: boolean;
     onAbilityVisualErrorChange?: (exerciseIndex: number, field: 'p' | 'i', hasError: boolean, value: string) => Promise<void> | void;
     onAbilityVisualSave?: (exerciseIndex: number, field: 'p' | 'i', value: string) => Promise<void>;
+    onAbilityVisualDelete?: (exerciseIndex: number, field: 'p' | 'i') => Promise<void>;
+    onAbilityVisualEditorClose?: () => void;
     visualIssues?: Record<string, string[]>;
 }
 
-const ExerciseList: React.FC<ExerciseListProps> = ({ exercises, areShownInitially = false, isPreview = false, location = 'default', onEditExercise, isExerciseEditDisabled = false, onAbilityVisualErrorChange, onAbilityVisualSave, visualIssues }) => {
+const ExerciseList: React.FC<ExerciseListProps> = ({ exercises, areShownInitially = false, isPreview = false, location = 'default', onEditExercise, isExerciseEditDisabled = false, onAbilityVisualErrorChange, onAbilityVisualSave, onAbilityVisualDelete, onAbilityVisualEditorClose, visualIssues }) => {
     const [areAnswersShown, setAreAnswersShown] = useState(areShownInitially);
     const { t } = useTranslation();
     const { logEvent } = useLog();
@@ -111,7 +166,7 @@ const ExerciseList: React.FC<ExerciseListProps> = ({ exercises, areShownInitiall
                 <div className="exercise-display">
                     <div className="exercise-header">
                         <span><SpanWithTags content={exercise.h} /></span>
-                        {(exercise.p || (location === 'ability_info' && (exercise as AbilityExerciseWithPrompts).pPrompt)) && <ExerciseDetails><ExerciseVisual alt='Question' hasCompileError={(exercise as AbilityExerciseWithPrompts).pError === true} isAbilityInfo={location === 'ability_info'} label='Question visual prompt' onCompileStateChange={onAbilityVisualErrorChange ? (hasError, renderedValue) => onAbilityVisualErrorChange(0, 'p', hasError, renderedValue) : undefined} onSave={onAbilityVisualSave ? (value) => onAbilityVisualSave(0, 'p', value) : undefined} prompt={(exercise as AbilityExerciseWithPrompts).pPrompt} qaIssues={visualIssues?.['0-p']} value={exercise.p} /></ExerciseDetails>}
+                        {(exercise.p || (location === 'ability_info' && (exercise as AbilityExerciseWithPrompts).pPrompt)) && <ExerciseDetails><ExerciseVisual alt='Question' hasCompileError={(exercise as AbilityExerciseWithPrompts).pError === true} isAbilityInfo={location === 'ability_info'} label='Question visual prompt' onCompileStateChange={onAbilityVisualErrorChange ? (hasError, renderedValue) => onAbilityVisualErrorChange(0, 'p', hasError, renderedValue) : undefined} onDelete={onAbilityVisualDelete ? () => onAbilityVisualDelete(0, 'p') : undefined} onEditorClose={onAbilityVisualEditorClose} onSave={onAbilityVisualSave ? (value) => onAbilityVisualSave(0, 'p', value) : undefined} prompt={(exercise as AbilityExerciseWithPrompts).pPrompt} qaIssues={visualIssues?.['0-p']} value={exercise.p} /></ExerciseDetails>}
                     </div>
                 </div>
             </div>
@@ -135,7 +190,7 @@ const ExerciseList: React.FC<ExerciseListProps> = ({ exercises, areShownInitiall
                         <div className="exercise-display">
                             <div className="exercise-header">
                                 <span><SpanWithTags content={isAbilityInfo ? exercise.h : ` ${index + 1}. ` + exercise.h} /></span>
-                                {(exercise.p || (location === 'ability_info' && (exercise as AbilityExerciseWithPrompts).pPrompt)) && <ExerciseDetails><ExerciseVisual alt='Question' hasCompileError={(exercise as AbilityExerciseWithPrompts).pError === true} isAbilityInfo={location === 'ability_info'} label='Question visual prompt' onCompileStateChange={onAbilityVisualErrorChange ? (hasError, renderedValue) => onAbilityVisualErrorChange(index, 'p', hasError, renderedValue) : undefined} onSave={onAbilityVisualSave ? (value) => onAbilityVisualSave(index, 'p', value) : undefined} prompt={(exercise as AbilityExerciseWithPrompts).pPrompt} qaIssues={visualIssues?.[`${index}-p`]} value={exercise.p} /></ExerciseDetails>}
+                                {(exercise.p || (location === 'ability_info' && (exercise as AbilityExerciseWithPrompts).pPrompt)) && <ExerciseDetails><ExerciseVisual alt='Question' hasCompileError={(exercise as AbilityExerciseWithPrompts).pError === true} isAbilityInfo={location === 'ability_info'} label='Question visual prompt' onCompileStateChange={onAbilityVisualErrorChange ? (hasError, renderedValue) => onAbilityVisualErrorChange(index, 'p', hasError, renderedValue) : undefined} onDelete={onAbilityVisualDelete ? () => onAbilityVisualDelete(index, 'p') : undefined} onEditorClose={onAbilityVisualEditorClose} onSave={onAbilityVisualSave ? (value) => onAbilityVisualSave(index, 'p', value) : undefined} prompt={(exercise as AbilityExerciseWithPrompts).pPrompt} qaIssues={visualIssues?.[`${index}-p`]} value={exercise.p} /></ExerciseDetails>}
                             </div>
 
                             {location !== 'example_exercises' && <Answer className={isAbilityInfo ? 'abilityAnswer' : undefined}>
@@ -149,7 +204,7 @@ const ExerciseList: React.FC<ExerciseListProps> = ({ exercises, areShownInitiall
                                 {(isAbilityInfo || areAnswersShown) && (
                                     <>
                                         <SpanWithTags content={exercise.a} />
-                                        {(exercise.i || (location === 'ability_info' && (exercise as AbilityExerciseWithPrompts).iPrompt)) && <ExerciseVisual alt='Solution' hasCompileError={(exercise as AbilityExerciseWithPrompts).iError === true} isAbilityInfo={location === 'ability_info'} label='Answer visual prompt' onCompileStateChange={onAbilityVisualErrorChange ? (hasError, renderedValue) => onAbilityVisualErrorChange(index, 'i', hasError, renderedValue) : undefined} onSave={onAbilityVisualSave ? (value) => onAbilityVisualSave(index, 'i', value) : undefined} prompt={(exercise as AbilityExerciseWithPrompts).iPrompt} qaIssues={visualIssues?.[`${index}-i`]} value={exercise.i} />}
+                                        {(exercise.i || (location === 'ability_info' && (exercise as AbilityExerciseWithPrompts).iPrompt)) && <ExerciseVisual alt='Solution' hasCompileError={(exercise as AbilityExerciseWithPrompts).iError === true} isAbilityInfo={location === 'ability_info'} label='Answer visual prompt' onCompileStateChange={onAbilityVisualErrorChange ? (hasError, renderedValue) => onAbilityVisualErrorChange(index, 'i', hasError, renderedValue) : undefined} onDelete={onAbilityVisualDelete ? () => onAbilityVisualDelete(index, 'i') : undefined} onEditorClose={onAbilityVisualEditorClose} onSave={onAbilityVisualSave ? (value) => onAbilityVisualSave(index, 'i', value) : undefined} prompt={(exercise as AbilityExerciseWithPrompts).iPrompt} qaIssues={visualIssues?.[`${index}-i`]} value={exercise.i} />}
                                     </>
                                 )}
                             </Answer>}
@@ -159,6 +214,47 @@ const ExerciseList: React.FC<ExerciseListProps> = ({ exercises, areShownInitiall
             </ExercisesContainer>
     );
 }
+
+const AbilityVisualWithDelete = styled.div`
+  box-sizing: border-box;
+  display: inline-block;
+  max-width: 100%;
+  padding-left: 1.55rem;
+  position: relative;
+  vertical-align: top;
+  width: 100%;
+
+  .abilityImageDeleteButton {
+    align-items: center;
+    background: #fff4f4;
+    border: 1px solid #d84a4a;
+    border-radius: 0.3rem;
+    top: 0.25rem;
+    color: #b52626;
+    cursor: pointer;
+    display: inline-flex;
+    height: 1.45rem;
+    justify-content: center;
+    padding: 0;
+    position: absolute;
+    left: 0.05rem;
+    width: 1.45rem;
+    z-index: 2;
+
+    .ui--Icon {
+      height: 0.85rem;
+      margin: 0 !important;
+      padding: 0;
+      width: 0.85rem;
+    }
+
+    &:hover:not(:disabled) { background: #fce4e4; }
+    &:focus-visible { outline: 2px solid #b52626; outline-offset: 2px; }
+    &:disabled { cursor: not-allowed; opacity: 0.5; }
+  }
+
+  .abilityImageDeleteError { color: #b52626; }
+`;
 
 const AbilityExercisesGrid = styled.div`
   .tikzQaFailed {

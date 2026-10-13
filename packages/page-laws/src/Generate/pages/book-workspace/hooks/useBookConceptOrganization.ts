@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { Book, BookConcept, BookPage, BookProcessingStageKey } from '@slonigiraf/db';
-import { applyBookChapterRefinements, completeBookProcessingStage, getBookConceptsForBookPage, getSetting, SettingKey, updateBookChapterTitle, updateBookConcept, withBookProcessingStagesResetFrom } from '@slonigiraf/db';
+import { applyBookChapterRefinements, completeBookProcessingStage, getBookConceptsForBookPage, getSetting, invalidateBookProcessingStages, SettingKey, updateBookChapterTitle, updateBookConcept, withBookProcessingStagesResetFrom } from '@slonigiraf/db';
 import OpenAI from 'openai';
 import type { Dispatch, SetStateAction } from 'react';
 import { useCallback } from 'react';
@@ -10,6 +10,7 @@ import { mapConcurrent } from '../../../../common/concurrency.js';
 import { OPENROUTER_CONCURRENCY } from '../../../../openrouter/concurrency.js';
 import { conceptsForRefinementChapter, hasPersistedRefinedConceptMembership, refinedChapterSplitPages, withRefineChaptersComplete } from '../../../book/domain/chapters/refineChapters.js';
 import { formatChapterTitle } from '../../../book/domain/chapters/chapterTitles.js';
+import { storeBookStandards } from '../../../book/infrastructure/storage/standardsStorage.js';
 import type { ConceptChapterNavigationItem } from '../../../book/domain/concepts/conceptRecognition.js';
 import { assertDisjointSortChapterConcepts, conceptsForSortChapter } from '../../../book/domain/concepts/sortConcepts.js';
 import { conceptGenerationErrorMessage, createOpenRouterClient, requestRefinedChapterGroups, requestSortedChapterConceptIndexes } from '../../../book/application/workspace/bookReaderProcessing.js';
@@ -269,7 +270,7 @@ export function useBookConceptOrganization ({
       let stageBook = book;
 
       if (splits.length) {
-        stageBook = withBookProcessingStagesResetFrom(book, 'abilities');
+        stageBook = withBookProcessingStagesResetFrom(book, 'refineChapters');
         const expectedMembership = await applyBookChapterRefinements(book.id, splits.map(({ chapter, concepts, groups, splitPages }) => ({
           groups: groups.map(({ conceptIndexes, title }) => ({
             conceptIds: conceptIndexes.map((conceptIndex) => concepts[conceptIndex].id as number),
@@ -310,6 +311,13 @@ export function useBookConceptOrganization ({
 
       if (unsplitRenames.length) {
         await refreshChapterAssignments();
+      }
+
+      if (splits.length || unsplitRenames.length) {
+        // Refined chapter keys/fingerprints are not valid Standards inputs any
+        // more. Preserve the Concepts, Abilities and every generated image.
+        storeBookStandards(book.id, {});
+        await invalidateBookProcessingStages(book.id, ['standards']);
       }
 
       const completedBook = await completeBookProcessingStage(book.id, 'refineChapters') ?? withRefineChaptersComplete(stageBook);

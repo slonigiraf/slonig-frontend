@@ -6,7 +6,7 @@ import { describe, it } from 'node:test';
 
 import type { Book } from './db/Book.js';
 
-import { BOOK_PROCESSING_STAGES, getBookCompletedStages, withBookProcessingStagesResetFrom, withCompletedBookProcessingStage } from './db/Book.js';
+import { BOOK_PROCESSING_STAGES, bookStagesInvalidatedByRerun, getBookCompletedStages, withBookProcessingStagesResetFrom, withCompletedBookProcessingStage } from './db/Book.js';
 
 function book (overrides: Partial<Book> = {}): Book {
   return {
@@ -29,18 +29,18 @@ describe('named book processing stages', (): void => {
     assert.deepEqual(completed.completedStages, ['concepts', 'refineChapters', 'abilities']);
   });
 
-  it('resets the selected stage and every stage after it while preserving earlier completion', (): void => {
+  it('fully resets the first six stages but preserves later outputs on safe reruns', (): void => {
     const reset = withBookProcessingStagesResetFrom(book({
       completedStages: ['recognize', 'language', 'subject', 'age', 'chapters', 'concepts', 'fixConcepts', 'embeddings', 'deduplicateConcepts', 'sortConcepts', 'refineChapters', 'abilities']
     }), 'fixConcepts');
 
-    assert.deepEqual(reset.completedStages, ['recognize', 'language', 'subject', 'age', 'chapters', 'concepts']);
+    assert.deepEqual(reset.completedStages, ['recognize', 'language', 'subject', 'age', 'chapters', 'concepts', 'embeddings', 'deduplicateConcepts', 'sortConcepts', 'refineChapters', 'abilities']);
 
     const resetEmbeddings = withBookProcessingStagesResetFrom(book({
       completedStages: ['recognize', 'language', 'subject', 'age', 'chapters', 'concepts', 'fixConcepts', 'embeddings', 'deduplicateConcepts']
     }), 'embeddings');
 
-    assert.deepEqual(resetEmbeddings.completedStages, ['recognize', 'language', 'subject', 'age', 'chapters', 'concepts', 'fixConcepts']);
+    assert.deepEqual(resetEmbeddings.completedStages, ['recognize', 'language', 'subject', 'age', 'chapters', 'concepts', 'fixConcepts', 'deduplicateConcepts']);
   });
 
   it('orders question generation and QA before answer generation and QA', (): void => {
@@ -49,7 +49,24 @@ describe('named book processing stages', (): void => {
     const completedStages: Book['completedStages'] = ['images', 'fixImages', 'answerImages', 'fixAnswerImages', 'standards'];
     const reset = withBookProcessingStagesResetFrom(book({ completedStages }), 'answerImages');
 
-    assert.deepEqual(reset.completedStages, ['images', 'fixImages']);
+    assert.deepEqual(reset.completedStages, ['images', 'fixImages', 'standards']);
+  });
+
+
+  it('encodes stage-specific dependencies instead of clearing every later stage', (): void => {
+    assert.deepEqual(bookStagesInvalidatedByRerun('concepts'), BOOK_PROCESSING_STAGES.slice(5));
+    assert.deepEqual(bookStagesInvalidatedByRerun('fixConcepts'), ['fixConcepts']);
+    assert.deepEqual(bookStagesInvalidatedByRerun('embeddings'), ['embeddings']);
+    assert.deepEqual(bookStagesInvalidatedByRerun('deduplicateConcepts'), ['deduplicateConcepts']);
+    assert.deepEqual(bookStagesInvalidatedByRerun('sortConcepts'), ['sortConcepts']);
+    assert.deepEqual(bookStagesInvalidatedByRerun('refineChapters'), ['refineChapters', 'standards']);
+    assert.deepEqual(bookStagesInvalidatedByRerun('abilities'), ['abilities', 'fixAbilities', 'images', 'fixImages', 'answerImages', 'fixAnswerImages']);
+    assert.deepEqual(bookStagesInvalidatedByRerun('fixAbilities'), ['fixAbilities']);
+    assert.deepEqual(bookStagesInvalidatedByRerun('images'), ['images', 'fixImages', 'answerImages', 'fixAnswerImages']);
+    assert.deepEqual(bookStagesInvalidatedByRerun('fixImages'), ['fixImages']);
+    assert.deepEqual(bookStagesInvalidatedByRerun('answerImages'), ['answerImages', 'fixAnswerImages']);
+    assert.deepEqual(bookStagesInvalidatedByRerun('fixAnswerImages'), ['fixAnswerImages']);
+    assert.deepEqual(bookStagesInvalidatedByRerun('standards'), ['standards']);
   });
 
   it('ignores unknown historical identifiers and does not infer stages from book metadata', (): void => {

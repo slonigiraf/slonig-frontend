@@ -102,13 +102,45 @@ export function withBookProcessingStagesResetFrom (book: Book, stage: BookProces
     return { ...book, completedStages: getBookCompletedStages(book) };
   }
 
+  const invalidated = new Set(bookStagesInvalidatedByRerun(stage));
   const completed = new Set(getBookCompletedStages(book));
 
-  BOOK_PROCESSING_STAGES.slice(stageIndex).forEach((candidate) => completed.delete(candidate));
+  invalidated.forEach((candidate) => completed.delete(candidate));
 
   return {
     ...book,
     completedStages: BOOK_PROCESSING_STAGES.filter((candidate) => completed.has(candidate)),
-    bypassedStages: (book.bypassedStages ?? []).filter((candidate) => BOOK_PROCESSING_STAGES.indexOf(candidate) < stageIndex)
+    bypassedStages: (book.bypassedStages ?? []).filter((candidate) => !invalidated.has(candidate))
+  };
+}
+
+/** Stage-specific invalidation, NOT a blanket suffix reset. A change to an
+ * individual Concept or Image is handled by its own persistence operation.
+ * In particular, image/Ability work must never uncomplete Standards. */
+export function bookStagesInvalidatedByRerun(stage: BookProcessingStageKey): BookProcessingStageKey[] {
+  const index = BOOK_PROCESSING_STAGES.indexOf(stage);
+
+  if (index < 0) return [];
+  if (index <= BOOK_PROCESSING_STAGES.indexOf('concepts')) return BOOK_PROCESSING_STAGES.slice(index);
+
+  const dependent: Partial<Record<BookProcessingStageKey, readonly BookProcessingStageKey[]>> = {
+    refineChapters: ['standards'],
+    abilities: ['fixAbilities', 'images', 'fixImages', 'answerImages', 'fixAnswerImages'],
+    images: ['fixImages', 'answerImages', 'fixAnswerImages'],
+    answerImages: ['fixAnswerImages']
+  };
+
+  return [stage, ...(dependent[stage] ?? [])];
+}
+
+/** Explicitly invalidate affected stages after a *real* content change.
+ * This is separate from restarting an AI review without applying changes. */
+export function withInvalidatedBookProcessingStages(book: Book, stages: readonly BookProcessingStageKey[]): Book {
+  const invalidated = new Set(stages);
+
+  return {
+    ...book,
+    completedStages: getBookCompletedStages(book).filter((stage) => !invalidated.has(stage)),
+    bypassedStages: (book.bypassedStages ?? []).filter((stage) => !invalidated.has(stage))
   };
 }

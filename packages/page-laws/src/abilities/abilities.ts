@@ -189,6 +189,27 @@ export function parseStoredAbility (content: string): GeneratedAbility {
   return parseAbilityValue(Array.isArray(parsed) ? parsed[0] : parsed);
 }
 
+/** Validate the manual editor without rejecting image-only answer exercises.
+ * Like parseStoredAbility, an answer may be represented by a text response,
+ * an existing visual, or a prompt for an answer visual still to be generated. */
+export function abilityEditValidationError (ability: GeneratedAbility): string | null {
+  if (!ability.h.trim()) {
+    return 'Ability name is required.';
+  }
+
+  for (const [index, exercise] of ability.q.entries()) {
+    if (!exercise.h.trim()) {
+      return `Exercise ${index + 1} needs a question.`;
+    }
+
+    if (!exercise.a.trim() && !exercise.i.trim() && !exercise.iPrompt?.trim()) {
+      return `Exercise ${index + 1} needs a text answer or an answer image.`;
+    }
+  }
+
+  return null;
+}
+
 
 /** Preferred learner-facing limits; visual specifications and copied Concept titles are exempt. */
 export const ABILITY_QUESTION_MAX_WORDS = 21;

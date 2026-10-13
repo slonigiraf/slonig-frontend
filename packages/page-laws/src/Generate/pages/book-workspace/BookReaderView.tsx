@@ -20,6 +20,7 @@ import Skills, { SkillsCourse } from '../../features/skills/index.js';
 import { AiPriceEstimate } from '../../shared/ui/PriceEstimate.js';
 import ProcessingPopup from '../../shared/ui/ProcessingPopup.js';
 import StageRunPricePopup from '../../shared/ui/StageRunPricePopup.js';
+import { loadStoredBookStandards } from '../../book/infrastructure/storage/standardsStorage.js';
 import { skipBookStage } from '../../book/application/pipeline/skipBookStage.js';
 
 import { StyledReader } from './BookReader.styles.js';
@@ -1089,7 +1090,7 @@ export function BookReaderView ({ controller }: Props): React.ReactElement {
         </Modal.Content>
       </Modal>}
       {isLanguageDetectionConfirmationOpen && !autoRunAll && <StageRunPricePopup
-        dataLoss={{ bookId: book.id, stage: 'language' }}
+        dataLoss={{ bookId: book.id, stage: 'language', hasAdditionalDataToReplace: Object.keys(loadStoredBookStandards(book.id)).length > 0 }}
         header='Detect book language'
         onClose={closeLanguageDetectionConfirmation}
         onRun={confirmLanguageDetection}
@@ -1104,7 +1105,7 @@ export function BookReaderView ({ controller }: Props): React.ReactElement {
         />
       </StageRunPricePopup>}
       {isSubjectDetectionConfirmationOpen && !autoRunAll && <StageRunPricePopup
-        dataLoss={{ bookId: book.id, stage: 'subject' }}
+        dataLoss={{ bookId: book.id, stage: 'subject', hasAdditionalDataToReplace: Object.keys(loadStoredBookStandards(book.id)).length > 0 }}
         header='Detect book subject'
         onClose={closeSubjectDetectionConfirmation}
         onRun={confirmSubjectDetection}
@@ -1121,7 +1122,7 @@ export function BookReaderView ({ controller }: Props): React.ReactElement {
         />}
       </StageRunPricePopup>}
       {isAgeDetectionConfirmationOpen && !autoRunAll && <StageRunPricePopup
-        dataLoss={{ bookId: book.id, stage: 'age' }}
+        dataLoss={{ bookId: book.id, stage: 'age', hasAdditionalDataToReplace: Object.keys(loadStoredBookStandards(book.id)).length > 0 }}
         header='Detect learner age'
         onClose={closeAgeDetectionConfirmation}
         onRun={confirmAgeDetection}

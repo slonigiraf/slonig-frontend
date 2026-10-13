@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { Book, BookProcessingStageKey } from '@slonigiraf/db';
+import { BOOK_PROCESSING_STAGES } from '@slonigiraf/db';
 import React from 'react';
 
 import { Modal, Toggle, styled } from '@polkadot/react-components';
@@ -47,7 +48,7 @@ export function FastForwardPricePopup ({ bookId, startStage, canSkipRefineChapte
 
   return (
     <StageRunPricePopup
-      dataLoss={bookId !== undefined && startStage ? { bookId, stage: startStage, hasAdditionalDataToReplace: Object.keys(loadStoredBookStandards(bookId)).length > 0 } : undefined}
+      dataLoss={bookId !== undefined && startStage ? { bookId, stage: startStage, hasAdditionalDataToReplace: (BOOK_PROCESSING_STAGES.indexOf(startStage) <= BOOK_PROCESSING_STAGES.indexOf('concepts') || !skip && BOOK_PROCESSING_STAGES.indexOf(startStage) <= BOOK_PROCESSING_STAGES.indexOf('refineChapters')) && Object.keys(loadStoredBookStandards(bookId)).length > 0, warningText: 'I understand that Fast Forward can replace existing generated outputs for rerun stages. Earlier stages may delete their downstream data; later stages will preserve unrelated records and invalidate only dependent images or chapter Standards.' } : undefined}
       header={t('Run remaining stages')}
       isRunDisabled={!estimate || estimate.remainingStages === 0}
       onClose={onClose}

@@ -94,9 +94,9 @@ describe('book stage entity invalidation', (): void => {
 
       assert.equal((await getBookChapters(seeded.bookId)).length, 0, 'a full Chapters rerun deletes its previous rows');
       assert.equal((await getBookConceptsForBookPage(seeded.bookId, 1)).length, 0);
-      assert.equal((await getConceptEmbeddings([seeded.conceptId])).length, 0);
-      assert.equal((await getSkillsForChapter(seeded.chapterId)).length, 0);
-      assert.equal((await getAbilities(seeded.abilityModuleId)).length, 0);
+      assert.equal((await getConceptEmbeddings([seeded.conceptId])).length, 1);
+      assert.equal((await getSkillsForChapter(seeded.chapterId)).length, 1);
+      assert.equal((await getAbilities(seeded.abilityModuleId)).length, 1);
       assert.equal((await getBookPages(seeded.bookId))[0]?.conceptsProcessed, false);
     } finally {
       await deleteBook(seeded.bookId);
@@ -135,13 +135,13 @@ describe('book stage entity invalidation', (): void => {
     }
   });
 
-  it('deletes the selected Embeddings and Abilities outputs during full reruns', async (): Promise<void> => {
+  it('keeps cached Embeddings but replaces Abilities during full reruns', async (): Promise<void> => {
     const embeddings = await seedLearningArtifacts('embeddings-full');
     const abilities = await seedLearningArtifacts('abilities-full');
 
     try {
       await resetBookProcessingStagesFrom(embeddings.bookId, 'embeddings');
-      assert.equal((await getConceptEmbeddings([embeddings.conceptId])).length, 0);
+      assert.equal((await getConceptEmbeddings([embeddings.conceptId])).length, 1, 'cached embeddings are reused when still current');
       assert.equal((await getBookConceptsForBookPage(embeddings.bookId, 1)).length, 1);
 
       await resetBookProcessingStagesFrom(abilities.bookId, 'abilities');
@@ -187,14 +187,14 @@ describe('book stage entity invalidation', (): void => {
 
       await resetBookProcessingStagesFrom(seeded.bookId, 'images');
       assert.equal((await getImage(questionId))?.data, null);
-      assert.equal((await getImage(answerId))?.data, tikz, 'question image generation must preserve the answer');
+      assert.equal((await getImage(answerId))?.data, null, 'question regeneration invalidates the dependent answer');
 
       const question = await getImage(questionId);
       assert.ok(question);
       await putImage({ ...question, type: 'tikz', data: tikz });
       await resetBookProcessingStagesFrom(seeded.bookId, 'fixImages');
       assert.equal((await getImage(questionId))?.data, tikz, 'question QA must not delete question TikZ');
-      assert.equal((await getImage(answerId))?.data, tikz, 'question QA must not reset answer TikZ');
+      assert.equal((await getImage(answerId))?.data, null, 'QA-only review must not change an already invalidated answer');
 
       await resetBookProcessingStagesFrom(seeded.bookId, 'answerImages');
       assert.equal((await getImage(questionId))?.data, tikz, 'answer generation must preserve the question');
@@ -273,18 +273,71 @@ describe('book stage entity invalidation', (): void => {
     }
   });
 
-  it('keeps reviewed Concepts but wipes Embedings and later entities when Fix concepts is rerun', async (): Promise<void> => {
+  it('keeps Concept, Embedding, and Ability data on a Fix concepts review-only rerun', async (): Promise<void> => {
     const seeded = await seedLearningArtifacts('fix-concepts');
 
     try {
       await resetBookProcessingStagesFrom(seeded.bookId, 'fixConcepts');
 
       assert.equal((await getBookConceptsForBookPage(seeded.bookId, 1)).length, 1);
-      assert.equal((await getConceptEmbeddings([seeded.conceptId])).length, 0);
-      assert.equal((await getSkillsForChapter(seeded.chapterId)).length, 0);
-      assert.equal((await getAbilities(seeded.abilityModuleId)).length, 0);
+      assert.equal((await getConceptEmbeddings([seeded.conceptId])).length, 1);
+      assert.equal((await getSkillsForChapter(seeded.chapterId)).length, 1);
+      assert.equal((await getAbilities(seeded.abilityModuleId)).length, 1);
     } finally {
       await deleteBook(seeded.bookId);
     }
   });
+
+  it('does not erase later records when rerunning Deduplicate, Sort, Refine, or image QA', async (): Promise<void> => {
+    const seeded = await seedLearningArtifacts('non-destructive');
+    const questionId = await createImage({ type: 'tikz', prompt: 'Question', data: 'question', valid: true });
+    const answerId = await createImage({ type: 'tikz', prompt: 'Answer', data: 'answer', valid: true });
+
+    try {
+      await storeAbility(seeded.abilityModuleId, JSON.stringify({ h: 'Zero', q: [{ h: 'Draw', p: questionId, i: answerId }], t: 1 }));
+      await completeBookProcessingStage(seeded.bookId, 'standards');
+      for (const stage of ['deduplicateConcepts', 'sortConcepts', 'refineChapters', 'fixAbilities', 'fixImages', 'fixAnswerImages', 'standards'] as const) {
+        await resetBookProcessingStagesFrom(seeded.bookId, stage);
+        assert.equal((await getBookConceptsForBookPage(seeded.bookId, 1)).length, 1, `${stage} must preserve Concepts`);
+        assert.equal((await getConceptEmbeddings([seeded.conceptId])).length, 1, `${stage} must preserve Embeddings`);
+        assert.equal((await getAbilities(seeded.abilityModuleId)).length, 1, `${stage} must preserve Abilities`);
+        assert.equal((await getImage(questionId))?.data, 'question', `${stage} must preserve question images`);
+        assert.equal((await getImage(answerId))?.data, 'answer', `${stage} must preserve answer images`);
+      }
+    } finally {
+      await deleteBook(seeded.bookId);
+    }
+  });
+
+  it('invalidates only the answer linked to an edited question figure', async (): Promise<void> => {
+    const seeded = await seedLearningArtifacts('question-linked');
+    const firstQ = await createImage({ type: 'tikz', prompt: 'First question', data: 'old question', valid: true });
+    const firstA = await createImage({ type: 'tikz', prompt: 'First answer', data: 'old answer', valid: true });
+    const otherQ = await createImage({ type: 'tikz', prompt: 'Second question', data: 'other question', valid: true });
+    const otherA = await createImage({ type: 'tikz', prompt: 'Second answer', data: 'other answer', valid: true });
+
+    try {
+      await storeAbility(seeded.abilityModuleId, JSON.stringify({ h: 'Figures', q: [
+        { h: 'First', p: firstQ, i: firstA }, { h: 'Other', p: otherQ, i: otherA }
+      ], t: 1 }));
+      for (const stage of ['images', 'fixImages', 'answerImages', 'fixAnswerImages', 'standards'] as const) {
+        await completeBookProcessingStage(seeded.bookId, stage);
+      }
+      const source = await getImage(firstQ);
+      assert.ok(source);
+      await putImage({ ...source, data: 'updated question' });
+      assert.equal((await getImage(firstA))?.data, null);
+      assert.equal((await getImage(otherA))?.data, 'other answer');
+      assert.equal((await getImage(otherQ))?.data, 'other question');
+      const stages = (await getBook(seeded.bookId))?.completedStages ?? [];
+      assert.equal(stages.includes('images'), true);
+      assert.equal(stages.includes('fixImages'), false);
+      assert.equal(stages.includes('answerImages'), false);
+      assert.equal(stages.includes('fixAnswerImages'), false);
+      assert.equal(stages.includes('standards'), true);
+    } finally {
+      await deleteBook(seeded.bookId);
+    }
+  });
+
 });

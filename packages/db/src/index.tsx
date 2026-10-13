@@ -30,7 +30,7 @@ import { EXAMPLE_MODULE_KNOWLEDGE_CID, EXAMPLE_SKILL_KNOWLEDGE_ID } from "@sloni
 import { LearnRequest } from "./db/LearnRequest.js";
 import { ScheduledEvent, ScheduledEventType } from "./db/ScheduledEvent.js";
 import Dexie, { type Table } from "dexie";
-import { BOOK_PROCESSING_STAGES, getBookCompletedStages, withBookProcessingStagesResetFrom, withBypassedBookProcessingStage, withCompletedBookProcessingStage } from './db/Book.js';
+import { BOOK_PROCESSING_STAGES, getBookCompletedStages, withBookProcessingStagesResetFrom, withInvalidatedBookProcessingStages, withBypassedBookProcessingStage, withCompletedBookProcessingStage } from './db/Book.js';
 import type { Book, BookProcessingStageKey, BookStageSpend, BookStageSpendKey, BookSubject } from './db/Book.js';
 import type { BookPage, MathpixHeading } from './db/BookPage.js';
 import type { BookConcept } from './db/BookConcept.js';
@@ -48,7 +48,7 @@ import type { BookProcessingRun } from './db/BookProcessingRun.js';
 import { readTikzSvgCache, writeTikzSvgCache } from './db/TikzSvgCache.js';
 import { shouldExportDatabaseRow } from './backup.js';
 
-export { BOOK_PROCESSING_STAGES, getBookCompletedStages, isBookProcessingStageComplete, isBookProcessingStageSatisfied, withBookProcessingStagesResetFrom, withBypassedBookProcessingStage, withCompletedBookProcessingStage } from './db/Book.js';
+export { BOOK_PROCESSING_STAGES, getBookCompletedStages, isBookProcessingStageComplete, isBookProcessingStageSatisfied, bookStagesInvalidatedByRerun, withBookProcessingStagesResetFrom, withInvalidatedBookProcessingStages, withBypassedBookProcessingStage, withCompletedBookProcessingStage } from './db/Book.js';
 export type { LearnRequest, TutorAction, CanceledInsurance, Reexamination, LetterTemplate, CanceledLetter, Reimbursement, Letter, Insurance, Lesson, Pseudonym, Setting, Signer, UsageRight, Agreement, Ability, AbilityExercise, AbilityValue, Image, Book, BookProcessingStageKey, BookStageSpend, BookStageSpendKey, BookSubject, BookPage, MathpixHeading, BookChapter, BookConcept, Skill, ExerciseTemplate, AiTutorStudentMessage, StandardEmbedding, ConceptEmbedding, MathpixPdfJob };
 export type { BookProcessingRun } from './db/BookProcessingRun.js';
 
@@ -303,30 +303,25 @@ function isBookProcessingStageAfter(stage: BookProcessingStageKey, candidate: Bo
 }
 
 /**
- * A full rerun drops the selected stage's regenerable output and everything
- * downstream. A targeted missing-only retry preserves existing selected-stage
- * outputs while still invalidating downstream artifacts.
- *
- * Repair/organization stages edit earlier stages' records; their source rows
- * must remain available as inputs. Fix concepts preserves all existing concepts,
- * including concepts added by previous Fix concepts attempts.
+ * Only the first six pipeline stages have cascading destructive resets.
+ * Later stages keep unrelated persisted outputs; their own edits invalidate
+ * precisely the associated artifacts (Concept, Ability, Image) as needed.
  */
 async function clearBookEntitiesAfterProcessingStage(bookId: number, stage: BookProcessingStageKey, onlyMissing = false): Promise<void> {
+    const cascading = BOOK_PROCESSING_STAGES.indexOf(stage) <= BOOK_PROCESSING_STAGES.indexOf('concepts');
     const clears = (candidate: BookProcessingStageKey): boolean =>
-        isBookProcessingStageAfter(stage, candidate) || (!onlyMissing && stage === candidate);
+        cascading && (isBookProcessingStageAfter(stage, candidate) || (!onlyMissing && stage === candidate));
     const clearRecognition = stage === 'recognize' && !onlyMissing;
     const clearChapters = clears('chapters');
     const clearConcepts = clears('concepts');
     const clearEmbeddings = clears('embeddings');
-    const clearAbilities = clears('abilities');
+    const clearAbilities = clears('abilities') || (stage === 'abilities' && !onlyMissing);
     const clearQuestionImages = stage === 'images' && !onlyMissing && !clearAbilities;
     const clearAnswerImages = stage === 'answerImages' && !onlyMissing && !clearAbilities;
-    const clearQuestionReviews = stage === 'fixImages' && !onlyMissing && !clearAbilities;
-    const clearAnswerReviews = stage === 'fixAnswerImages' && !onlyMissing && !clearAbilities;
+    // QA reruns work in-place; they never blank image data.
     const clearImages = clearQuestionImages || clearAnswerImages;
-    const clearImageReviews = clearQuestionReviews || clearAnswerReviews;
 
-    if (!clearRecognition && !clearChapters && !clearConcepts && !clearEmbeddings && !clearAbilities && !clearImages && !clearImageReviews) {
+    if (!clearRecognition && !clearChapters && !clearConcepts && !clearEmbeddings && !clearAbilities && !clearImages) {
         return;
     }
 
@@ -346,19 +341,31 @@ async function clearBookEntitiesAfterProcessingStage(bookId: number, stage: Book
         }
         await Promise.all(chapterIds.map((chapterId) => db.skills.where('chapterId').equals(chapterId).delete()));
         await deleteUnreferencedAbilityImages(imageIds);
-    } else if (clearImages || clearImageReviews) {
-        // A question-stage rerun may not touch answer images (and vice versa).
-        // Keep foreign keys and semantic prompts for the selected side only.
+    } else if (clearImages) {
+        // A question rerun must also reset the answer figure belonging to that
+        // exercise. Keep foreign keys, Ability content and unrelated images.
         const abilities = await db.abilities.filter(({ moduleId }) => moduleId.startsWith(`book-${bookId}-`)).toArray() as Ability[];
-        const field = clearQuestionImages || clearQuestionReviews ? 'p' : 'i';
+        const field = clearQuestionImages ? 'p' : 'i';
         const ids = Array.from(new Set(abilities.flatMap(({ content }) => abilityImageIdsForField(content, field))));
-        const images = await db.images.bulkGet(ids);
+        // A question redraw invalidates its *corresponding* answer image and
+        // its QA; unrelated diagrams and all Ability records stay intact.
+        const dependentAnswerIds = clearQuestionImages ? abilities.flatMap(({ content }) => {
+            const parsed = parseAbilityJson(content);
+
+            return parsed ? parsed.root.q.flatMap((exercise) => {
+                if (!exercise || typeof exercise !== 'object') return [];
+                const row = exercise as Record<string, unknown>;
+
+                return typeof row.p === 'number' && typeof row.i === 'number' ? [row.i] : [];
+            }) : [];
+        }) : [];
+        const images = await db.images.bulkGet(Array.from(new Set([...ids, ...dependentAnswerIds])));
 
         await Promise.all(images.flatMap((image) => !image ? [] : [db.images.put({
             ...image,
-            type: clearImageReviews ? image.type : 'prompt',
+            type: 'prompt',
             prompt: image.prompt || image.data || '',
-            data: clearImageReviews ? image.data : null,
+            data: null,
             valid: undefined,
             renderStatus: undefined,
             visualQaStatus: undefined,
@@ -366,10 +373,6 @@ async function clearBookEntitiesAfterProcessingStage(bookId: number, stage: Book
             sourceVersion: undefined,
             reviewResult: undefined
         })]));
-    }
-
-    if (!onlyMissing && stage === 'sortConcepts') {
-        await db.bookConcepts.filter(({ bookPage }) => bookPage[0] === bookId).modify({ displayOrder: undefined });
     }
 
     if (clearConcepts) {
@@ -400,12 +403,27 @@ async function clearBookEntitiesAfterProcessingStage(bookId: number, stage: Book
     }
 }
 
+/** Standards are stored outside IndexedDB. Cascade and Refine Chapters
+ * resets must forget that cache too, but only after the DB commit. */
+function clearStoredStandardsAfterReset(bookId: number, stage: BookProcessingStageKey): void {
+    // Refine Chapters' only downstream artifact is chapter Standards.
+    if (BOOK_PROCESSING_STAGES.indexOf(stage) > BOOK_PROCESSING_STAGES.indexOf('concepts') && stage !== 'refineChapters') return;
+    try {
+        if (typeof localStorage !== 'undefined') {
+            localStorage.removeItem(`knowledge-upload-book-${bookId}-standards-v4`);
+        }
+    } catch {
+        // Processing data is already reset in IndexedDB; a blocked browser
+        // storage API must not make a successful reset look like a failure.
+    }
+}
+
 export async function updateBookFieldsAndStages(
     id: number,
     changes: Partial<Omit<Book, 'completedStages' | 'bypassedStages' | 'fixConceptsAttempts' | 'id' | 'stageSpend'>>,
     options: { complete?: BookProcessingStageKey[]; resetFrom?: BookProcessingStageKey; onlyMissing?: boolean; uncomplete?: BookProcessingStageKey[] } = {}
 ): Promise<Book | undefined> {
-    return db.transaction('rw', db.books, db.bookPages, db.bookChapters, db.bookConcepts, db.conceptEmbeddings, db.skills, db.exerciseTemplates, db.abilities, db.images, db.mathpixPdfJobs, async () => {
+    const nextBook = await db.transaction('rw', db.books, db.bookPages, db.bookChapters, db.bookConcepts, db.conceptEmbeddings, db.skills, db.exerciseTemplates, db.abilities, db.images, db.mathpixPdfJobs, async () => {
         const storedBook = await db.books.get(id);
 
         if (!storedBook) {
@@ -436,8 +454,11 @@ export async function updateBookFieldsAndStages(
 
         return getBook(id);
     });
-}
 
+    if (nextBook && options.resetFrom) clearStoredStandardsAfterReset(id, options.resetFrom);
+
+    return nextBook;
+}
 /**
  * @deprecated Replacing an existing Book from a caller-owned snapshot is not
  * concurrency-safe. Use createBook() for inserts and updateBookFields()/the
@@ -518,16 +539,19 @@ export async function uncompleteBookProcessingStage(id: number, stage: BookProce
  */
 export async function wouldResetBookGeneratedData (bookId: number, stage: BookProcessingStageKey, options: { onlyMissing?: boolean } = {}): Promise<boolean> {
     const onlyMissing = options.onlyMissing ?? false;
+    const cascading = BOOK_PROCESSING_STAGES.indexOf(stage) <= BOOK_PROCESSING_STAGES.indexOf('concepts');
     const clears = (candidate: BookProcessingStageKey): boolean =>
-        isBookProcessingStageAfter(stage, candidate) || (!onlyMissing && stage === candidate);
+        cascading && (isBookProcessingStageAfter(stage, candidate) || (!onlyMissing && stage === candidate));
     const clearChapters = clears('chapters');
     const clearConcepts = clears('concepts');
     const clearEmbeddings = clears('embeddings');
-    const clearAbilities = clears('abilities');
-    const clearQuestionImages = stage === 'images' && !onlyMissing && !clearAbilities;
-    const clearAnswerImages = stage === 'answerImages' && !onlyMissing && !clearAbilities;
-    const clearQuestionReviews = stage === 'fixImages' && !onlyMissing && !clearAbilities;
-    const clearAnswerReviews = stage === 'fixAnswerImages' && !onlyMissing && !clearAbilities;
+    const clearAbilities = clears('abilities') || stage === 'abilities' && !onlyMissing;
+    const clearQuestionImages = stage === 'images' && !onlyMissing;
+    const clearAnswerImages = stage === 'answerImages' && !onlyMissing;
+    // These two stages may change previously generated records *after review*.
+    const possibleConceptChanges = stage === 'fixConcepts';
+    const possibleAbilityChanges = stage === 'fixAbilities';
+    const possibleQuestionCorrections = stage === 'fixImages';
 
     return db.transaction('r', db.books, db.bookPages, db.bookChapters, db.bookConcepts, db.conceptEmbeddings, db.skills, db.abilities, db.images, async () => {
         if (stage === 'recognize' && !onlyMissing) {
@@ -543,8 +567,11 @@ export async function wouldResetBookGeneratedData (bookId: number, stage: BookPr
             await db.bookPages.where('bookId').equals(bookId).filter(({ conceptsProcessed }) => Boolean(conceptsProcessed)).count()
         )) return true;
         if (clearEmbeddings && await db.conceptEmbeddings.where('bookId').equals(bookId).count()) return true;
-        if (!onlyMissing && stage === 'sortConcepts' && await db.bookConcepts.filter(({ bookPage, displayOrder }) => bookPage[0] === bookId && displayOrder !== undefined).count()) return true;
 
+        if (possibleConceptChanges && (
+            await db.conceptEmbeddings.where('bookId').equals(bookId).count() ||
+            await db.abilities.filter(({ moduleId }) => moduleId.startsWith(`book-${bookId}-`)).count()
+        )) return true;
         if (clearAbilities) {
             if (await db.abilities.filter(({ moduleId }) => moduleId.startsWith(`book-${bookId}-`)).count()) return true;
             const chapters = await db.bookChapters.where('bookId').equals(bookId).toArray();
@@ -552,23 +579,49 @@ export async function wouldResetBookGeneratedData (bookId: number, stage: BookPr
                 if (chapter.id !== undefined && await db.skills.where('chapterId').equals(chapter.id).count()) return true;
             }
         }
-        if (clearQuestionImages || clearAnswerImages || clearQuestionReviews || clearAnswerReviews) {
-            const field = clearQuestionImages || clearQuestionReviews ? 'p' : 'i';
+        if (clearQuestionImages || clearAnswerImages || possibleQuestionCorrections || possibleAbilityChanges || stage === 'images' && onlyMissing) {
             const abilities = await db.abilities.filter(({ moduleId }) => moduleId.startsWith(`book-${bookId}-`)).toArray() as Ability[];
-            const ids = Array.from(new Set(abilities.flatMap(({ content }) => abilityImageIdsForField(content, field))));
-            const images = await db.images.bulkGet(ids);
+            const ids = new Set<number>();
+            const missingQuestionAnswerPairs: Array<{ questionId: number; answerId: number }> = [];
+
+            for (const { content } of abilities) {
+                const parsed = parseAbilityJson(content);
+
+                if (!parsed) continue;
+                for (const exercise of parsed.root.q) {
+                    if (!exercise || typeof exercise !== 'object') continue;
+                    const row = exercise as Record<string, unknown>;
+
+                    if (clearQuestionImages || possibleAbilityChanges) {
+                        if (typeof row.p === 'number') ids.add(row.p);
+                    }
+                    if (stage === 'images' && onlyMissing && typeof row.p === 'number' && typeof row.i === 'number') {
+                        missingQuestionAnswerPairs.push({ questionId: row.p, answerId: row.i });
+                    }
+                    if (clearAnswerImages || possibleAbilityChanges ||
+                        (clearQuestionImages || possibleQuestionCorrections) && typeof row.p === 'number') {
+                        if (typeof row.i === 'number') ids.add(row.i);
+                    }
+                }
+            }
+            const images = await db.images.bulkGet([...ids]);
             if (images.some((image) => image && (
-                (clearQuestionImages || clearAnswerImages)
-                    ? image.type !== 'prompt' || image.data !== null && image.data !== undefined || image.valid !== undefined || image.renderStatus !== undefined || image.visualQaStatus !== undefined
-                    : image.valid !== undefined || image.renderStatus !== undefined || image.visualQaStatus !== undefined || image.reviewResult !== undefined || image.detectedIssues !== undefined || image.sourceVersion !== undefined
+                image.type !== 'prompt' || image.data !== null && image.data !== undefined || image.valid !== undefined || image.renderStatus !== undefined || image.visualQaStatus !== undefined
             ))) return true;
+            for (const { questionId, answerId } of missingQuestionAnswerPairs) {
+                const [question, answer] = await db.images.bulkGet([questionId, answerId]);
+
+                if (question && (question.type === 'prompt' || !question.data) && answer && (answer.type !== 'prompt' || answer.data)) {
+                    return true;
+                }
+            }
         }
         return false;
     });
 }
 
 export async function resetBookProcessingStagesFrom(id: number, stage: BookProcessingStageKey, options: { onlyMissing?: boolean } = {}): Promise<Book | undefined> {
-    return db.transaction('rw', db.books, db.bookPages, db.bookChapters, db.bookConcepts, db.conceptEmbeddings, db.skills, db.exerciseTemplates, db.abilities, db.images, db.mathpixPdfJobs, async () => {
+    const nextBook = await db.transaction('rw', db.books, db.bookPages, db.bookChapters, db.bookConcepts, db.conceptEmbeddings, db.skills, db.exerciseTemplates, db.abilities, db.images, db.mathpixPdfJobs, async () => {
         const book = await db.books.get(id);
 
         if (!book) {
@@ -578,6 +631,23 @@ export async function resetBookProcessingStagesFrom(id: number, stage: BookProce
         await clearBookEntitiesAfterProcessingStage(id, stage, options.onlyMissing);
         const updated = withBookProcessingStagesResetFrom({ ...book, completedStages: getBookCompletedStages(book) }, stage);
 
+        await db.books.update(id, { completedStages: updated.completedStages, bypassedStages: updated.bypassedStages });
+
+        return getBook(id);
+    });
+
+    if (nextBook) clearStoredStandardsAfterReset(id, stage);
+
+    return nextBook;
+}
+/** Invalidate only the completion markers for derived stages after approved
+ * edits. No book-wide generated entities are deleted by this operation. */
+export async function invalidateBookProcessingStages(id: number, stages: readonly BookProcessingStageKey[]): Promise<Book | undefined> {
+    return db.transaction('rw', db.books, async () => {
+        const book = await db.books.get(id);
+
+        if (!book) return undefined;
+        const updated = withInvalidatedBookProcessingStages(book, stages);
         await db.books.update(id, { completedStages: updated.completedStages, bypassedStages: updated.bypassedStages });
 
         return getBook(id);
@@ -2188,27 +2258,58 @@ export async function putImage(image: Image, expectedSource?: string | null): Pr
         // but an answer edit must NEVER revoke the approved question stage.
         if (previous?.data !== next.data || (previous !== undefined && isTikzImageQaPassed(previous) && !isTikzImageQaPassed(next))) {
             const linked = await db.abilities.toArray();
-            const invalidationByBook = new Map<number, BookProcessingStageKey>();
+            const invalidationByBook = new Map<number, Set<BookProcessingStageKey>>();
+            const dependentAnswerIds = new Set<number>();
+            const questionSourceChanged = previous?.data !== next.data;
 
             for (const { content, moduleId } of linked) {
                 const match = /^book-(\d+)-(?:concept|exercise|skill)-/.exec(moduleId);
                 if (!match) continue;
-                const field = abilityImageIdsForField(content, 'p').includes(image.id) ? 'p'
-                    : abilityImageIdsForField(content, 'i').includes(image.id) ? 'i' : undefined;
-                if (!field) continue;
+                const parsed = parseAbilityJson(content);
 
+                if (!parsed) continue;
                 const bookId = Number(match[1]);
-                if (field === 'p' || !invalidationByBook.has(bookId)) {
-                    invalidationByBook.set(bookId, field === 'p' ? 'fixImages' : 'fixAnswerImages');
+
+                for (const exercise of parsed.root.q) {
+                    if (!exercise || typeof exercise !== 'object') continue;
+                    const row = exercise as Record<string, unknown>;
+                    const field = row.p === image.id ? 'p' : row.i === image.id ? 'i' : undefined;
+
+                    if (!field) continue;
+                    const stages = invalidationByBook.get(bookId) ?? new Set<BookProcessingStageKey>();
+
+                    if (field === 'p') {
+                        stages.add('fixImages');
+                        if (questionSourceChanged) {
+                            stages.add('answerImages');
+                            stages.add('fixAnswerImages');
+                            if (typeof row.i === 'number' && row.i !== image.id) dependentAnswerIds.add(row.i);
+                        }
+                    } else {
+                        stages.add('fixAnswerImages');
+                    }
+                    invalidationByBook.set(bookId, stages);
                 }
             }
 
-            for (const [bookId, stage] of invalidationByBook) {
+            // Only answers attached to modified question figures lose their
+            // generated TikZ and QA. No other exercise images are touched.
+            for (const answerId of dependentAnswerIds) {
+                const answer = await db.images.get(answerId);
+
+                if (answer) {
+                    await db.images.put({ ...answer, type: 'prompt', data: null, valid: undefined,
+                        renderStatus: undefined, visualQaStatus: undefined, detectedIssues: undefined,
+                        sourceVersion: undefined, reviewResult: undefined });
+                }
+            }
+
+            for (const [bookId, stages] of invalidationByBook) {
                 const book = await db.books.get(bookId);
 
                 if (book) {
-                    const updated = withBookProcessingStagesResetFrom(book, stage);
-                    await db.books.update(bookId, { completedStages: updated.completedStages });
+                    const updated = withInvalidatedBookProcessingStages(book, [...stages]);
+                    await db.books.update(bookId, { completedStages: updated.completedStages, bypassedStages: updated.bypassedStages });
                 }
             }
         }
@@ -2346,6 +2447,35 @@ export async function storeAbility(moduleId: string, content: string, displayOrd
 /** Atomically replace an Ability rather than temporarily inserting a second
  * content-addressed row. A failed or stale save must never create a second
  * version. Leave any pre-existing legacy siblings untouched. */
+/** Remove one Ability visual and its generation prompt. The Ability replacement
+ * unlinks the Image first and deletes the orphaned Image row in the same DB
+ * transaction; an Image still used by another Ability is kept intact. */
+export async function removeAbilityImage (abilityId: string, exerciseIndex: number, field: 'p' | 'i'): Promise<string> {
+    const ability = await getAbility(abilityId);
+    const parsed = ability && parseAbilityJson(ability.content);
+    const exercise = parsed?.root.q[exerciseIndex];
+
+    if (!ability || !parsed || !exercise || typeof exercise !== 'object') {
+        throw new Error('This Ability or exercise no longer exists. Reload and try again.');
+    }
+
+    const row = exercise as Record<string, unknown>;
+    if (typeof row[field] !== 'number' || !Number.isSafeInteger(row[field]) || (row[field] as number) <= 0) {
+        throw new Error('This exercise no longer references an Image. Reload and try again.');
+    }
+
+    // Removing the only solution would leave an invalid, unreviewable Ability.
+    if (field === 'i' && (typeof row.a !== 'string' || !row.a.trim())) {
+        throw new Error('Add a text answer before deleting this exercise’s only solution image.');
+    }
+
+    row[field] = null;
+    delete row[field === 'p' ? 'pPrompt' : 'iPrompt'];
+    delete row[field === 'p' ? 'pError' : 'iError'];
+
+    return replaceAbility(abilityId, JSON.stringify(parsed.parsed));
+}
+
 export async function replaceAbility(oldRecordId: string, content: string): Promise<string> {
     return db.transaction('rw', db.abilities, db.images, db.bookConcepts, db.bookPages,
         db.bookAbilityChangeLog, db.bookAbilityWorkQueues, async () => {

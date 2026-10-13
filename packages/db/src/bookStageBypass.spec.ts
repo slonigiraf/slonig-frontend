@@ -7,7 +7,7 @@ import { describe, it } from 'node:test';
 import { bypassBookProcessingStage, completeBookProcessingStage, createBook, deleteBook, getBook, isBookProcessingStageComplete, isBookProcessingStageSatisfied, resetBookProcessingStagesFrom } from './index.js';
 
 describe('persistent stage outcomes', (): void => {
-  it('preserves success separately from an explicitly bypassed failure, and resets downstream bypasses', async (): Promise<void> => {
+  it('preserves bypasses of unaffected stages on an Embeddings retry', async (): Promise<void> => {
     const id = await createBook({
       contentHash: `stage-bypass-${Date.now()}-${Math.random()}`,
       created: Date.now(),
@@ -31,7 +31,7 @@ describe('persistent stage outcomes', (): void => {
 
       assert.ok(reset);
       assert.equal(isBookProcessingStageSatisfied(reset!, 'fixConcepts'), true);
-      assert.equal(isBookProcessingStageSatisfied(reset!, 'images'), false);
+      assert.equal(isBookProcessingStageSatisfied(reset!, 'images'), true, 'unrelated stages remain bypassed');
 
       await completeBookProcessingStage(id, 'fixConcepts');
       const finished = await getBook(id);

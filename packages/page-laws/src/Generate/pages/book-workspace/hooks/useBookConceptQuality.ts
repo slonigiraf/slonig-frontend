@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { Book, BookConcept, BookPage, BookProcessingStageKey } from '@slonigiraf/db';
-import { completeBookProcessingStage, createBookConcept, getBookConceptsForBookPage, getSetting, incrementBookFixConceptsAttempts, isBookProcessingStageSatisfied, SettingKey, withCompletedBookProcessingStage } from '@slonigiraf/db';
+import { completeBookProcessingStage, createBookConcept, getBookConceptsForBookPage, getSetting, invalidateBookProcessingStages, incrementBookFixConceptsAttempts, isBookProcessingStageSatisfied, SettingKey, withCompletedBookProcessingStage } from '@slonigiraf/db';
 import type { Dispatch, SetStateAction } from 'react';
 import { useCallback, useEffect } from 'react';
 import { mapConcurrent } from '../../../../common/concurrency.js';
@@ -11,6 +11,8 @@ import type { ConceptChapterNavigationItem } from '../../../book/domain/concepts
 import { combineDeduplicateConceptPairs, DEDUPLICATE_CONCEPTS_RUNS, deduplicateConceptCandidatesAcrossChapters, deduplicateConceptCandidatesWithinChapters, type DeduplicateConceptInput, type DeduplicateConceptPair } from '../../../book/domain/concepts/deduplicateConcepts.js';
 import { applyFixChapterConceptsPass, chapterLevelMissingConcept, FIX_CONCEPTS_RUNS, proposedFixChapterConcepts, type FixChapterConceptsDraft } from '../../../book/domain/concepts/fixConcepts.js';
 import { cachedConceptEmbeddingMap, ensureConceptEmbeddingCache } from '../../../book/infrastructure/ai/standardsEmbeddings.js';
+import { removeChapterStandards, standardsChapterKey } from '../../../book/domain/standards/standards.js';
+import { loadStoredBookStandards, storeBookStandards } from '../../../book/infrastructure/storage/standardsStorage.js';
 import { fixConceptsChapterKey, loadFixConceptsChapterStatuses, storeFixConceptsChapterStatuses, type FixConceptsChapterStatuses } from '../../../book/infrastructure/storage/fixConceptsProgress.js';
 import { conceptGenerationErrorMessage, createOpenRouterClient, requestDeduplicateConceptPairs, requestMissingChapterConcepts } from '../../../book/application/workspace/bookReaderProcessing.js';
 import { conceptReferenceKey, conceptsForNavigationChapter, deleteConceptAndDependencies, getBookConceptInventory, sortConceptsForDisplay } from '../../../book/application/workspace/bookReaderWorkspace.js';
@@ -302,6 +304,7 @@ export function useBookConceptQuality ({
       });
       let added = 0;
       let removed = 0;
+      const modifiedChapterKeys = new Set<string>();
       const pageNumbers = Array.from(pages.keys());
 
       for (const { chapter, missing, removed: conceptsToRemove } of fixConceptsReview.chapters) {
@@ -309,11 +312,13 @@ export function useBookConceptQuality ({
           for (const concept of conceptsToRemove) {
             await deleteConceptAndDependencies(book.id, concept, pageNumbers);
             removed++;
+            modifiedChapterKeys.add(standardsChapterKey(chapter.chapterId, chapter.title, chapter.pageNumbers));
           }
 
           for (const concept of missing) {
             await createBookConcept(chapterLevelMissingConcept(book.id, chapter.chapterId, concept, attempt, book.language));
             added++;
+            modifiedChapterKeys.add(standardsChapterKey(chapter.chapterId, chapter.title, chapter.pageNumbers));
           }
 
           nextStatuses[fixConceptsChapterKey(chapter)] = 'fixed';
@@ -321,6 +326,16 @@ export function useBookConceptQuality ({
           nextStatuses[fixConceptsChapterKey(chapter)] = 'failed';
           failureDetails.push(`${chapter.title || 'Untitled chapter'}: saving reviewed concept changes failed (${conceptGenerationErrorMessage(reason)})`);
         }
+      }
+
+      // Proposals alone are non-destructive. Only approved additions/removals
+      // invalidate the dependent checkpoints; unaffected rows stay in IndexedDB.
+      if (added || removed) {
+        storeBookStandards(book.id, removeChapterStandards(loadStoredBookStandards(book.id), [...modifiedChapterKeys]));
+        await invalidateBookProcessingStages(book.id, [
+          'embeddings', 'deduplicateConcepts', 'sortConcepts', 'refineChapters',
+          'abilities', 'fixAbilities', 'images', 'fixImages', 'answerImages', 'fixAnswerImages', 'standards'
+        ]);
       }
 
       await storeFixConceptsChapterStatuses(book.id, nextStatuses);

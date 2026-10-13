@@ -6,7 +6,7 @@ import type { GeneratedAbility } from '../../../abilities/abilities.js';
 import type { AbilityWorkflowJsonRunner } from '../../book/domain/abilities/abilityWorkflow.js';
 import type { AiAction, ChapterContent, DuplicateAbilityReview, FixedImageReview, FixReviewResult, ImageFixReviewResult, UnresolvedImageReview, PipelineAction, SkillSource, SkillsProps, SkillsView } from './SkillsTypes.js';
 
-import { ABILITY_FIX_FIELDS, effectiveAbilityFixInstructions, addBookAbilityChangeLog, getBookAbilityWorkQueue, addBookStageSpend, completeBookProcessingStage, createBookConcept, ensureAbilityAnswerImage, ensureAbilityQuestionImage, deleteAbilities, deleteAbility, deleteBookConcept, getAbilities, getBookChapters, getBookCompletedStages, getBookConceptsForBookPage, getBookPages, getSetting, getSkillsForChapter, getImage, getBookVisualQaSummary, hydrateAbilityContent, setBookAbilityReviewed, resetBookAbilityReviews, isBookProcessingStageSatisfied, putImage, replaceBookConceptWithChildren, setTikzImageQaState, tikzSourceVersion, replaceAbility, replaceAbilities, replaceSkillsForChapter, resetBookProcessingStagesFrom, SettingKey } from '@slonigiraf/db';
+import { ABILITY_FIX_FIELDS, effectiveAbilityFixInstructions, addBookAbilityChangeLog, getBookAbilityWorkQueue, addBookStageSpend, completeBookProcessingStage, createBookConcept, ensureAbilityAnswerImage, ensureAbilityQuestionImage, deleteAbilities, deleteAbility, deleteBookConcept, getAbilities, getBookChapters, getBookCompletedStages, invalidateBookProcessingStages, getBookConceptsForBookPage, getBookPages, getSetting, getSkillsForChapter, getImage, getBookVisualQaSummary, hydrateAbilityContent, setBookAbilityReviewed, resetBookAbilityReviews, isBookProcessingStageSatisfied, putImage, replaceBookConceptWithChildren, setTikzImageQaState, tikzSourceVersion, replaceAbility, replaceAbilities, replaceSkillsForChapter, resetBookProcessingStagesFrom, SettingKey } from '@slonigiraf/db';
 import OpenAI from 'openai';
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Button, Modal } from '@polkadot/react-components';
@@ -1427,6 +1427,9 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
       // retries may count pre-existing Abilities as successful stage output.
       const hasAbilitiesAfterRun = generated.size > 0 || (generateOnlyMissingAbilities && allAbilities.length > 0);
 
+      if (generated.size && generateOnlyMissingAbilities) {
+        await invalidateBookProcessingStages(book.id, ['fixAbilities', 'images', 'fixImages', 'answerImages', 'fixAnswerImages']);
+      }
       if (hasAbilitiesAfterRun) await completeStage(ABILITIES_STAGE);
       refresh();
       onContentChange?.();
@@ -1627,6 +1630,9 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
       // Persist every valid correction, but keep unresolved Abilities unchanged.
       // An unsuccessful targeted AI retry must not block Fast Forward or force
       // manual review: Images can use the original stored Ability as-is.
+      if (hasChanges) {
+        await invalidateBookProcessingStages(book.id, ['images', 'fixImages', 'answerImages', 'fixAnswerImages']);
+      }
       if (hasChanges || !stageDone(FIX_ABILITIES_STAGE)) {
         await completeStage(FIX_ABILITIES_STAGE);
       }
@@ -2226,6 +2232,21 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
     refreshContent();
   }, [activeReviewSessionKey, refreshContent, reviewScopeSessionKey]);
 
+  const handleReviewAbilityReplaced = useCallback((oldId: string, nextId: string): void => {
+    // Rereview scopes contain stored Ability IDs, so replace the old ID in both
+    // the live selection and the resumable session after a manual edit/delete.
+    setReviewAbilityIds((previous) => {
+      if (previous === undefined) return undefined;
+      const next = previous.map((id) => id === oldId ? nextId : id);
+      try {
+        sessionStorage.setItem(reviewScopeSessionKey, JSON.stringify(next));
+      } catch {
+        // The in-memory review scope still works when storage is unavailable.
+      }
+      return next;
+    });
+  }, [reviewScopeSessionKey]);
+
   const markAbilityReviewed = useCallback(async (record: StoredAbility): Promise<void> => {
     // IndexedDB is the source of truth: only update the loaded snapshot after
     // the write succeeds. This is not a second review-status store.
@@ -2300,6 +2321,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
       onCancelFix={onCancelFix}
       onClose={closeAbilityReview}
       onContentChange={refreshContent}
+      onAbilityReplaced={handleReviewAbilityReplaced}
       onError={setError}
       onQueueFix={onQueueFix}
       onQueueSplit={onQueueSplit}

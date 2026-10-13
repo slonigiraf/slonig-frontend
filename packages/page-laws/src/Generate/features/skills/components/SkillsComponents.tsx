@@ -6,22 +6,29 @@ import type { AbilityFixInstructions, BookChapter, Skill } from '@slonigiraf/db'
 import type { GeneratedAbility } from '../../../../abilities/abilities.js';
 import type { StoredAbility } from '../../../book/application/abilities/abilityProcessing.js';
 
-import { ABILITY_FIX_FIELDS, emptyAbilityFixInstructions, effectiveAbilityFixInstructions, deleteAbilities, deleteAbilityWithConcept, deleteSkill, getBookAbilityWorkQueue, getImage, putImage, replaceAbility, updateBookChapterTitle } from '@slonigiraf/db';
+import { ABILITY_FIX_FIELDS, emptyAbilityFixInstructions, effectiveAbilityFixInstructions, deleteAbilities, deleteAbilityWithConcept, deleteSkill, getBookAbilityWorkQueue, getImage, putImage, removeAbilityImage, replaceAbility, updateBookChapterTitle } from '@slonigiraf/db';
 import { SpanWithTags } from '@slonigiraf/slonig-components';
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 
-import { Button, Dropdown, Input, Modal } from '@polkadot/react-components';
+import { Button, Dropdown, Input, Modal, styled } from '@polkadot/react-components';
 
 import ExerciseList from '../../../../Edit/ExerciseList.js';
 import { isTikzCode } from '../../../../Edit/tikz.js';
 import { nextStoredTikzValidity } from '../../../../Edit/tikzValidation.js';
-import { parseStoredAbility, withAbilityVisualSource } from '../../../../abilities/abilities.js';
+import { abilityEditValidationError, parseStoredAbility, withAbilityVisualSource } from '../../../../abilities/abilities.js';
 import { abilityModuleId, storedAbilityImageId } from '../../../book/application/abilities/abilityProcessing.js';
 import { EditForm } from '../SkillsStyles.js';
 import FixingOverlay from '../../../shared/ui/FixingOverlay.js';
 import ItemActionsMenu from '../../../shared/ui/ItemActionsMenu.js';
 
 const TikzDisplay = React.lazy(() => import('../../../../Edit/TikzDisplay.js'));
+
+// Review mode is itself a full-screen portal at z-index 1000. Keep the edit
+// dialog above it instead of leaving the exercise edit button apparently
+// inactive when the dialog opens behind the review overlay.
+const AbilityEditModal = styled(Modal)`
+  && { z-index: 1100; }
+`;
 
 export function ChapterNavigation ({ chapters, failedVisualCounts, index, matchAbilities = false, missingAbilityCounts, onChange, onEdit }: { chapters: BookChapter[]; failedVisualCounts?: number[]; index: number; matchAbilities?: boolean; missingAbilityCounts?: number[]; onChange: (index: number) => void; onEdit: () => void }): React.ReactElement | null {
   const previous = useCallback((): void => onChange(index - 1), [index, onChange]);
@@ -186,7 +193,7 @@ function cloneAbility (ability: GeneratedAbility): GeneratedAbility {
   return { ...ability, q: ability.q.map((exercise) => ({ ...exercise })) };
 }
 
-export function AbilityCard ({ hideReviewedIndicator = false, isBusy = false, queuedFixItemId, isQueuedForSplit = false, onDeleted, onError, onQueueFix, onCancelFix, onSplit, record, visualIssues }: { hideReviewedIndicator?: boolean; isBusy?: boolean; queuedFixItemId?: string; isQueuedForSplit?: boolean; onDeleted: () => void; onError: (message: string) => void; onQueueFix?: (record: StoredAbility, instructions: AbilityFixInstructions) => Promise<void>; onCancelFix?: (itemId: string) => Promise<void>; onSplit: (record: StoredAbility) => void; record: StoredAbility; visualIssues?: Record<string, string[]> }): React.ReactElement {
+export function AbilityCard ({ hideReviewedIndicator = false, isBusy = false, queuedFixItemId, isQueuedForSplit = false, onDeleted, onError, onQueueFix, onCancelFix, onSplit, onReplaced, record, visualIssues }: { hideReviewedIndicator?: boolean; isBusy?: boolean; queuedFixItemId?: string; isQueuedForSplit?: boolean; onDeleted: () => void; onError: (message: string) => void; onQueueFix?: (record: StoredAbility, instructions: AbilityFixInstructions) => Promise<void>; onCancelFix?: (itemId: string) => Promise<void>; onSplit: (record: StoredAbility) => void; onReplaced?: (oldId: string, nextId: string) => void; record: StoredAbility; visualIssues?: Record<string, string[]> }): React.ReactElement {
   const [isFixDialogOpen, setIsFixDialogOpen] = useState(false);
   const [showDetailedFixForm, setShowDetailedFixForm] = useState(false);
   const [fixInstructions, setFixInstructions] = useState<AbilityFixInstructions>(emptyAbilityFixInstructions);
@@ -198,17 +205,20 @@ export function AbilityCard ({ hideReviewedIndicator = false, isBusy = false, qu
   const [isSaving, setIsSaving] = useState(false);
   const [draft, setDraft] = useState<GeneratedAbility | null>(() => record.ability ? cloneAbility(record.ability) : null);
   const [rawDraft, setRawDraft] = useState(record.content);
+  const draftError = draft ? abilityEditValidationError(draft) : rawDraft.trim() ? null : 'Ability JSON cannot be empty.';
+  const hasSavedVisualRef = useRef(false);
   const remove = useCallback((): void => {
     deleteAbilityWithConcept(record.id).then(onDeleted).catch((error) => onError(error instanceof Error ? error.message : 'Unable to delete the Ability and its Concept.'));
   }, [onDeleted, onError, record.id]);
   const persistAbility = useCallback(async (ability: GeneratedAbility): Promise<void> => {
     const validated = parseStoredAbility(JSON.stringify(ability));
-    await replaceAbility(record.id, JSON.stringify(validated));
+    const nextId = await replaceAbility(record.id, JSON.stringify(validated));
+    if (nextId !== record.id) onReplaced?.(record.id, nextId);
 
     // Manual edits do not enter the AI-fix log. Still relink any earlier AI
     // correction when the edited Ability receives a new content-based ID.
     onDeleted();
-  }, [onDeleted, record.id, record.moduleId]);
+  }, [onDeleted, onReplaced, record.id]);
   const saveVisual = useCallback(async (exerciseIndex: number, field: 'p' | 'i', value: string): Promise<void> => {
     if (!record.ability) {
       throw new Error('Unable to save image for invalid Ability JSON.');
@@ -222,13 +232,32 @@ export function AbilityCard ({ hideReviewedIndicator = false, isBusy = false, qu
       throw new Error('Unable to find the Image referenced by this Ability visual.');
     }
 
-    const promptField = field === 'p' ? 'pPrompt' : 'iPrompt';
-    const tikz = isTikzCode(value);
-    const prompt = exercise[promptField]?.trim() || (tikz ? image.prompt : value.trim());
+    // An edit from the TikZ editor must remain an editable Image. Converting
+    // an incomplete or unexpected source into a prompt-only row silently
+    // removed the edit button on the next Review Abilities refresh.
+    if (!isTikzCode(value)) {
+      throw new Error('The image editor must save complete TikZ source (with a tikzpicture begin and end).');
+    }
 
-    await putImage({ ...image, data: tikz ? value : null, prompt, type: tikz ? 'tikz' : 'prompt', valid: undefined });
+    const promptField = field === 'p' ? 'pPrompt' : 'iPrompt';
+    const prompt = exercise[promptField]?.trim() || image.prompt;
+
+    await putImage({ ...image, data: value, prompt, type: 'tikz', valid: undefined });
+    // Refresh after the image editor has finished closing, not while its Save
+    // promise is in progress (which unmounts the editor in Review Abilities).
+    hasSavedVisualRef.current = true;
+  }, [record]);
+  const visualEditorClosed = useCallback((): void => {
+    if (hasSavedVisualRef.current) {
+      hasSavedVisualRef.current = false;
+      onDeleted();
+    }
+  }, [onDeleted]);
+  const deleteVisual = useCallback(async (exerciseIndex: number, field: 'p' | 'i'): Promise<void> => {
+    const nextId = await removeAbilityImage(record.id, exerciseIndex, field);
+    if (nextId !== record.id) onReplaced?.(record.id, nextId);
     onDeleted();
-  }, [onDeleted, record]);
+  }, [onDeleted, onReplaced, record.id]);
   const saveVisualError = useCallback(async (exerciseIndex: number, field: 'p' | 'i', hasError: boolean, renderedValue: string): Promise<void> => {
     if (!record.ability) {
       throw new Error('Unable to save image error state for invalid Ability JSON.');
@@ -384,6 +413,8 @@ export function AbilityCard ({ hideReviewedIndicator = false, isBusy = false, qu
           isExerciseEditDisabled={isBusy || isProcessing || isSaving || isEditing}
           location='ability_info'
           onEditExercise={openExerciseEdit}
+          onAbilityVisualDelete={!isBusy && !isProcessing && !isSaving && !isEditing ? deleteVisual : undefined}
+          onAbilityVisualEditorClose={visualEditorClosed}
           onAbilityVisualErrorChange={saveVisualError}
           onAbilityVisualSave={saveVisual}
           visualIssues={visualIssues}
@@ -446,7 +477,7 @@ export function AbilityCard ({ hideReviewedIndicator = false, isBusy = false, qu
         </EditForm>
       </Modal.Content>
     </Modal>}
-    {isEditing && <Modal
+    {isEditing && <AbilityEditModal
       header={editingExerciseIndex === null ? 'Edit Ability' : `Edit exercise ${editingExerciseIndex + 1}`}
       onClose={closeEdit}
       size='small'
@@ -531,6 +562,7 @@ export function AbilityCard ({ hideReviewedIndicator = false, isBusy = false, qu
                 value={rawDraft}
               />
             </label>}
+          {draftError && <p role='alert' className='noticeMessage'>{draftError}</p>}
           <div className='editActions'>
             <Button
               icon='times'
@@ -540,14 +572,14 @@ export function AbilityCard ({ hideReviewedIndicator = false, isBusy = false, qu
             />
             <Button
               icon='save'
-              isDisabled={isSaving || (draft ? !draft.h.trim() || draft.q.some(({ a, h }) => !a.trim() || !h.trim()) : !rawDraft.trim())}
+              isDisabled={isSaving || Boolean(draftError)}
               label={isSaving ? 'Saving…' : 'Save'}
               onClick={save}
             />
           </div>
         </EditForm>
       </Modal.Content>
-    </Modal>}
+    </AbilityEditModal>}
   </article>;
 }
 

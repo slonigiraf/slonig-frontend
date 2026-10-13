@@ -56,7 +56,7 @@ export function UploadStageDialogs ({ processing, selectedBook }: UploadStageDia
       stageTimes={pricing.priceStageTimes}
     />}
     {metadata.isRecognizeConfirmationOpen && !isFastForwardRunning && <StageRunPricePopup
-      dataLoss={selectedBook ? { bookId: selectedBook.id, stage: 'recognize', onlyMissing: false } : undefined}
+      dataLoss={selectedBook ? { bookId: selectedBook.id, stage: 'recognize', onlyMissing: false, hasAdditionalDataToReplace: Object.keys(loadStoredBookStandards(selectedBook.id)).length > 0 } : undefined}
       header={t('Recognize pages')}
       onClose={metadata.closeRecognizeConfirmation}
       onRun={metadata.confirmRecognize}
@@ -73,7 +73,7 @@ export function UploadStageDialogs ({ processing, selectedBook }: UploadStageDia
       />
     </StageRunPricePopup>}
     {metadata.isIdentifyChaptersConfirmationOpen && !isFastForwardRunning && <StageRunPricePopup
-      dataLoss={selectedBook ? { bookId: selectedBook.id, stage: 'chapters', onlyMissing: false } : undefined}
+      dataLoss={selectedBook ? { bookId: selectedBook.id, stage: 'chapters', onlyMissing: false, hasAdditionalDataToReplace: Object.keys(loadStoredBookStandards(selectedBook.id)).length > 0 } : undefined}
       header={t('Identify chapters')}
       onClose={metadata.closeIdentifyChaptersConfirmation}
       onRun={metadata.confirmIdentifyChapters}
@@ -96,7 +96,7 @@ export function UploadStageDialogs ({ processing, selectedBook }: UploadStageDia
       />
     </StageRunPricePopup>}
     {conceptGeneration.isGenerateConceptsConfirmationOpen && !isFastForwardRunning && <StageRunPricePopup
-      dataLoss={selectedBook ? { bookId: selectedBook.id, stage: 'concepts', onlyMissing: conceptGeneration.generateOnlyMissingConcepts } : undefined}
+      dataLoss={selectedBook ? { bookId: selectedBook.id, stage: 'concepts', onlyMissing: conceptGeneration.generateOnlyMissingConcepts, hasAdditionalDataToReplace: Object.keys(loadStoredBookStandards(selectedBook.id)).length > 0 } : undefined}
       header={t('Generate concepts')}
       onClose={conceptGeneration.closeGenerateConceptsConfirmation}
       onRun={conceptGeneration.confirmGenerateConcepts}
@@ -132,7 +132,7 @@ export function UploadStageDialogs ({ processing, selectedBook }: UploadStageDia
       />
     </StageRunPricePopup>}
     {conceptGeneration.isFixConceptsConfirmationOpen && !isFastForwardRunning && <StageRunPricePopup
-      dataLoss={selectedBook ? { bookId: selectedBook.id, stage: 'fixConcepts', onlyMissing: conceptGeneration.fixOnlyFailedConcepts } : undefined}
+      dataLoss={selectedBook ? { bookId: selectedBook.id, stage: 'fixConcepts', onlyMissing: conceptGeneration.fixOnlyFailedConcepts, hasAdditionalDataToReplace: Object.keys(loadStoredBookStandards(selectedBook.id)).length > 0 } : undefined}
       header={t('Fix concepts')}
       onClose={conceptGeneration.closeFixConceptsConfirmation}
       onRun={conceptGeneration.confirmFixConcepts}
@@ -209,7 +209,7 @@ export function UploadStageDialogs ({ processing, selectedBook }: UploadStageDia
       />
     </StageRunPricePopup>}
     {conceptOrganization.isRefineChaptersConfirmationOpen && !isFastForwardRunning && <StageRunPricePopup
-      dataLoss={selectedBook ? { bookId: selectedBook.id, stage: 'refineChapters', onlyMissing: false } : undefined}
+      dataLoss={selectedBook ? { bookId: selectedBook.id, stage: 'refineChapters', onlyMissing: false, hasAdditionalDataToReplace: Object.keys(loadStoredBookStandards(selectedBook.id)).length > 0 } : undefined}
       header={t('Refine chapters')}
       onClose={conceptOrganization.closeRefineChaptersConfirmation}
       onRun={conceptOrganization.confirmRefineChapters}
@@ -227,7 +227,6 @@ export function UploadStageDialogs ({ processing, selectedBook }: UploadStageDia
       />
     </StageRunPricePopup>}
     {standardsProcessing.isStandardsConfirmationOpen && !isFastForwardRunning && <StageRunPricePopup
-      dataLoss={selectedBook ? { bookId: selectedBook.id, stage: 'standards', onlyMissing: standardsProcessing.generateOnlyMissingStandards, hasAdditionalDataToReplace: !standardsProcessing.generateOnlyMissingStandards && Object.keys(loadStoredBookStandards(selectedBook.id)).length > 0 } : undefined}
       header={t('Standards')}
       isRunDisabled={standardsProcessing.generateOnlyMissingStandards && standardsProcessing.standardsChapterCounts?.missing === 0}
       onClose={standardsProcessing.closeStandardsConfirmation}

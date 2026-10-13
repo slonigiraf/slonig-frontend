@@ -20,6 +20,7 @@ interface Props {
   onCancelFix?: (id: string) => Promise<void>;
   onClose: () => void;
   onContentChange: () => void;
+  onAbilityReplaced?: (oldId: string, nextId: string) => void;
   onError: (message: string) => void;
   onQueueFix?: (record: StoredAbility, instructions: AbilityFixInstructions) => Promise<void>;
   onQueueSplit?: (record: StoredAbility) => void;
@@ -29,7 +30,7 @@ interface Props {
 }
 
 /** Book-wide sequential review. Nothing is silently approved at a chapter boundary. */
-export default function AbilityReviewMode ({ chapters, hasLoadError, isBusy, isLoading, onCancelFix, onClose, onContentChange, onError, onQueueFix, onQueueSplit, onReviewed, queuedItems, reviewAbilityIds }: Props): React.ReactElement {
+export default function AbilityReviewMode ({ chapters, hasLoadError, isBusy, isLoading, onCancelFix, onClose, onContentChange, onAbilityReplaced, onError, onQueueFix, onQueueSplit, onReviewed, queuedItems, reviewAbilityIds }: Props): React.ReactElement {
   // Review status belongs to IndexedDB. Only keep the ephemeral Back/Next
   // navigation trail here; a reload resumes at the first unreviewed Ability.
   const [visitedIds, setVisitedIds] = useState<string[]>([]);
@@ -80,6 +81,15 @@ export default function AbilityReviewMode ({ chapters, hasLoadError, isBusy, isL
       setSaving(false);
     }
   }, [advance, current, isCurrentReviewed, onError, onReviewed, saving]);
+
+  // Ability rows have content-addressed IDs. Updating an exercise or removing
+  // its image changes that ID, but Review must keep its Back/Next history and
+  // selected-chapter scope pointed at the same logical Ability.
+  const handleAbilityReplaced = useCallback((oldId: string, nextId: string): void => {
+    if (oldId === nextId) return;
+    setVisitedIds((previous) => previous.map((id) => id === oldId ? nextId : id));
+    onAbilityReplaced?.(oldId, nextId);
+  }, [onAbilityReplaced]);
 
   const queuedFixId = current && queuedItems.find((item) => item.kind === 'fix' && item.recordId === current.record.id)?.id;
   const queuedSplit = current && queuedItems.some((item) => item.kind === 'split' && item.conceptId === current.concept?.id);
@@ -241,6 +251,7 @@ export default function AbilityReviewMode ({ chapters, hasLoadError, isBusy, isL
             isQueuedForSplit={Boolean(queuedSplit)}
             onCancelFix={onCancelFix}
             onDeleted={onContentChange}
+            onReplaced={handleAbilityReplaced}
             onError={onError}
             onQueueFix={onQueueFix ? queueFixAndReview : undefined}
             onSplit={(record) => onQueueSplit?.(record)}

@@ -36,7 +36,7 @@ describe('Book processing data-loss acknowledgement', (): void => {
       assert.equal(await wouldResetBookGeneratedData(bookId, 'abilities', { onlyMissing: true }), false,
         'missing-only Ability generation does not delete the existing Ability');
       assert.equal(await wouldResetBookGeneratedData(bookId, 'fixConcepts', { onlyMissing: true }), true,
-        'an earlier missing-only processing stage still clears downstream Abilities');
+        'approved concept changes may invalidate existing dependent Abilities');
     } finally {
       await deleteBook(bookId);
     }
@@ -57,7 +57,8 @@ describe('Book processing data-loss acknowledgement', (): void => {
       assert.equal(await wouldResetBookGeneratedData(bookId, 'images', { onlyMissing: true }), false);
       assert.equal(await wouldResetBookGeneratedData(bookId, 'fixImages'), false);
       await db.images.update(imageId, { visualQaStatus: 'passed' });
-      assert.equal(await wouldResetBookGeneratedData(bookId, 'fixImages'), true);
+      assert.equal(await wouldResetBookGeneratedData(bookId, 'fixImages'), false,
+        'QA-only review is harmless when no generated answer depends on the question');
     } finally {
       await deleteBook(bookId);
     }
