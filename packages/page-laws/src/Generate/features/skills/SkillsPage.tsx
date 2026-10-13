@@ -38,6 +38,8 @@ import { useBookStageTimer } from '../../book/infrastructure/storage/bookStageTi
 import { stripMarkdownImageReferences } from '../../book/infrastructure/pdf/bookImageRefs.js';
 import { abilityWithDirectConceptTitle } from '../../book/domain/concepts/conceptTitles.js';
 import { resolveSharedChapterIndex } from '../../book/domain/chapters/chapterSelection.js';
+import { chapterDisplayEntries } from '../../book/domain/chapters/chapterDisplayEntries.js';
+import { conceptBelongsToChapter } from '../../book/domain/chapters/refineChapters.js';
 import { getSharedChapterSelection, storeSharedChapterSelection, subscribeSharedChapterSelection } from '../../book/infrastructure/storage/chapterSelectionStorage.js';
 import { abilityModuleId, abilityRepairInput, answerTikzRequestPrompt, exerciseNeedsCompletedFigure, cleanTikzResponse, conceptAbilityModuleId, parseGeneratedSkills, parseTikzAiReview, requestAbilityRepairResult, requestChatContent, requestChatContentWithTruncationRetry, requestValidatedJson, storedAbilityImageId, tikzCompileRepairPrompt, tikzDetectedProblemsRepairPrompt, tikzFixReviewPrompt, tikzRequestPrompt, type ImageFixTarget, type StoredAbility, type TikzAiReview } from '../../book/application/abilities/abilityProcessing.js';
 import { ChapterTitleEditor } from './components/SkillsComponents.js';
@@ -473,13 +475,13 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
         concepts: await getBookConceptsForBookPage(book.id, page.pageNumber),
         page
       })));
-      const result = await Promise.all(chapters.map(async (chapter): Promise<ChapterContent> => {
-        const skills = chapter.id === undefined ? [] : await getSkillsForChapter(chapter.id);
+      const displayEntries = chapterDisplayEntries(book.id, chapters, pages);
+      const result = await Promise.all(displayEntries.map(async ({ chapter, identity }): Promise<ChapterContent> => {
+        const chapterId = identity.chapterId ?? chapter.id;
+        const skills = chapterId === undefined ? [] : await getSkillsForChapter(chapterId);
         const chapterConcepts = [
-          ...pageRows.flatMap(({ concepts, page }) => concepts.filter((concept) => concept.chapterId !== undefined
-            ? concept.chapterId === chapter.id
-            : page.chapter === chapter.title)),
-          ...pageLessConcepts.filter(({ chapterId }) => chapterId !== undefined && chapterId === chapter.id)
+          ...pageRows.flatMap(({ concepts }) => concepts.filter((concept) => conceptBelongsToChapter(concept, identity))),
+          ...pageLessConcepts.filter(({ chapterId: conceptChapterId }) => chapterId !== undefined && conceptChapterId === chapterId)
         ].sort((a, b) => (a.displayOrder ?? Number.MAX_SAFE_INTEGER) - (b.displayOrder ?? Number.MAX_SAFE_INTEGER) || (a.id ?? 0) - (b.id ?? 0));
         // Keep the already-sorted Concept sequence, not a global Ability
         // displayOrder/hash sort (which can differ from Concept learning order).
@@ -2519,6 +2521,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
       chapters={chapters}
       changeChapter={changeChapter}
       current={current}
+      isLoading={isReviewDataLoading}
       currentMissingAbilityIndexes={currentMissingAbilityIndexes}
       deleteConceptAndAbilities={deleteConceptAndAbilities}
       splitSingleAbility={(record) => onQueueSplit?.(record)}

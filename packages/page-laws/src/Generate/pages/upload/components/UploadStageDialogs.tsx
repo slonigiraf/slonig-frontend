@@ -241,8 +241,13 @@ export function UploadStageDialogs ({ processing, selectedBook }: UploadStageDia
         value={standardsProcessing.generateOnlyMissingStandards}
       />
       {standardsProcessing.standardsChapterCounts && <p>{standardsProcessing.generateOnlyMissingStandards
-        ? t('{{missing}} of {{total}} chapters need standards identification.', { replace: standardsProcessing.standardsChapterCounts })
+        ? (standardsProcessing.standardsChapterCounts.missing === 0
+          ? t('All {{total}} chapters already have standards identified.', { replace: standardsProcessing.standardsChapterCounts })
+          : t('{{missing}} of {{total}} chapters need standards identification.', { replace: standardsProcessing.standardsChapterCounts }))
         : t('Re-identify standards for all {{total}} chapters, including chapters with existing matches.', { replace: standardsProcessing.standardsChapterCounts })}</p>}
+      {!!standardsProcessing.missingStoredChapterCount && <p role='alert'>
+        {t('{{count}} chapters have assignments on book pages, but their saved chapter records are missing. Existing Standards matches have not been removed. Chapter-dependent views may have limited editing until the records are restored.', { replace: { count: standardsProcessing.missingStoredChapterCount } })}
+      </p>}
       <AiPriceEstimate estimate={standardsProcessing.standardsEstimate} />
       <OpenRouterModelSelector
         className='batchModelSelect'

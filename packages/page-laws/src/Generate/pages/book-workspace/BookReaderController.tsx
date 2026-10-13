@@ -61,11 +61,8 @@ export function useBookReaderController (props: Props) {
       return 'text';
     }
 
-    if (storedPane === 'standards' && !isBookProcessingStageComplete(book, 'fixAnswerImages')) {
-      return isBookProcessingStageComplete(book, 'abilities')
-        ? 'preExercisesExercises'
-        : isBookProcessingStageComplete(book, 'concepts') ? 'textConcepts' : 'text';
-    }
+    // Standards is also a read-only results view. Existing matches may be
+    // browsed even when Fix answer images has not run (or was invalidated).
 
     if (storedPane === 'embeddings' && !isBookProcessingStageComplete(book, 'embeddings')) {
       return isBookProcessingStageComplete(book, 'concepts') ? 'textConcepts' : 'text';

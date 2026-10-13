@@ -21,6 +21,7 @@ interface SkillsContentViewProps {
   chapters: BookChapter[];
   changeChapter: (index: number) => void;
   current?: ChapterContent;
+  isLoading: boolean;
   currentMissingAbilityIndexes: number[];
   deleteConceptAndAbilities: (conceptId: number) => Promise<void>;
   splitSingleAbility: (record: StoredAbility) => void;
@@ -43,7 +44,7 @@ interface SkillsContentViewProps {
   tikzIssuesByImageId: Record<number, string[]>;
 }
 
-export default function SkillsContentView ({ abilitiesOutputRef, bookId, chapterContentOutputRef, chapterIndex, chapters, changeChapter, current, currentMissingAbilityIndexes, deleteConceptAndAbilities, splitSingleAbility, scheduleAbilityFix, queuedFixItems, onCancelFix, onStartReview, onRereview, splitQueueConceptIds, focusConceptAbility, failedVisualCountsByChapter, isBusy, missingAbilityCountsByChapter, onError, openChapterEditor, pipelineOnly, refresh, refreshContent, tikzIssuesByImageId, view }: SkillsContentViewProps): React.ReactElement {
+export default function SkillsContentView ({ abilitiesOutputRef, bookId, chapterContentOutputRef, chapterIndex, chapters, changeChapter, current, isLoading, currentMissingAbilityIndexes, deleteConceptAndAbilities, splitSingleAbility, scheduleAbilityFix, queuedFixItems, onCancelFix, onStartReview, onRereview, splitQueueConceptIds, focusConceptAbility, failedVisualCountsByChapter, isBusy, missingAbilityCountsByChapter, onError, openChapterEditor, pipelineOnly, refresh, refreshContent, tikzIssuesByImageId, view }: SkillsContentViewProps): React.ReactElement {
   const abilityGroups = current
     ? groupAbilitiesByConcept(current.concepts, current.abilities, (id) => conceptAbilityModuleId(bookId, id))
     : undefined;
@@ -76,7 +77,7 @@ export default function SkillsContentView ({ abilitiesOutputRef, bookId, chapter
       onChange={changeChapter}
       onEdit={openChapterEditor}
     />
-    {!current && <p>No chapters have been generated for this book.</p>}
+    {!current && <p>{isLoading ? 'Loading book chapters…' : 'No chapter assignments are available for this book.'}</p>}
     {current && (
       <>
         {view === 'conceptsSkills' && (

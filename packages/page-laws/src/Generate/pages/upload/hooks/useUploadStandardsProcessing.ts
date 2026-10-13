@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { Book } from '@slonigiraf/db';
-import { getBookConceptsForBookPage, getBookPages, getConceptEmbeddings, getStandardEmbeddings, isBookProcessingStageSatisfied, resetBookProcessingStagesFrom } from '@slonigiraf/db';
+import { getBookChapters, getBookConceptsForBookPage, getBookPages, getConceptEmbeddings, getStandardEmbeddings, isBookProcessingStageSatisfied, resetBookProcessingStagesFrom } from '@slonigiraf/db';
 import type { Dispatch, SetStateAction } from 'react';
 import { useCallback, useEffect, useState } from 'react';
 
@@ -11,6 +11,7 @@ import type { BookReaderCommandAction, PendingBookProcessingAction } from '../..
 
 import { estimateAiInput } from '../../../book/application/pricing/aiEstimate.js';
 import { conceptBelongsToChapter } from '../../../book/domain/chapters/refineChapters.js';
+import { chapterDisplayEntries } from '../../../book/domain/chapters/chapterDisplayEntries.js';
 import { conceptChaptersFromPages } from '../../../book/domain/concepts/conceptRecognition.js';
 import { needsChapterStandardsIdentification, STANDARDS_MATCH_RUNS, standardsCandidatesFromEmbeddings, standardsChapterKey, standardsConceptFingerprint, standardsConceptInputs, standardsMatchingPrompt, standardsPathForBookSubject, standardEmbeddingInput } from '../../../book/domain/standards/standards.js';
 import { loadStandardsCatalogsForBookSubject } from '../../../book/infrastructure/standards/standardsCatalog.js';
@@ -43,6 +44,7 @@ export function useUploadStandardsProcessing ({ embeddingModel, requestProcessin
   const { t } = useTranslation();
   const [isStandardsConfirmationOpen, setIsStandardsConfirmationOpen] = useState(false);
   const [generateOnlyMissingStandards, setGenerateOnlyMissingStandards] = useState(true);
+  const [missingStoredChapterCount, setMissingStoredChapterCount] = useState<number>();
   const [standardsChapterCounts, setStandardsChapterCounts] = useState<{ missing: number; total: number }>();
   const [standardsEstimate, setStandardsEstimate] = useState<AiInputEstimate | string>();
   const onAssignStandards = useCallback((): void => {
@@ -67,6 +69,7 @@ export function useUploadStandardsProcessing ({ embeddingModel, requestProcessin
 
     setStandardsEstimate(undefined);
     setStandardsChapterCounts(undefined);
+    setMissingStoredChapterCount(undefined);
     setGenerateOnlyMissingStandards(true);
     setIsStandardsConfirmationOpen(true);
   }, [selectedBook, t, requestProcessing, setBooks, setError, setPendingProcessingAction]);
@@ -80,7 +83,7 @@ export function useUploadStandardsProcessing ({ embeddingModel, requestProcessin
 
     setStandardsEstimate(undefined);
 
-    getBookPages(selectedBook.id).then(async (pages) => {
+    Promise.all([getBookPages(selectedBook.id), getBookChapters(selectedBook.id)]).then(async ([pages, storedChapters]) => {
       const embeddingRequests: string[] = [];
       const aiRequests: string[] = [];
       const catalogs = (await loadStandardsCatalogsForBookSubject(selectedBook.subject)).filter(({ standards }) => standards.length);
@@ -98,6 +101,10 @@ export function useUploadStandardsProcessing ({ embeddingModel, requestProcessin
           : [];
       }));
       const chapters = conceptChaptersFromPages(pages);
+
+      if (isCurrent) {
+        setMissingStoredChapterCount(chapterDisplayEntries(selectedBook.id, storedChapters, pages).filter(({ persisted }) => !persisted).length);
+      }
       const storedStandards = loadStoredBookStandards(selectedBook.id);
       const chapterRequests = chapters.map((chapter) => {
         const seen = new Set<string>();
@@ -268,6 +275,7 @@ export function useUploadStandardsProcessing ({ embeddingModel, requestProcessin
     confirmAssignStandards,
     generateOnlyMissingStandards,
     isStandardsConfirmationOpen,
+    missingStoredChapterCount,
     onAssignStandards,
     setGenerateOnlyMissingStandards,
     standardsChapterCounts,

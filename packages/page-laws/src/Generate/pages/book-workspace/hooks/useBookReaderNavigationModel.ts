@@ -334,13 +334,9 @@ export function useBookReaderNavigationModel ({
     }
   }, [activePane, book]);
 
-  useEffect(() => {
-    if (activePane === 'standards' && !isBookProcessingStageComplete(book, 'fixAnswerImages')) {
-      setActivePane(isBookProcessingStageComplete(book, 'abilities')
-        ? 'preExercisesExercises'
-        : isBookProcessingStageComplete(book, 'concepts') ? 'textConcepts' : 'text');
-    }
-  }, [activePane, book]);
+  // Do not redirect from Standards just because Fix answer images is incomplete.
+  // That stage is a prerequisite for *generating* matches, not for reading
+  // persisted matches. The Standards tab can also display missing chapters.
 
   useEffect(() => {
     try {

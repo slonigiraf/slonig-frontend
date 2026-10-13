@@ -15,6 +15,7 @@ import OpenRouterModelSelector from '../../../openrouter/components/ModelSelecto
 import { fixConceptsChapterKey } from '../../book/infrastructure/storage/fixConceptsProgress.js';
 import { formatOpenRouterSpend } from '../../../openrouter/cost.js';
 import { pageChapterEvidence } from '../../book/domain/chapters/chapterSegmentation.js';
+import { chapterDisplayEntries } from '../../book/domain/chapters/chapterDisplayEntries.js';
 import { hasChapterStandards, STANDARD_FRAMEWORKS, standardsChapterKey } from '../../book/domain/standards/standards.js';
 import Skills, { SkillsCourse } from '../../features/skills/index.js';
 import { AiPriceEstimate } from '../../shared/ui/PriceEstimate.js';
@@ -685,6 +686,7 @@ export function BookReaderView ({ controller }: Props): React.ReactElement {
   };
 
   const standardsPane = (): React.ReactNode => {
+    const missingStoredChapterCount = chapterDisplayEntries(book.id, chapters, Array.from(pages.values())).filter(({ persisted }) => !persisted).length;
     const missingStandardsCount = conceptChapters.filter(({ chapterId, title, pageNumbers }) =>
       !hasChapterStandards(standardsByChapter[standardsChapterKey(chapterId, title, pageNumbers)])).length;
     const assignment = currentStandardsChapterKey === undefined ? undefined : standardsByChapter[currentStandardsChapterKey];
@@ -704,6 +706,9 @@ export function BookReaderView ({ controller }: Props): React.ReactElement {
           onClick={() => { void assignStandards(false).catch((error: unknown) => setError(error instanceof Error ? error.message : 'Unable to identify missing standards.')); }}
         />
       </div>
+      {missingStoredChapterCount > 0 && <p role='alert'>
+        {missingStoredChapterCount} chapter{missingStoredChapterCount === 1 ? '' : 's'} have page assignments but no saved chapter records. Existing Standards mappings are preserved; chapter-based editing may be limited.
+      </p>}
       <div
         className='conceptsOutput standardsOutput'
         ref={standardsChapterOutputRef}
