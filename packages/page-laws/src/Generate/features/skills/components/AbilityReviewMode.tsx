@@ -110,12 +110,6 @@ export default function AbilityReviewMode ({ chapters, hasLoadError, isBusy, isL
     setHistoryIndex((previous) => previous + 1);
   }, [current, historyIndex]);
 
-  const skip = useCallback((): void => {
-    if (!current || saving) return;
-    if (!isCurrentReviewed) setSkippedIds((previous) => new Set(previous).add(current.record.id));
-    advance();
-  }, [advance, current, isCurrentReviewed, saving]);
-
   const markReviewed = useCallback(async (): Promise<void> => {
     if (!current || isCurrentReviewed || saving) return;
     setSaving(true);
@@ -132,9 +126,32 @@ export default function AbilityReviewMode ({ chapters, hasLoadError, isBusy, isL
 
   const queuedFixId = current && queuedItems.find((item) => item.kind === 'fix' && item.recordId === current.record.id)?.id;
   const queuedSplit = current && queuedItems.some((item) => item.kind === 'split' && item.conceptId === current.concept?.id);
+  const isNextAction = isCurrentReviewed || Boolean(queuedFixId);
 
-  // Space reviews an unreviewed Ability, or moves one step forward when the
-  // current Ability is already reviewed. Leave typing and native controls alone.
+  // Scheduling an AI fix is a review decision. Only advance once scheduling
+  // and saving the review have succeeded; a failed review can still be
+  // completed with Next if the fix was already queued successfully.
+  const queueFixAndReview = useCallback(async (record: StoredAbility, instructions: AbilityFixInstructions): Promise<void> => {
+    if (!onQueueFix) return;
+    setSaving(true);
+    try {
+      await onQueueFix(record, instructions);
+      try {
+        if (!record.reviewed && !reviewedIds.has(record.id)) {
+          await onReviewed(record);
+          setReviewedIds((previous) => new Set(previous).add(record.id));
+        }
+        if (current?.record.id === record.id) advance();
+      } catch (error) {
+        onError(error instanceof Error ? error.message : 'Unable to save this review. Use Next to try again.');
+      }
+    } finally {
+      setSaving(false);
+    }
+  }, [advance, current?.record.id, onError, onQueueFix, onReviewed, reviewedIds]);
+
+  // Space reviews an unreviewed Ability, or follows Next on a reviewed or
+  // queued-for-AI-fix Ability. Leave typing and native controls alone.
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent): void => {
       if (event.key !== ' ' || event.repeat || event.isComposing || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey ||
@@ -143,23 +160,25 @@ export default function AbilityReviewMode ({ chapters, hasLoadError, isBusy, isL
       const target = event.target;
       if (target instanceof Element && target.closest('input, textarea, select, button, a, [role="button"], [role="textbox"], [contenteditable="true"], [contenteditable=""]')) return;
 
-      if (isCurrentReviewed) {
+      if (isNextAction) {
         event.preventDefault();
-        skip();
+        if (isCurrentReviewed) advance();
+        else void markReviewed();
         return;
       }
 
-      if (isBusy || queuedFixId || queuedSplit) return;
+      if (isBusy || queuedSplit) return;
       event.preventDefault();
       void markReviewed();
     };
 
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [current, hasLoadError, isBusy, isCurrentReviewed, isLoading, markReviewed, queuedFixId, queuedSplit, saving, skip]);
+  }, [advance, current, hasLoadError, isBusy, isCurrentReviewed, isLoading, isNextAction, markReviewed, queuedSplit, saving]);
 
-  // Keep all question/answer visuals at the same height, but don't expand a
-  // simple exercise with only one visual into an almost full-screen blank card.
+  // Calculate a shared *maximum* height for question/answer visuals; actual
+  // dimensions preserve each image's aspect ratio. Simple exercises should
+  // not expand into nearly full-screen blank cards.
   // More image-heavy Abilities may still use the full available review area.
   // If text alone is too tall (or on a narrow screen), retain scrolling.
   const hasAtMostOneVisualPerExercise = current?.record.ability?.q.every(({ i, p }) => !(i?.trim() && p?.trim())) ?? false;
@@ -234,8 +253,13 @@ export default function AbilityReviewMode ({ chapters, hasLoadError, isBusy, isL
           }
         }} />
         {!isLoading && !hasLoadError && current && <>
-          <Button icon='arrow-right' isDisabled={saving} label={isCurrentReviewed ? 'Next' : 'Skip for now'} onClick={skip} />
-          <Button icon='check' isDisabled={saving || isBusy || isCurrentReviewed || Boolean(queuedFixId) || Boolean(queuedSplit)} label={saving ? 'Saving…' : 'Reviewed'} onClick={() => { void markReviewed(); }} />
+          <Button className='abilityReviewReviewedButton' icon={isNextAction ? 'arrow-right' : 'check'} isDisabled={saving || (!isNextAction && (isBusy || Boolean(queuedSplit)))} label={saving ? 'Saving…' : isNextAction ? 'Next' : 'Reviewed'} onClick={() => {
+            // Let the following Space press use review navigation rather than
+            // activating the previously focused button again.
+            if (document.activeElement instanceof HTMLButtonElement) document.activeElement.blur();
+            if (isCurrentReviewed) advance();
+            else void markReviewed();
+          }} />
         </>}
         <Button icon='times' onClick={onClose} />
       </div>
@@ -251,7 +275,8 @@ export default function AbilityReviewMode ({ chapters, hasLoadError, isBusy, isL
         <p>The review status could not be verified. Retry loading the book.</p>
         <Button icon='redo' label='Retry' onClick={onContentChange} />
       </div> : current ? <>
-        {(queuedFixId || queuedSplit) && <p className='abilityReviewPending'>This Ability has a pending AI job. Review it after the job finishes, or skip it for now.</p>}
+        {queuedFixId && <p className='abilityReviewPending'>An AI fix is scheduled. Select Next to continue; review the updated Ability after processing.</p>}
+        {!queuedFixId && queuedSplit && <p className='abilityReviewPending'>This Ability has a pending AI job. Review it after the job finishes.</p>}
         <AbilityConceptCard concept={current.concept} isSingleExercise={current.record.ability?.q.length === 1}>
           <AbilityCard
             hideReviewedIndicator
@@ -261,7 +286,7 @@ export default function AbilityReviewMode ({ chapters, hasLoadError, isBusy, isL
             onCancelFix={onCancelFix}
             onDeleted={onContentChange}
             onError={onError}
-            onQueueFix={onQueueFix}
+            onQueueFix={onQueueFix ? queueFixAndReview : undefined}
             onSplit={(record) => onQueueSplit?.(record)}
             record={current.record}
           />

@@ -44,6 +44,43 @@ describe('Exercise quality rules carried into direct Concept -> Ability workflow
     assert.doesNotMatch(sentPrompt, /SOURCE EXERCISE:/);
   });
 
+  it('applies sentence-case instructions and drops periods from newly generated one-word answers', async (): Promise<void> => {
+    const concept = { id: 30, title: 'Name everyday objects', description: 'Name the object shown in a picture.' } as BookConcept;
+    let prompt = '';
+    const runner: AbilityWorkflowJsonRunner = async (request, parse) => {
+      prompt = request;
+
+      return parse(JSON.stringify({ abilities: [{
+        h: concept.title, i: '', t: 3,
+        q: [
+          { h: 'name the first object.', a: 'apple.', p: '', i: '', pPrompt: 'An apple.', iPrompt: '' },
+          { h: 'name the number shown.', a: '<kx>6</kx>.', p: '', i: '', pPrompt: 'Six dots.', iPrompt: '' }
+        ]
+      }] }));
+    };
+    const ability = await generateConceptAbility('en', 'Objects', concept, runner);
+
+    assert.match(prompt, /every NEW exercise question q\[\]\.h and answer q\[\]\.a/);
+    assert.match(prompt, /English, use sentence case/);
+    assert.match(prompt, /one-word answer.*must NOT end with a period/);
+    assert.deepEqual(ability.q.map(({ h }) => h), ['Name the first object.', 'Name the number shown.']);
+    assert.deepEqual(ability.q.map(({ a }) => a), ['Apple', '<kx>6</kx>']);
+  });
+
+  it('preserves sentence-ending periods in newly generated multiword answers', async (): Promise<void> => {
+    const concept = { id: 31, title: 'Use past tense', description: 'Rewrite the given sentence in the past tense.' } as BookConcept;
+    const runner: AbilityWorkflowJsonRunner = async (_request, parse) => parse(JSON.stringify({ abilities: [{
+      h: concept.title, i: '', t: 3,
+      q: [
+        { h: 'Rewrite: They walk to school.', a: 'They walked to school.', p: '', i: '', pPrompt: '', iPrompt: '' },
+        { h: 'Rewrite: They jump over puddles.', a: 'They jumped over puddles.', p: '', i: '', pPrompt: '', iPrompt: '' }
+      ]
+    }] }));
+    const ability = await generateConceptAbility('en', 'Grammar', concept, runner);
+
+    assert.deepEqual(ability.q.map(({ a }) => a), ['They walked to school.', 'They jumped over puddles.']);
+  });
+
   it('keeps a structurally valid verbose Ability after failed shortening retries', async (): Promise<void> => {
     const concept = { id: 23, title: 'Convert units', description: 'Convert lengths between units.' } as BookConcept;
     const verboseQuestion = Array.from({ length: 24 }, (_, index) => `word${index}`).join(' ');

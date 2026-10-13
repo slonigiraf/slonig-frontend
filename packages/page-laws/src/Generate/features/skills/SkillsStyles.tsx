@@ -546,7 +546,10 @@ export const StyledSkills = styled.div`
   /* Overlay card actions instead of reserving a blank first row above the
      Exercise/Ability content. Keep heading text clear of the controls. */
   .contentCard { border: 1px solid var(--border-table); border-radius: 0.4rem; box-sizing: border-box; margin-bottom: 0.75rem; min-width: 0; overflow-wrap: anywhere; padding: 0.85rem 1rem 1rem; position: relative; }
-  .contentCardActions { align-items: center; display: flex; gap: 0.35rem; justify-content: flex-end; margin: 0; position: absolute; right: 0.75rem; top: 0.65rem; z-index: 1; }
+  /* Keep an open Ability actions menu above the per-exercise Edit controls.
+     The menu itself has z-index: 10, but a lower-z-index parent would
+     otherwise place the entire menu behind later exercise buttons. */
+  .contentCardActions { align-items: center; display: flex; gap: 0.35rem; justify-content: flex-end; margin: 0; position: absolute; right: 0.75rem; top: 0.65rem; z-index: 20; }
   .contentCard > strong { display: block; overflow-wrap: anywhere; padding-right: 2.75rem; }
   .fixReviewList { max-height: 60vh; overflow: auto; }
   .fixReviewItem { border-top: 1px solid var(--border-table); padding: 0.75rem 0; }
@@ -671,19 +674,19 @@ export const StyledSkills = styled.div`
   /* Use the regular spinner label size, independent of the 1.5x review text scale. */
   .abilityReviewLoading .ui--Spinner .text { font-size: 1rem; margin: 0.5rem auto 0; }
 
-  /* Both TikZ and bitmap previews use identical responsive visual boxes.
-     Preserve aspect ratio inside the box and keep both exercises side by side
-     when the available width allows it. The actual box height is calculated
-     from the remaining viewport space by AbilityReviewMode. */
+  /* Review mode supplies the maximum image height from the remaining screen
+     space. Actual dimensions follow the visual's intrinsic aspect ratio: wide
+     diagrams expand to the exercise width, tall diagrams stop at this height. */
+  .abilityReviewContent .abilityCard > .contentCardActions + div { --ability-visual-max-height: var(--review-visual-height); }
   .abilityReviewContent .abilityCard .exercise-header img,
   .abilityReviewContent .abilityCard .abilityAnswer img {
     box-sizing: border-box;
     display: block;
-    height: var(--review-visual-height);
+    height: auto;
     max-height: var(--review-visual-height);
     max-width: 100%;
     object-fit: contain;
-    width: 100%;
+    width: min(100%, calc(var(--review-visual-height) * var(--ability-visual-ratio, 1)));
   }
   .abilityReviewContent .abilityCard .abilityVisualLoading {
     align-items: center;
@@ -712,16 +715,16 @@ export const StyledSkills = styled.div`
   }
   .abilityReviewContent .abilityCard .tikzDisplay--thumbnail {
     box-sizing: border-box;
-    height: var(--review-visual-height);
+    height: auto;
     max-height: var(--review-visual-height);
     max-width: 100%;
     min-height: 0;
-    width: 100%;
+    width: min(100%, calc(var(--review-visual-height) * var(--ability-visual-ratio, 1)));
   }
   .abilityReviewContent .abilityCard .tikzDisplay--thumbnail > svg,
   .abilityReviewContent .abilityCard .tikzDisplay--thumbnail > * > svg {
-    height: 100%;
-    max-height: 100%;
+    height: auto;
+    max-height: var(--review-visual-height);
     max-width: 100%;
     width: 100%;
   }

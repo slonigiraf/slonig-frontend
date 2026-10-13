@@ -32,6 +32,18 @@ function mountSvg (host: HTMLElement, svg: string): void {
     throw new Error('TikZ Editor returned SVG that could not be parsed.');
   }
 
+  // Preserve the SVG's viewBox proportions when an Ability preview is fitted
+  // to the available width/viewport height (rather than a 150px thumbnail).
+  const viewBox = svgElement.getAttribute('viewBox')?.trim().split(/[\s,]+/).map(Number);
+  const width = viewBox?.length === 4 ? viewBox[2] : Number.parseFloat(svgElement.getAttribute('width') ?? '');
+  const height = viewBox?.length === 4 ? viewBox[3] : Number.parseFloat(svgElement.getAttribute('height') ?? '');
+
+  if (width && height && Number.isFinite(width) && Number.isFinite(height) && width > 0 && height > 0) {
+    host.style.setProperty('--ability-visual-ratio', String(width / height));
+  } else {
+    host.style.removeProperty('--ability-visual-ratio');
+  }
+
   host.replaceChildren(document.importNode(svgElement, true));
 }
 

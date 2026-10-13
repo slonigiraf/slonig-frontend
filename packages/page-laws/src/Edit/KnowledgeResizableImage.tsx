@@ -74,7 +74,20 @@ export default function KnowledgeResizableImage ({ alt = 'Image', cid, expandedP
   }
 
   return <>
-    <NormalImage alt={alt} src={src} onClick={() => setIsBig(true)} />
+    <NormalImage
+      alt={alt}
+      onClick={() => setIsBig(true)}
+      onLoad={(event) => {
+        const image = event.currentTarget;
+
+        if (image.naturalWidth > 0 && image.naturalHeight > 0) {
+          // Both landscape and portrait thumbnails fill their available axis,
+          // with the other axis constrained to preserve the image's ratio.
+          image.style.setProperty('--ability-visual-ratio', String(image.naturalWidth / image.naturalHeight));
+        }
+      }}
+      src={src}
+    />
     {isBig && <ImageModal header=" " onClose={close} size="large">
       <Modal.Content>
         <Viewport

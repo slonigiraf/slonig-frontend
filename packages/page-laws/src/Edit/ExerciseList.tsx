@@ -176,11 +176,60 @@ const AbilityExercisesGrid = styled.div`
     overflow-wrap: anywhere;
   }
 
-  align-items: stretch;
+  /* Scale landscape visuals to the exercise's width and portrait visuals to
+     the viewport's available height. Neither needs a fixed 150px thumbnail. */
+  --ability-visual-max-height: min(40dvh, 26rem);
+
+  align-items: start;
   display: grid;
   gap: 1rem;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 21rem), 1fr));
   max-width: 60rem;
+
+  .exercise-header img,
+  .abilityAnswer img {
+    box-sizing: border-box;
+    display: block;
+    height: auto;
+    max-height: var(--ability-visual-max-height);
+    max-width: 100%;
+    object-fit: contain;
+    width: min(100%, calc(var(--ability-visual-max-height) * var(--ability-visual-ratio, 1)));
+  }
+
+  .tikzVisualRoot,
+  .tikzVisualPreviewBlock,
+  .tikzVisualPreviewRow {
+    max-width: 100%;
+    width: 100%;
+  }
+
+  .tikzVisualThumbnail {
+    flex: 1 1 auto;
+    max-width: 100%;
+    min-width: 0;
+    width: 100%;
+  }
+
+  .exercise-header .tikzDisplay--thumbnail,
+  .abilityAnswer .tikzDisplay--thumbnail {
+    box-sizing: border-box;
+    height: auto;
+    max-height: var(--ability-visual-max-height);
+    max-width: 100%;
+    min-height: 0;
+    width: min(100%, calc(var(--ability-visual-max-height) * var(--ability-visual-ratio, 1)));
+  }
+
+  .exercise-header .tikzDisplay--thumbnail > svg,
+  .exercise-header .tikzDisplay--thumbnail > * > svg,
+  .abilityAnswer .tikzDisplay--thumbnail > svg,
+  .abilityAnswer .tikzDisplay--thumbnail > * > svg {
+    height: auto;
+    max-height: var(--ability-visual-max-height);
+    max-width: 100%;
+    width: 100%;
+  }
 
   > .ui--row {
     align-items: stretch !important;
@@ -246,12 +295,12 @@ const AbilityExercisesGrid = styled.div`
   }
 
   .exercise-header {
-    flex: 1 1 auto;
+    flex: 0 0 auto;
     min-width: 0;
   }
 
   .abilityAnswer {
-    margin-top: auto;
+    margin-top: 0.75rem;
   }
 `;
 
@@ -272,7 +321,9 @@ const Answer = styled.div`
   padding-left: 0.75rem;
 
   &.abilityAnswer {
+    /* Highlight the answer with its border, without changing its background. */
     border: 1px solid var(--border-table);
+    border-color: color-mix(in srgb, var(--border-table, #ddd) 70%, var(--color-text, #333) 30%);
     border-radius: 0.4rem;
     box-sizing: border-box;
     margin-top: 0.75rem;

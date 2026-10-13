@@ -31,6 +31,38 @@ Return only JSON: {"abilities":[{"h":"Concept title","i":"","t":3,"q":[{"h":"Con
 For the direct Concept workflow, q[].p and q[].i are image data fields and MUST BOTH be "" at initial creation. Specify required visuals exclusively in q[].pPrompt (question image description) and q[].iPrompt (solution image description); use "" for unused prompts. When a solution image completely answers the task, q[].a MUST be "" and q[].iPrompt must contain the COMPLETE standalone image-generation specification, with no written answer text. Example image-only q entry: {"h":"Draw the completed figure.","a":"","p":"","i":"","pPrompt":"","iPrompt":"Draw a clean completed figure with all correct labels and geometry..."}. Check each of the two tasks separately. Never disclose a question-visual answer in its task text.`;
 }
 
+/** New English learner-facing text follows the same sentence-case opening as titles.
+ * Preserve notation, markup, and mixed-case names (eBay, pH) as written.
+ * Other languages rely on their own orthography in the generation prompt. */
+function capitalizeNewEnglishSentence (value: string, language: string): string {
+  if (!/^en(?:-|$)/i.test(language)) return value;
+
+  return value.replace(/^(\s*)([a-z]+)(?=\b)/u, (match, space: string, word: string) =>
+    word.length === 1 && word !== 'a' && word !== 'i'
+      ? match
+      : `${space}${word[0].toUpperCase()}${word.slice(1)}`);
+}
+
+/** Only format *newly generated* exercise text; never migrate existing stored Abilities. */
+function formatNewExerciseText (ability: GeneratedAbility, language: string): GeneratedAbility {
+  return {
+    ...ability,
+    q: ability.q.map((exercise) => {
+      const answer = exercise.a.trim();
+      const withoutPeriod = answer.endsWith('.') ? answer.slice(0, -1) : answer;
+      // A single word, numeral, or single markup token is not a sentence.
+      // Keep periods in full sentences, longer calculations, and quoted text.
+      const isOneWord = /^(?:[^\s<>]+|<kx>[^\s<>]*<\/kx>|<code>[^\s<>]*<\/code>)$/u.test(withoutPeriod);
+
+      return {
+        ...exercise,
+        h: capitalizeNewEnglishSentence(exercise.h, language),
+        a: capitalizeNewEnglishSentence(isOneWord && answer.endsWith('.') ? withoutPeriod : exercise.a, language)
+      };
+    })
+  };
+}
+
 /** Generate a complete practice Ability directly from a persisted Concept. */
 export async function generateConceptAbility (
   language: string,
@@ -54,12 +86,15 @@ export async function generateConceptAbility (
       const candidate = candidates[0];
 
       if (abilityBrevityIssues(candidate).length) {
+        // Keep the original text if brevity retries fail; do not silently
+        // rewrite a fallback that the model could not finish correcting.
         verboseFallback = candidate;
       }
 
-      validateGeneratedAbilityText(candidate, false);
+      const formatted = formatNewExerciseText(candidate, language);
+      validateGeneratedAbilityText(formatted, false);
 
-      return candidates;
+      return [formatted];
     }, {
       maxOutputTokens: 3_200,
       repairContext: `Return exactly this JSON shape: {"abilities":[{"h":${JSON.stringify(concept.title)},"i":"","t":3,"q":[{"h":"complete nonempty learner question","a":"correct written answer OR empty string for an image-only solution","p":"","i":"","pPrompt":"question image prompt or empty string","iPrompt":"solution image prompt or empty string"},{"h":"second distinct nonempty learner question","a":"correct written answer OR empty string for an image-only solution","p":"","i":"","pPrompt":"question image prompt or empty string","iPrompt":"solution image prompt or empty string"}]}]}. Every exercise must have nonempty h, image-data fields p:"" and i:"", and both prompt fields pPrompt and iPrompt as strings ("" if unused). EITHER a must contain a nonempty textual answer OR iPrompt must contain a complete standalone solution-image prompt. For an image-only answer keep a:"" and put the entire image prompt ONLY in iPrompt. Do not put prompts in p or i. Never omit the question or either exercise.`, 
