@@ -18,6 +18,7 @@ import { randomIdHex } from '../../../../common/util.js';
 import { moduleStandardsText, standardsChapterKey } from '../../domain/standards/standards.js';
 import { loadStoredBookStandards } from '../../infrastructure/storage/standardsStorage.js';
 import { bookModulePublishJson, finalBookCourseJson, initialBookCourseJson } from '../../domain/publishing/bookPublishing.js';
+import { mapWithConcurrency } from './mapWithConcurrency.js';
 
 export interface TemplateRow {
   displayOrder?: number;
@@ -63,6 +64,7 @@ export const isKnowledgeId = (value: string | undefined): value is string => !!v
 const BATCH_SAFETY_PERCENT = 85;
 const FALLBACK_WEIGHT_PERCENT = 64;
 const MAX_PUBLISH_BATCH_CALLS = 1000;
+const MAX_CONCURRENT_SKILLS = 20;
 
 interface SimpleWeight {
   proofSize: BN;
@@ -356,29 +358,43 @@ export async function publishProcessedBook ({ api, bookId, courseName, coursePri
   let savedCourse = await loadKnowledgeItem(savedCourseId);
   const standardsByChapter = loadStoredBookStandards(bookId);
   const templateRecordChanges = new Map<string, string>();
+  const allTemplateRows = publishableChapters.flatMap(({ templates }) => templates);
+  let preparedSkillCount = 0;
+
+  onStatus(`Preparing skill content: 0/${allTemplateRows.length} (up to ${MAX_CONCURRENT_SKILLS} in parallel)…`);
+
+  // Use one pool across all chapters, rather than an unbounded Promise.all
+  // per chapter. Keep results in the same order for module membership.
+  const preparedTemplateRows = await mapWithConcurrency(allTemplateRows, MAX_CONCURRENT_SKILLS, async (row) => {
+    const skillId = isKnowledgeId(row.template.i) ? row.template.i : randomIdHex();
+    const { localAbility, publishAbility } = await preparePublishedAbility(row.template, skillId);
+    const didLocalTemplateChange = JSON.stringify(localAbility) !== JSON.stringify(row.template);
+    let recordId = row.recordId;
+
+    // Persist only the local representation. replaceAbility moves q[].p/q[].i
+    // visual payloads into Image rows and leaves image ids in the stored
+    // Ability. The IPFS CID substitutions in publishAbility exist only for
+    // this final publishing operation.
+    if (didLocalTemplateChange) {
+      const newRecordId = await replaceAbility(row.recordId, JSON.stringify(localAbility));
+
+      if (newRecordId !== row.recordId) {
+        templateRecordChanges.set(row.recordId, newRecordId);
+        recordId = newRecordId;
+      }
+    }
+
+    preparedSkillCount++;
+    onStatus(`Preparing skill content: ${preparedSkillCount}/${allTemplateRows.length} (up to ${MAX_CONCURRENT_SKILLS} in parallel)…`);
+
+    return { ...row, recordId, template: publishAbility };
+  });
+  let templateOffset = 0;
   const preparedChapters = await Promise.all(publishableChapters.map(async ({ chapter, templates }) => {
     const moduleId = isKnowledgeId(chapter.knowledgeId) ? chapter.knowledgeId : randomIdHex();
-    const preparedTemplates = await Promise.all(templates.map(async (row) => {
-      const skillId = isKnowledgeId(row.template.i) ? row.template.i : randomIdHex();
-      const { localAbility, publishAbility } = await preparePublishedAbility(row.template, skillId);
-      const didLocalTemplateChange = JSON.stringify(localAbility) !== JSON.stringify(row.template);
-      let recordId = row.recordId;
+    const preparedTemplates = preparedTemplateRows.slice(templateOffset, templateOffset + templates.length);
 
-      // Persist only the local representation. replaceAbility moves q[].p/q[].i
-      // visual payloads into Image rows and leaves image ids in the stored
-      // Ability. The IPFS CID substitutions in publishAbility exist only for
-      // this final publishing operation.
-      if (didLocalTemplateChange) {
-        const newRecordId = await replaceAbility(row.recordId, JSON.stringify(localAbility));
-
-        if (newRecordId !== row.recordId) {
-          templateRecordChanges.set(row.recordId, newRecordId);
-          recordId = newRecordId;
-        }
-      }
-
-      return { ...row, recordId, template: publishAbility };
-    }));
+    templateOffset += templates.length;
 
     if (chapter.knowledgeId !== moduleId) {
       await putBookChapter({ ...chapter, knowledgeId: moduleId });
@@ -433,28 +449,44 @@ export async function publishProcessedBook ({ api, bookId, courseName, coursePri
     onPublishedIds([savedCourseId]);
   }
 
-  const skillOperations: PublishOperation[] = [];
   const moduleOperations: PublishOperation[] = [];
+  const allSkills = preparedChapters.flatMap(({ templates }) => templates.map(({ template }) => template));
+  const seenSkillIds = new Set<string>();
+  const uniqueSkills = allSkills.filter(({ i }) => {
+    if (seenSkillIds.has(i)) {
+      return false;
+    }
 
-  onStatus('Preparing unpublished skills and modules…');
+    seenSkillIds.add(i);
 
-  for (const { templates } of preparedChapters) {
-    for (const { template } of templates) {
+    return true;
+  });
+  let checkedSkillCount = 0;
+
+  onStatus(`Checking and uploading skills: 0/${uniqueSkills.length} (up to ${MAX_CONCURRENT_SKILLS} in parallel)…`);
+
+  const preparedSkillOperations = await mapWithConcurrency(uniqueSkills, MAX_CONCURRENT_SKILLS, async (template): Promise<PublishOperation | undefined> => {
+    try {
       const existingSkill = await loadKnowledgeItem(template.i);
 
       if (existingSkill) {
         if (existingSkill.json.t !== LawType.SKILL) {
           throw new Error(`Saved skill ID ${template.i} belongs to another knowledge type.`);
         }
-      } else {
-        const digest = await pinKnowledgeItem({ ...template });
 
-        const amount = skillPrice || BN_ZERO;
-
-        skillOperations.push({ amount, id: template.i, transaction: api.tx.laws.create(template.i, digest, amount) });
+        return undefined;
       }
+
+      const digest = await pinKnowledgeItem({ ...template });
+      const amount = skillPrice || BN_ZERO;
+
+      return { amount, id: template.i, transaction: api.tx.laws.create(template.i, digest, amount) };
+    } finally {
+      checkedSkillCount++;
+      onStatus(`Checking and uploading skills: ${checkedSkillCount}/${uniqueSkills.length} (up to ${MAX_CONCURRENT_SKILLS} in parallel)…`);
     }
-  }
+  });
+  const skillOperations = preparedSkillOperations.filter((operation): operation is PublishOperation => operation !== undefined);
 
   for (const { chapter, templates } of preparedChapters) {
     const moduleId = chapter.knowledgeId;
