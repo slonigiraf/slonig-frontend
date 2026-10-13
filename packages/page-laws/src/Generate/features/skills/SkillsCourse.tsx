@@ -6,7 +6,7 @@ import type { GeneratedAbility } from '../../../abilities/abilities.js';
 import { prepareAbilityForPublishing } from '../../../abilities/abilities.js';
 
 import { deleteAbilityWithConcept, getAbilities, getBook, getBookChapters, getBookConceptsForBookPage, getBookPages, getSetting, hydrateAbilityContent, putBookChapter, SettingKey, saveBookCourseLearningOrder, updateBookChapterTitle, updateBookFields } from '@slonigiraf/db';
-import { digestFromCIDv1, getCIDFromBytes, getIPFSContentIDAndPinIt, getIPFSContentIDForBytesAndPinIt, getIPFSDataFromContentID, SpanWithTags, parseJson, useInfo, useIpfsContext, useLoginContext } from '@slonigiraf/slonig-components';
+import { digestFromCIDv1, getCIDFromBytes, getIPFSContentIDAndPinIt, getIPFSContentIDForBytesAndPinIt, getIPFSDataFromContentID, LawType, SpanWithTags, parseJson, useInfo, useIpfsContext, useLoginContext } from '@slonigiraf/slonig-components';
 import BN from 'bn.js';
 import { useLiveQuery } from 'dexie-react-hooks';
 import OpenAI from 'openai';
@@ -31,6 +31,14 @@ import { useAutosavedTitle, type TitleSaveStatus } from './useAutosavedTitle.js'
 type OutlineItem =
   | { chapter: BookChapter; key: string; type: 'chapter' }
   | { key: string; row: TemplateRow; type: 'template' };
+
+interface ParentDirectoryEstimate {
+  courseId: string | undefined;
+  error?: string;
+  fee?: BN;
+  id: string;
+  isListed: boolean;
+}
 
 const conceptAbilityModuleId = (bookId: number, conceptId: number): string => `book-${bookId}-concept-${conceptId}`;
 
@@ -216,6 +224,7 @@ function SkillsCourse ({ book, onBookChange }: { book: Book; onBookChange: (upda
   const [isFixingNames, setIsFixingNames] = useState(false);
   const [publishStatus, setPublishStatus] = useState('');
   const [onChainIds, setOnChainIds] = useState<Set<string>>(() => new Set());
+  const [parentDirectoryEstimate, setParentDirectoryEstimate] = useState<ParentDirectoryEstimate>();
   const [dragKey, setDragKey] = useState<string>();
   const [isReorderingAbilities, setIsReorderingAbilities] = useState(false);
   const courseOutlineRef = useRef<HTMLDivElement>(null);
@@ -310,17 +319,21 @@ function SkillsCourse ({ book, onBookChange }: { book: Book; onBookChange: (upda
   }, [outline]);
   const publishableChapters = useMemo(() => courseChapters.filter(({ chapter, templates }) => templates.length || isKnowledgeId(chapter.knowledgeId)), [courseChapters]);
   const templateCount = useMemo(() => publishableChapters.reduce((count, { templates }) => count + templates.length, 0), [publishableChapters]);
-  const maximumBurnTotal = useMemo(() => {
+  const isCoursePublished = isKnowledgeId(storedBook.knowledgeId) && onChainIds.has(storedBook.knowledgeId) &&
+    parentDirectoryEstimate?.id === knowledgeId && parentDirectoryEstimate.courseId === storedBook.knowledgeId && parentDirectoryEstimate.isListed;
+  const directoryFee = parentDirectoryEstimate?.id === knowledgeId && parentDirectoryEstimate.courseId === storedBook.knowledgeId
+    ? parentDirectoryEstimate.fee
+    : undefined;
+  const maximumInsertionTotal = useMemo(() => {
     const unpublishedModules = publishableChapters.filter(({ chapter }) => !isKnowledgeId(chapter.knowledgeId) || !onChainIds.has(chapter.knowledgeId)).length;
     const unpublishedSkills = publishableChapters.reduce((count, { templates }) => count + templates.filter(({ template }) => !isKnowledgeId(template.i) || !onChainIds.has(template.i)).length, 0);
-
-    const unpublishedCourse = !isKnowledgeId(storedBook.knowledgeId) || !onChainIds.has(storedBook.knowledgeId);
-
-    return (unpublishedCourse ? coursePrice || BN_ZERO : BN_ZERO)
+    // BN.add mutates its receiver; never mutate React price state or the
+    // shared BN_ZERO constant while calculating an estimate.
+    return (!isCoursePublished ? coursePrice || BN_ZERO : BN_ZERO).clone()
       .add((modulePrice || BN_ZERO).muln(unpublishedModules))
-      .add((skillPrice || BN_ZERO).muln(unpublishedSkills));
-  }, [coursePrice, modulePrice, onChainIds, publishableChapters, skillPrice, storedBook.knowledgeId]);
-  const isCoursePublished = isKnowledgeId(storedBook.knowledgeId) && onChainIds.has(storedBook.knowledgeId);
+      .add((skillPrice || BN_ZERO).muln(unpublishedSkills))
+      .add(directoryFee || BN_ZERO);
+  }, [coursePrice, directoryFee, isCoursePublished, modulePrice, onChainIds, publishableChapters, skillPrice]);
   const isOrganizationLocked = isPublishing || courseChapters.some(({ chapter }) => isKnowledgeId(chapter.knowledgeId) && onChainIds.has(chapter.knowledgeId));
 
   useEffect((): void => {
@@ -363,6 +376,43 @@ function SkillsCourse ({ book, onBookChange }: { book: Book; onBookChange: (upda
 
     return { amount, digestHex: u8aToHex(digest), json: json as Record<string, unknown> };
   }, [api, ipfs]);
+
+  // Determine whether this Course is actually visible in the chosen list.
+  // A zero-priced shell exists on-chain but is not a published Course yet.
+  // Estimate the directory edit using the exact chain extrinsic shape, without
+  // uploading any placeholder data to IPFS or burning the directory price.
+  useEffect(() => {
+    let active = true;
+
+    setParentDirectoryEstimate(undefined);
+
+    if (knowledgeId && isIpfsReady && currentPair) {
+      const courseId = storedBook.knowledgeId;
+
+      void (async () => {
+        const parent = await loadKnowledgeItem(knowledgeId);
+
+        if (!parent || parent.json.t !== LawType.LIST) {
+          throw new Error('Selected parent is not a knowledge list.');
+        }
+
+        const isListed = isKnowledgeId(courseId) && Array.isArray(parent.json.e) && parent.json.e.includes(courseId);
+        const fee = isListed
+          ? BN_ZERO
+          : new BN((await api.tx.laws.edit(knowledgeId, parent.digestHex, parent.digestHex, parent.amount).paymentInfo(currentPair)).partialFee.toString());
+
+        if (active) {
+          setParentDirectoryEstimate({ courseId, fee, id: knowledgeId, isListed });
+        }
+      })().catch((error: unknown) => {
+        if (active) {
+          setParentDirectoryEstimate({ courseId, error: errorMessage(error), id: knowledgeId, isListed: false });
+        }
+      });
+    }
+
+    return () => { active = false; };
+  }, [api, currentPair, isIpfsReady, knowledgeId, loadKnowledgeItem, storedBook.knowledgeId]);
   const knowledgeExists = useCallback(async (id: string): Promise<boolean> => {
     const law = await api.query.laws.laws(id) as unknown as { isSome: boolean };
 
@@ -911,7 +961,7 @@ function SkillsCourse ({ book, onBookChange }: { book: Book; onBookChange: (upda
     setPublishStatus('Saving resumable knowledge IDs…');
 
     try {
-      await publishProcessedBook({
+      const publishedBook = await publishProcessedBook({
         api,
         bookId: book.id,
         courseName: formatBookTitle(courseName, storedBook.language),
@@ -929,6 +979,8 @@ function SkillsCourse ({ book, onBookChange }: { book: Book; onBookChange: (upda
         skillPrice,
         storedBook
       });
+      // Refresh the listing state immediately after the atomic final commit.
+      setParentDirectoryEstimate({ courseId: publishedBook.knowledgeId, fee: BN_ZERO, id: knowledgeId, isListed: true });
       setPublishStatus(`Published “${courseName.trim()}”. Abilities and modules were published in safe batches, then the course was finalized atomically.`);
       showInfo('Course published.');
     } catch (error) {
@@ -1035,7 +1087,7 @@ function SkillsCourse ({ book, onBookChange }: { book: Book; onBookChange: (upda
               onChange={setCoursePrice}
               value={coursePrice}
             />
-            <small>Paid when the course knowledge ID is first created on-chain. Republishing keeps the existing price.</small>
+            <small>The initial course shell costs only its blockchain transaction fee. The selected SLON price is burned during final publication, after the modules are added and the course is linked to the chosen directory.</small>
           </div>
           <InputBalance
             isDisabled={isPublishing}
@@ -1051,7 +1103,11 @@ function SkillsCourse ({ book, onBookChange }: { book: Book; onBookChange: (upda
             onChange={setSkillPrice}
             value={skillPrice}
           />
-          <p className='total'>Maximum remaining insertion total: <FormatBalance value={maximumBurnTotal} /></p>
+          <p className='total'>Parent-directory addition transaction fee (estimated): {directoryFee !== undefined
+            ? <FormatBalance value={directoryFee} />
+            : <span>{parentDirectoryEstimate?.error || 'Calculating…'}</span>}</p>
+          <p className='total'>Maximum remaining insertion total (burn + directory fee): <FormatBalance value={maximumInsertionTotal} /></p>
+          <small>Other network fees (course shell, skills, modules, and final course update) are calculated before their transactions, and are not included in this estimate.</small>
           <Button
             icon={isCoursePublished ? 'redo' : 'save'}
             isDisabled={isPublishing || !isIpfsReady || !knowledgeId || !publishableChapters.length}

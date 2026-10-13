@@ -424,28 +424,26 @@ export async function publishProcessedBook ({ api, bookId, courseName, coursePri
     throw new Error(`Saved course ID ${savedCourseId} belongs to another knowledge type.`);
   }
 
-  // A generated book follows the same parent-child model as manual module
-  // creation: the Course must exist first, and each Module then stores the
-  // Course knowledge id in `p`. Publish an empty Course shell in its own
-  // transaction so Modules can never be created before their parent exists.
+  // Modules must refer to an existing Course ID. Create a zero-priced shell
+  // first, but do not link it to any directory or burn the requested Course
+  // insertion price yet. Both happen only after the modules have succeeded.
   if (!savedCourse) {
-    onStatus('Publishing course shell before modules…');
+    onStatus('Creating an unlisted course shell (network fee only)…');
 
     const initialCourse = initialBookCourseJson(savedCourseId, trimmedCourseName);
     const initialCourseDigest = await pinKnowledgeItem(initialCourse);
-    const amount = coursePrice || BN_ZERO;
-    const courseCreate = api.tx.laws.create(savedCourseId, initialCourseDigest, amount);
+    const courseCreate = api.tx.laws.create(savedCourseId, initialCourseDigest, BN_ZERO);
     const { partialFee } = await courseCreate.paymentInfo(currentPair);
     const balances = await api.derive.balances.all(currentPair.address);
     const existentialDeposit = new BN(api.consts.balances.existentialDeposit.toString());
-    const requiredBalance = amount.add(new BN(partialFee.toString())).add(existentialDeposit);
+    const requiredBalance = new BN(partialFee.toString()).add(existentialDeposit);
 
     if (balances.availableBalance.lt(requiredBalance)) {
-      throw new Error('Your balance is insufficient for the course insertion price, publishing fee, and existential deposit.');
+      throw new Error('Your balance is insufficient for the course shell transaction fee and existential deposit.');
     }
 
     await submitTransaction(courseCreate, currentPair, api);
-    savedCourse = { amount, digestHex: initialCourseDigest, json: initialCourse };
+    savedCourse = { amount: BN_ZERO, digestHex: initialCourseDigest, json: initialCourse };
     onPublishedIds([savedCourseId]);
   }
 
@@ -527,7 +525,8 @@ export async function publishProcessedBook ({ api, bookId, courseName, coursePri
         });
 
         moduleOperations.push({
-          amount: existingModule.amount,
+          // Reusing the existing on-chain price does not burn it again.
+          amount: BN_ZERO,
           id: moduleId,
           transaction: api.tx.laws.edit(moduleId, existingModule.digestHex, digest, existingModule.amount)
         });
@@ -548,14 +547,27 @@ export async function publishProcessedBook ({ api, bookId, courseName, coursePri
     }
   }
 
-  onStatus('Preparing modules, course membership, and selected list…');
+  onStatus('Preparing the final course and directory publication…');
 
   const moduleIds = preparedChapters.map(({ chapter }) => chapter.knowledgeId).filter(isKnowledgeId);
   const courseJson = finalBookCourseJson(savedCourseId, trimmedCourseName, moduleIds, savedCourse.json);
   const courseDigest = await pinKnowledgeItem(courseJson);
-  const courseTransaction = api.tx.laws.edit(savedCourseId, savedCourse.digestHex, courseDigest, savedCourse.amount);
-  const existingIds = Array.isArray(selectedList.json.e)
-    ? selectedList.json.e.filter((id): id is string => typeof id === 'string')
+  // The Course burn is deferred to the same atomic commit that makes the
+  // course visible in the chosen parent directory. Never lower an existing
+  // price on a retry or a republish.
+  const requestedCoursePrice = coursePrice || BN_ZERO;
+  const finalCoursePrice = requestedCoursePrice.gt(savedCourse.amount) ? requestedCoursePrice : savedCourse.amount;
+  const courseTransaction = api.tx.laws.edit(savedCourseId, savedCourse.digestHex, courseDigest, finalCoursePrice);
+  // Refresh the directory after long IPFS uploads: its digest may have
+  // changed while the book was being prepared.
+  const currentList = await loadKnowledgeItem(knowledgeId);
+
+  if (!currentList || currentList.json.t !== LawType.LIST) {
+    throw new Error('The selected publishing location is no longer a knowledge list.');
+  }
+
+  const existingIds = Array.isArray(currentList.json.e)
+    ? currentList.json.e.filter((id): id is string => typeof id === 'string')
     : [];
   const titledIds = await Promise.all([...new Set([...existingIds, savedCourseId])].map(async (id) => {
     if (id === savedCourseId) {
@@ -572,22 +584,26 @@ export async function publishProcessedBook ({ api, bookId, courseName, coursePri
   const sortedIds = titledIds.map(({ id }) => id);
   const listChanged = JSON.stringify(existingIds) !== JSON.stringify(sortedIds);
   const finalOperations: PublishOperation[] = [{
-    amount: savedCourse.amount,
+    // BN.sub mutates its receiver; preserve the target price passed to the
+    // extrinsic and any BN referenced by the caller or the cached chain item.
+    amount: finalCoursePrice.clone().sub(savedCourse.amount),
     id: savedCourseId,
     transaction: courseTransaction
   }];
 
   if (listChanged) {
-    const updatedListDigest = await pinKnowledgeItem({ ...selectedList.json, e: sortedIds });
+    const updatedListDigest = await pinKnowledgeItem({ ...currentList.json, e: sortedIds });
 
     finalOperations.push({
-      amount: selectedList.amount,
-      transaction: api.tx.laws.edit(knowledgeId, selectedList.digestHex, updatedListDigest, selectedList.amount)
+      // Keeping the existing directory price costs a transaction fee, not a
+      // second burn of the full directory price.
+      amount: BN_ZERO,
+      transaction: api.tx.laws.edit(knowledgeId, currentList.digestHex, updatedListDigest, currentList.amount)
     });
   }
 
   const operationTotal = [...skillOperations, ...moduleOperations, ...finalOperations]
-    .reduce((total, { amount }) => total.add(amount), BN_ZERO);
+    .reduce((total, { amount }) => total.add(amount), new BN(0));
 
   onStatus('Calculating safe blockchain batches and publishing fees…');
 
@@ -603,7 +619,7 @@ export async function publishProcessedBook ({ api, bookId, courseName, coursePri
   }
 
   const totalFees = [...skillBatches, ...moduleBatches, ...finalBatches]
-    .reduce((total, batch) => total.add(batch.partialFee), BN_ZERO);
+    .reduce((total, batch) => total.add(batch.partialFee), new BN(0));
   const balances = await api.derive.balances.all(currentPair.address);
   const existentialDeposit = new BN(api.consts.balances.existentialDeposit.toString());
   const requiredBalance = operationTotal.add(totalFees).add(existentialDeposit);
