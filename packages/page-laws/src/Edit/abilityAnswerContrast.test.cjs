@@ -14,8 +14,7 @@ test('Every Ability exercise answer uses a distinct border without a background 
   const answerRules = exerciseList.match(/&\.abilityAnswer \{([^}]*)\}/)?.[1] ?? '';
 
   assert.doesNotMatch(answerRules, /background(?:-color)?\s*:/);
-  assert.match(answerRules, /border: 1px solid var\(--border-table\)/);
-  assert.match(answerRules, /border-color: color-mix\(/);
+  assert.match(answerRules, /border: 1px solid #A9A9A9;/);
 });
 
 test('Review Ability retains the shared answer surface styling', () => {

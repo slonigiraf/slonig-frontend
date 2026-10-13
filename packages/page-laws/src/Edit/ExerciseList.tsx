@@ -322,8 +322,7 @@ const Answer = styled.div`
 
   &.abilityAnswer {
     /* Highlight the answer with its border, without changing its background. */
-    border: 1px solid var(--border-table);
-    border-color: color-mix(in srgb, var(--border-table, #ddd) 70%, var(--color-text, #333) 30%);
+    border: 1px solid #A9A9A9;
     border-radius: 0.4rem;
     box-sizing: border-box;
     margin-top: 0.75rem;
