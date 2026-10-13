@@ -35,7 +35,7 @@ function makeRereview ({ fails = false, restrictedStorage = false, waitForReset 
     { chapter: { title: 'Third' }, abilities: [{ id: 'd', reviewed: true }] }
   ];
   const state = { chapterContent: chapters, isReviewOpen: false, dialogOpen: true, loading: false, error: '', selectedIds: undefined, refreshed: 0, reset: null, notice: '' };
-  const storage = new Map([['review-navigation', 'stale']]);
+  const storage = new Map();
   let finishReset;
   const resetGate = waitForReset ? new Promise((resolve) => { finishReset = resolve; }) : Promise.resolve();
   const context = {
@@ -57,7 +57,6 @@ function makeRereview ({ fails = false, restrictedStorage = false, waitForReset 
     refreshContent: () => { state.refreshed++; },
     setNotice: (value) => { state.notice = value; },
     setError: (value) => { state.error = value; },
-    reviewNavigationSessionKey: 'review-navigation',
     reviewScopeSessionKey: 'review-scope',
     activeReviewSessionKey: 'review',
     sessionStorage: {
@@ -85,7 +84,6 @@ test('Rereview opens mode after resetting only the selected chapters, and starts
   assert.deepEqual(Array.from(state.selectedIds), ['b', 'c']);
   assert.deepEqual(JSON.parse(storage.get('review-scope')), ['b', 'c']);
   assert.equal(storage.get('review'), 'open');
-  assert.equal(storage.has('review-navigation'), false);
   assert.deepEqual(state.chapterContent.map(({ abilities }) => abilities.map(({ reviewed }) => reviewed)), [[true], [false, false], [true]]);
 });
 
@@ -127,7 +125,7 @@ test('Central review text is 1.5x without enlarging the toolbar', () => {
   const mainRule = styles.match(/\.abilityReviewContent\s*\{([^}]+)\}/);
   assert.ok(mainRule);
   assert.match(mainRule[1], /font-size:\s*150%/);
-  assert.match(styles, /\.abilityReviewContent \.abilityConceptParent,[\s\S]*?font-size:\s*1\.7rem/);
+  assert.match(styles, /\.abilityReviewContent \.abilityConceptParent\s*\{\s*font-size:\s*1\.7rem/);
 });
 
 
@@ -183,4 +181,30 @@ test('Review mode offers Retry on load failures rather than showing full-book co
   assert.match(modeSource, /<h3>Unable to load review data\.<\/h3>/);
   assert.match(modeSource, /label='Retry' onClick=\{onContentChange\}/);
   assert.match(modeSource, /!isLoading && !hasLoadError && <div className='abilityReviewProgress'/);
+});
+
+test('Review writes IndexedDB first, then refreshes the displayed record (not an independent status set)', async () => {
+  const chapters = [{ abilities: [{ id: 'a', reviewed: false }, { id: 'b', reviewed: false }] }];
+  const db = new Map([['a', false], ['b', false]]);
+  const state = { chapterContent: chapters, logCalls: 0 };
+  const context = {
+    book: { id: 42 },
+    setBookAbilityReviewed: async (bookId, id, reviewed) => {
+      assert.equal(bookId, 42);
+      db.set(id, reviewed);
+    },
+    setChapterContent: (update) => { state.chapterContent = update(state.chapterContent); },
+    onAbilityLogChange: async () => { state.logCalls++; },
+    module: { exports: null }
+  };
+  vm.runInNewContext(callbackFrom(pageSource, 'markAbilityReviewed'), context);
+  await context.module.exports({ id: 'a' });
+  assert.equal(db.get('a'), true);
+  assert.deepEqual(state.chapterContent[0].abilities.map(({ reviewed }) => reviewed), [true, false]);
+  assert.equal(state.logCalls, 1);
+
+  context.setBookAbilityReviewed = async () => { throw new Error('Database rejected the write'); };
+  await assert.rejects(context.module.exports({ id: 'b' }), /Database rejected/);
+  assert.equal(db.get('b'), false);
+  assert.equal(state.chapterContent[0].abilities[1].reviewed, false);
 });

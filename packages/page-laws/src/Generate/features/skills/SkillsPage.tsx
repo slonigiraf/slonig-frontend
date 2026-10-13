@@ -348,7 +348,6 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
   const [isReviewModeOpen, setIsReviewModeOpen] = useState(() => getSessionReviewMode(book.id, view));
   const [reviewAbilityIds, setReviewAbilityIds] = useState<readonly string[] | undefined>(() => getSessionReviewAbilityIds(book.id, view));
   const activeReviewSessionKey = reviewSessionKey(book.id, view);
-  const reviewNavigationSessionKey = `${activeReviewSessionKey}-navigation`;
   const reviewScopeSessionKey = `${activeReviewSessionKey}-scope`;
 
   // A mounted Skills page can switch books or views without being remounted.
@@ -2206,7 +2205,6 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
 
   const startAbilityReview = useCallback((): void => {
     try {
-      sessionStorage.removeItem(reviewNavigationSessionKey);
       sessionStorage.removeItem(reviewScopeSessionKey);
       sessionStorage.setItem(activeReviewSessionKey, 'open');
     } catch {
@@ -2214,12 +2212,11 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
     }
     setReviewAbilityIds(undefined);
     setIsReviewModeOpen(true);
-  }, [activeReviewSessionKey, reviewNavigationSessionKey, reviewScopeSessionKey]);
+  }, [activeReviewSessionKey, reviewScopeSessionKey]);
 
   const closeAbilityReview = useCallback((): void => {
     try {
       sessionStorage.removeItem(activeReviewSessionKey);
-      sessionStorage.removeItem(reviewNavigationSessionKey);
       sessionStorage.removeItem(reviewScopeSessionKey);
     } catch {
       // Closing Review mode must work even without session storage.
@@ -2227,11 +2224,23 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
     setReviewAbilityIds(undefined);
     setIsReviewModeOpen(false);
     refreshContent();
-  }, [activeReviewSessionKey, refreshContent, reviewNavigationSessionKey, reviewScopeSessionKey]);
+  }, [activeReviewSessionKey, refreshContent, reviewScopeSessionKey]);
 
   const markAbilityReviewed = useCallback(async (record: StoredAbility): Promise<void> => {
+    // IndexedDB is the source of truth: only update the loaded snapshot after
+    // the write succeeds. This is not a second review-status store.
     await setBookAbilityReviewed(book.id, record.id, true);
-    await onAbilityLogChange?.();
+    setChapterContent((previous) => previous.map((chapter) => ({
+      ...chapter,
+      abilities: chapter.abilities.map((ability) => ability.id === record.id ? { ...ability, reviewed: true } : ability)
+    })));
+    // A failed secondary log refresh must not turn a successful DB commit into
+    // an apparent failed review (and leave the user on an already-saved item).
+    try {
+      await onAbilityLogChange?.();
+    } catch (error) {
+      console.error('Unable to refresh the Ability change log after review:', error);
+    }
   }, [book.id, onAbilityLogChange]);
 
   const openRereviewDialog = useCallback((): void => {
@@ -2264,7 +2273,6 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
         abilities: chapter.abilities.map((ability) => resetIds.has(ability.id) ? { ...ability, reviewed: false } : ability)
       })));
       try {
-        sessionStorage.removeItem(reviewNavigationSessionKey);
         sessionStorage.setItem(reviewScopeSessionKey, JSON.stringify(ids));
         sessionStorage.setItem(activeReviewSessionKey, 'open');
       } catch {
@@ -2280,13 +2288,12 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
     } finally {
       setIsResettingReview(false);
     }
-  }, [activeReviewSessionKey, book.id, chapterContent, isResettingReview, refreshContent, rereviewChapterIndexes, reviewNavigationSessionKey, reviewScopeSessionKey]);
+  }, [activeReviewSessionKey, book.id, chapterContent, isResettingReview, refreshContent, rereviewChapterIndexes, reviewScopeSessionKey]);
 
   return <StyledSkills className={pipelineOnly ? 'pipelineOnly' : undefined}>
     {isReviewModeOpen && <AbilityReviewMode
       chapters={chapterContent}
       key={activeReviewSessionKey}
-      navigationSessionKey={reviewNavigationSessionKey}
       isBusy={isBusy || externalSplitQueueBusy}
       isLoading={isReviewDataLoading}
       hasLoadError={isReviewDataLoadFailed}

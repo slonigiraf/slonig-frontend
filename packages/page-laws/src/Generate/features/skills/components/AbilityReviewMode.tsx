@@ -17,7 +17,6 @@ interface Props {
   isBusy: boolean;
   isLoading: boolean;
   hasLoadError: boolean;
-  navigationSessionKey: string;
   onCancelFix?: (id: string) => Promise<void>;
   onClose: () => void;
   onContentChange: () => void;
@@ -29,43 +28,12 @@ interface Props {
   reviewAbilityIds?: readonly string[];
 }
 
-interface ReviewNavigationState {
-  historyIndex: number;
-  skippedIds: string[];
-  visitedIds: string[];
-}
-
-function getReviewNavigationState (sessionKey: string): ReviewNavigationState {
-  const empty = { historyIndex: 0, skippedIds: [], visitedIds: [] };
-
-  try {
-    const raw = sessionStorage.getItem(sessionKey);
-    if (!raw) return empty;
-    const parsed: unknown = JSON.parse(raw);
-    if (!parsed || typeof parsed !== 'object') return empty;
-    const state = parsed as Partial<ReviewNavigationState>;
-    if (!Array.isArray(state.visitedIds) || !Array.isArray(state.skippedIds)) return empty;
-    const visitedIds = state.visitedIds.filter((id): id is string => typeof id === 'string');
-    const skippedIds = state.skippedIds.filter((id): id is string => typeof id === 'string');
-    const historyIndex = typeof state.historyIndex === 'number' && Number.isSafeInteger(state.historyIndex)
-      ? Math.max(0, Math.min(state.historyIndex, visitedIds.length))
-      : 0;
-
-    return { historyIndex, skippedIds, visitedIds };
-  } catch {
-    return empty;
-  }
-}
-
 /** Book-wide sequential review. Nothing is silently approved at a chapter boundary. */
-export default function AbilityReviewMode ({ chapters, hasLoadError, isBusy, isLoading, navigationSessionKey, onCancelFix, onClose, onContentChange, onError, onQueueFix, onQueueSplit, onReviewed, queuedItems, reviewAbilityIds }: Props): React.ReactElement {
-  const savedNavigation = useMemo(() => getReviewNavigationState(navigationSessionKey), [navigationSessionKey]);
-  const [reviewedIds, setReviewedIds] = useState<Set<string>>(() => new Set());
-  const [skippedIds, setSkippedIds] = useState<Set<string>>(() => new Set(savedNavigation.skippedIds));
-  // Keep previous navigation (including reviewed items) when the tab reloads.
-  // Moving back to an item never undoes its saved review status.
-  const [visitedIds, setVisitedIds] = useState<string[]>(() => savedNavigation.visitedIds);
-  const [historyIndex, setHistoryIndex] = useState(() => savedNavigation.historyIndex);
+export default function AbilityReviewMode ({ chapters, hasLoadError, isBusy, isLoading, onCancelFix, onClose, onContentChange, onError, onQueueFix, onQueueSplit, onReviewed, queuedItems, reviewAbilityIds }: Props): React.ReactElement {
+  // Review status belongs to IndexedDB. Only keep the ephemeral Back/Next
+  // navigation trail here; a reload resumes at the first unreviewed Ability.
+  const [visitedIds, setVisitedIds] = useState<string[]>([]);
+  const [historyIndex, setHistoryIndex] = useState(0);
   const [saving, setSaving] = useState(false);
   const contentRef = useRef<HTMLElement>(null);
   const entries = useMemo(() => {
@@ -77,24 +45,14 @@ export default function AbilityReviewMode ({ chapters, hasLoadError, isBusy, isL
         chapter, chapterIndex, concept: concepts.find(({ id }) => record.moduleId.endsWith(`-concept-${id}`)), record
       })));
   }, [chapters, reviewAbilityIds]);
-  const pending = entries.filter(({ record }) => !record.reviewed && !reviewedIds.has(record.id));
-  const current = historyIndex < visitedIds.length
+  // `chapters` is the latest IndexedDB snapshot provided by SkillsPage.
+  // Never maintain a second, independent set of reviewed IDs.
+  const pending = entries.filter(({ record }) => !record.reviewed);
+  const current = (historyIndex < visitedIds.length
     ? entries.find(({ record }) => record.id === visitedIds[historyIndex])
-    : pending.find(({ record }) => !skippedIds.has(record.id));
-  const isCurrentReviewed = Boolean(current && (current.record.reviewed || reviewedIds.has(current.record.id)));
+    : undefined) ?? pending[0];
+  const isCurrentReviewed = Boolean(current?.record.reviewed);
   const reviewedCount = entries.length - pending.length;
-
-  // Persist the current Ability, skipped items, and Back history on every
-  // navigation so a refresh resumes at the same point in the review pass.
-  useEffect(() => {
-    try {
-      sessionStorage.setItem(navigationSessionKey, JSON.stringify({
-        historyIndex, skippedIds: [...skippedIds], visitedIds
-      }));
-    } catch {
-      // Browsers may block session storage; Review mode remains usable.
-    }
-  }, [historyIndex, navigationSessionKey, skippedIds, visitedIds]);
 
   useEffect(() => {
     const previousOverflow = document.body.style.overflow;
@@ -115,7 +73,6 @@ export default function AbilityReviewMode ({ chapters, hasLoadError, isBusy, isL
     setSaving(true);
     try {
       await onReviewed(current.record);
-      setReviewedIds((previous) => new Set(previous).add(current.record.id));
       advance();
     } catch (error) {
       onError(error instanceof Error ? error.message : 'Unable to save this review.');
@@ -137,9 +94,8 @@ export default function AbilityReviewMode ({ chapters, hasLoadError, isBusy, isL
     try {
       await onQueueFix(record, instructions);
       try {
-        if (!record.reviewed && !reviewedIds.has(record.id)) {
+        if (!record.reviewed) {
           await onReviewed(record);
-          setReviewedIds((previous) => new Set(previous).add(record.id));
         }
         if (current?.record.id === record.id) advance();
       } catch (error) {
@@ -148,7 +104,7 @@ export default function AbilityReviewMode ({ chapters, hasLoadError, isBusy, isL
     } finally {
       setSaving(false);
     }
-  }, [advance, current?.record.id, onError, onQueueFix, onReviewed, reviewedIds]);
+  }, [advance, current?.record.id, onError, onQueueFix, onReviewed]);
 
   // Space reviews an unreviewed Ability, or follows Next on a reviewed or
   // queued-for-AI-fix Ability. Leave typing and native controls alone.
@@ -292,9 +248,8 @@ export default function AbilityReviewMode ({ chapters, hasLoadError, isBusy, isL
           />
         </AbilityConceptCard>
       </> : <div className='abilityReviewDone'>
-        <h3>{entries.length === 0 && reviewAbilityIds !== undefined ? 'No Abilities in the selected chapters.' : pending.length === 0 ? (reviewAbilityIds === undefined ? 'Entire book reviewed!' : 'Selected chapters reviewed!') : 'You have reached the end of this review pass.'}</h3>
-        <p>{pending.length === 0 ? (reviewAbilityIds === undefined ? 'Every Ability has been marked Reviewed.' : 'The selected chapters have no Abilities left to review.') : `${pending.length} Ability${pending.length === 1 ? ' is' : 'ies are'} still awaiting review.`}</p>
-        {pending.length > 0 && <Button icon='redo' label='Review remaining' onClick={() => setSkippedIds(new Set<string>())} />}
+        <h3>{entries.length === 0 && reviewAbilityIds !== undefined ? 'No Abilities in the selected chapters.' : (reviewAbilityIds === undefined ? 'Entire book reviewed!' : 'Selected chapters reviewed!')}</h3>
+        <p>{reviewAbilityIds === undefined ? 'Every Ability has been marked Reviewed.' : 'The selected chapters have no Abilities left to review.'}</p>
         <Button icon='check' label='Close' onClick={onClose} />
       </div>}
     </main>

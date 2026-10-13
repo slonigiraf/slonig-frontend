@@ -37,7 +37,7 @@ function extractCallback (name, context) {
   return sandbox.module.exports;
 }
 
-function queueHarness ({ failsQueue = false, failsReview = false, isAlreadyReviewed = false, reviewedLocally = false } = {}) {
+function queueHarness ({ failsQueue = false, failsReview = false, isAlreadyReviewed = false } = {}) {
   const record = { id: 'first', reviewed: isAlreadyReviewed };
   const events = [];
   let releaseQueue;
@@ -58,8 +58,6 @@ function queueHarness ({ failsQueue = false, failsReview = false, isAlreadyRevie
       if (failsReview) throw new Error('Review failed');
       events.push('reviewed');
     },
-    reviewedIds: new Set(reviewedLocally ? ['first'] : []),
-    setReviewedIds: (updater) => { ctx.reviewedIds = updater(ctx.reviewedIds); },
     setSaving: (saving) => events.push(saving ? 'saving' : 'idle'),
     useCallback: (callback) => callback
   };
@@ -67,13 +65,12 @@ function queueHarness ({ failsQueue = false, failsReview = false, isAlreadyRevie
 }
 
 test('Fix with AI queues, marks the Ability reviewed, then moves one forward', async () => {
-  const { action, events, record, releaseQueue, ctx } = queueHarness();
+  const { action, events, record, releaseQueue } = queueHarness();
   const operation = action(record, { overall: 'Fix the image' });
   assert.deepEqual(events, ['saving', 'queue']);
   releaseQueue();
   await operation;
   assert.deepEqual(events, ['saving', 'queue', 'queued', 'review', 'reviewed', 'advance', 'idle']);
-  assert.equal(ctx.reviewedIds.has('first'), true);
 });
 
 test('Failed scheduling cannot mark reviewed or advance', async () => {
@@ -85,12 +82,11 @@ test('Failed scheduling cannot mark reviewed or advance', async () => {
 });
 
 test('Failed review save keeps Ability visible, reports the error, and allows retry via Next', async () => {
-  const { action, events, record, releaseQueue, ctx } = queueHarness({ failsReview: true });
+  const { action, events, record, releaseQueue } = queueHarness({ failsReview: true });
   const operation = action(record, {});
   releaseQueue();
   await operation;
   assert.deepEqual(events, ['saving', 'queue', 'queued', 'review', 'error:Review failed', 'idle']);
-  assert.equal(ctx.reviewedIds.has('first'), false);
 });
 
 test('Rescheduling an already-reviewed Ability advances without reviewing twice', async () => {
@@ -142,4 +138,35 @@ test('Space follows Next for queued fixes, persisting review when not previously
     assert.equal(prevented, true);
     assert.deepEqual(events, alreadyReviewed ? ['advance'] : ['review', 'advance']);
   }
+});
+
+function evaluate (name, context) {
+  const declaration = findNode((node) => ts.isVariableDeclaration(node) && node.name.getText(ast) === name);
+  const sandbox = { module: { exports: null }, ...context };
+  vm.runInNewContext(compile(declaration.initializer.getText(ast)), sandbox);
+  return sandbox.module.exports;
+}
+
+test('The next Ability and progress come exclusively from IndexedDB-backed reviewed flags', () => {
+  const entries = [
+    { record: { id: 'a', reviewed: true } },
+    { record: { id: 'b', reviewed: false } },
+    { record: { id: 'c', reviewed: false } }
+  ];
+  const pending = evaluate('pending', { entries });
+  assert.deepEqual(Array.from(pending, ({ record }) => record.id), ['b', 'c']);
+  assert.equal(evaluate('reviewedCount', { entries, pending }), 1);
+  assert.equal(evaluate('current', { entries, pending, historyIndex: 0, visitedIds: [] }).record.id, 'b');
+
+  // A missing/deleted historical ID must not strand the user on the done screen.
+  assert.equal(evaluate('current', { entries, pending, historyIndex: 0, visitedIds: ['deleted'] }).record.id, 'b');
+  // Going Back still works within the current session, including reviewed items.
+  assert.equal(evaluate('current', { entries, pending, historyIndex: 0, visitedIds: ['a'] }).record.id, 'a');
+
+  entries[1].record.reviewed = true;
+  const remaining = evaluate('pending', { entries });
+  assert.deepEqual(Array.from(remaining, ({ record }) => record.id), ['c']);
+  assert.equal(evaluate('current', { entries, pending: remaining, historyIndex: 1, visitedIds: ['b'] }).record.id, 'c');
+  assert.equal(evaluate('reviewedCount', { entries, pending: remaining }), 2);
+  assert.doesNotMatch(source, /reviewedIds|setReviewedIds|sessionStorage|navigationSessionKey|skippedIds/);
 });
