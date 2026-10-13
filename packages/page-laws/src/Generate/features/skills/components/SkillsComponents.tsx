@@ -193,13 +193,14 @@ function cloneAbility (ability: GeneratedAbility): GeneratedAbility {
   return { ...ability, q: ability.q.map((exercise) => ({ ...exercise })) };
 }
 
-export function AbilityCard ({ hideReviewedIndicator = false, isBusy = false, queuedFixItemId, isQueuedForSplit = false, onDeleted, onError, onQueueFix, onCancelFix, onSplit, onReplaced, record, visualIssues }: { hideReviewedIndicator?: boolean; isBusy?: boolean; queuedFixItemId?: string; isQueuedForSplit?: boolean; onDeleted: () => void; onError: (message: string) => void; onQueueFix?: (record: StoredAbility, instructions: AbilityFixInstructions) => Promise<void>; onCancelFix?: (itemId: string) => Promise<void>; onSplit: (record: StoredAbility) => void; onReplaced?: (oldId: string, nextId: string) => void; record: StoredAbility; visualIssues?: Record<string, string[]> }): React.ReactElement {
+export function AbilityCard ({ hideReviewedIndicator = false, isBusy = false, queuedFixItemId, scheduledWorkItemId, isQueuedForSplit = false, onDeleted, onError, onQueueFix, onCancelFix, onSplit, onReplaced, record, visualIssues }: { hideReviewedIndicator?: boolean; isBusy?: boolean; queuedFixItemId?: string; scheduledWorkItemId?: string; isQueuedForSplit?: boolean; onDeleted: () => void; onError: (message: string) => void; onQueueFix?: (record: StoredAbility, instructions: AbilityFixInstructions) => Promise<void>; onCancelFix?: (itemId: string) => Promise<void>; onSplit: (record: StoredAbility) => void; onReplaced?: (oldId: string, nextId: string) => void; record: StoredAbility; visualIssues?: Record<string, string[]> }): React.ReactElement {
   const [isFixDialogOpen, setIsFixDialogOpen] = useState(false);
   const [showDetailedFixForm, setShowDetailedFixForm] = useState(false);
   const [fixInstructions, setFixInstructions] = useState<AbilityFixInstructions>(emptyAbilityFixInstructions);
   const [isScheduling, setIsScheduling] = useState(false);
   const [isCancellingFix, setIsCancellingFix] = useState(false);
   const isQueuedForFix = queuedFixItemId !== undefined;
+  const cancellableWorkItemId = scheduledWorkItemId ?? queuedFixItemId;
   const [isEditing, setIsEditing] = useState(false);
   const [editingExerciseIndex, setEditingExerciseIndex] = useState<number | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -283,12 +284,6 @@ export function AbilityCard ({ hideReviewedIndicator = false, isBusy = false, qu
       onDeleted();
     }
   }, [onDeleted, record]);
-  const openEdit = useCallback((): void => {
-    setDraft(record.ability ? cloneAbility(record.ability) : null);
-    setRawDraft(record.content);
-    setEditingExerciseIndex(null);
-    setIsEditing(true);
-  }, [record.ability, record.content]);
   const openExerciseEdit = useCallback((exerciseIndex: number): void => {
     if (!record.ability?.q[exerciseIndex]) return;
 
@@ -370,16 +365,16 @@ export function AbilityCard ({ hideReviewedIndicator = false, isBusy = false, qu
   }, [fixInstructions, onError, onQueueFix, record]);
 
   const cancelFix = useCallback(async (): Promise<void> => {
-    if (!queuedFixItemId || !onCancelFix) return;
+    if (!cancellableWorkItemId || !onCancelFix) return;
     setIsCancellingFix(true);
     try {
-      await onCancelFix(queuedFixItemId);
+      await onCancelFix(cancellableWorkItemId);
     } catch (error) {
       onError(error instanceof Error ? error.message : 'Unable to cancel the scheduled Ability correction.');
     } finally {
       setIsCancellingFix(false);
     }
-  }, [onCancelFix, onError, queuedFixItemId]);
+  }, [cancellableWorkItemId, onCancelFix, onError]);
 
   const split = useCallback((): void => {
     try {
@@ -397,9 +392,8 @@ export function AbilityCard ({ hideReviewedIndicator = false, isBusy = false, qu
       <ItemActionsMenu
         actions={[
           { label: isQueuedForFix ? 'Edit scheduled Fix Ability' : 'Fix Ability', isDisabled: !onQueueFix || isBusy || isProcessing || isSaving, onClick: () => { void openFix().catch((error: unknown) => onError(error instanceof Error ? error.message : String(error))); } },
-          ...(isQueuedForFix ? [{ label: 'Cancel fixing', isDisabled: !onCancelFix || isBusy || isProcessing || isSaving, onClick: () => { void cancelFix(); } }] : []),
+          ...(cancellableWorkItemId ? [{ label: 'Cancel fixing', isDisabled: !onCancelFix || isBusy || isProcessing || isSaving, onClick: () => { void cancelFix(); } }] : []),
           { label: isQueuedForSplit ? 'Remove from split queue' : 'Split', isDisabled: !hasLinkedConcept || isBusy || isProcessing || isSaving || isEditing, onClick: split },
-          { label: 'Edit', isDisabled: isBusy || isProcessing, onClick: openEdit },
           { label: 'Delete', isDestructive: true, isDisabled: isBusy || isProcessing || isSaving, onClick: remove }
         ]}
         label='Ability'
@@ -512,7 +506,7 @@ export function AbilityCard ({ hideReviewedIndicator = false, isBusy = false, qu
                     disabled={isSaving}
                     onChange={({ target }) => updateDraftExercise(exerciseIndex, 'p', target.value)}
                     rows={4}
-                    value={exercise.p}
+                    value={exercise.p ?? ''}
                   />
                 </label>
                 <label>

@@ -1164,6 +1164,7 @@ export function BookReaderView ({ controller }: Props): React.ReactElement {
         workQueueItems={workQueueItems}
         onQueueSplit={queueSplitAbility}
         onQueueFix={queueFixAbility}
+        onCancelFix={cancelQueuedWorkItem}
         onWorkQueueItemComplete={onWorkQueueItemComplete}
         onRemoveWorkQueueItem={cancelQueuedWorkItem}
         removingWorkQueueItemId={removingWorkQueueItemId}

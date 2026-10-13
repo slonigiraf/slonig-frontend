@@ -9,6 +9,7 @@ import { Button, Spinner } from '@polkadot/react-components';
 import type { StoredAbility } from '../../../book/application/abilities/abilityProcessing.js';
 import type { ChapterContent } from '../SkillsTypes.js';
 import AbilityConceptCard from './AbilityConceptCard.js';
+import { queuedAbilityWorkRecord } from './queuedAbilityWorkLabel.js';
 import { AbilityCard } from './SkillsComponents.js';
 import { StyledSkills } from '../SkillsStyles.js';
 
@@ -27,10 +28,11 @@ interface Props {
   onReviewed: (record: StoredAbility) => Promise<void>;
   queuedItems: readonly BookAbilityWorkItem[];
   reviewAbilityIds?: readonly string[];
+  allowQueuedReview?: boolean;
 }
 
 /** Book-wide sequential review. Nothing is silently approved at a chapter boundary. */
-export default function AbilityReviewMode ({ chapters, hasLoadError, isBusy, isLoading, onCancelFix, onClose, onContentChange, onAbilityReplaced, onError, onQueueFix, onQueueSplit, onReviewed, queuedItems, reviewAbilityIds }: Props): React.ReactElement {
+export default function AbilityReviewMode ({ allowQueuedReview = false, chapters, hasLoadError, isBusy, isLoading, onCancelFix, onClose, onContentChange, onAbilityReplaced, onError, onQueueFix, onQueueSplit, onReviewed, queuedItems, reviewAbilityIds }: Props): React.ReactElement {
   // Review status belongs to IndexedDB. Only keep the ephemeral Back/Next
   // navigation trail here; a reload resumes at the first unreviewed Ability.
   const [visitedIds, setVisitedIds] = useState<string[]>([]);
@@ -91,9 +93,20 @@ export default function AbilityReviewMode ({ chapters, hasLoadError, isBusy, isL
     onAbilityReplaced?.(oldId, nextId);
   }, [onAbilityReplaced]);
 
-  const queuedFixId = current && queuedItems.find((item) => item.kind === 'fix' && item.recordId === current.record.id)?.id;
+  // Rereviewing scheduled work must expose cancellation for *every* queued
+  // Ability, including splits and fixes whose content-addressed ID changed.
+  // Resolve against the same live Ability snapshot used to build the review scope.
+  const matchingQueuedItems = allowQueuedReview && current
+    ? queuedItems.filter((item) => queuedAbilityWorkRecord(item, chapters)?.id === current.record.id)
+    : [];
+  const queuedFixId = current && (allowQueuedReview
+    ? matchingQueuedItems.find((item) => item.kind === 'fix')
+    : queuedItems.find((item) => item.kind === 'fix' && item.recordId === current.record.id))?.id;
   const queuedSplit = current && queuedItems.some((item) => item.kind === 'split' && item.conceptId === current.concept?.id);
-  const isNextAction = isCurrentReviewed || Boolean(queuedFixId);
+  // Prefer cancelling an existing fix before an accompanying split. Once the
+  // queue refreshes, another pending job for this Ability can be cancelled.
+  const scheduledWorkItemId = matchingQueuedItems.find((item) => item.kind === 'fix')?.id ?? matchingQueuedItems[0]?.id;
+  const isNextAction = isCurrentReviewed || (Boolean(queuedFixId) && !allowQueuedReview);
 
   // Scheduling an AI fix is a review decision. Only advance once scheduling
   // and saving the review have succeeded; a failed review can still be
@@ -133,14 +146,14 @@ export default function AbilityReviewMode ({ chapters, hasLoadError, isBusy, isL
         return;
       }
 
-      if (isBusy || queuedSplit) return;
+      if (isBusy || (queuedSplit && !allowQueuedReview)) return;
       event.preventDefault();
       void markReviewed();
     };
 
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [advance, current, hasLoadError, isBusy, isCurrentReviewed, isLoading, isNextAction, markReviewed, queuedSplit, saving]);
+  }, [advance, allowQueuedReview, current, hasLoadError, isBusy, isCurrentReviewed, isLoading, isNextAction, markReviewed, queuedSplit, saving]);
 
   // Calculate a shared *maximum* height for question/answer visuals; actual
   // dimensions preserve each image's aspect ratio. Simple exercises should
@@ -223,7 +236,7 @@ export default function AbilityReviewMode ({ chapters, hasLoadError, isBusy, isL
           }
         }} />
         {!isLoading && !hasLoadError && current && <>
-          <Button className='abilityReviewReviewedButton' icon={isNextAction ? 'arrow-right' : 'check'} isDisabled={saving || (!isNextAction && (isBusy || Boolean(queuedSplit)))} label={saving ? 'Saving…' : isNextAction ? 'Next' : 'Reviewed'} onClick={() => {
+          <Button className='abilityReviewReviewedButton' icon={isNextAction ? 'arrow-right' : 'check'} isDisabled={saving || (!isNextAction && (isBusy || (Boolean(queuedSplit) && !allowQueuedReview)))} label={saving ? 'Saving…' : isNextAction ? 'Next' : 'Reviewed'} onClick={() => {
             // Let the following Space press use review navigation rather than
             // activating the previously focused button again.
             if (document.activeElement instanceof HTMLButtonElement) document.activeElement.blur();
@@ -245,13 +258,14 @@ export default function AbilityReviewMode ({ chapters, hasLoadError, isBusy, isL
         <p>The review status could not be verified. Retry loading the book.</p>
         <Button icon='redo' label='Retry' onClick={onContentChange} />
       </div> : current ? <>
-        {queuedFixId && <p className='abilityReviewPending'>An AI fix is scheduled. Select Next to continue; review the updated Ability after processing.</p>}
-        {!queuedFixId && queuedSplit && <p className='abilityReviewPending'>This Ability has a pending AI job. Review it after the job finishes.</p>}
+        {queuedFixId && <p className='abilityReviewPending'>{allowQueuedReview ? 'An AI fix is scheduled. Review this Ability before running the job.' : 'An AI fix is scheduled. Select Next to continue; review the updated Ability after processing.'}</p>}
+        {!queuedFixId && queuedSplit && <p className='abilityReviewPending'>{allowQueuedReview ? 'An AI split is scheduled. Review this Ability before running the job.' : 'This Ability has a pending AI job. Review it after the job finishes.'}</p>}
         <AbilityConceptCard key={current.record.id} concept={current.concept} isSingleExercise={current.record.ability?.q.length === 1}>
           <AbilityCard
             hideReviewedIndicator
             isBusy={isBusy || saving}
             queuedFixItemId={queuedFixId}
+            scheduledWorkItemId={scheduledWorkItemId}
             isQueuedForSplit={Boolean(queuedSplit)}
             onCancelFix={onCancelFix}
             onDeleted={onContentChange}
@@ -263,8 +277,8 @@ export default function AbilityReviewMode ({ chapters, hasLoadError, isBusy, isL
           />
         </AbilityConceptCard>
       </> : <div className='abilityReviewDone'>
-        <h3>{entries.length === 0 && reviewAbilityIds !== undefined ? 'No Abilities in the selected chapters.' : (reviewAbilityIds === undefined ? 'Entire book reviewed!' : 'Selected chapters reviewed!')}</h3>
-        <p>{reviewAbilityIds === undefined ? 'Every Ability has been marked Reviewed.' : 'The selected chapters have no Abilities left to review.'}</p>
+        <h3>{entries.length === 0 && reviewAbilityIds !== undefined ? 'No Abilities in this review selection.' : (reviewAbilityIds === undefined ? 'Entire book reviewed!' : 'Selected Abilities reviewed!')}</h3>
+        <p>{reviewAbilityIds === undefined ? 'Every Ability has been marked Reviewed.' : 'The selected Abilities have all been reviewed.'}</p>
         <Button icon='check' label='Close' onClick={onClose} />
       </div>}
     </main>

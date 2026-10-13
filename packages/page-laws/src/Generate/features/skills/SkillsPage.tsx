@@ -44,6 +44,7 @@ import { ChapterTitleEditor } from './components/SkillsComponents.js';
 import SkillsContentView from './components/SkillsContentView.js';
 import AbilityReviewMode from './components/AbilityReviewMode.js';
 import QueuedAbilityWorkList from './components/QueuedAbilityWorkList.js';
+import { queuedAbilityReviewSelection } from './components/queuedAbilityWorkLabel.js';
 import SkillsControls from './components/SkillsControls.js';
 import SkillsReviewModals from './components/SkillsReviewModals.js';
 import { RereviewChapterSelector, StyledSkills } from './SkillsStyles.js';
@@ -328,6 +329,18 @@ function getSessionReviewAbilityIds (bookId: number, view: SkillsView): string[]
   }
 }
 
+// Only a rereview session started from the scheduled queue permits reviewing
+// queued Fix/Split Abilities before those jobs run.
+function getSessionScheduledRereview (bookId: number, view: SkillsView): boolean {
+  try {
+    const key = reviewSessionKey(bookId, view);
+
+    return sessionStorage.getItem(key) === 'open' && sessionStorage.getItem(`${key}-scheduled`) === 'open';
+  } catch {
+    return false;
+  }
+}
+
 function getSessionChapter (bookId: number, view: SkillsView): number {
   try {
     const stored = Number(sessionStorage.getItem(chapterSessionKey(bookId, view)));
@@ -347,13 +360,16 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
   const [chapterIndex, setChapterIndex] = useState(() => getSessionChapter(book.id, view));
   const [isReviewModeOpen, setIsReviewModeOpen] = useState(() => getSessionReviewMode(book.id, view));
   const [reviewAbilityIds, setReviewAbilityIds] = useState<readonly string[] | undefined>(() => getSessionReviewAbilityIds(book.id, view));
+  const [isScheduledRereview, setIsScheduledRereview] = useState(() => getSessionScheduledRereview(book.id, view));
   const activeReviewSessionKey = reviewSessionKey(book.id, view);
   const reviewScopeSessionKey = `${activeReviewSessionKey}-scope`;
+  const scheduledReviewSessionKey = `${activeReviewSessionKey}-scheduled`;
 
   // A mounted Skills page can switch books or views without being remounted.
   useEffect(() => {
     setIsReviewModeOpen(getSessionReviewMode(book.id, view));
     setReviewAbilityIds(getSessionReviewAbilityIds(book.id, view));
+    setIsScheduledRereview(getSessionScheduledRereview(book.id, view));
   }, [book.id, view]);
 
   const [isRereviewDialogOpen, setIsRereviewDialogOpen] = useState(false);
@@ -2212,25 +2228,29 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
   const startAbilityReview = useCallback((): void => {
     try {
       sessionStorage.removeItem(reviewScopeSessionKey);
+      sessionStorage.removeItem(scheduledReviewSessionKey);
       sessionStorage.setItem(activeReviewSessionKey, 'open');
     } catch {
       // Review mode still works when browser storage is restricted.
     }
     setReviewAbilityIds(undefined);
+    setIsScheduledRereview(false);
     setIsReviewModeOpen(true);
-  }, [activeReviewSessionKey, reviewScopeSessionKey]);
+  }, [activeReviewSessionKey, reviewScopeSessionKey, scheduledReviewSessionKey]);
 
   const closeAbilityReview = useCallback((): void => {
     try {
       sessionStorage.removeItem(activeReviewSessionKey);
       sessionStorage.removeItem(reviewScopeSessionKey);
+      sessionStorage.removeItem(scheduledReviewSessionKey);
     } catch {
       // Closing Review mode must work even without session storage.
     }
     setReviewAbilityIds(undefined);
+    setIsScheduledRereview(false);
     setIsReviewModeOpen(false);
     refreshContent();
-  }, [activeReviewSessionKey, refreshContent, reviewScopeSessionKey]);
+  }, [activeReviewSessionKey, refreshContent, reviewScopeSessionKey, scheduledReviewSessionKey]);
 
   const handleReviewAbilityReplaced = useCallback((oldId: string, nextId: string): void => {
     // Rereview scopes contain stored Ability IDs, so replace the old ID in both
@@ -2295,11 +2315,13 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
       })));
       try {
         sessionStorage.setItem(reviewScopeSessionKey, JSON.stringify(ids));
+        sessionStorage.removeItem(scheduledReviewSessionKey);
         sessionStorage.setItem(activeReviewSessionKey, 'open');
       } catch {
         // Rereview still starts when browser storage is restricted.
       }
       setReviewAbilityIds(ids);
+      setIsScheduledRereview(false);
       setIsReviewModeOpen(true);
       refreshContent();
       const count = rereviewChapterIndexes.size;
@@ -2309,10 +2331,54 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
     } finally {
       setIsResettingReview(false);
     }
-  }, [activeReviewSessionKey, book.id, chapterContent, isResettingReview, refreshContent, rereviewChapterIndexes, reviewScopeSessionKey]);
+  }, [activeReviewSessionKey, book.id, chapterContent, isResettingReview, refreshContent, rereviewChapterIndexes, reviewScopeSessionKey, scheduledReviewSessionKey]);
+
+  const rereviewScheduled = useCallback(async (): Promise<void> => {
+    if (isResettingReview || isBusy || autoRunAll || externalAutoRunBusy || externalSplitQueueBusy) return;
+
+    const { ids, missing } = queuedAbilityReviewSelection(queuedWorkItems, chapterContent);
+
+    if (missing || !ids.length) {
+      setQueueRemovalError(missing
+        ? `${missing} scheduled Ability ${missing === 1 ? 'could not be found' : 'jobs could not be matched to Abilities'}. Remove or update those jobs before rereviewing.`
+        : 'No scheduled Abilities are available to rereview.');
+      return;
+    }
+
+    setQueueRemovalError('');
+    setIsResettingReview(true);
+    try {
+      await resetBookAbilityReviews(book.id, ids);
+      const resetIds = new Set(ids);
+
+      // Show the reset status immediately, even before IndexedDB reload finishes.
+      setChapterContent((previous) => previous.map((chapter) => ({
+        ...chapter,
+        abilities: chapter.abilities.map((ability) => resetIds.has(ability.id) ? { ...ability, reviewed: false } : ability)
+      })));
+      try {
+        sessionStorage.setItem(reviewScopeSessionKey, JSON.stringify(ids));
+        sessionStorage.setItem(scheduledReviewSessionKey, 'open');
+        sessionStorage.setItem(activeReviewSessionKey, 'open');
+      } catch {
+        // The in-memory scoped review still works without session storage.
+      }
+      setReviewAbilityIds(ids);
+      setIsScheduledRereview(true);
+      onCloseSplitQueueConfirmation?.();
+      setIsReviewModeOpen(true);
+      refreshContent();
+      setNotice(`${ids.length} scheduled ${ids.length === 1 ? 'Ability is' : 'Abilities are'} ready for rereview. Unscheduled Abilities are unchanged.`);
+    } catch (caught) {
+      setQueueRemovalError(caught instanceof Error ? caught.message : 'Unable to reset scheduled Ability review status.');
+    } finally {
+      setIsResettingReview(false);
+    }
+  }, [activeReviewSessionKey, autoRunAll, book.id, chapterContent, externalAutoRunBusy, externalSplitQueueBusy, isBusy, isResettingReview, onCloseSplitQueueConfirmation, queuedWorkItems, refreshContent, reviewScopeSessionKey, scheduledReviewSessionKey]);
 
   return <StyledSkills className={pipelineOnly ? 'pipelineOnly' : undefined}>
     {isReviewModeOpen && <AbilityReviewMode
+      allowQueuedReview={isScheduledRereview}
       chapters={chapterContent}
       key={activeReviewSessionKey}
       isBusy={isBusy || externalSplitQueueBusy}
@@ -2326,7 +2392,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
       onQueueFix={onQueueFix}
       onQueueSplit={onQueueSplit}
       onReviewed={markAbilityReviewed}
-      queuedItems={queuedFixItems}
+      queuedItems={isScheduledRereview ? queuedWorkItems : queuedFixItems}
       reviewAbilityIds={reviewAbilityIds}
     />}
     {isRereviewDialogOpen && <Modal header='Rereview Abilities' onClose={() => { if (!isResettingReview) setIsRereviewDialogOpen(false); }} size='small'>
@@ -2371,6 +2437,8 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
       <QueuedAbilityWorkList
         chapterContent={chapterContent}
         isBusy={isBusy || autoRunAll || externalAutoRunBusy || externalSplitQueueBusy}
+        isRereviewingScheduled={isResettingReview}
+        onRereviewScheduled={() => { void rereviewScheduled(); }}
         items={queuedWorkItems}
         onRemove={onRemoveWorkQueueItem ? (itemId) => {
           setQueueRemovalError('');

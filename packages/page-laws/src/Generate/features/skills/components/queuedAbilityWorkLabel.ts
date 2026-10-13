@@ -3,13 +3,37 @@
 
 import type { BookAbilityWorkItem } from '@slonigiraf/db';
 import type { ChapterContent } from '../SkillsTypes.js';
+import type { StoredAbility } from '../../../book/application/abilities/abilityProcessing.js';
+
+/** Resolve the queued Ability, including a unique Concept fallback after its ID changes. */
+export function queuedAbilityWorkRecord (item: BookAbilityWorkItem, chapters: readonly ChapterContent[]): StoredAbility | undefined {
+  const chapter = chapters.find(({ concepts }) => concepts.some(({ id }) => id === item.conceptId));
+  const records = chapter?.abilities.filter(({ moduleId }) => moduleId.endsWith(`-concept-${item.conceptId}`)) ?? [];
+
+  return records.find(({ id }) => id === item.recordId) ?? (records.length === 1 ? records[0] : undefined);
+}
+
+/** Gather the exact set of scheduled Abilities for a focused rereview pass.
+ * Do not silently replace an ambiguous/missing job with some other Ability. */
+export function queuedAbilityReviewSelection (items: readonly BookAbilityWorkItem[], chapters: readonly ChapterContent[]): { ids: string[]; missing: number } {
+  const ids = new Set<string>();
+  let missing = 0;
+
+  for (const item of items) {
+    const record = queuedAbilityWorkRecord(item, chapters);
+
+    if (record) ids.add(record.id);
+    else missing++;
+  }
+
+  return { ids: [...ids], missing };
+}
 
 /** Resolve human-readable queue entries from the current book snapshot. */
 export function queuedAbilityWorkLabel (item: BookAbilityWorkItem, chapters: readonly ChapterContent[]): { title: string; concept: string } {
   const chapter = chapters.find(({ concepts }) => concepts.some(({ id }) => id === item.conceptId));
   const concept = chapter?.concepts.find(({ id }) => id === item.conceptId);
-  const records = chapter?.abilities.filter(({ moduleId }) => moduleId.endsWith(`-concept-${item.conceptId}`)) ?? [];
-  const record = records.find(({ id }) => id === item.recordId) ?? (records.length === 1 ? records[0] : undefined);
+  const record = queuedAbilityWorkRecord(item, chapters);
   const conceptTitle = concept?.title?.trim() || `Concept ${item.conceptId}`;
   const title = record?.ability?.h?.trim() || conceptTitle;
 

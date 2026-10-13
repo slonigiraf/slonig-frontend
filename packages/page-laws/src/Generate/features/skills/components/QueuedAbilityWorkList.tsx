@@ -13,6 +13,8 @@ interface Props {
   isBusy: boolean;
   removingItemId?: string;
   onRemove?: (itemId: string) => void;
+  onRereviewScheduled?: () => void;
+  isRereviewingScheduled?: boolean;
 }
 
 const ScheduledActions = styled.section`
@@ -26,20 +28,23 @@ const ScheduledActions = styled.section`
     overflow-y: auto;
   }
   li {
-    align-items: center;
     border-top: 1px solid var(--border-table, #d4d4d5);
+    padding: 0.65rem 0;
+  }
+  .queuedAbilityWorkRow {
+    align-items: center;
     display: flex;
     gap: 0.75rem;
     justify-content: space-between;
-    padding: 0.65rem 0;
   }
-  li > div { min-width: 0; overflow-wrap: anywhere; }
+  .queuedAbilityWorkRow > div { min-width: 0; overflow-wrap: anywhere; }
   strong { display: block; }
   small { display: block; margin-top: 0.2rem; opacity: 0.75; }
-  .ui--Button { flex-shrink: 0; margin: 0; }
+  .queuedAbilityWorkRow .ui--Button { flex-shrink: 0; margin: 0; }
+  .queuedAbilityWorkActions { margin-top: 0.8rem; }
 `;
 
-export default function QueuedAbilityWorkList ({ chapterContent, isBusy, items, onRemove, removingItemId }: Props): React.ReactElement {
+export default function QueuedAbilityWorkList ({ chapterContent, isBusy, isRereviewingScheduled = false, items, onRemove, onRereviewScheduled, removingItemId }: Props): React.ReactElement {
   return <ScheduledActions aria-label='Scheduled Ability actions'>
     <h4>Scheduled actions ({items.length})</h4>
     {!items.length ? <p>No Ability actions scheduled.</p> : <ul>
@@ -48,19 +53,29 @@ export default function QueuedAbilityWorkList ({ chapterContent, isBusy, items, 
         const action = item.kind === 'fix' ? 'Fix Ability' : 'Split Ability';
 
         return <li key={item.id}>
-          <div>
-            <strong>{title}</strong>
-            <small>{action} · {concept}</small>
+          <div className='queuedAbilityWorkRow'>
+            <div>
+              <strong>{title}</strong>
+              <small>{action} · {concept}</small>
+            </div>
+            <Button
+              aria-label={`Delete scheduled ${action} for ${title}`}
+              icon='trash'
+              isDisabled={isBusy || !onRemove}
+              label={removingItemId === item.id ? 'Deleting…' : 'Delete'}
+              onClick={() => onRemove?.(item.id)}
+            />
           </div>
-          <Button
-            aria-label={`Delete scheduled ${action} for ${title}`}
-            icon='trash'
-            isDisabled={isBusy || !onRemove}
-            label={removingItemId === item.id ? 'Deleting…' : 'Delete'}
-            onClick={() => onRemove?.(item.id)}
-          />
         </li>;
       })}
     </ul>}
+    {!!items.length && <div className='queuedAbilityWorkActions'>
+      <Button
+        icon='redo'
+        isDisabled={isBusy || isRereviewingScheduled || !onRereviewScheduled}
+        label={isRereviewingScheduled ? 'Opening review…' : 'Rereview scheduled'}
+        onClick={() => onRereviewScheduled?.()}
+      />
+    </div>}
   </ScheduledActions>;
 }
