@@ -11,6 +11,21 @@ class TestRestore extends OperationService {
 }
 
 describe('restore cancellation vs failure', () => {
+  it('notifies both the import progress view and reminder watcher', () => {
+    const restore = new TestRestore();
+    const progressPhases = [];
+    const reminderPhases = [];
+    const unsubscribeProgress = restore.subscribe(({ phase }) => progressPhases.push(phase));
+    const unsubscribeReminder = restore.subscribe(({ phase }) => reminderPhases.push(phase));
+    restore.start();
+    assert.deepEqual(progressPhases, ['idle', 'validating']);
+    assert.deepEqual(reminderPhases, ['idle', 'validating']);
+    unsubscribeProgress();
+    restore.complete();
+    assert.deepEqual(progressPhases, ['idle', 'validating']);
+    assert.deepEqual(reminderPhases, ['idle', 'validating', 'restored']);
+    unsubscribeReminder();
+  });
   it('does not report spontaneous IndexedDB AbortError as user cancellation', () => {
     const restore = new TestRestore();
     restore.start();

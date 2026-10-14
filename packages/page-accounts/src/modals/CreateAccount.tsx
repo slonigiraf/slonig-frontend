@@ -19,6 +19,7 @@ import CreateAccountInputs from './CreateAccountInputs.js';
 import { storeSetting, SettingKey } from '@slonigiraf/db';
 import { useLocation } from 'react-router-dom';
 import { Confirmation, DBImport, useInfo, useLog } from '@slonigiraf/slonig-components';
+import type { OperationStatus } from '@slonigiraf/slonig-components';
 import { LanguageSelector } from '@polkadot/app-settings';
 import RestoringProgress from './RestoringProgress.js';
 
@@ -91,6 +92,7 @@ function Create({ className = '', onClose, onStatusChange, seed: propsSeed, type
   const { logEvent } = useLog();
   const [createNewConfirmationOpen, setCreateNewConfirmationOpen] = useState(false);
   const [isRestoringInProgress, setIsRestoringInProgress] = useState(false);
+  const [restoreStatus, setRestoreStatus] = useState<OperationStatus | null>(null);
 
   const _onCommit = useCallback(
     async () => {
@@ -126,8 +128,12 @@ function Create({ className = '', onClose, onStatusChange, seed: propsSeed, type
 
       <div className='ui--row'>
         {isImporting ? <DBImport
-          onFileSelect={() => setIsRestoringInProgress(true)}
+          onFileSelect={() => {
+            setRestoreStatus(null);
+            setIsRestoringInProgress(true);
+          }}
           onRestoreResult={() => setIsRestoringInProgress(false)}
+          onProgress={setRestoreStatus}
         /> :
           <CreateAccountInputs
             isFirstScreen={isFirstScreen}
@@ -184,7 +190,7 @@ function Create({ className = '', onClose, onStatusChange, seed: propsSeed, type
           setCreateNewConfirmationOpen(false);
           _onCommit();
         }} />}
-      {isRestoringInProgress && <RestoringProgress />}
+      {isRestoringInProgress && <RestoringProgress status={restoreStatus} />}
     </StyledDiv>
   );
 }

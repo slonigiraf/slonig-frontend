@@ -22,7 +22,8 @@ export function persistBackupStatus(status: OperationStatus, kind: string): void
   try { localStorage.setItem(STATUS_KEY_PREFIX + kind, JSON.stringify(status)); } catch { /* private storage unavailable */ }
 }
 export async function confirmBackupCompletion(): Promise<void> {
-  // This is deliberately NOT called on reminder dismissal or when a download is merely initiated.
+  // A launched browser download and a completed native save both count as backup
+  // completion. Dismissing the reminder does not count.
   await storeSetting(SettingKey.LAST_BACKUP_TIME, Date.now().toString());
 }
 
@@ -30,30 +31,30 @@ export abstract class OperationService {
   private readonly kind: 'backup' | 'restore';
   protected constructor(kind: 'backup' | 'restore') { this.kind = kind; }
   protected controller?: AbortController;
-  private listener?: StatusListener;
+  private readonly listeners = new Set<StatusListener>();
   private state: OperationStatus = {
     phase: 'idle', completed: 0, total: 0, unit: 'steps', message: '', warnings: [], updatedAt: Date.now()
   };
   get status(): OperationStatus { return this.state; }
   subscribe(listener: StatusListener): () => void {
-    this.listener = listener;
+    this.listeners.add(listener);
     listener(this.state);
-    return () => { if (this.listener === listener) this.listener = undefined; };
+    return () => { this.listeners.delete(listener); };
   }
   protected set(phase: OperationPhase, message: string, completed = 0, total = 0, unit: OperationStatus['unit'] = 'steps'): void {
     this.state = { ...this.state, phase, message, completed, total, unit, error: undefined, updatedAt: Date.now() };
-    this.listener?.(this.state);
+    for (const listener of this.listeners) listener(this.state);
     persistBackupStatus(this.state, this.kind);
   }
   protected warn(message: string): void {
     this.state = { ...this.state, warnings: [...this.state.warnings, message], updatedAt: Date.now() };
-    this.listener?.(this.state);
+    for (const listener of this.listeners) listener(this.state);
     persistBackupStatus(this.state, this.kind);
   }
   protected fail(error: unknown): void {
     const message = error instanceof Error ? error.message : String(error);
     this.state = { ...this.state, phase: this.controller?.signal.aborted ? 'cancelled' : 'error', error: message, message, updatedAt: Date.now() };
-    this.listener?.(this.state);
+    for (const listener of this.listeners) listener(this.state);
     persistBackupStatus(this.state, this.kind);
   }
   // Only a deliberate user action should cancel an active operation. An IndexedDB

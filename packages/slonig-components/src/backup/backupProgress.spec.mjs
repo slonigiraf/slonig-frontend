@@ -57,19 +57,25 @@ describe('Backup percent advances to saved completion without rereading archive'
     const timestamp = service.indexOf('await confirmBackupCompletion()', close);
     const success = service.indexOf("this.updateProgress('saved'", close);
     assert.ok(close !== -1 && timestamp > close && success > timestamp);
-    assert.match(service, /this\.updateProgress\('confirmed', .*'complete'\)/);
+    assert.match(service, /this\.updateProgress\('download-initiated', .*'complete'\)/);
     assert.match(view, /service\.status\.phase === 'saved'/);
-    assert.match(view, /showInfo\(t\(service\.status\.warnings\.length/);
-    assert.match(view, /Backup download started/);
+    assert.match(view, /showInfo\(service\.status\.warnings\.length\s*\? t\('Backup completed with warnings'\)/);
+    assert.match(view, /\? t\('Backup completed with warnings'\)\s*: t\('Backup completed'\)/);
+    assert.doesNotMatch(view, /Backup download started/);
+    assert.match(service, /this\.updateProgress\('download-initiated', 'Backup completed', 'complete'\)/);
+    assert.match(view, /showInfo\(service\.status\.warnings\.length/);
     assert.match(view, /setTimeout\(\(\) => setShowCompleted\(false\), 1200\)/);
     assert.doesNotMatch(view, /onClick=\{\(\) => service\.cancel\(\)\}/);
   });
-  it('does not treat a triggered fallback browser download as a completed save', async () => {
+  it('accepts a launched fallback download as completion to unlock deletion', async () => {
     const service = await code('backup/BackupService.ts');
-    const download = service.indexOf("this.updateProgress('download-initiated'");
-    const confirm = service.indexOf('async confirmFallbackDownload()');
-    assert.ok(download > 0 && confirm > download);
-    assert.doesNotMatch(service.slice(download, confirm), /confirmBackupCompletion\(\)/);
-    assert.match(service.slice(confirm), /await confirmBackupCompletion\(\)/);
+    const view = await code('DBExport.tsx');
+    const click = service.indexOf('link.click()');
+    const timestamp = service.indexOf('await confirmBackupCompletion()', click);
+    const success = service.indexOf("this.updateProgress('download-initiated'", click);
+    assert.ok(click > 0 && timestamp > click && success > timestamp);
+    assert.match(view, /service.status.phase === 'saved' \|\| service.status.phase === 'download-initiated'/);
+    assert.match(view, /onSuccess\(\)/);
+    assert.doesNotMatch(view, /confirmFallbackDownload|saveConfirmed/);
   });
 });

@@ -4,8 +4,8 @@
 /**
  * One monotone phase-weighted progress percentage for archive creation.
  * Percentages reflect recorded database rows and actual PDF bytes. The
- * progress indicator finishes at 100% only after the native save succeeds
- * (or the user confirms a browser download). The archive is not reread.
+ * progress indicator finishes at 100% after the native save succeeds
+ * or the fallback browser download is launched. The archive is not reread.
  */
 export type BackupProgressPhase = 'preparing' | 'database' | 'pdf' | 'finalizing' | 'complete';
 

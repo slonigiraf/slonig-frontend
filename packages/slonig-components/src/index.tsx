@@ -18,7 +18,7 @@ import QRWithShareAndCopy from './QRWithShareAndCopy.js';
 import SenderComponent from './SenderComponent.js';
 import DateInput from './DateInput.js';
 import SpanWithTags from './SpanWithTags.js';
-import DBImport from './DBImport.js';
+import DBImport, { useRestorePhase } from './DBImport.js';
 import DownloadQRButton from './DownloadQRButton.js';
 import DBExport from './DBExport.js';
 import Confirmation from './Confirmation.js';
@@ -34,7 +34,7 @@ export * from './constants.js';
 export { default as SVGButton } from './SVGButton.js';
 export { EventsQueueProvider, useEventsQueue, Penalties, DownloadQRButton, BlockchainSyncProvider, useBlockchainSync, TokenTransferProvider, useTokenTransfer, DateInput, SelectableList, SenderComponent, SpanWithTags, ResizableImage, ShareButton, ClipboardCopyButton, QRWithShareAndCopy, QrScannerComponent, ButtonWithLabelBelow, ScanQR, IpfsProvider, useIpfsContext, InfoProvider, useInfo, LogProvider, useLog };
 export { getIPFSContentIDForBytesAndPinIt, getIPFSBytesFromContentID, bnToSlonString, bnToSlonFloatOrNaN, createPeer, receiveWebRTCData, getQrWidth, saveToSessionStorage, loadFromSessionStorage, getIPFSContentIDAndPinIt, getKey, arrayBufferToBase64, base64ToArrayBuffer, decryptData, encryptData, LoginProvider, useLoginContext, keyForCid, nameFromKeyringPair, getBaseUrl, CODEC, getIPFSContentID, getIPFSDataFromContentID, digestFromCIDv1, getCIDFromBytes, storeEncryptedTextOnIPFS, retrieveDecryptedDataFromIPFS, parseJson }
-export { DBImport, DBExport, Confirmation };
+export { DBImport, DBExport, Confirmation, useRestorePhase };
 import { encodeAddress } from '@polkadot/keyring';
 import { hexToU8a } from '@polkadot/util';
 import type { ApiPromise } from '@polkadot/api';
@@ -562,3 +562,5 @@ export async function clearAllData(onSuccess: () => void, onError: (error: strin
     }
   }
 }
+
+export type { OperationStatus } from './backup/status.js';

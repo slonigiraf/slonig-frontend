@@ -22,7 +22,7 @@ describe('backup always includes every data category', () => {
     const service = await source('packages/slonig-components/src/backup/BackupService.ts');
     assert.doesNotMatch(view, /includeEverything/);
     assert.match(view, /service\.start\(currentPair\?\.address,/);
-    assert.match(service, /async start\(address\?: string, accountName\?: string\)/);
+    assert.match(service, /async start\(address\?: string, accountName\?: string, pickerDescription = 'Slonig backup archive'\)/);
     assert.doesNotMatch(service, /includeEverything/);
   });
   it('always writes full-policy metadata and streams database and PDFs', async () => {

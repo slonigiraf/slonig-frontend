@@ -12,6 +12,8 @@ import { decodeDatabaseRows, fromUtf8, type ArchiveMetadata } from './codec.js';
 import { PdfRestoreStaging } from './PdfModule.js';
 import { migrateBackupRows } from './migrations.js';
 import { OperationService } from './status.js';
+import { restorePercent, type RestoreProgressStage } from './restoreProgress.js';
+import type { OperationPhase } from './status.js';
 
 interface Footer { entries: number; rowCounts: Record<string, number>; pdfFiles: string[]; warnings: string[] }
 function validFooter(value: unknown): asserts value is Footer {
@@ -35,6 +37,10 @@ function validateMetadata(value: unknown): asserts value is ArchiveMetadata {
 
 export class RestoreService extends OperationService {
   constructor() { super('restore'); }
+  private updateProgress(phase: OperationPhase, message: string, stage: RestoreProgressStage, completed = 0, total = 1): void {
+    const percent = Math.max(this.status.completed, restorePercent(stage, completed, total));
+    this.set(phase, message, percent, 100, 'steps');
+  }
   async restore(file: File, onAccountRestored?: (address: string) => void): Promise<void> {
     const signal = this.begin();
     let worker: CompressionClient | undefined;
@@ -50,12 +56,13 @@ export class RestoreService extends OperationService {
     let committed = false;
     let rollbackFailed = false;
     let pdfAvailable = true;
+    let verifiedBytes = 0;
     try {
       // Reject unsupported extensions before reading or staging any archive data.
       assertSlonigBackupFile(file);
       worker = new CompressionClient();
-      this.set('validating', 'Reading and verifying archive');
-      for await (const entry of readArchive(file, worker, signal)) {
+      this.updateProgress('validating', 'Reading and verifying archive', 'archive');
+      for await (const entry of readArchive(file, worker, signal, (bytes) => { verifiedBytes = bytes; })) {
         if (!metadata && entry.kind !== 'metadata') throw new Error('Archive metadata must be first');
         if (entry.kind === 'metadata') {
           if (metadata) throw new Error('Duplicate metadata entry');
@@ -73,7 +80,6 @@ export class RestoreService extends OperationService {
           await stageRestoreBatch(operationId, entry.name, rows);
           seenTables.add(entry.name);
           rowCounts[entry.name] = (rowCounts[entry.name] ?? 0) + rows.length;
-          this.set('staging', `Staging ${entry.name}`, seenTables.size, metadata.tables.length, 'tables');
         } else if (entry.kind === 'pdf') {
           if (!metadata || metadata.policy !== 'everything' || !entry.name) throw new Error('Unexpected PDF entry');
           pdfNames.add(entry.name);
@@ -93,6 +99,12 @@ export class RestoreService extends OperationService {
           footer = parsed;
         }
         if (entry.kind !== 'footer') frames++;
+        // The archive reader reports only checksum-verified bytes. Advance
+        // after the corresponding database/PDF entry has actually been staged.
+        this.updateProgress(
+          entry.kind === 'db' || entry.kind === 'pdf' ? 'staging' : 'validating',
+          'Reading and restoring archive', 'archive', verifiedBytes, file.size
+        );
       }
       if (!metadata || !accounts || !footer || footer.entries !== frames ||
           seenTables.size !== metadata.tables.length ||
@@ -114,15 +126,18 @@ export class RestoreService extends OperationService {
         await pdfs.validate(names);
       }
       if (signal.aborted) throw new DOMException('Cancelled', 'AbortError');
-      this.set('committing', 'Applying staged accounts, PDFs and database transaction', 0, 3, 'steps');
+      this.updateProgress('committing', 'Applying staged accounts, PDFs and database transaction', 'commit', 0, 3);
       accounts.apply();
-      this.set('committing', 'Applying staged PDF files with rollback copies', 1, 3, 'steps');
+      this.updateProgress('committing', 'Applying staged PDF files with rollback copies', 'commit', 1, 3);
       if (pdfAvailable) await pdfs.apply(signal);
-      this.set('committing', 'Committing IndexedDB in one transaction', 2, 3, 'steps');
-      await commitRestoreStaging(operationId, metadata.tables, signal);
+      this.updateProgress('committing', 'Committing IndexedDB in one transaction', 'commit', 2, 3);
+      // Treat the archive the user already possesses as a completed backup.
+      // Record the restore time in the same atomic transaction as the restored
+      // settings so the reminder never reads the archived (potentially old) time.
+      await commitRestoreStaging(operationId, metadata.tables, signal, Date.now());
       committed = true;
       // No await between successful database commit and status transition.
-      this.set('restored', 'Restore committed successfully', 3, 3, 'steps');
+      this.updateProgress('restored', 'Restore committed successfully', 'complete');
       try { onAccountRestored?.(accounts.firstAddress); }
       catch (error) { this.warn(`Restore succeeded but selecting the account failed: ${String(error)}`); }
     } catch (error) {

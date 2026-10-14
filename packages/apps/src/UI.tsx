@@ -8,11 +8,11 @@ import Content from './Content/index.js';
 import Menu from './Menu/index.js';
 import ConnectingOverlay from './overlays/Connecting.js';
 import BottomMenu from './BottomMenu/index.js';
-import { AirdropResults, AppContainer, bnToSlonFloatOrNaN, BlockchainSyncProvider, fetchEconomy, useBooleanSettingValue, useInfo, useIpfsContext, useLog, useLoginContext, useSettingValue, useNumberSettingValue } from '@slonigiraf/slonig-components';
+import { AirdropResults, AppContainer, bnToSlonFloatOrNaN, BlockchainSyncProvider, fetchEconomy, useBooleanSettingValue, stringToNumber, useInfo, useIpfsContext, useLog, useLoginContext, useSettingValue, useNumberSettingValue, useRestorePhase } from '@slonigiraf/slonig-components';
 import { Spinner, styled } from '@polkadot/react-components';
 import { useTranslation } from './translate.js';
 import { useApi, useTheme } from '@polkadot/react-hooks';
-import { setSettingToTrue, SettingKey, storeSetting } from '@slonigiraf/db';
+import { getSetting, setSettingToTrue, SettingKey, storeSetting } from '@slonigiraf/db';
 import { useLocation } from 'react-router-dom';
 import CreateAccount from '@polkadot/app-accounts/modals/CreateAccount';
 import detectIncognito from 'detectincognitojs';
@@ -48,6 +48,26 @@ function UI({ className = '' }: Props): React.ReactElement<Props> {
   const botInUrl = queryParams.get('bot') != null;
   const [isProcessingAirdrop, setIsProcessingAirdrop] = useState(false);
   const [backupReminderDismissed, setBackupReminderDismissed] = useState(false);
+  // Restored keys can activate login before the database commit. Wait until
+  // restore is finished, then read the saved backup timestamp again. Tie the
+  // check to the restore phase so a previous async read can never briefly
+  // authorize the reminder on the first post-restore render.
+  const restorePhase = useRestorePhase();
+  const isRestoringBackup = restorePhase === 'validating' || restorePhase === 'staging' || restorePhase === 'committing';
+  const [loginBackupCheck, setLoginBackupCheck] = useState<{ address: string; timestamp: number; restorePhase: typeof restorePhase } | null>(null);
+  const loginAddress = isLoggedIn ? currentPair?.address : undefined;
+  useEffect(() => {
+    if (!loginAddress || isRestoringBackup) {
+      setLoginBackupCheck(null);
+      return;
+    }
+    let active = true;
+    setLoginBackupCheck(null);
+    void getSetting(SettingKey.LAST_BACKUP_TIME).then((value) => {
+      if (active) setLoginBackupCheck({ address: loginAddress, timestamp: stringToNumber(value) ?? 0, restorePhase });
+    }).catch((error) => console.error('Could not check backup timestamp:', error));
+    return () => { active = false; };
+  }, [loginAddress, restorePhase, isRestoringBackup]);
 
   const isLoginRequired = !isLoggedIn && !botInUrl;
   const isEconomyInitialized = useBooleanSettingValue(SettingKey.ECONOMY_INITIALIZED);
@@ -58,8 +78,13 @@ function UI({ className = '' }: Props): React.ReactElement<Props> {
   const lessonId = useSettingValue(SettingKey.LESSON);
   const lastBackup = useNumberSettingValue(SettingKey.LAST_BACKUP_TIME);
   const now = (new Date()).getTime();
-  const lastBackupMs = lastBackup === undefined ? 0 : lastBackup;
-  const shouldBackup = lastBackupMs !== null ? (now - lastBackupMs) > BACKUP_REQUIREMENT_PERIOD_MS : false;
+  // Never use an earlier timestamp check during a restore transition.
+  // The post-commit read is authoritative; live updates still track downloads.
+  const lastBackupMs = !isRestoringBackup && loginBackupCheck !== null &&
+    loginBackupCheck.address === loginAddress && loginBackupCheck.restorePhase === restorePhase
+    ? Math.max(loginBackupCheck.timestamp, lastBackup ?? 0)
+    : null;
+  const shouldBackup = lastBackupMs !== null && (now - lastBackupMs) > BACKUP_REQUIREMENT_PERIOD_MS;
   const [isIncognito, setIsIncognito] = useState<boolean | null>(null);
 
   const { currentVersion, updateAvailable, reloadNow } = useAppVersionReload({
@@ -187,8 +212,8 @@ function UI({ className = '' }: Props): React.ReactElement<Props> {
   }, [isAirdropCompatible, expectedAirdropAmount, recievedAirdropAmount, currentPair, showError, showNoConnectionToEconomyServerError, setIsProcessingAirdrop]);
 
 
-  // BackupService persists the timestamp only after the native save closes (or
-  // explicit confirmation of a browser download). Dismissal does not change it.
+  // BackupService persists the timestamp after a native save or after a browser
+  // download starts. Dismissing the reminder does not change it.
   const onBackup = useCallback(() => setBackupReminderDismissed(true), []);
 
   const showOnboarding = nowIsClassOnboarding && lessonId === undefined;

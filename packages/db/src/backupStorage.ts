@@ -85,8 +85,11 @@ export async function discardRestoreStaging(operationId: string): Promise<void> 
   await db.backupStaging.where('operationId').equals(operationId).delete();
 }
 
-/** One Dexie transaction covers ALL affected tables; rejected bulkPut rolls back all clears/writes. */
-export async function commitRestoreStaging(operationId: string, expected: readonly string[], signal?: AbortSignal): Promise<void> {
+/** One Dexie transaction covers ALL affected tables; rejected bulkPut rolls back all clears/writes.
+ * When restoring an account, the imported archive is itself an available backup;
+ * record its restore time atomically alongside the restored settings.
+ */
+export async function commitRestoreStaging(operationId: string, expected: readonly string[], signal?: AbortSignal, restoredAt?: number): Promise<void> {
   validateRestoreTableNames(expected);
   const names = [...expected];
   const tables = db.tables.filter(({ name }) => name !== 'backupStaging');
@@ -105,6 +108,12 @@ export async function commitRestoreStaging(operationId: string, expected: readon
         lastId = entry.id as number;
         if (entry.rows.length) await db.table(name).bulkPut(entry.rows);
       }
+    }
+    // Never publish an archived, potentially stale timestamp after a successful
+    // account restore. Doing this here also rolls back the new timestamp if the
+    // database commit fails (and precedes the login transition).
+    if (restoredAt !== undefined) {
+      await db.settings.put({ id: 'LAST_BACKUP_TIME', value: String(restoredAt) });
     }
     await db.backupStaging.where('operationId').equals(operationId).delete();
   });

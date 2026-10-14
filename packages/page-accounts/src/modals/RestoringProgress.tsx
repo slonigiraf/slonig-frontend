@@ -1,14 +1,36 @@
 import React from 'react';
-import { Spinner, styled } from '@polkadot/react-components';
-import { FullscreenActivity } from '@slonigiraf/slonig-components';
+import { styled } from '@polkadot/react-components';
+import { FullscreenActivity, RoundProgress } from '@slonigiraf/slonig-components';
+import type { OperationStatus } from '@slonigiraf/slonig-components';
+import { useTranslation } from '../translate.js';
 
-// Match the original fullscreen restore view: show only the spinner while
-// the long-lived RestoreService continues its work in the background.
-function RestoringProgress(): React.ReactElement {
+interface Props {
+  status: OperationStatus | null;
+}
+
+// Keep the fullscreen restore view but report verified archive and commit progress.
+function RestoringProgress({ status }: Props): React.ReactElement<Props> {
+  const { t } = useTranslation();
+  const progress = status?.total ? Math.max(0, Math.min(100, status.completed / status.total * 100)) : 0;
+  const phaseLabel = status?.phase === 'committing'
+    ? t('Finishing restore')
+    : status?.phase === 'staging'
+      ? t('Restoring data')
+      : t('Verifying backup');
+
   return (
-    <FullscreenActivity caption={''} backgroundColor={'var(--bg-page)'}>
+    <FullscreenActivity hideHeader backgroundColor={'var(--bg-page)'}>
       <StyledDiv>
-        <Spinner noLabel />
+        <div
+          aria-label={phaseLabel}
+          aria-valuemax={100}
+          aria-valuemin={0}
+          aria-valuenow={Math.floor(progress)}
+          role='progressbar'
+        >
+          <RoundProgress value={Math.floor(progress)} total={100} />
+        </div>
+        <p role='status'>{phaseLabel}</p>
       </StyledDiv>
     </FullscreenActivity>
   );
@@ -19,6 +41,8 @@ const StyledDiv = styled.div`
   width: 70%;
   min-height: 0;
   display: flex;
+  flex-direction: column;
+  gap: 16px;
   align-items: center;
   text-align: center;
   justify-content: center;

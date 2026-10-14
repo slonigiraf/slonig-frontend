@@ -9,20 +9,21 @@ interface Props {
   captionElement?: React.ReactNode;
   children?: React.ReactNode;
   isLoading?: boolean;
+  hideHeader?: boolean;
   onClose?: () => void;
 }
 
-function FullscreenActivity({ className = '', backgroundColor = 'white', caption = ' ', captionElement, children, isLoading = false, onClose }: Props): React.ReactElement<Props> {
+function FullscreenActivity({ className = '', backgroundColor = 'white', caption = ' ', captionElement, children, hideHeader = false, isLoading = false, onClose }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
   return (
     <FullFindow>
       <CenterContainer backgroundColor={backgroundColor}>
-        <Top>
+        {!hideHeader && <Top>
           <Caption>
             <h1><b>{captionElement || caption}</b></h1>
           </Caption>
           {onClose && <CloseButton onClick={onClose} icon='close' />}
-        </Top>
+        </Top>}
         {isLoading ?
           <div className='connecting'>
             <Spinner label={t('Loading')} />

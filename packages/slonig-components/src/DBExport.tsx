@@ -27,7 +27,7 @@ function DBExport({ className = '', caption, onSuccess }: Props): React.ReactEle
   useEffect(() => () => service.cancel(), [service]);
   const [showCompleted, setShowCompleted] = useState(false);
   useEffect(() => {
-    if (status.phase !== 'saved' && status.phase !== 'confirmed') {
+    if (!['saved', 'download-initiated'].includes(status.phase)) {
       setShowCompleted(false);
       return;
     }
@@ -39,43 +39,40 @@ function DBExport({ className = '', caption, onSuccess }: Props): React.ReactEle
 
   const start = useCallback(() => {
     // File System Access permissions need the original click event.
-    void service.start(currentPair?.address, nameFromKeyringPair(currentPair) || currentPair?.meta.name || currentPair?.address).then(() => {
-      if (service.status.phase === 'saved') {
+    void service.start(currentPair?.address, nameFromKeyringPair(currentPair) || currentPair?.meta.name || currentPair?.address, t('Slonig backup archive')).then(() => {
+      if (service.status.phase === 'saved' || service.status.phase === 'download-initiated') {
         logEvent('AUTHENTICATION', 'BACKUP_SUCCESS');
-        showInfo(t(service.status.warnings.length ? 'Backup completed with warnings' : 'Backup completed'));
+        // Use the same localized success message for native saves (Chrome)
+        // and fallback browser downloads.
+        showInfo(service.status.warnings.length
+          ? t('Backup completed with warnings')
+          : t('Backup completed'));
+        // Browser downloads count as completed for the deletion safeguard once
+        // the download has been launched, even without native file confirmation.
         onSuccess();
-      } else if (service.status.phase === 'download-initiated') {
-        showInfo(t('Backup download started'));
       }
     }).catch((error: Error) => {
       if (error.name !== 'AbortError') logEvent('AUTHENTICATION', 'BACKUP_ERROR');
     });
   }, [service, currentPair, onSuccess, logEvent, showInfo, t]);
 
-  const confirm = useCallback(() => {
-    void service.confirmFallbackDownload().then(() => {
-      logEvent('AUTHENTICATION', 'BACKUP_SUCCESS');
-      showInfo(t(service.status.warnings.length ? 'Backup completed with warnings' : 'Backup completed'));
-      onSuccess();
-    }).catch((error: Error) => console.error('Backup confirmation failed:', error));
-  }, [service, logEvent, onSuccess, showInfo, t]);
-
   const running = ['generating', 'generated'].includes(status.phase) ||
-    (showCompleted && ['saved', 'confirmed'].includes(status.phase));
-  // All phases use one monotone percentage; 100% is reserved for a completed
-  // native save or user-confirmed browser download.
+    (showCompleted && ['saved', 'download-initiated'].includes(status.phase));
+  // All phases use one monotone percentage; 100% means the native save
+  // completed or the browser download was launched.
   const hasKnownTotal = status.total > 0;
   const percent = hasKnownTotal
     ? Math.max(0, Math.min(100, Math.floor(status.completed * 100 / status.total)))
     : undefined;
   const hasFeedback = status.phase === 'error' || (!running && status.warnings.length > 0);
+  const backupCompleted = status.phase === 'saved' || status.phase === 'download-initiated';
 
   return (
-    <StyledDiv className={`shrink${hasFeedback || status.phase === 'download-initiated' ? ' backup-has-message' : ''}`}>
+    <StyledDiv className={`shrink${hasFeedback ? ' backup-has-message' : ''}${backupCompleted && !running ? ' backup-completed' : ''}`}>
       <div className='backup-control'>
         {running ? (
           <div
-            aria-label={`${t('Backup')}: ${status.message}`}
+            aria-label={t('Backup')}
             aria-valuemax={100}
             aria-valuemin={0}
             aria-valuenow={percent}
@@ -84,13 +81,11 @@ function DBExport({ className = '', caption, onSuccess }: Props): React.ReactEle
           >
             <RoundProgress value={hasKnownTotal ? status.completed : 0} total={hasKnownTotal ? status.total : 1} />
           </div>
-        ) : status.phase === 'download-initiated' ? (
-          <button type='button' onClick={confirm}>{t('I saved the downloaded backup')}</button>
         ) : (
           <ButtonWithLabelBelow
             className={className}
-            icon='download'
-            label={caption ?? t('Download')}
+            icon={backupCompleted ? 'arrows-rotate' : 'download'}
+            label={backupCompleted ? t('Backup again') : (caption ?? t('Download'))}
             onClick={start}
             isDisabled={!currentPair}
           />
@@ -98,8 +93,10 @@ function DBExport({ className = '', caption, onSuccess }: Props): React.ReactEle
       </div>
       {/* Keep errors visible after failure and PDF warnings after completion.
           During a backup, display only the original circular progress control. */}
-      {status.phase === 'error' && status.error && <p role='alert'>{status.error}</p>}
-      {!running && status.warnings.length > 0 && <p role='status'>{status.warnings.join('; ')}</p>}
+      {status.phase === 'error' && status.error && <p role='alert'>{/too large|memory limit|safe per-frame limit/i.test(status.error)
+        ? t('The backup is too large for this browser.')
+        : t('Backup failed. Please try again.')}</p>}
+      {!running && status.warnings.length > 0 && <p role='status'>{t('Backup warnings')}</p>}
     </StyledDiv>
   );
 }
@@ -122,6 +119,15 @@ const StyledDiv = styled.div`
     align-items: center;
     justify-content: center;
     min-height: 75px;
+  }
+  /* Localized 'Backup again' text can be longer than the initial 'Download'. */
+  &.backup-completed {
+    width: fit-content;
+    min-width: 75px;
+    max-width: 180px;
+    height: auto;
+    min-height: 75px;
+    overflow: visible;
   }
   &.backup-has-message {
     align-items: flex-start;

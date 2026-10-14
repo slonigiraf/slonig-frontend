@@ -16,25 +16,22 @@ interface SaveHandle {
 }
 export class BackupService extends OperationService {
   constructor() { super('backup'); }
-  private fallbackDownloadStarted = false;
-  private fallbackName = '';
   private updateProgress(phase: OperationPhase, message: string, stage: BackupProgressPhase, completed = 0, total = 1): void {
-    // Keep one continuous percentage: 100% is reached only after the native
-    // file stream closes or the user acknowledges a browser download.
+    // Keep one continuous percentage: 100% is reached after the native
+    // file stream closes or a fallback browser download is launched.
     const percent = Math.max(this.status.completed, backupPercent(stage, completed, total));
     this.set(phase, message, percent, 100, 'steps');
   }
   /** File picker is requested BEFORE any await to preserve the user gesture. */
-  async start(address?: string, accountName?: string): Promise<void> {
+  async start(address?: string, accountName?: string, pickerDescription = 'Slonig backup archive'): Promise<void> {
     const signal = this.begin();
-    this.fallbackDownloadStarted = false;
     const fileName = backupFilename(accountName || address, new Date());
     this.updateProgress('generating', 'Select a destination for your backup', 'preparing');
     let handle: SaveHandle | undefined;
     const picker = (window as Window & { showSaveFilePicker?: (options: unknown) => Promise<SaveHandle> }).showSaveFilePicker;
     const pickerPromise = picker ? picker.call(window, {
       suggestedName: fileName,
-      types: [{ description: 'Slonig backup archive', accept: { 'application/octet-stream': ['.slonig'] } }]
+      types: [{ description: pickerDescription, accept: { 'application/octet-stream': ['.slonig'] } }]
     }) : undefined;
     let worker: CompressionClient | undefined;
     let writable: FileSystemWritableFileStream | undefined;
@@ -142,24 +139,16 @@ export class BackupService extends OperationService {
         link.href = url; link.download = fileName;
         document.body.appendChild(link);
         try { link.click(); } finally { link.remove(); setTimeout(() => URL.revokeObjectURL(url), 60_000); }
-        this.fallbackDownloadStarted = true;
-        this.fallbackName = fileName;
-        // A synthetic download click cannot confirm that the browser actually
-        // saved the file. Keep the last-successful-backup timestamp unchanged
-        // until the user acknowledges it.
-        this.updateProgress('download-initiated', 'Download started. Confirm the file was saved to finish.', 'finalizing', 2, 2);
+        // The browser download API cannot verify the file on disk, but a
+        // successfully triggered download counts as a completed backup for
+        // the account-deletion safeguard (as requested by the product flow).
+        await confirmBackupCompletion();
+        this.updateProgress('download-initiated', 'Backup completed', 'complete');
       }
     } catch (error) {
       if (writable) await writable.abort().catch(() => undefined);
       this.fail(error);
       throw error;
     } finally { worker?.stop(); }
-  }
-  /** Browsers without the File System Access API cannot inspect the downloaded file. */
-  async confirmFallbackDownload(): Promise<void> {
-    if (!this.fallbackDownloadStarted || this.status.phase !== 'download-initiated') throw new Error('No pending download to confirm');
-    await confirmBackupCompletion();
-    this.fallbackDownloadStarted = false;
-    this.updateProgress('confirmed', `User confirmed saving ${this.fallbackName} (disk contents cannot be inspected)`, 'complete');
   }
 }
