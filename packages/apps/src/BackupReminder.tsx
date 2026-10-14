@@ -1,19 +1,19 @@
 // Copyright 2021-2022 @slonigiraf/apps authors & contributors
 // SPDX-License-Identifier: Apache-2.0
 import React, { useCallback, useEffect, useState } from 'react';
-import { Spinner, styled, Toggle } from '@polkadot/react-components';
+import { Spinner, styled } from '@polkadot/react-components';
 import { DBExport, FullscreenActivity, useLog } from '@slonigiraf/slonig-components';
 import { useTranslation } from './translate.js';
 
 interface Props {
   className?: string;
   onResult: () => void;
+  onDismiss: () => void;
 }
 
-function BackupReminder({ className = '', onResult }: Props): React.ReactElement<Props> {
+function BackupReminder({ className = '', onResult, onDismiss }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
   const { logEvent } = useLog();
-  const [includeEverything, setIncludeEverything] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
   const onBackup = useCallback(async () => {
@@ -34,15 +34,10 @@ function BackupReminder({ className = '', onResult }: Props): React.ReactElement
         <StyledDiv>
           {isLoading ? <Spinner label={t('Loading')} /> : <>
             <h1 className='prompt' style={{ width: '70%', maxWidth: 430, textAlign: 'center' }}>{t('Download your backup in case you erase your browser history')}</h1>
-            <Toggle
-              label={t('Include everything (parsed book data and PDFs)')}
-              onChange={setIncludeEverything}
-              value={includeEverything}
-            />
             <DBExport
-              includeEverything={includeEverything}
               onSuccess={() => onBackup()}
             />
+            <ReminderLater type='button' onClick={onDismiss}>{t('Remind me later')}</ReminderLater>
           </>
           }
         </StyledDiv>
@@ -65,6 +60,15 @@ const StyledDiv = styled.div`
     margin-top: 0px;
     margin-bottom: 0px;
   }
+`;
+
+const ReminderLater = styled.button`
+  margin-top: 6px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--color-summary);
+  text-decoration: underline;
 `;
 
 const TopLayer = styled.div`

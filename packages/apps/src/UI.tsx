@@ -47,6 +47,7 @@ function UI({ className = '' }: Props): React.ReactElement<Props> {
   const queryParams = new URLSearchParams(location.search);
   const botInUrl = queryParams.get('bot') != null;
   const [isProcessingAirdrop, setIsProcessingAirdrop] = useState(false);
+  const [backupReminderDismissed, setBackupReminderDismissed] = useState(false);
 
   const isLoginRequired = !isLoggedIn && !botInUrl;
   const isEconomyInitialized = useBooleanSettingValue(SettingKey.ECONOMY_INITIALIZED);
@@ -186,9 +187,9 @@ function UI({ className = '' }: Props): React.ReactElement<Props> {
   }, [isAirdropCompatible, expectedAirdropAmount, recievedAirdropAmount, currentPair, showError, showNoConnectionToEconomyServerError, setIsProcessingAirdrop]);
 
 
-  const onBackup = useCallback(async () => {
-    await storeSetting(SettingKey.LAST_BACKUP_TIME, (now.toString()))
-  }, []);
+  // BackupService persists the timestamp only after the native save closes (or
+  // explicit confirmation of a browser download). Dismissal does not change it.
+  const onBackup = useCallback(() => setBackupReminderDismissed(true), []);
 
   const showOnboarding = nowIsClassOnboarding && lessonId === undefined;
 
@@ -212,7 +213,7 @@ function UI({ className = '' }: Props): React.ReactElement<Props> {
             <Menu />
             <BlockchainSyncProvider>
               {showOnboarding && <ClassOnboarding />}
-              {!botInUrl && shouldBackup && <BackupReminder onResult={onBackup} />}
+              {!botInUrl && shouldBackup && !backupReminderDismissed && <BackupReminder onResult={onBackup} onDismiss={() => setBackupReminderDismissed(true)} />}
               {!botInUrl && updateAvailable && <AskToReload reload={reloadNow} />}
               <>
                 <Content />

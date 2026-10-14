@@ -1,18 +1,14 @@
 import React from 'react';
-import { useTranslation } from '../translate.js';
 import { Spinner, styled } from '@polkadot/react-components';
 import { FullscreenActivity } from '@slonigiraf/slonig-components';
 
-interface Props {
-}
-
-function RestoringProgress({ }: Props): React.ReactElement<Props> {
-  const { t } = useTranslation();
-
+// Match the original fullscreen restore view: show only the spinner while
+// the long-lived RestoreService continues its work in the background.
+function RestoringProgress(): React.ReactElement {
   return (
     <FullscreenActivity caption={''} backgroundColor={'var(--bg-page)'}>
       <StyledDiv>
-        <Spinner label={t('Loading')} />
+        <Spinner noLabel />
       </StyledDiv>
     </FullscreenActivity>
   );
@@ -25,7 +21,7 @@ const StyledDiv = styled.div`
   display: flex;
   align-items: center;
   text-align: center;
-  justify-content: center;  
+  justify-content: center;
 `;
 
 export default React.memo(RestoringProgress);

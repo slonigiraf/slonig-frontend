@@ -125,7 +125,10 @@ function Create({ className = '', onClose, onStatusChange, seed: propsSeed, type
       {isFirstScreen && <h1 style={{ margin: '0px' }} className='prompt'>{t('Get help and badges from classmates')}</h1>}
 
       <div className='ui--row'>
-        {isImporting ? <DBImport onFileSelect={() => setIsRestoringInProgress(true)} onRestoreResult={() => setIsRestoringInProgress(false)} /> :
+        {isImporting ? <DBImport
+          onFileSelect={() => setIsRestoringInProgress(true)}
+          onRestoreResult={() => setIsRestoringInProgress(false)}
+        /> :
           <CreateAccountInputs
             isFirstScreen={isFirstScreen}
             name={{ isNameValid, name }}
@@ -136,7 +139,7 @@ function Create({ className = '', onClose, onStatusChange, seed: propsSeed, type
         }
       </div>
 
-      {isImporting && <ButtonContainer>
+      {isImporting && !isRestoringInProgress && <ButtonContainer>
         <Button
           label={t('<< Back')}
           onClick={() => {

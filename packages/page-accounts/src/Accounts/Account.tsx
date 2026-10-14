@@ -13,7 +13,7 @@ import { keyring } from '@polkadot/ui-keyring';
 import { BN, BN_ZERO, isFunction } from '@polkadot/util';
 import { useTranslation } from '../translate.js';
 import { createMenuGroup } from '../util.js';
-import { useTokenTransfer } from '@slonigiraf/slonig-components';
+import { useTokenTransfer, clearAllData } from '@slonigiraf/slonig-components';
 import EditAccount from '../modals/EditAccount.js';
 interface Props {
   account: KeyringAddress;
@@ -94,7 +94,7 @@ function Account({ account: { address, meta }, className = '', filter, setBalanc
   );
 
   const _onForget = useCallback(
-    (): void => {
+    async (): Promise<void> => {
       if (!address) {
         return;
       }
@@ -105,7 +105,13 @@ function Account({ account: { address, meta }, className = '', filter, setBalanc
       };
 
       try {
+        const lastAccount = keyring.getPairs().length === 1;
         keyring.forgetAccount(address);
+        if (lastAccount) {
+          // Per-account data is shared in this installation. Preserve it while
+          // other accounts exist, but purge it when the last account is deleted.
+          await new Promise<void>((resolve, reject) => clearAllData(resolve, (message) => reject(new Error(message))));
+        }
         status.status = 'success';
         status.message = t('account forgotten');
       } catch (error) {

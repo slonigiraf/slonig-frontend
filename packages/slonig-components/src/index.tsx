@@ -29,6 +29,7 @@ import BN from 'bn.js';
 import { getIPFSContentIDForBytesAndPinIt, getIPFSBytesFromContentID, bnToSlonString, bnToSlonFloatOrNaN, createPeer, receiveWebRTCData, getQrWidth, saveToSessionStorage, loadFromSessionStorage, getKey, arrayBufferToBase64, base64ToArrayBuffer, decryptData, encryptData, keyForCid, nameFromKeyringPair, getBaseUrl, CODEC, getIPFSContentID, getIPFSContentIDAndPinIt, getIPFSDataFromContentID, digestFromCIDv1, getCIDFromBytes, storeEncryptedTextOnIPFS, retrieveDecryptedDataFromIPFS, parseJson, qrPadding } from './utils.js';
 import { useEffect, useState } from 'react';
 import { deleteSlonigDatabase, getSetting, LetterTemplate, SettingKey, storeSetting } from '@slonigiraf/db';
+import { removeAllOpfsFiles } from './backup/PdfModule.js';
 export * from './constants.js';
 export { default as SVGButton } from './SVGButton.js';
 export { EventsQueueProvider, useEventsQueue, Penalties, DownloadQRButton, BlockchainSyncProvider, useBlockchainSync, TokenTransferProvider, useTokenTransfer, DateInput, SelectableList, SenderComponent, SpanWithTags, ResizableImage, ShareButton, ClipboardCopyButton, QRWithShareAndCopy, QrScannerComponent, ButtonWithLabelBelow, ScanQR, IpfsProvider, useIpfsContext, InfoProvider, useInfo, LogProvider, useLog };
@@ -512,6 +513,26 @@ export const LawType = {
 
 export async function clearAllData(onSuccess: () => void, onError: (error: string) => void) {
   try {
+    // Purge all app-owned persistent stores, including OPFS PDF files and
+    // temporary restore directories. Do not silently leave account data behind.
+    await removeAllOpfsFiles();
+    await deleteSlonigDatabase();
+    if (typeof indexedDB.databases === 'function') {
+      for (const { name } of await indexedDB.databases()) {
+        if (name?.startsWith('slonig-tikz-svg-')) {
+          await new Promise<void>((resolve, reject) => {
+            const request = indexedDB.deleteDatabase(name);
+            request.onsuccess = () => resolve();
+            request.onerror = () => reject(request.error);
+            request.onblocked = () => reject(new Error(`Deletion of ${name} is blocked`));
+          });
+        }
+      }
+    }
+    if ('caches' in window) {
+      await Promise.all((await caches.keys()).map((name) => caches.delete(name)));
+    }
+
     // Clear localStorage
     localStorage.clear();
 
@@ -529,10 +550,6 @@ export async function clearAllData(onSuccess: () => void, onError: (error: strin
     });
 
     console.log('Clear cookies')
-
-    // Delete the main Dexie database and its TikZ SVG cache together. Leave
-    // legacy standalone `slonig-tikz-svg-*` caches untouched.
-    await deleteSlonigDatabase();
 
     // Call onSuccess after everything is cleared
     onSuccess();

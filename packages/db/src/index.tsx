@@ -21,8 +21,6 @@ import DOMPurify from 'dompurify';
 import { decodeAddress, encodeAddress } from '@polkadot/keyring';
 import { isHex, u8aToHex } from '@polkadot/util';
 import { blake2AsHex } from '@polkadot/util-crypto';
-import "dexie-export-import";
-import { exportDB as dexieExport } from 'dexie-export-import';
 import { InsurancesTransfer, LessonRequest } from "@slonigiraf/slonig-components";
 import { CanceledInsurance } from "./db/CanceledInsurance.js";
 import { Repetition } from "./db/Repetition.js";
@@ -47,6 +45,7 @@ import type { MathpixPdfJob } from './db/MathpixPdfJob.js';
 import type { BookProcessingRun } from './db/BookProcessingRun.js';
 import { readTikzSvgCache, writeTikzSvgCache } from './db/TikzSvgCache.js';
 import { shouldExportDatabaseRow } from './backup.js';
+import { BACKUP_DB_BATCH, stageRestoreBatch, commitRestoreStaging, discardRestoreStaging, validateRestoreTableNames } from './backupStorage.js';
 
 export { BOOK_PROCESSING_STAGES, getBookCompletedStages, isBookProcessingStageComplete, isBookProcessingStageSatisfied, bookStagesInvalidatedByRerun, withBookProcessingStagesResetFrom, withInvalidatedBookProcessingStages, withBypassedBookProcessingStage, withCompletedBookProcessingStage } from './db/Book.js';
 export type { LearnRequest, TutorAction, CanceledInsurance, Reexamination, LetterTemplate, CanceledLetter, Reimbursement, Letter, Insurance, Lesson, Pseudonym, Setting, Signer, UsageRight, Agreement, Ability, AbilityExercise, AbilityValue, Image, Book, BookProcessingStageKey, BookStageSpend, BookStageSpendKey, BookSubject, BookPage, MathpixHeading, BookChapter, BookConcept, Skill, ExerciseTemplate, AiTutorStudentMessage, StandardEmbedding, ConceptEmbedding, MathpixPdfJob };
@@ -3679,21 +3678,8 @@ export async function clearAiTutorStudentMessages(lessonId: string): Promise<voi
     await db.aiTutorStudentMessages.where('lessonId').equals(lessonId).delete();
 }
 
-// Export DB
-
-export async function exportDB(progressCallback?: (progress: number) => void, includeEverything = false): Promise<Blob> {
-    try {
-        const blob = await dexieExport(db, {
-            prettyJson: true,
-            progressCallback,
-            filter: (tableName: string, value: unknown) => shouldExportDatabaseRow(tableName, value, includeEverything),
-        });
-        return blob;
-    } catch (error) {
-        console.error('Error exporting Dexie database:', error);
-        throw error;
-    }
-}
+// The active backup export uses readBackupRows() (primary-key cursor chunks).
+// Whole-database JSON Blob export was removed to avoid unbounded allocations.
 
 export interface DexieTableData {
     tableName: string;
@@ -3718,25 +3704,26 @@ export interface DexieExportFormat {
     data: DBExportFormat;
 }
 
+/** Legacy JSON callers now use the SAME staging + all-or-nothing database transaction. */
 export async function replaceDB(json: DexieExportFormat): Promise<void> {
+    if (!json || !json.data || !Array.isArray(json.data.data) ||
+        !Number.isFinite(json.data.databaseVersion) || json.data.databaseVersion > db.verno) {
+        throw new Error('Incompatible database backup');
+    }
+    const names = json.data.data.map(({ tableName }) => tableName);
+    validateRestoreTableNames(names);
+    const operationId = crypto.randomUUID();
     try {
-        const uploadedVersion = json.data.databaseVersion;
-        const currentVersion = db.verno;
-        if (uploadedVersion > currentVersion) {
-            throw new Error('Update your application to match the database version.');
-        }
         for (const { tableName, rows } of json.data.data) {
-            if (db.tables.some((table) => table.name === tableName)) {
-                const table = db.table(tableName);
-                await table.clear();
-                await table.bulkAdd(rows);
-            } else {
-                console.warn(`Unknown table in backup JSON: ${tableName}`);
+            if (!Array.isArray(rows)) throw new Error(`Invalid backup table: ${tableName}`);
+            for (let offset = 0; offset < rows.length; offset += BACKUP_DB_BATCH) {
+                await stageRestoreBatch(operationId, tableName, rows.slice(offset, offset + BACKUP_DB_BATCH));
             }
+            if (rows.length === 0) await stageRestoreBatch(operationId, tableName, []);
         }
-    } catch (error) {
-        console.error('Error syncing database:', error);
-        throw new Error('Failed to synchronize database');
+        await commitRestoreStaging(operationId, names);
+    } finally {
+        await discardRestoreStaging(operationId);
     }
 }
 
@@ -3978,3 +3965,7 @@ export async function reviewBookAbilityChangeLogEntries(bookId: number, entryIds
 export async function reviewBookAbilityChangeLogEntry(bookId: number, entryId: number): Promise<void> {
     return reviewBookAbilityChangeLogEntries(bookId, [entryId]);
 }
+
+export { BACKUP_DB_BATCH, BACKUP_DB_SCHEMA, backupTableNames, countBackupRows, readBackupRows, countBookPdfs, readBookPdfNames, validateRestoreRows, validateRestoreTableNames, stageRestoreBatch, discardRestoreStaging, commitRestoreStaging } from './backupStorage.js';
+export { backupPolicy } from './backup.js';
+export { getStagedBookNames } from './backupStorage.js';

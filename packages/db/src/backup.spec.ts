@@ -4,37 +4,25 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { shouldExportDatabaseRow } from './backup.js';
+import { backupPolicy, shouldExportDatabaseRow, shouldIncludeBackupTable } from './backup.js';
 
-await describe('database backup filtering', async (): Promise<void> => {
-  await it('excludes cache and parsed-book tables by default', (): void => {
-    const excludedTables = [
-      'cidCache',
-      'aiTutorStudentMessages',
-      'standardEmbeddings',
-      'conceptEmbeddings',
-      'mathpixPdfJobs',
-      'tikzSvgCache',
-      'bookProcessingRuns',
-      'books',
-      'bookPages',
-      'bookChapters',
-      'bookConcepts',
-      'exercises',
-      'skills',
-      'exerciseTemplates'
+describe('full database backups', () => {
+  it('includes essential, reconstructable, and cache tables', () => {
+    const names = [
+      'settings', 'lessons', 'abilities', 'books', 'bookPages', 'bookChapters',
+      'bookConcepts', 'skills', 'exerciseTemplates', 'cidCache',
+      'aiTutorStudentMessages', 'standardEmbeddings', 'conceptEmbeddings',
+      'mathpixPdfJobs', 'tikzSvgCache', 'bookProcessingRuns'
     ];
-
-    excludedTables.forEach((tableName) => assert.equal(shouldExportDatabaseRow(tableName), false));
-    assert.equal(shouldExportDatabaseRow('abilities', { moduleId: 'book-42-exercise-7' }), false);
-    assert.equal(shouldExportDatabaseRow('abilities', { moduleId: 'book-42-concept-7' }), false);
-    assert.equal(shouldExportDatabaseRow('abilities', { moduleId: 'published-module' }), true);
-    assert.equal(shouldExportDatabaseRow('lessons'), true);
+    for (const name of names) {
+      assert.equal(shouldExportDatabaseRow(name), true);
+      assert.equal(shouldIncludeBackupTable(name), true);
+    }
   });
 
-  await it('includes every table when requested', (): void => {
-    ['cidCache', 'aiTutorStudentMessages', 'standardEmbeddings', 'conceptEmbeddings', 'mathpixPdfJobs', 'tikzSvgCache', 'bookProcessingRuns', 'books', 'bookPages', 'bookChapters', 'bookConcepts', 'exercises', 'skills', 'exerciseTemplates', 'lessons']
-      .forEach((tableName) => assert.equal(shouldExportDatabaseRow(tableName, undefined, true), true));
-    assert.equal(shouldExportDatabaseRow('abilities', { moduleId: 'book-42-exercise-7' }, true), true);
+  it('never includes transient restore staging records', () => {
+    assert.equal(shouldExportDatabaseRow('backupStaging'), false);
+    assert.equal(shouldIncludeBackupTable('backupStaging'), false);
+    assert.equal(backupPolicy('backupStaging'), 'cache');
   });
 });

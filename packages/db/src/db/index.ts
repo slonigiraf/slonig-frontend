@@ -99,6 +99,7 @@ async function forEachMigrationBatch<T> (table: Table<T>, callback: (rows: T[]) 
 }
 
 export class SlonigDB extends Dexie {
+  backupStaging!: Table<{ id?: number; operationId: string; tableName: string; rows: unknown[] }, number>;
   agreements!: Table<Agreement>;
   canceledInsurances!: Table<CanceledInsurance>;
   canceledLetters!: Table<CanceledLetter>;
@@ -743,6 +744,9 @@ export class SlonigDB extends Dexie {
         }
       });
     });
+    // Temporary restore rows live in the SAME IndexedDB database so that the
+    // final replacement and staging cleanup share a single atomic transaction.
+    this.version(106).stores({ backupStaging: '++id,operationId,tableName,[operationId+tableName+id]' });
 
   }
 }

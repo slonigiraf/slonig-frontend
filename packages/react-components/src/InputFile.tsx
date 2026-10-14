@@ -30,6 +30,8 @@ export interface InputFileProps extends InputFilePropsBase {
   // i.e. MIME types: 'application/json, text/plain', or '.json, .txt'
   accept?: string[];
   onChange?: (contents: Uint8Array, name: string) => void;
+  /** Pass the original File for streaming consumers without FileReader buffering. */
+  onFile?: (file: File) => void;
   onFileSelect?: () => void;
 }
 
@@ -62,13 +64,23 @@ function convertResult (result: ArrayBuffer): Uint8Array {
   return data;
 }
 
-function InputFile ({ accept, className = '', clearContent, isDisabled, isError = false, isFull, label, labelExtra, onChange, onFileSelect, placeholder, withEllipsis, withLabel }: InputFileProps): React.ReactElement<InputFileProps> {
+function InputFile ({ accept, className = '', clearContent, isDisabled, isError = false, isFull, label, labelExtra, onChange, onFile, onFileSelect, placeholder, withEllipsis, withLabel }: InputFileProps): React.ReactElement<InputFileProps> {
   const { t } = useTranslation();
   const dropRef = createRef<DropzoneRef>();
   const [file, setFile] = useState<FileState | undefined>();
 
   const onDrop = useCallback(
     (files: File[]): void => {
+      // A streaming import consumes exactly one archive, even if several files
+      // are dropped. Other InputFile callers retain their existing behavior.
+      if (onFile) {
+        const file = files[0];
+        if (!file) return;
+        onFileSelect?.();
+        setFile({ name: file.name, size: file.size });
+        onFile(file);
+        return;
+      }
       files.forEach((file): void => {
         onFileSelect && onFileSelect();
         const reader = new FileReader();
@@ -92,7 +104,7 @@ function InputFile ({ accept, className = '', clearContent, isDisabled, isError 
         reader.readAsArrayBuffer(file);
       });
     },
-    [dropRef, onChange]
+    [dropRef, onChange, onFile, onFileSelect]
   );
 
   const { getInputProps, getRootProps } = useDropzone({

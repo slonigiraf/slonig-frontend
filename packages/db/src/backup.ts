@@ -21,15 +21,18 @@ const CACHE_TABLES = new Set([
   'bookProcessingRuns'
 ]);
 
-export function shouldExportDatabaseRow (tableName: string, value?: unknown, includeEverything = false): boolean {
-  if (includeEverything) {
-    return true;
-  }
+/** Full archives include every application record; only temporary restore staging is excluded. */
+export function shouldExportDatabaseRow(tableName: string): boolean {
+  return tableName !== 'backupStaging';
+}
 
-  const moduleId = tableName === 'abilities' && value && typeof value === 'object'
-    ? (value as { moduleId?: unknown }).moduleId
-    : undefined;
-  const isBookParsingAbility = typeof moduleId === 'string' && /^book-\d+-concept-\d+$/.test(moduleId);
-
-  return !CACHE_TABLES.has(tableName) && !BOOK_PARSING_TABLES.has(tableName) && !isBookParsingAbility;
+/** Explicit retention policy: essential records, rebuildable source derivatives, and expendable caches. */
+export type BackupPolicy = 'essential' | 'reconstructable' | 'cache';
+export function backupPolicy(tableName: string): BackupPolicy {
+  if (tableName === 'backupStaging' || CACHE_TABLES.has(tableName)) return 'cache';
+  if (BOOK_PARSING_TABLES.has(tableName) || tableName === 'bookProcessingRuns') return 'reconstructable';
+  return 'essential';
+}
+export function shouldIncludeBackupTable(tableName: string): boolean {
+  return shouldExportDatabaseRow(tableName);
 }
