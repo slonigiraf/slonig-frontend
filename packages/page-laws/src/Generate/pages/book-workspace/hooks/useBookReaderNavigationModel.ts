@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { Book, BookConcept, BookPage } from '@slonigiraf/db';
-import { getAbilities, getBookPages, isBookProcessingStageComplete } from '@slonigiraf/db';
+import { getAbilities, getBookConceptsForBookPage, getBookPages, isBookProcessingStageComplete } from '@slonigiraf/db';
 import type { Dispatch, MutableRefObject, SetStateAction } from 'react';
 import { useCallback, useEffect, useMemo } from 'react';
 import { conceptBelongsToChapter } from '../../../book/domain/chapters/refineChapters.js';
