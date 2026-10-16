@@ -275,6 +275,7 @@ describe('separate question and answer figure generation prompts', (): void => {
       assert.match(prompt, /precomputed ordinary 2-D coordinates/);
       assert.match(prompt, /visible exterior/);
       assert.match(prompt, /SAME 2-D translation offset/);
+      assert.match(prompt, /EXACTLY ONE origin label \"0\"/);
     }
   });
 
