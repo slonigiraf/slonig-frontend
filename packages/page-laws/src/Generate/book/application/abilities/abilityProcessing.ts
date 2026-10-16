@@ -10,7 +10,7 @@ import OpenAI from 'openai';
 
 import { FIX_ABILITIES_REQUEST_PROMPT, JSON_VALIDATION_PROMPT } from '../../infrastructure/ai/prompts/abilities.js';
 import { abilityBrevityIssues, parseAbilityRepairResult } from '../../../../abilities/abilities.js';
-import { LEARNER_AGE_PROMPT, MATH_DISPLAY_REQUIREMENTS_PROMPT, TIKZ_NATIVE_STYLING_PROMPT } from '../../infrastructure/ai/prompts/shared.js';
+import { LEARNER_AGE_PROMPT, MATH_DISPLAY_REQUIREMENTS_PROMPT, TIKZ_EDITOR_GEOMETRY_PROMPT, TIKZ_NATIVE_STYLING_PROMPT } from '../../infrastructure/ai/prompts/shared.js';
 import { openRouterRequestGate } from '../../../../openrouter/concurrency.js';
 import { reportOpenRouterCost } from '../../../../openrouter/cost.js';
 
@@ -339,8 +339,9 @@ export function tikzRequestPrompt (language: string, ability: GeneratedAbility, 
 Rules:
 ${MATH_DISPLAY_REQUIREMENTS_PROMPT}
 ${TIKZ_NATIVE_STYLING_PROMPT}
+${TIKZ_EDITOR_GEOMETRY_PROMPT}
 - Return ONLY one \\begin{tikzpicture}...\\end{tikzpicture} block. No markdown fences, prose, documentclass, packages, or external files.
-- Use only standard TikZ constructs and common built-in libraries where possible. Keep the drawing browser-renderable by TikZ Editor using standard supported TikZ constructs.
+- Prefer verified basic TikZ Editor draw/path/fill/coordinate/node primitives and simple arrows; DO NOT assume support for full TikZ or its libraries.
 - Preserve the exact mathematical/semantic information in the visual description. Do not add hints or facts that would reveal an answer in a question visual.
 - Keep labels concise and in the book language (${language}).
 - Prefer a clean educational diagram with sensible coordinates and readable labels.
@@ -362,8 +363,9 @@ export function answerTikzRequestPrompt (language: string, ability: GeneratedAbi
 
 ${MATH_DISPLAY_REQUIREMENTS_PROMPT}
 ${TIKZ_NATIVE_STYLING_PROMPT}
+${TIKZ_EDITOR_GEOMETRY_PROMPT}
 - Return ONLY one \\begin{tikzpicture}...\\end{tikzpicture} block, without markdown or commentary.
-- Use browser-renderable, standard TikZ; no external packages, files, raster images, URLs or SVG.
+- Restrict syntax to the verified embedded TikZ Editor subset above; no external packages, libraries, files, raster images, URLs or SVG.
 - The answer image must show the correct completed result and respect the problem statement.
 - CRITICAL: If the question asks to DRAW, ADD, MARK, SHADE, LABEL, CONNECT, COMPLETE, ROTATE, TRANSFORM or otherwise MODIFY its figure, start from the QUESTION TIKZ SOURCE below and preserve its original objects, coordinates, scales, line styles, axes, labels, geometry and reference points. Add or modify ONLY the answer-specific markings. Do not redraw the question figure independently or shift existing objects. This keeps question and answer figures synchronized.
 - If no visual modification is requested, use the question figure as a consistent reference whenever useful, without adding unrelated diagram content.
@@ -432,6 +434,7 @@ export function tikzFixReviewPrompt (language: string, target: ImageFixTarget, p
 
 ${MATH_DISPLAY_REQUIREMENTS_PROMPT}
 ${TIKZ_NATIVE_STYLING_PROMPT}
+${TIKZ_EDITOR_GEOMETRY_PROMPT}
 
 During review or repair, slash-form mathematical fractions are errors and must be corrected. During review or repair, any number line that violates any of these requirements is an error and must be corrected.
 
@@ -478,6 +481,7 @@ export function tikzCompileRepairPrompt (language: string, target: ImageFixTarge
 
 ${MATH_DISPLAY_REQUIREMENTS_PROMPT}
 ${TIKZ_NATIVE_STYLING_PROMPT}
+${TIKZ_EDITOR_GEOMETRY_PROMPT}
 
 During review or repair, slash-form mathematical fractions are errors and must be corrected. During review or repair, any number line that violates any of these requirements is an error and must be corrected.
 
@@ -506,6 +510,7 @@ export function tikzDetectedProblemsRepairPrompt (language: string, target: Imag
 
 ${MATH_DISPLAY_REQUIREMENTS_PROMPT}
 ${TIKZ_NATIVE_STYLING_PROMPT}
+${TIKZ_EDITOR_GEOMETRY_PROMPT}
 
 During review or repair, slash-form mathematical fractions are errors and must be corrected. During review or repair, any number line that violates any of these requirements is an error and must be corrected.
 

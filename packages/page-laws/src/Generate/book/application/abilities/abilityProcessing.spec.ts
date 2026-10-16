@@ -257,6 +257,27 @@ describe('separate question and answer figure generation prompts', (): void => {
     }
   });
 
+  it('injects renderer-safe 3-D projection and measured-edge rules into every TikZ prompt', (): void => {
+    const record: StoredAbility = { ability, content: JSON.stringify(ability), id: 'ability-geometry', moduleId: 'book-1-concept-3' };
+    const target: ImageFixTarget = { ability, exerciseIndex: 0, field: 'p', imageId: 1, originalTikz: questionTikz, prompt: 'A stepped solid', record };
+    const preRender = { compiled: true, diagnostics: [], renderedSvg: '<svg/>', texInput: questionTikz };
+    const review = { hasErrors: true, errors: ['Bad geometry'], tikz: questionTikz };
+    const prompts = [
+      tikzRequestPrompt('en', ability, 0, 'A stepped solid'),
+      answerTikzRequestPrompt('en', ability, 0, 'A stepped solid'),
+      tikzFixReviewPrompt('en', target, preRender),
+      tikzCompileRepairPrompt('en', target, review, preRender),
+      tikzDetectedProblemsRepairPrompt('en', target, review, preRender)
+    ];
+
+    for (const prompt of prompts) {
+      assert.match(prompt, /NEVER use 3-component coordinates/);
+      assert.match(prompt, /precomputed ordinary 2-D coordinates/);
+      assert.match(prompt, /visible exterior/);
+      assert.match(prompt, /SAME 2-D translation offset/);
+    }
+  });
+
   it('recognizes diagram-completion tasks but not ordinary word problems', (): void => {
     assert.equal(exerciseNeedsCompletedFigure('Shade the left half of the diagram.'), true);
     assert.equal(exerciseNeedsCompletedFigure('How many apples?'), false);
