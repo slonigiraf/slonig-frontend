@@ -43,8 +43,9 @@ describe('Backup reminder after restoring an existing account', () => {
     assert.match(ui, /useRestorePhase\(\)/);
     assert.match(ui, /!loginAddress \|\| isRestoringBackup/);
     assert.match(ui, /\[loginAddress, restorePhase, isRestoringBackup\]/);
-    assert.match(ui, /shouldBackup && !backupReminderDismissed && <BackupReminder/);
+    assert.match(ui, /shouldBackup && backupCompletedForAddress !== loginAddress && <BackupReminder onResult={onBackup} \/>/);
     assert.doesNotMatch(ui, /hasRestoredAccountThisSession|subscribeAccountRestore/);
+    assert.doesNotMatch(ui, /onDismiss|setBackupReminderDismissed/);
     assert.doesNotMatch(index, /restoreSession/);
     const picker = await code('DBImport.tsx');
     const status = await code('backup/status.ts');
@@ -53,4 +54,14 @@ describe('Backup reminder after restoring an existing account', () => {
     assert.match(status, /private readonly listeners = new Set<StatusListener>\(\)/);
     assert.match(status, /for \(const listener of this\.listeners\) listener\(this\.state\)/);
   });
+  it('does not allow manually dismissing the reminder', async () => {
+    const reminder = await code('../../apps/src/BackupReminder.tsx');
+    const ui = await code('../../apps/src/UI.tsx');
+    assert.doesNotMatch(reminder, /Remind me later|ReminderLater|onDismiss/);
+    assert.doesNotMatch(ui, /onDismiss|backupReminderDismissed/);
+    assert.match(reminder, /<DBExport onSuccess=\{onResult\} \/>/);
+    assert.match(ui, /const onBackup = useCallback\(\(\) => \{/);
+    assert.match(ui, /if \(loginAddress\) setBackupCompletedForAddress\(loginAddress\)/);
+  });
+
 });

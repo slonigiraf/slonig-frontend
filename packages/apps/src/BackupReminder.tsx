@@ -1,24 +1,18 @@
 // Copyright 2021-2022 @slonigiraf/apps authors & contributors
 // SPDX-License-Identifier: Apache-2.0
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Spinner, styled } from '@polkadot/react-components';
-import { DBExport, FullscreenActivity, useLog } from '@slonigiraf/slonig-components';
+import { DBExport, FullscreenActivity } from '@slonigiraf/slonig-components';
 import { useTranslation } from './translate.js';
 
 interface Props {
   className?: string;
   onResult: () => void;
-  onDismiss: () => void;
 }
 
-function BackupReminder({ className = '', onResult, onDismiss }: Props): React.ReactElement<Props> {
+function BackupReminder({ className = '', onResult }: Props): React.ReactElement<Props> {
   const { t } = useTranslation();
-  const { logEvent } = useLog();
   const [isLoading, setIsLoading] = useState(true);
-
-  const onBackup = useCallback(async () => {
-    onResult();
-  }, [logEvent, onResult]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -34,10 +28,7 @@ function BackupReminder({ className = '', onResult, onDismiss }: Props): React.R
         <StyledDiv>
           {isLoading ? <Spinner label={t('Loading')} /> : <>
             <h1 className='prompt' style={{ width: '70%', maxWidth: 430, textAlign: 'center' }}>{t('Download your backup in case you erase your browser history')}</h1>
-            <DBExport
-              onSuccess={() => onBackup()}
-            />
-            <ReminderLater type='button' onClick={onDismiss}>{t('Remind me later')}</ReminderLater>
+            <DBExport onSuccess={onResult} />
           </>
           }
         </StyledDiv>
@@ -60,15 +51,6 @@ const StyledDiv = styled.div`
     margin-top: 0px;
     margin-bottom: 0px;
   }
-`;
-
-const ReminderLater = styled.button`
-  margin-top: 6px;
-  background: none;
-  border: none;
-  cursor: pointer;
-  color: var(--color-summary);
-  text-decoration: underline;
 `;
 
 const TopLayer = styled.div`

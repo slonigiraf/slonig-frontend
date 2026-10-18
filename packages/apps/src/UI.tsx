@@ -47,7 +47,7 @@ function UI({ className = '' }: Props): React.ReactElement<Props> {
   const queryParams = new URLSearchParams(location.search);
   const botInUrl = queryParams.get('bot') != null;
   const [isProcessingAirdrop, setIsProcessingAirdrop] = useState(false);
-  const [backupReminderDismissed, setBackupReminderDismissed] = useState(false);
+  const [backupCompletedForAddress, setBackupCompletedForAddress] = useState<string | null>(null);
   // Restored keys can activate login before the database commit. Wait until
   // restore is finished, then read the saved backup timestamp again. Tie the
   // check to the restore phase so a previous async read can never briefly
@@ -212,9 +212,11 @@ function UI({ className = '' }: Props): React.ReactElement<Props> {
   }, [isAirdropCompatible, expectedAirdropAmount, recievedAirdropAmount, currentPair, showError, showNoConnectionToEconomyServerError, setIsProcessingAirdrop]);
 
 
-  // BackupService persists the timestamp after a native save or after a browser
-  // download starts. Dismissing the reminder does not change it.
-  const onBackup = useCallback(() => setBackupReminderDismissed(true), []);
+  // Only a completed backup may close the reminder. Scope immediate completion
+  // to the account that was backed up, so switching accounts cannot hide it.
+  const onBackup = useCallback(() => {
+    if (loginAddress) setBackupCompletedForAddress(loginAddress);
+  }, [loginAddress]);
 
   const showOnboarding = nowIsClassOnboarding && lessonId === undefined;
 
@@ -238,7 +240,7 @@ function UI({ className = '' }: Props): React.ReactElement<Props> {
             <Menu />
             <BlockchainSyncProvider>
               {showOnboarding && <ClassOnboarding />}
-              {!botInUrl && shouldBackup && !backupReminderDismissed && <BackupReminder onResult={onBackup} onDismiss={() => setBackupReminderDismissed(true)} />}
+              {!botInUrl && shouldBackup && backupCompletedForAddress !== loginAddress && <BackupReminder onResult={onBackup} />}
               {!botInUrl && updateAvailable && <AskToReload reload={reloadNow} />}
               <>
                 <Content />
