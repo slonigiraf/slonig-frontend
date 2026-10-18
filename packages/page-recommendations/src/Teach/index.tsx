@@ -234,11 +234,13 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
     setTooFastConfirmationIsShown(true);
   }, [warningCount, setWarningCount, setTooFastConfirmationIsShown]);
 
-  const protectTutor = useCallback(async (talkDuration: number, isLearning: boolean, lastAction: TutorAction, action: () => Promise<void>) => {
-    if (!lastSkillDiscussedTime) return;
+  const protectTutor = useCallback(async (talkDuration: number, isLearning: boolean, lastAction: TutorAction, action: () => Promise<void>, isInstantDecision = false) => {
+    // Normal tutoring needs a recorded start time. Fast decisions can still
+    // finish if the timer hasn't initialized yet; their elapsed time is 0.
+    if (!lastSkillDiscussedTime && !isInstantDecision) return;
 
-    const now = (new Date()).getTime();
-    const timeSpent = now - lastSkillDiscussedTime;
+    const now = Date.now();
+    const timeSpent = lastSkillDiscussedTime ? now - lastSkillDiscussedTime : 0;
     setLastSkillDiscussedTime(now);
 
     const actionNameTeachTime = `${teachingEventCategory}_SKILL_TIME`;
@@ -276,11 +278,23 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
         eventType,
         Math.round(talkDuration / 1000)
       );
-      logBan(eventType);
+      if (isInstantDecision) {
+        // Keep too-short timing analytics, but do not turn an explicitly
+        // selected fast decision into a ban or a blocked lesson step.
+        logTime();
+        await action();
+      } else {
+        logBan(eventType);
+      }
     } else if (talkDuration < FAST_SKILL_DISCUSSION_MS) {
       if (fastDiscussedSkillsCount + 1 > MAX_FAST_DISCUSSED_SKILLS_IN_ROW_COUNT) {
         logEvent('TUTORING', 'SEVERAL_FAST_DISCUSSIONS_IN_ROW');
         setFastDiscussedSkillsCount(0);
+        if (isInstantDecision) {
+          // Record the streak, but don't prevent a fast decision from completing.
+          logTime();
+          await action();
+        }
       } else {
         setFastDiscussedSkillsCount(fastDiscussedSkillsCount + 1);
         logTime();
@@ -354,7 +368,7 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
     fetchLesson();
   }, []);
 
-  const updateReexamined = useCallback(async (talkDuration: number, updater: () => Promise<void>, lastAction: TutorAction) => {
+  const updateReexamined = useCallback(async (talkDuration: number, updater: () => Promise<void>, lastAction: TutorAction, isInstantDecision = false) => {
     if (lesson) {
       const nextStep = lesson.reexamineStep + 1;
       if (nextStep <= lesson.toReexamineCount) {
@@ -362,18 +376,18 @@ function Teach({ className = '' }: Props): React.ReactElement<Props> {
         await protectTutor(talkDuration, false, lastAction, async () => {
           await updater();
           await updateAndStoreLesson(updatedLesson);
-        });
+        }, isInstantDecision);
       }
     }
   }, [lesson, updateAndStoreLesson, protectTutor]);
 
-  const updateLearned = useCallback(async (talkDuration: number, updater: () => Promise<void>, lastAction: TutorAction) => {
+  const updateLearned = useCallback(async (talkDuration: number, updater: () => Promise<void>, lastAction: TutorAction, isInstantDecision = false) => {
     if (lesson && lesson.toLearnCount > lesson.learnStep) {
       const updatedLesson = { ...lesson, lastAction, learnStep: lesson.learnStep + 1 };
       await protectTutor(talkDuration, true, lastAction, async () => {
         await updater();
         await updateAndStoreLesson(updatedLesson);
-      });
+      }, isInstantDecision);
     }
   }, [lesson, updateAndStoreLesson, protectTutor]);
 

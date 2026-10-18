@@ -2960,7 +2960,7 @@ export async function getLetterTemplatesByLessonId(lessonId: string) {
 }
 
 export async function getValidLetterTemplatesByLessonId(lessonId: string): Promise<LetterTemplate[]> {
-    return await db.letterTemplates.where({ lesson: lessonId }).filter(letter => (letter.valid && letter.mature)).toArray();
+    return await db.letterTemplates.where({ lesson: lessonId }).filter(letter => letter.valid && !letter.toRepeat).toArray();
 }
 
 export async function getIssuedNonPenalizedLetterTemplateIds(): Promise<number[]> {

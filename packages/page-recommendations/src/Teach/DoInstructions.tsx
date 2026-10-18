@@ -28,7 +28,7 @@ interface Props {
   entity: LetterTemplate | Reexamination;
   tooFastWarning: boolean;
   pageWasJustRefreshed: boolean;
-  onResult: (lessonDuration: number, updater: () => Promise<void>, action: TutorAction) => void;
+  onResult: (lessonDuration: number, updater: () => Promise<void>, action: TutorAction, isInstantDecision?: boolean) => void;
   hasTutorCompletedTutorial: boolean | null | undefined;
   studentName: string;
   stake?: string;
@@ -179,7 +179,7 @@ function DoInstructions({ className = '', entity, eventCategory, lessonStat, any
     const { template, matureInfo } = await getMatureInfo();
 
     if (!template) {
-      onResult(0, async () => { }, undefined);
+      onResult(0, async () => { }, undefined, isInstantDecision);
       return;
     }
 
@@ -198,7 +198,11 @@ function DoInstructions({ className = '', entity, eventCategory, lessonStat, any
 
     const valid = (template.cid === EXAMPLE_SKILL_KNOWLEDGE_CID) || (isValid ?? !template.toRepeat);
 
-    const action: TutorAction = (valid ? `mark_mastered_${matureInfo}` : `mark_for_repeat_${matureInfo}`) as TutorAction;
+    // Fast mastery can award a badge on the first discussion; the normal
+    // tutoring algorithm must still schedule a first-time skill for review.
+    const action: TutorAction = (valid
+      ? (isInstantDecision && matureInfo === 'crude' ? 'mark_mastered_crude_instant' : `mark_mastered_${matureInfo}`)
+      : `mark_for_repeat_${matureInfo}`) as TutorAction;
 
     const lastStageTimeSpent = Date.now() - lastStageEndTime;
     const talkingDuration = previousTeachingStagesDuration + talkingDurationOrZero(lastStageTimeSpent, algorithmStage);
@@ -208,10 +212,10 @@ function DoInstructions({ className = '', entity, eventCategory, lessonStat, any
       await putLetterTemplate({
         ...template,
         valid,
-        toRepeat: !valid || !template.mature,
+        toRepeat: !valid || (!isInstantDecision && !template.mature),
         lastExamined: Date.now(),
       });
-    }, action);
+    }, action, isInstantDecision);
   }, [entity, countOfMissedCorrectFakeSolution, algorithmStage, isLetterTemplate, getLetterTemplate, putLetterTemplate, onResult, logEvent, lastStageEndTime, previousTeachingStagesDuration]);
 
 
@@ -250,7 +254,7 @@ function DoInstructions({ className = '', entity, eventCategory, lessonStat, any
   }, [processLetter, logEvent]);
 
   const finishReexamination = useCallback(
-    async (opts: { valid: boolean; action: 'validate' | 'revoke' }) => {
+    async (opts: { valid: boolean; action: 'validate' | 'revoke' }, isInstantDecision = false) => {
       if (!isReexamination(entity) || !('created' in entity)) return;
 
       const talkingDuration = previousTeachingStagesDuration + talkingDurationOrZero(Date.now() - lastStageEndTime, algorithmStage);
@@ -266,7 +270,8 @@ function DoInstructions({ className = '', entity, eventCategory, lessonStat, any
           };
           await updateReexamination(updated);
         },
-        opts.action
+        opts.action,
+        isInstantDecision
       );
     },
     [
@@ -281,12 +286,12 @@ function DoInstructions({ className = '', entity, eventCategory, lessonStat, any
   );
 
   const studentPassedReexamination = useCallback(
-    () => finishReexamination({ valid: true, action: 'validate' }),
+    (isInstantDecision = false) => finishReexamination({ valid: true, action: 'validate' }, isInstantDecision),
     [finishReexamination]
   );
 
   const studentFailedReexamination = useCallback(
-    () => finishReexamination({ valid: false, action: 'revoke' }),
+    (isInstantDecision = false) => finishReexamination({ valid: false, action: 'revoke' }, isInstantDecision),
     [finishReexamination]
   );
 
@@ -541,7 +546,7 @@ function DoInstructions({ className = '', entity, eventCategory, lessonStat, any
                                 onClick={() => {
                                   const timeSpent = Math.round((Date.now() - lastStageEndTime) / 1000);
                                   logEvent('TUTORING', algorithmType, 'click_instant_validate', timeSpent);
-                                  studentPassedReexamination();
+                                  studentPassedReexamination(true);
                                 }}
                               />
                               <Menu.Divider />
@@ -552,7 +557,7 @@ function DoInstructions({ className = '', entity, eventCategory, lessonStat, any
                                 onClick={() => {
                                   const timeSpent = Math.round((Date.now() - lastStageEndTime) / 1000);
                                   logEvent('TUTORING', algorithmType, 'click_instant_revoke', timeSpent);
-                                  studentFailedReexamination();
+                                  studentFailedReexamination(true);
                                 }}
                               />
                             </>

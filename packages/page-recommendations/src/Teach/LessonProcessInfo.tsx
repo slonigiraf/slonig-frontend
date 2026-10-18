@@ -37,6 +37,7 @@ function LessonProcessInfo({ className = '', lessonStat, showLastAction = true }
     ['mark_for_repeat_warm_up', { icon: undefined, comment: '' }],
 
     ['mark_mastered_crude', { icon: 'rotate', comment: t('This was the student’s first time learning the skill, so it was marked for repetition.') }],
+    ['mark_mastered_crude_instant', { icon: 'award', comment: t('You’ve prepared a badge to your student.') }],
     ['mark_for_repeat_crude', { icon: 'rotate', comment: t('You’ve taught the skill and marked it for repetition to ensure the student remembers it.') }],
 
     ['mark_mastered_mature', { icon: 'award', comment: t('You’ve prepared a badge to your student.') }],
@@ -48,13 +49,14 @@ function LessonProcessInfo({ className = '', lessonStat, showLastAction = true }
   }
 
   const { icon, comment } = getActionInfo(lessonStat.lastAction);
+  const isBadgeAction = lastAction === 'mark_mastered_mature' || lastAction === 'mark_mastered_crude_instant' || lastAction === 'mark_mastered_warm_up';
 
   const lastEarning = lastBonus ? lastBonus :
-    (lastAction === 'mark_mastered_mature' || lastAction === 'mark_mastered_warm_up') ? bnToSlonFloatOrNaN(new BN(lessonStat.dPrice)) : 0;
+    isBadgeAction ? bnToSlonFloatOrNaN(new BN(lessonStat.dPrice)) : 0;
 
-  const warrantyAmount = (lastAction === 'mark_mastered_mature' || lastAction === 'mark_mastered_warm_up') ? bnToSlonFloatOrNaN(new BN(lessonStat.dWarranty)) : 0;
+  const warrantyAmount = isBadgeAction ? bnToSlonFloatOrNaN(new BN(lessonStat.dWarranty)) : 0;
 
-  const earningCommentOnBadge = (lastAction === 'mark_mastered_mature' || lastAction === 'mark_mastered_warm_up') ? t('You’ve earned {{amount}} Slon.', { replace: { amount: lastEarning, warranty: warrantyAmount } }) : '';
+  const earningCommentOnBadge = isBadgeAction ? t('You’ve earned {{amount}} Slon.', { replace: { amount: lastEarning, warranty: warrantyAmount } }) : '';
   const earningCommentOnRevoke = (lastAction === 'revoke') ? t('You’ve got {{amount}} Slon from a bad tutor.', { replace: { amount: lastEarning } }) : '';
 
   const lastEarningComment = earningCommentOnBadge || earningCommentOnRevoke || t('You haven’t earned Slon.');
