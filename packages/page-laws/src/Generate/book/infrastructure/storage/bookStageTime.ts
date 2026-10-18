@@ -2,8 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { BookStageSpendKey } from '@slonigiraf/db';
+import { setBookProcessingActivity } from '@slonigiraf/db';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useLayoutEffect, useRef } from 'react';
 
 export type BookStageTimes = Partial<Record<BookStageSpendKey, number>>;
 
@@ -99,8 +100,10 @@ function finishTimer (timer: ActiveStageTimer): void {
  */
 export function useBookStageTimer (bookId: number, stage?: BookStageSpendKey): void {
   const activeRef = useRef<ActiveStageTimer | undefined>(undefined);
+  const activitySourceRef = useRef<symbol>(Symbol('book-stage-timer'));
 
-  useEffect((): void => {
+  useLayoutEffect((): void => {
+    setBookProcessingActivity(activitySourceRef.current, stage !== undefined);
     const active = activeRef.current;
 
     if (active && (active.bookId !== bookId || active.stage !== stage)) {
@@ -114,6 +117,7 @@ export function useBookStageTimer (bookId: number, stage?: BookStageSpendKey): v
   }, [bookId, stage]);
 
   useEffect(() => (): void => {
+    setBookProcessingActivity(activitySourceRef.current, false);
     if (activeRef.current) {
       finishTimer(activeRef.current);
       activeRef.current = undefined;

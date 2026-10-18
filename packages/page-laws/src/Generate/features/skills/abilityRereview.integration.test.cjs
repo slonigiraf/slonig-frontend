@@ -53,11 +53,13 @@ function makeRereview ({ fails = false, restrictedStorage = false, waitForReset 
     setIsResettingReview: (value) => { state.loading = value; },
     setChapterContent: (fn) => { state.chapterContent = fn(state.chapterContent); },
     setReviewAbilityIds: (ids) => { state.selectedIds = ids; },
+    setIsScheduledRereview: () => {},
     setIsReviewModeOpen: (value) => { state.isReviewOpen = value; },
     refreshContent: () => { state.refreshed++; },
     setNotice: (value) => { state.notice = value; },
     setError: (value) => { state.error = value; },
     reviewScopeSessionKey: 'review-scope',
+    scheduledReviewSessionKey: 'review-scheduled',
     activeReviewSessionKey: 'review',
     sessionStorage: {
       removeItem (key) { if (restrictedStorage) throw Error('Storage disabled'); storage.delete(key); },

@@ -91,6 +91,7 @@ export default function SkillsControls ({ bookId, abilitiesMissingImagesCount, f
   )}
   {isBusy && !autoRunAll && (
     <ProcessingPopup
+      bookId={bookId}
       label={progressLabel}
       onAbort={abortProcessing}
       overallProgress={autoRunAll ? { completed: autoRunCompletedCount, total: autoRunStageCount } : undefined}

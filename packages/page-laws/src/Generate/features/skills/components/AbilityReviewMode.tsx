@@ -37,6 +37,7 @@ export default function AbilityReviewMode ({ allowQueuedReview = false, chapters
   // navigation trail here; a reload resumes at the first unreviewed Ability.
   const [visitedIds, setVisitedIds] = useState<string[]>([]);
   const [historyIndex, setHistoryIndex] = useState(0);
+  const [acknowledgedReviewIds, setAcknowledgedReviewIds] = useState<readonly string[]>([]);
   const [saving, setSaving] = useState(false);
   const contentRef = useRef<HTMLElement>(null);
   const entries = useMemo(() => {
@@ -50,11 +51,14 @@ export default function AbilityReviewMode ({ allowQueuedReview = false, chapters
   }, [chapters, reviewAbilityIds]);
   // `chapters` is the latest IndexedDB snapshot provided by SkillsPage.
   // Never maintain a second, independent set of reviewed IDs.
-  const pending = entries.filter(({ record }) => !record.reviewed);
+  // A successful IndexedDB write can precede the refreshed chapter snapshot.
+  // Immediately hide that row from the pending queue so Next/Space cannot
+  // briefly redisplay the Ability that was just reviewed.
+  const pending = entries.filter(({ record }) => !record.reviewed && !acknowledgedReviewIds.includes(record.id));
   const current = (historyIndex < visitedIds.length
     ? entries.find(({ record }) => record.id === visitedIds[historyIndex])
     : undefined) ?? pending[0];
-  const isCurrentReviewed = Boolean(current?.record.reviewed);
+  const isCurrentReviewed = Boolean(current && (current.record.reviewed || acknowledgedReviewIds.includes(current.record.id)));
   const reviewedCount = entries.length - pending.length;
 
   useEffect(() => {
@@ -65,8 +69,9 @@ export default function AbilityReviewMode ({ allowQueuedReview = false, chapters
     return () => { document.body.style.overflow = previousOverflow; window.removeEventListener('keydown', onKeyDown); };
   }, [onClose]);
 
-  const advance = useCallback((): void => {
+  const advance = useCallback((justReviewed = false): void => {
     if (!current) return;
+    if (justReviewed) setAcknowledgedReviewIds((previous) => previous.includes(current.record.id) ? previous : [...previous, current.record.id]);
     setVisitedIds((previous) => historyIndex === previous.length ? [...previous, current.record.id] : previous);
     setHistoryIndex((previous) => previous + 1);
   }, [current, historyIndex]);
@@ -76,7 +81,7 @@ export default function AbilityReviewMode ({ allowQueuedReview = false, chapters
     setSaving(true);
     try {
       await onReviewed(current.record);
-      advance();
+      advance(true);
     } catch (error) {
       onError(error instanceof Error ? error.message : 'Unable to save this review.');
     } finally {
@@ -90,6 +95,7 @@ export default function AbilityReviewMode ({ allowQueuedReview = false, chapters
   const handleAbilityReplaced = useCallback((oldId: string, nextId: string): void => {
     if (oldId === nextId) return;
     setVisitedIds((previous) => previous.map((id) => id === oldId ? nextId : id));
+    setAcknowledgedReviewIds((previous) => previous.map((id) => id === oldId ? nextId : id));
     onAbilityReplaced?.(oldId, nextId);
   }, [onAbilityReplaced]);
 
@@ -120,7 +126,7 @@ export default function AbilityReviewMode ({ allowQueuedReview = false, chapters
         if (!record.reviewed) {
           await onReviewed(record);
         }
-        if (current?.record.id === record.id) advance();
+        if (current?.record.id === record.id) advance(!record.reviewed);
       } catch (error) {
         onError(error instanceof Error ? error.message : 'Unable to save this review. Use Next to try again.');
       }

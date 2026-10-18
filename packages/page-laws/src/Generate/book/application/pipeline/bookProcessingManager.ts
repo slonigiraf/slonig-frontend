@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { Book, BookProcessingRun, BookProcessingStageKey } from '@slonigiraf/db';
-import { bypassBookProcessingStage, getBook, getBookProcessingRun, isBookProcessingStageComplete, putBookProcessingRun } from '@slonigiraf/db';
+import { bypassBookProcessingStage, getBook, getBookProcessingRun, isBookProcessingStageComplete, putBookProcessingRun, setBookProcessingActivity } from '@slonigiraf/db';
 
 import type { PipelineAction } from '../../../shared/types/processing.js';
 import type { BookProcessingRunnerState } from './bookProcessingCommand.js';
@@ -68,6 +68,7 @@ export class BookProcessingManager {
 
   private publish (run: BookProcessingRun): void {
     this.runs.set(run.bookId, run);
+    setBookProcessingActivity(`fastForward:${run.bookId}`, run.status === 'running');
     this.listeners.get(run.bookId)?.forEach((notify) => notify());
     // Serialize writes per book so a slower intermediate checkpoint cannot
     // overwrite a later stage transition in IndexedDB.
@@ -219,6 +220,7 @@ export class BookProcessingManager {
     this.controllers.delete(bookId);
     this.readers.delete(bookId);
     this.runs.delete(bookId);
+    setBookProcessingActivity(`fastForward:${bookId}`, false);
     this.verifyingStages.delete(bookId);
     this.listeners.get(bookId)?.forEach((notify) => notify());
   }

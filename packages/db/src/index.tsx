@@ -50,6 +50,7 @@ import { BACKUP_DB_BATCH, stageRestoreBatch, commitRestoreStaging, discardRestor
 export { BOOK_PROCESSING_STAGES, getBookCompletedStages, isBookProcessingStageComplete, isBookProcessingStageSatisfied, bookStagesInvalidatedByRerun, withBookProcessingStagesResetFrom, withInvalidatedBookProcessingStages, withBypassedBookProcessingStage, withCompletedBookProcessingStage } from './db/Book.js';
 export type { LearnRequest, TutorAction, CanceledInsurance, Reexamination, LetterTemplate, CanceledLetter, Reimbursement, Letter, Insurance, Lesson, Pseudonym, Setting, Signer, UsageRight, Agreement, Ability, AbilityExercise, AbilityValue, Image, Book, BookProcessingStageKey, BookStageSpend, BookStageSpendKey, BookSubject, BookPage, MathpixHeading, BookChapter, BookConcept, Skill, ExerciseTemplate, AiTutorStudentMessage, StandardEmbedding, ConceptEmbedding, MathpixPdfJob };
 export type { BookProcessingRun } from './db/BookProcessingRun.js';
+export { getIsBookProcessingActive, subscribeBookProcessingActivity, setBookProcessingActivity } from './processingActivity.js';
 
 export function getBookProcessingRun(bookId: number): Promise<BookProcessingRun | undefined> {
   return db.bookProcessingRuns.get(bookId);

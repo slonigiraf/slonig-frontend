@@ -6,8 +6,9 @@ import { restoreTikzSvgShading } from './tikzShading.js';
 
 export const TIKZ_EDITOR_URL = 'https://texlyre.github.io/tikz-editor-embed-mirror/tikz-editor/index.html';
 export const TIKZ_EDITOR_ORIGIN = 'https://texlyre.github.io';
-// Renderer/cache revision: repair missing or black ball gradient definitions in exported SVG.
-export const TIKZ_EDITOR_RENDERER_ID = 'tikz-editor@0.5.2-texlyre.4-ball-gradient-urls';
+// Renderer/cache revision: discard previously misattributed SVG previews, and
+// retain the ball-gradient repair in exported SVGs.
+export const TIKZ_EDITOR_RENDERER_ID = 'tikz-editor@0.5.2-texlyre.5-source-matched-exports';
 
 const TIKZ_EDITOR_RENDER_TIMEOUT_MS = 30_000;
 const TIKZ_EDITOR_EXPORT_RETRY_MS = 100;
@@ -277,16 +278,22 @@ class TikzEditorRenderer {
     // preview SVG is ready. The embed deliberately resets `lastKnownSvg` on
     // load and can answer the first export with "SVG is not ready yet".
     // Start polling exports until the preview becomes available.
+    const source = message.source ?? message.xml;
+
+    // The shared iframe handles many diagrams consecutively. A delayed export
+    // or autosave from the previous diagram must NEVER be cached as the next
+    // diagram's preview. Only accept rendered results explicitly labelled with
+    // the source currently being compiled.
     if (message.event === 'loaded') {
+      if (typeof source === 'string' && source !== pending.source) return;
       this.#requestSvgExport(pending);
       return;
     }
 
-    const source = message.source ?? message.xml;
-
-    if (typeof source === 'string' && source !== pending.source) {
-      return;
-    }
+    // Autosave/save events are unsolicited and may arrive from the previous
+    // compile after the next load. Only the explicit SVG export requested for
+    // this source may fulfill a headless preview render.
+    if (message.event !== 'export' || message.format?.toLowerCase() !== 'svg' || source !== pending.source) return;
 
     const svg = svgFromMessage(message);
 

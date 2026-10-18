@@ -131,13 +131,16 @@ test('Review scope follows content-addressed Ability ID changes and persists the
   assert.deepEqual(Array.from(selected), ['new', 'second']);
   assert.deepEqual(JSON.parse(session.get('scope')), ['new', 'second']);
   let visited = ['old', 'second'];
+  let acknowledged = ['old'];
   let notified;
   const handleNavigation = productionFunction(reviewSource, 'handleAbilityReplaced', {
     setVisitedIds: (update) => { visited = update(visited); },
+    setAcknowledgedReviewIds: (update) => { acknowledged = update(acknowledged); },
     onAbilityReplaced: (oldId, newId) => { notified = [oldId, newId]; }
   });
   handleNavigation('old', 'new');
   assert.deepEqual(Array.from(visited), ['new', 'second']);
+  assert.deepEqual(Array.from(acknowledged), ['new']);
   assert.deepEqual(Array.from(notified), ['old', 'new']);
 });
 

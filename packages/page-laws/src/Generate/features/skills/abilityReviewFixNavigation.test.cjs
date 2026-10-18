@@ -102,8 +102,8 @@ test('An existing queued fix shows an enabled Next button, even while other AI w
   const attributes = Object.fromEntries(button.attributes.properties.filter(ts.isJsxAttribute).map((attr) => [attr.name.text, attr.initializer?.getText(ast)]));
   assert.match(attributes.label, /isNextAction \? 'Next' : 'Reviewed'/);
   assert.match(attributes.icon, /isNextAction \? 'arrow-right'/);
-  assert.match(attributes.isDisabled, /!isNextAction && \(isBusy \|\| Boolean\(queuedSplit\)\)/);
-  assert.match(source, /const isNextAction = isCurrentReviewed \|\| Boolean\(queuedFixId\);/);
+  assert.match(attributes.isDisabled, /!isNextAction && \(isBusy \|\| \(Boolean\(queuedSplit\) && !allowQueuedReview\)\)/);
+  assert.match(source, /const isNextAction = isCurrentReviewed \|\| \(Boolean\(queuedFixId\) && !allowQueuedReview\);/);
   assert.match(attributes.onClick, /isCurrentReviewed\) advance\(\);/);
   assert.match(attributes.onClick, /else void markReviewed\(\);/);
 });
@@ -147,13 +147,13 @@ function evaluate (name, context) {
   return sandbox.module.exports;
 }
 
-test('The next Ability and progress come exclusively from IndexedDB-backed reviewed flags', () => {
+test('The next Ability and progress include confirmed saves while IndexedDB refresh catches up', () => {
   const entries = [
     { record: { id: 'a', reviewed: true } },
     { record: { id: 'b', reviewed: false } },
     { record: { id: 'c', reviewed: false } }
   ];
-  const pending = evaluate('pending', { entries });
+  const pending = evaluate('pending', { entries, acknowledgedReviewIds: [] });
   assert.deepEqual(Array.from(pending, ({ record }) => record.id), ['b', 'c']);
   assert.equal(evaluate('reviewedCount', { entries, pending }), 1);
   assert.equal(evaluate('current', { entries, pending, historyIndex: 0, visitedIds: [] }).record.id, 'b');
@@ -164,11 +164,18 @@ test('The next Ability and progress come exclusively from IndexedDB-backed revie
   assert.equal(evaluate('current', { entries, pending, historyIndex: 0, visitedIds: ['a'] }).record.id, 'a');
 
   entries[1].record.reviewed = true;
-  const remaining = evaluate('pending', { entries });
+  const remaining = evaluate('pending', { entries, acknowledgedReviewIds: [] });
   assert.deepEqual(Array.from(remaining, ({ record }) => record.id), ['c']);
   assert.equal(evaluate('current', { entries, pending: remaining, historyIndex: 1, visitedIds: ['b'] }).record.id, 'c');
   assert.equal(evaluate('reviewedCount', { entries, pending: remaining }), 2);
-  assert.doesNotMatch(source, /reviewedIds|setReviewedIds|sessionStorage|navigationSessionKey|skippedIds/);
+  // If the server-side write succeeds but the parent has not fetched a fresh
+  // snapshot, Next must still switch to c in the *very first* rerender.
+  entries[1].record.reviewed = false;
+  const optimistic = evaluate('pending', { entries, acknowledgedReviewIds: ['b'] });
+  assert.deepEqual(Array.from(optimistic, ({ record }) => record.id), ['c']);
+  assert.equal(evaluate('current', { entries, pending: optimistic, historyIndex: 1, visitedIds: ['b'] }).record.id, 'c');
+  assert.equal(evaluate('reviewedCount', { entries, pending: optimistic }), 2);
+  assert.doesNotMatch(source, /navigationSessionKey|skippedIds/);
 });
 
 test('Review card is keyed by Ability ID so previous images and editors unmount before the next is rendered', () => {

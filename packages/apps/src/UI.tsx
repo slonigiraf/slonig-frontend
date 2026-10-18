@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { BareProps as Props } from '@polkadot/react-components/types';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState, useSyncExternalStore } from 'react';
 import Signer from '@polkadot/react-signer';
 import Content from './Content/index.js';
 import Menu from './Menu/index.js';
@@ -12,7 +12,7 @@ import { AirdropResults, AppContainer, bnToSlonFloatOrNaN, BlockchainSyncProvide
 import { Spinner, styled } from '@polkadot/react-components';
 import { useTranslation } from './translate.js';
 import { useApi, useTheme } from '@polkadot/react-hooks';
-import { getSetting, setSettingToTrue, SettingKey, storeSetting } from '@slonigiraf/db';
+import { getIsBookProcessingActive, getSetting, setSettingToTrue, SettingKey, storeSetting, subscribeBookProcessingActivity } from '@slonigiraf/db';
 import { useLocation } from 'react-router-dom';
 import CreateAccount from '@polkadot/app-accounts/modals/CreateAccount';
 import detectIncognito from 'detectincognitojs';
@@ -84,7 +84,8 @@ function UI({ className = '' }: Props): React.ReactElement<Props> {
     loginBackupCheck.address === loginAddress && loginBackupCheck.restorePhase === restorePhase
     ? Math.max(loginBackupCheck.timestamp, lastBackup ?? 0)
     : null;
-  const shouldBackup = lastBackupMs !== null && (now - lastBackupMs) > BACKUP_REQUIREMENT_PERIOD_MS;
+  const isBookProcessing = useSyncExternalStore(subscribeBookProcessingActivity, getIsBookProcessingActive, () => false);
+  const shouldBackup = !isBookProcessing && lastBackupMs !== null && (now - lastBackupMs) > BACKUP_REQUIREMENT_PERIOD_MS;
   const [isIncognito, setIsIncognito] = useState<boolean | null>(null);
 
   const { currentVersion, updateAvailable, reloadNow } = useAppVersionReload({

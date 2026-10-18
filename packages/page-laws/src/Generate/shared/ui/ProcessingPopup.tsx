@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import React from 'react';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { getBook } from '@slonigiraf/db';
 
 import { RoundProgress } from '@slonigiraf/slonig-components';
 import { Button, LinearProgress, Modal, styled } from '@polkadot/react-components';
@@ -16,6 +18,7 @@ interface OverallProgress {
 
 
 interface Props {
+  bookId: number;
   label: string;
   onAbort: () => void;
   overallProgress?: OverallProgress;
@@ -24,7 +27,14 @@ interface Props {
   spent: number;
 }
 
-function ProcessingPopup({ label, onAbort, overallProgress, progressTotal, progressValue, spent }: Props): React.ReactElement<Props> {
+function ProcessingPopup({ bookId, label, onAbort, overallProgress, progressTotal, progressValue, spent }: Props): React.ReactElement<Props> {
+  // LiveQuery includes completed stages, previous runs and costs saved by the
+  // current stage. The local counter is a fallback while the first write lands.
+  const recordedSpend = useLiveQuery(() => getBook(bookId).then((book) =>
+    Object.values(book?.stageSpend ?? {}).reduce((sum, cost) => sum + (typeof cost === 'number' && Number.isFinite(cost) ? cost : 0), 0)
+  ), [bookId]);
+  const totalSpent = Math.max(recordedSpend ?? 0, spent);
+
   return (
     <Modal
       header='Processing'
@@ -40,6 +50,7 @@ function ProcessingPopup({ label, onAbort, overallProgress, progressTotal, progr
               value={progressValue}
             />
             <span className='processingStageSpend'>{formatOpenRouterSpend(spent)} spent this stage</span>
+            <span className='processingStageSpend'>{formatOpenRouterSpend(totalSpent)} spent in total</span>
           </section>
 
           {overallProgress && (
