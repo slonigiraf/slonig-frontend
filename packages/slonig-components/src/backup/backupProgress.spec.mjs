@@ -59,11 +59,12 @@ describe('Backup percent advances to saved completion without rereading archive'
     assert.ok(close !== -1 && timestamp > close && success > timestamp);
     assert.match(service, /this\.updateProgress\('download-initiated', .*'complete'\)/);
     assert.match(view, /service\.status\.phase === 'saved'/);
-    assert.match(view, /showInfo\(service\.status\.warnings\.length\s*\? t\('Backup completed with warnings'\)/);
-    assert.match(view, /\? t\('Backup completed with warnings'\)\s*: t\('Backup completed'\)/);
+    assert.match(view, /if \(service\.status\.warnings\.length\)/);
+    assert.match(view, /showBackupWarnings\(service\.status\.warnings\)/);
+    assert.match(view, /showInfo\(t\('Backup completed'\)\)/);
     assert.doesNotMatch(view, /Backup download started/);
     assert.match(service, /this\.updateProgress\('download-initiated', 'Backup completed', 'complete'\)/);
-    assert.match(view, /showInfo\(service\.status\.warnings\.length/);
+    assert.doesNotMatch(view, /showInfo\(t\('Backup completed with warnings'\)/);
     assert.match(view, /setTimeout\(\(\) => setShowCompleted\(false\), 1200\)/);
     assert.doesNotMatch(view, /onClick=\{\(\) => service\.cancel\(\)\}/);
   });

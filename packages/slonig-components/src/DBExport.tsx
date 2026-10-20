@@ -20,7 +20,7 @@ function DBExport({ className = '', caption, onSuccess }: Props): React.ReactEle
   const { t } = useTranslation();
   const { currentPair } = useLoginContext();
   const { logEvent } = useLog();
-  const { showInfo } = useInfo();
+  const { showInfo, showBackupWarnings } = useInfo();
   const [service] = useState(() => new BackupService());
   const [status, setStatus] = useState<OperationStatus>(service.status);
   useEffect(() => service.subscribe(setStatus), [service]);
@@ -42,11 +42,13 @@ function DBExport({ className = '', caption, onSuccess }: Props): React.ReactEle
     void service.start(currentPair?.address, nameFromKeyringPair(currentPair) || currentPair?.meta.name || currentPair?.address, t('Slonig backup archive')).then(() => {
       if (service.status.phase === 'saved' || service.status.phase === 'download-initiated') {
         logEvent('AUTHENTICATION', 'BACKUP_SUCCESS');
-        // Use the same localized success message for native saves (Chrome)
-        // and fallback browser downloads.
-        showInfo(service.status.warnings.length
-          ? t('Backup completed with warnings')
-          : t('Backup completed'));
+        // Incomplete backups need details, while clean native and browser
+        // downloads retain the usual localized success notification.
+        if (service.status.warnings.length) {
+          showBackupWarnings(service.status.warnings);
+        } else {
+          showInfo(t('Backup completed'));
+        }
         // Browser downloads count as completed for the deletion safeguard once
         // the download has been launched, even without native file confirmation.
         onSuccess();
@@ -54,7 +56,7 @@ function DBExport({ className = '', caption, onSuccess }: Props): React.ReactEle
     }).catch((error: Error) => {
       if (error.name !== 'AbortError') logEvent('AUTHENTICATION', 'BACKUP_ERROR');
     });
-  }, [service, currentPair, onSuccess, logEvent, showInfo, t]);
+  }, [service, currentPair, onSuccess, logEvent, showInfo, showBackupWarnings, t]);
 
   const running = ['generating', 'generated'].includes(status.phase) ||
     (showCompleted && ['saved', 'download-initiated'].includes(status.phase));
@@ -64,7 +66,7 @@ function DBExport({ className = '', caption, onSuccess }: Props): React.ReactEle
   const percent = hasKnownTotal
     ? Math.max(0, Math.min(100, Math.floor(status.completed * 100 / status.total)))
     : undefined;
-  const hasFeedback = status.phase === 'error' || (!running && status.warnings.length > 0);
+  const hasFeedback = status.phase === 'error';
   const backupCompleted = status.phase === 'saved' || status.phase === 'download-initiated';
 
   return (
@@ -91,12 +93,11 @@ function DBExport({ className = '', caption, onSuccess }: Props): React.ReactEle
           />
         )}
       </div>
-      {/* Keep errors visible after failure and PDF warnings after completion.
-          During a backup, display only the original circular progress control. */}
+      {/* Keep errors visible after failure. Warning details are presented in
+          a persistent app-level modal, even if this control unmounts. */}
       {status.phase === 'error' && status.error && <p role='alert'>{/too large|memory limit|safe per-frame limit/i.test(status.error)
         ? t('The backup is too large for this browser.')
         : t('Backup failed. Please try again.')}</p>}
-      {!running && status.warnings.length > 0 && <p role='status'>{t('Backup warnings')}</p>}
     </StyledDiv>
   );
 }

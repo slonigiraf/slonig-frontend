@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, ReactNode, useRef, useEffec
 import InfoPopup from './InfoPopup.js';
 import type { IconName } from '@fortawesome/fontawesome-svg-core';
 import OKBox from './OKBox.js';
+import BackupWarningsPopup from './BackupWarningsPopup.js';
 import PenaltyPopup from './PenaltyPopup.js';
 import LoadResultsReminder from './LoadResultsReminder.js';
 import { deleteLearnRequest, getLastNonFinishedLessonRequest, getLastNonSentLesson, LearnRequest, Lesson, SettingKey } from '@slonigiraf/db';
@@ -15,6 +16,7 @@ interface InfoContextType {
     isInfoVisible: boolean;
     infoMessage: string;
     showInfo: (message: string, type?: 'error' | 'info', timeoutSec?: number, icon?: IconName) => void;
+    showBackupWarnings: (warnings: string[]) => void;
     showRecentPenalties: () => void;
     hideInfo: () => void;
     showLoadedResult: (lessonResult: LessonResult) => void;
@@ -24,6 +26,7 @@ const defaultInfoContext: InfoContextType = {
     isInfoVisible: false,
     infoMessage: '',
     showInfo: () => { },
+    showBackupWarnings: () => { },
     hideInfo: () => { },
     showRecentPenalties: () => { },
     showLoadedResult: () => { },
@@ -45,6 +48,7 @@ export const InfoProvider: React.FC<InfoProviderProps> = ({ children }) => {
     const [isLoadLessonResultsReminderVisible, setIsLoadLessonResultsReminderVisible] = useState(false);
     const [isSendLessonResultsReminderVisible, setIsSendLessonResultsReminderVisible] = useState(false);
     const [infoMessage, setInfoMessage] = useState('');
+    const [backupWarnings, setBackupWarnings] = useState<string[]>([]);
     const [type, setType] = useState<'error' | 'info'>('info');
     const [icon, setIcon] = useState<IconName>(defaultIcon);
     const penaltyKeyRef = useRef(0);
@@ -117,9 +121,12 @@ export const InfoProvider: React.FC<InfoProviderProps> = ({ children }) => {
     }, [setLoadedResultInfo, setAreLoadedResultsShown]);
 
     return (
-        <InfoContext.Provider value={{ isInfoVisible, showLoadedResult, showRecentPenalties, infoMessage, showInfo, hideInfo }}>
+        <InfoContext.Provider value={{ isInfoVisible, showLoadedResult, showRecentPenalties, infoMessage, showInfo, showBackupWarnings: setBackupWarnings, hideInfo }}>
             {children}
             <InfoPopup message={infoMessage} isEnabled={isInfoVisible} type={type} icon={icon} />
+            {backupWarnings.length > 0 && (
+                <BackupWarningsPopup warnings={backupWarnings} onClose={() => setBackupWarnings([])} />
+            )}
             
             {isPenaltyInfoVisible && (
                 <PenaltyPopup key={penaltyKeyRef.current} onClose={() => setIsPenaltyInfoVisible(false)} />

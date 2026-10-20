@@ -26,9 +26,9 @@ async function copyFile(from: FileSystemDirectoryHandle, to: FileSystemDirectory
 
 export async function* readPdfChunks(signal?: AbortSignal, warn?: (message: string) => void): AsyncGenerator<{ name: string; bytes: Uint8Array; fileSize: number; fileOffset: number }> {
 
-  let directory: FileSystemDirectoryHandle;
-  try { directory = await (await root()).getDirectoryHandle(ROOT); }
-  catch (error) { warn?.(`PDF storage unavailable: ${(error as Error).message}`); return; }
+  // Only open OPFS when there is actually a PDF to export. An empty
+  // (or not-yet-created) books directory is not a backup warning.
+  let directory: FileSystemDirectoryHandle | undefined;
   const processed = new Set<string>();
   for await (const opfsName of readBookPdfNames(signal)) {
     if (signal?.aborted) throw new DOMException('Cancelled', 'AbortError');
@@ -36,6 +36,10 @@ export async function* readPdfChunks(signal?: AbortSignal, warn?: (message: stri
       validateName(opfsName);
       if (processed.has(opfsName)) continue;
       processed.add(opfsName);
+      if (!directory) {
+        try { directory = await (await root()).getDirectoryHandle(ROOT); }
+        catch (error) { warn?.(`PDF storage unavailable: ${(error as Error).message}`); return; }
+      }
       const file = await (await directory.getFileHandle(opfsName)).getFile();
       if (!await looksLikePdf(file)) throw new Error('Invalid or truncated PDF');
       const reader = file.stream().getReader();

@@ -73,6 +73,7 @@ describe('Original backup/restore controls with the safe restore engine', () => 
     assert.doesNotMatch(view, /backup-cancel|onClick=\{\(\) => service\.cancel\(\)\}|\{status.message\}<\/small>/);
     assert.doesNotMatch(view, /\{running && <>/);
     assert.match(view, /status.phase === 'error' && status.error/);
-    assert.match(view, /!running && status.warnings.length > 0/);
+    assert.match(view, /showBackupWarnings\(service\.status\.warnings\)/);
+    assert.doesNotMatch(view, /<p role='status'>\{t\('Backup warnings'\)\}<\/p>/);
   });
 });

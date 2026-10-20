@@ -45,6 +45,7 @@ describe('Account restore progress', () => {
     const base = new URL('../../apps/public/locales/', src);
     const slonig = await code('DBImport.tsx');
     const exportView = await code('DBExport.tsx');
+    const warningPopup = await code('BackupWarningsPopup.tsx');
     const restoring = await code('../../page-accounts/src/modals/RestoringProgress.tsx');
     const fullScreen = await code('FullscreenActivity.tsx');
     assert.match(restoring, /<FullscreenActivity hideHeader/);
@@ -57,9 +58,13 @@ describe('Account restore progress', () => {
       'Restore cancelled', 'Backup warnings',
       'Backup failed. Please try again.', 'This backup file is invalid or unsupported.',
       'The backup is too large for this browser.', 'Slonig backup archive',
-      'Backup again', 'click to select *.slonig file'
+      'Backup again', 'click to select *.slonig file',
+      'PDF storage is unavailable. PDF files may be missing from this backup.',
+      'PDF "{{name}}" was skipped.', 'Other backup warning',
+      'Some files may be missing from this backup.', 'Reason: {{reason}}',
+      'Invalid PDF filename', 'Invalid or truncated PDF', 'OPFS is unavailable'
     ];
-    for (const key of keys) assert.ok([slonig, exportView, restoring].some((source) => source.includes(`t('${key}')`)), `Missing static translation call: ${key}`);
+    for (const key of keys) assert.ok([slonig, exportView, warningPopup, restoring].some((source) => source.includes(`t('${key}'`)), `Missing static translation call: ${key}`);
     const englishNamespace = JSON.parse(await fs.readFile(new URL('en/slonig-components.json', base), 'utf8'));
     assert.equal(englishNamespace['click to select *.slonig file'], 'click to select *.slonig file');
     const locales = (await fs.readdir(base, { withFileTypes: true })).filter((entry) => entry.isDirectory()).map((entry) => entry.name);

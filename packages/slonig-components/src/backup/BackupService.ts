@@ -29,21 +29,29 @@ export class BackupService extends OperationService {
     this.updateProgress('generating', 'Select a destination for your backup', 'preparing');
     let handle: SaveHandle | undefined;
     const picker = (window as Window & { showSaveFilePicker?: (options: unknown) => Promise<SaveHandle> }).showSaveFilePicker;
-    const pickerPromise = picker ? picker.call(window, {
-      suggestedName: fileName,
-      types: [{ description: pickerDescription, accept: { 'application/octet-stream': ['.slonig'] } }]
-    }) : undefined;
     let worker: CompressionClient | undefined;
     let writable: FileSystemWritableFileStream | undefined;
     const fallbackParts: Uint8Array[] = [];
     const MAX_FALLBACK_SIZE = 64 * 1024 * 1024;
     let fallbackSize = 0;
     try {
+      // Browsers may reject the picker either synchronously or asynchronously.
+      // Both SecurityError cases are normal download fallbacks, not warnings.
+      let pickerPromise: Promise<SaveHandle> | undefined;
+      try {
+        pickerPromise = picker ? picker.call(window, {
+          suggestedName: fileName,
+          types: [{ description: pickerDescription, accept: { 'application/octet-stream': ['.slonig'] } }]
+        }) : undefined;
+      } catch (error) {
+        if (!(error instanceof DOMException && error.name === 'SecurityError')) throw error;
+      }
       if (pickerPromise) {
         try { handle = await pickerPromise; }
         catch (error) {
           if (!(error instanceof DOMException && error.name === 'SecurityError')) throw error;
-          this.warn('Native save picker is blocked; using browser download fallback.');
+          // The native picker may be blocked by browser policy. Downloading
+          // instead is normal and does not make the backup incomplete.
         }
       }
       if (signal.aborted) throw new DOMException('Cancelled', 'AbortError');
