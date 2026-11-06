@@ -6,7 +6,7 @@ import type { GeneratedAbility } from '../../../abilities/abilities.js';
 import type { AbilityWorkflowJsonRunner } from '../../book/domain/abilities/abilityWorkflow.js';
 import type { AiAction, ChapterContent, DuplicateAbilityReview, FixedImageReview, FixReviewResult, ImageFixReviewResult, UnresolvedImageReview, PipelineAction, SkillSource, SkillsProps, SkillsView } from './SkillsTypes.js';
 
-import { ABILITY_FIX_FIELDS, effectiveAbilityFixInstructions, addBookAbilityChangeLog, getBookAbilityWorkQueue, addBookStageSpend, completeBookProcessingStage, createBookConcept, ensureAbilityAnswerImage, ensureAbilityQuestionImage, deleteAbilities, deleteAbility, deleteBookConcept, getAbilities, getBookChapters, getBookCompletedStages, invalidateBookProcessingStages, getBookConceptsForBookPage, getBookPages, getSetting, getSkillsForChapter, getImage, getBookVisualQaSummary, hydrateAbilityContent, setBookAbilityReviewed, resetBookAbilityReviews, isBookProcessingStageSatisfied, putImage, replaceBookConceptWithChildren, setTikzImageQaState, tikzSourceVersion, replaceAbility, replaceAbilities, replaceSkillsForChapter, resetBookProcessingStagesFrom, SettingKey } from '@slonigiraf/db';
+import { ABILITY_FIX_FIELDS, effectiveAbilityFixInstructions, addBookAbilityChangeLog, getBookAbilityWorkQueue, addBookStageSpend, completeBookProcessingStage, createBookConcept, ensureAbilityAnswerImage, ensureAbilityQuestionImage, deleteAbilities, deleteAbility, deleteBookConcept, getAbilities, getBookAbilities, getBookChapters, getBookCompletedStages, invalidateBookProcessingStages, getBookConceptsForBookPage, getBookPages, getSetting, getSkillsForChapter, getImage, getBookVisualQaSummary, hydrateAbilityContent, setBookAbilityReviewed, resetBookAbilityReviews, isBookProcessingStageSatisfied, putImage, replaceBookConceptWithChildren, setTikzImageQaState, tikzSourceVersion, replaceAbility, replaceAbilities, replaceSkillsForChapter, resetBookProcessingStagesFrom, SettingKey } from '@slonigiraf/db';
 import OpenAI from 'openai';
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Button, Modal } from '@polkadot/react-components';
@@ -44,6 +44,7 @@ import { getSharedChapterSelection, storeSharedChapterSelection, subscribeShared
 import { abilityModuleId, abilityRepairInput, answerTikzRequestPrompt, exerciseNeedsCompletedFigure, cleanTikzResponse, conceptAbilityModuleId, parseGeneratedSkills, parseTikzAiReview, requestAbilityRepairResult, requestChatContent, requestChatContentWithTruncationRetry, requestValidatedJson, storedAbilityImageId, tikzCompileRepairPrompt, tikzDetectedProblemsRepairPrompt, tikzFixReviewPrompt, tikzRequestPrompt, type ImageFixTarget, type StoredAbility, type TikzAiReview } from '../../book/application/abilities/abilityProcessing.js';
 import { ChapterTitleEditor } from './components/SkillsComponents.js';
 import SkillsContentView from './components/SkillsContentView.js';
+import { repairStoredAbilityKaTeX } from '../../book/domain/repairStoredKaTeX.js';
 import AbilityReviewMode from './components/AbilityReviewMode.js';
 import QueuedAbilityWorkList from './components/QueuedAbilityWorkList.js';
 import { queuedAbilityReviewSelection } from './components/queuedAbilityWorkLabel.js';
@@ -395,6 +396,9 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
   const queuedSplitIds = splitQueueConceptIds ?? EMPTY_SPLIT_QUEUE;
   const queuedFixItems = queuedWorkItems.filter((item) => item.kind === 'fix');
   const [isBusy, setIsBusy] = useState(false);
+  const [isFixingKaTeX, setIsFixingKaTeX] = useState(false);
+  const [kaTeXFixProgress, setKaTeXFixProgress] = useState('');
+  const kaTeXFixRunningRef = useRef(false);
   const [openRouterSpent, setOpenRouterSpent] = useState(0);
   const [progress, setProgress] = useState(0);
   const [progressLabel, setProgressLabel] = useState('');
@@ -1268,7 +1272,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
   }, [addAnswerImagesCost, addFixAbilitiesCost, addFixAnswerImagesCost, addFixImagesCost, addImagesCost, book.age, book.id, createClient, effectiveModel, language, onAbilityLogChange]);
 
   const runSplitQueue = useCallback(async (): Promise<void> => {
-    if (splitBatchRunningRef.current || processingAbortControllerRef.current || isBusy || autoRunAll || externalAutoRunBusy || externalSplitQueueBusy || queuedWorkItems.length === 0 || !splitQueueEstimate || typeof splitQueueEstimate === 'string') return;
+    if (splitBatchRunningRef.current || kaTeXFixRunningRef.current || processingAbortControllerRef.current || isBusy || autoRunAll || externalAutoRunBusy || externalSplitQueueBusy || queuedWorkItems.length === 0 || !splitQueueEstimate || typeof splitQueueEstimate === 'string') return;
     splitBatchRunningRef.current = true;
     splitBatchCancelledRef.current = false;
     onSplitQueueBusyChange?.(true);
@@ -2087,7 +2091,7 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
       onClick: openAnswerImageFix
     },
     ...(pipelineSuffix ?? [])
-  ], [chapterContent, conceptsMissingAbilities.length, failedTikzTargets, hasAbilities, hasBookLanguage, hasBookSubject, isBusy, missingAnswerImageGenerationTargets.length, missingImageGenerationTargets.length, openAbilityFix, openAbilityGeneration, openAnswerImageFix, openAnswerImages, openImageFix, openImages, pipelinePrefix, pipelineSuffix, retryMissingAnswerImages, retryMissingImages, stageDone, stageReady, bookVisualQaStatus]);
+  ].map((action) => isFixingKaTeX ? { ...action, isDisabled: true } : action), [chapterContent, conceptsMissingAbilities.length, failedTikzTargets, hasAbilities, hasBookLanguage, hasBookSubject, isBusy, isFixingKaTeX, missingAnswerImageGenerationTargets.length, missingImageGenerationTargets.length, openAbilityFix, openAbilityGeneration, openAnswerImageFix, openAnswerImages, openImageFix, openImages, pipelinePrefix, pipelineSuffix, retryMissingAnswerImages, retryMissingImages, stageDone, stageReady, bookVisualQaStatus]);
   // Stage navigation is not a success checkpoint. Keep the full pipeline
   // selectable even after a failure; each action still checks its prerequisites.
   const visiblePipelineActions = pipelineActions;
@@ -2226,6 +2230,60 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
 
     selectedPipelineAction.onClick();
   }, [selectedPipelineAction]);
+
+  const fixBookKaTeX = useCallback(async (): Promise<void> => {
+    if (kaTeXFixRunningRef.current || isBusy || autoRunAll || externalAutoRunBusy || externalSplitQueueBusy || isResettingReview) return;
+
+    kaTeXFixRunningRef.current = true;
+    setIsFixingKaTeX(true);
+    setError('');
+    setNotice('');
+    setKaTeXFixProgress('Scanning all Abilities in this book…');
+    let checked = 0;
+    let updated = 0;
+    let commands = 0;
+    const failures: string[] = [];
+
+    try {
+      // Do not use chapterContent: it represents only the currently displayed
+      // chapter set and can omit Abilities in off-screen/unassigned chapters.
+      const records = await getBookAbilities(book.id);
+
+      for (const record of records) {
+        checked++;
+        try {
+          const corrected = repairStoredAbilityKaTeX(record.content);
+
+          if (corrected) {
+            // This DB API preserves numeric image references, record ordering,
+            // the review log and any queued fix job's record ID.
+            await replaceAbility(record.id, corrected.content, { preserveImageReferences: true });
+            updated++;
+            commands += corrected.commandsFixed;
+          }
+        } catch (cause) {
+          failures.push(`${record.moduleId}: ${cause instanceof Error ? cause.message : String(cause)}`);
+        }
+        setKaTeXFixProgress(`Checking ${checked}/${records.length} Abilities · ${updated} repaired`);
+      }
+
+      const summary = `Fix KaTeX: checked ${checked} Abilities across the whole book; repaired ${updated} (${commands} commands restored).`;
+
+      if (failures.length) {
+        setError(`${summary} ${failures.length} record(s) could not be fixed. First error: ${failures[0]}`);
+      } else {
+        setNotice(summary);
+      }
+    } catch (cause) {
+      setError(`Fix KaTeX interrupted after checking ${checked} Abilities (${updated} repaired): ${cause instanceof Error ? cause.message : String(cause)}`);
+    } finally {
+      setKaTeXFixProgress('');
+      setIsFixingKaTeX(false);
+      kaTeXFixRunningRef.current = false;
+      // Load the corrected text and new record IDs throughout the book.
+      refreshContent();
+    }
+  }, [autoRunAll, book.id, externalAutoRunBusy, externalSplitQueueBusy, isBusy, isResettingReview, refreshContent]);
 
   const startAbilityReview = useCallback((): void => {
     try {
@@ -2431,14 +2489,14 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
                        />}
     {isSplitQueueConfirmationOpen && <StageRunPricePopup
       header={queuedWorkItems.length ? `Run ${queuedWorkItems.length} queued Ability ${queuedWorkItems.length === 1 ? 'job' : 'jobs'}?` : 'Scheduled Ability actions'}
-      isRunDisabled={isQueueRunDisabled || isBusy || autoRunAll || externalAutoRunBusy || externalSplitQueueBusy || !splitQueueEstimate || typeof splitQueueEstimate === 'string' || queuedWorkItems.length === 0}
+      isRunDisabled={isQueueRunDisabled || isBusy || isFixingKaTeX || autoRunAll || externalAutoRunBusy || externalSplitQueueBusy || !splitQueueEstimate || typeof splitQueueEstimate === 'string' || queuedWorkItems.length === 0}
       onClose={() => { setQueueRemovalError(''); onCloseSplitQueueConfirmation?.(); }}
       onRun={() => { void runSplitQueue(); }}
     >
       {!!queuedWorkItems.length && <p>Queued jobs for different Concepts run in parallel. Fix Ability rewrites both exercises and regenerates/visually checks their question images before producing answer images from the checked questions. Detailed text edits can target specific fields. Failed jobs remain queued for retry.</p>}
       <QueuedAbilityWorkList
         chapterContent={chapterContent}
-        isBusy={isBusy || autoRunAll || externalAutoRunBusy || externalSplitQueueBusy}
+        isBusy={isBusy || isFixingKaTeX || autoRunAll || externalAutoRunBusy || externalSplitQueueBusy}
         isRereviewingScheduled={isResettingReview}
         onRereviewScheduled={() => { void rereviewScheduled(); }}
         items={queuedWorkItems}
@@ -2528,10 +2586,13 @@ function Skills ({ autoRunAll = false, autoRunStartKey, autoRunSkipRefineChapter
       scheduleAbilityFix={onQueueFix}
       queuedFixItems={queuedFixItems}
       onCancelFix={onCancelFix}
+      onFixKaTeX={() => { void fixBookKaTeX(); }}
+      isFixingKaTeX={isFixingKaTeX}
+      kaTeXFixProgress={kaTeXFixProgress}
       onStartReview={startAbilityReview}
       onRereview={openRereviewDialog}
       splitQueueConceptIds={queuedSplitIds}
-      isBusy={isBusy || externalSplitQueueBusy}
+      isBusy={isBusy || externalSplitQueueBusy || isFixingKaTeX || autoRunAll || externalAutoRunBusy}
       focusConceptAbility={focusConceptAbility}
       failedVisualCountsByChapter={failedVisualCountsByChapter}
       missingAbilityCountsByChapter={missingAbilityCountsByChapter}

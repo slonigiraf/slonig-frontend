@@ -2480,7 +2480,7 @@ export async function removeAbilityImage (abilityId: string, exerciseIndex: numb
     return replaceAbility(abilityId, JSON.stringify(parsed.parsed));
 }
 
-export async function replaceAbility(oldRecordId: string, content: string): Promise<string> {
+export async function replaceAbility(oldRecordId: string, content: string, options?: { preserveImageReferences?: boolean }): Promise<string> {
     return db.transaction('rw', db.abilities, db.images, db.bookConcepts, db.bookPages,
         db.bookAbilityChangeLog, db.bookAbilityWorkQueues, async () => {
         const previous = await db.abilities.get(oldRecordId);
@@ -2494,9 +2494,30 @@ export async function replaceAbility(oldRecordId: string, content: string): Prom
             throw new Error('The generated Ability conflicts with an Ability belonging to another Concept.');
         }
 
-        // Normalize image references within the same transaction. If image
-        // normalization fails, both the old Ability and its images survive.
-        const normalizedContent = await normalizeAbilityImages(content, db.images);
+        // Normalize images for normal edits. Deterministic text-only repairs
+        // must not re-process Image rows: a legacy Ability may still contain
+        // prompts beside numeric Image IDs. Normalizing such records could
+        // accidentally replace an existing diagram.
+        let normalizedContent: string;
+
+        if (options?.preserveImageReferences) {
+            const before = parseAbilityJson(previous.content);
+            const after = parseAbilityJson(content);
+            const sameVisuals = before && after && before.root.q.length === after.root.q.length && before.root.q.every((exercise, index) => {
+                const next = after.root.q[index];
+                const oldVisual = exercise && typeof exercise === 'object' ? exercise as Record<string, unknown> : undefined;
+                const newVisual = next && typeof next === 'object' ? next as Record<string, unknown> : undefined;
+
+                return oldVisual?.p === newVisual?.p && oldVisual?.i === newVisual?.i;
+            });
+
+            if (!sameVisuals) {
+                throw new Error('Text-only Ability repair tried to change an image reference.');
+            }
+            normalizedContent = content;
+        } else {
+            normalizedContent = await normalizeAbilityImages(content, db.images);
+        }
         await db.abilities.put({ ...previous, id: nextId, content: normalizedContent,
             reviewed: normalizedContent === previous.content ? previous.reviewed ?? false : false });
 
@@ -2552,6 +2573,22 @@ export async function getAbilities(moduleId: string): Promise<Ability[]> {
         }
 
         return a.id.localeCompare(b.id);
+    });
+}
+
+/** All stored Concept-linked Abilities for this book, including off-screen chapters. */
+export async function getBookAbilities (bookId: number): Promise<Ability[]> {
+    if (!Number.isSafeInteger(bookId) || bookId < 0) {
+        throw new Error('Invalid book ID.');
+    }
+
+    const rows = await db.abilities.where('moduleId').startsWith(`book-${bookId}-concept-`).toArray();
+
+    // Match the full book-and-Concept module ID, not a similarly prefixed book.
+    return rows.filter(({ moduleId }) => {
+        const match = CONCEPT_ABILITY_MODULE.exec(moduleId);
+
+        return match !== null && Number(match[1]) === bookId;
     });
 }
 

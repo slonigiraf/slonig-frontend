@@ -28,6 +28,9 @@ interface SkillsContentViewProps {
   scheduleAbilityFix?: (record: StoredAbility, instructions: AbilityFixInstructions) => Promise<void>;
   queuedFixItems: readonly BookAbilityWorkItem[];
   onCancelFix?: (itemId: string) => Promise<void>;
+  onFixKaTeX: () => void;
+  isFixingKaTeX: boolean;
+  kaTeXFixProgress: string;
   onStartReview: () => void;
   onRereview: () => void;
   splitQueueConceptIds: readonly number[];
@@ -44,7 +47,7 @@ interface SkillsContentViewProps {
   tikzIssuesByImageId: Record<number, string[]>;
 }
 
-export default function SkillsContentView ({ abilitiesOutputRef, bookId, chapterContentOutputRef, chapterIndex, chapters, changeChapter, current, isLoading, currentMissingAbilityIndexes, deleteConceptAndAbilities, splitSingleAbility, scheduleAbilityFix, queuedFixItems, onCancelFix, onStartReview, onRereview, splitQueueConceptIds, focusConceptAbility, failedVisualCountsByChapter, isBusy, missingAbilityCountsByChapter, onError, openChapterEditor, pipelineOnly, refresh, refreshContent, tikzIssuesByImageId, view }: SkillsContentViewProps): React.ReactElement {
+export default function SkillsContentView ({ abilitiesOutputRef, bookId, chapterContentOutputRef, chapterIndex, chapters, changeChapter, current, isLoading, currentMissingAbilityIndexes, deleteConceptAndAbilities, splitSingleAbility, scheduleAbilityFix, queuedFixItems, onCancelFix, onFixKaTeX, isFixingKaTeX, kaTeXFixProgress, onStartReview, onRereview, splitQueueConceptIds, focusConceptAbility, failedVisualCountsByChapter, isBusy, missingAbilityCountsByChapter, onError, openChapterEditor, pipelineOnly, refresh, refreshContent, tikzIssuesByImageId, view }: SkillsContentViewProps): React.ReactElement {
   const abilityGroups = current
     ? groupAbilitiesByConcept(current.concepts, current.abilities, (id) => conceptAbilityModuleId(bookId, id))
     : undefined;
@@ -121,9 +124,11 @@ export default function SkillsContentView ({ abilitiesOutputRef, bookId, chapter
           >
             <div className='abilityReviewToolbar'>
               <h3>Concepts and Abilities</h3>
-              <div><Button icon='check' label='Run review mode' onClick={onStartReview} />
-              <Button icon='redo' label='Rereview' onClick={onRereview} /></div>
+              <div><Button icon='wrench' isDisabled={isBusy || isFixingKaTeX} label={isFixingKaTeX ? 'Fixing KaTeX…' : 'Fix KaTeX'} onClick={onFixKaTeX} />
+              <Button icon='check' isDisabled={isFixingKaTeX} label='Run review mode' onClick={onStartReview} />
+              <Button icon='redo' isDisabled={isFixingKaTeX} label='Rereview' onClick={onRereview} /></div>
             </div>
+            {kaTeXFixProgress && <p role='status' className='katexFixProgress'>{kaTeXFixProgress}</p>}
             {!current.concepts.length && <p>No Concepts in this chapter.</p>}
             {!!currentMissingAbilityIndexes.length && <div className='missingAbilityNavigation'>
               <span>Missing Abilities for Concepts:</span>

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { assertSupportedLearnerTextMarkup } from '../Generate/book/domain/learnerTextMarkup.js';
+import { parseModelJson } from '../Generate/book/domain/modelJson.js';
 
 export interface GeneratedAbilityExercise {
   a: string;
@@ -111,17 +112,6 @@ function isNonEmptyString (value: unknown): value is string {
   return typeof value === 'string' && value.trim().length > 0;
 }
 
-function parseResponse (content: string): unknown {
-  const json = content.trim().replace(/^```(?:json)?\s*|\s*```$/gi, '').trim();
-
-  try {
-    return JSON.parse(json) as unknown;
-  } catch {
-    // Some models leave LaTeX backslashes unescaped in an otherwise valid response.
-    return JSON.parse(json.replace(/\\(?!["\\/bfnrt]|u[0-9a-fA-F]{4})/g, '\\\\')) as unknown;
-  }
-}
-
 function parseAbilityValue (template: unknown): GeneratedAbility {
   const shapeError = 'Each Ability must have a name and exactly two exercises with nonempty questions and a text answer or solution image.';
 
@@ -184,7 +174,7 @@ function parseAbilityValue (template: unknown): GeneratedAbility {
 }
 
 export function parseStoredAbility (content: string): GeneratedAbility {
-  const parsed = parseResponse(content);
+  const parsed = parseModelJson(content);
 
   return parseAbilityValue(Array.isArray(parsed) ? parsed[0] : parsed);
 }
@@ -308,7 +298,7 @@ function parseGeneratedAbilityValue (value: unknown, fixedTitle?: string, allowV
 }
 
 export function parseGeneratedAbilities (content: string, expectedCount?: number, options?: { allowIdenticalQuestionText?: boolean; allowVerboseText?: boolean; fixedTitle?: string; visualPromptsOnly?: boolean }): GeneratedAbility[] {
-  const parsed = parseResponse(content);
+  const parsed = parseModelJson(content);
   const templates: unknown = Array.isArray(parsed) ? parsed : isRecord(parsed) ? parsed.abilities ?? parsed.templates : undefined;
 
   if (!Array.isArray(templates) || !templates.length) {
@@ -362,7 +352,7 @@ export function parseAbilityRepairResult (content: string, originals: Array<Gene
     throw new Error('Ability repair input IDs do not match the supplied Abilities.');
   }
 
-  const parsed = parseResponse(content);
+  const parsed = parseModelJson(content);
 
   if (!isRecord(parsed) || !Array.isArray(parsed.reviews) || !Array.isArray(parsed.duplicatePairs)) {
     throw new Error('OpenRouter returned invalid Ability repair data.');
@@ -510,7 +500,7 @@ export function parseAbilityRepairResult (content: string, originals: Array<Gene
 }
 
 export function parseAbilityRepairReviews (content: string, originals: Array<GeneratedAbility | null>): AbilityRepairReview[] {
-  const parsed = parseResponse(content);
+  const parsed = parseModelJson(content);
   const normalized = Array.isArray(parsed)
     ? { duplicatePairs: [], reviews: parsed }
     : isRecord(parsed) && !Array.isArray(parsed.duplicatePairs)

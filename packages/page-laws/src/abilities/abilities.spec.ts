@@ -58,6 +58,31 @@ describe('generated abilities', (): void => {
     }] }), [createSkill()]), /unsupported HTML tag/);
   });
 
+  it('restores unescaped LaTeX in generated and stored Ability responses', (): void => {
+    const ability = createSkill();
+    const malformedArray = JSON.stringify([ability]).replaceAll(String.raw`\\times`, String.raw`\times`);
+    const malformedStored = JSON.stringify(ability).replaceAll(String.raw`\\times`, String.raw`\times`);
+
+    assert.equal(parseGeneratedAbilities(malformedArray, 1)[0].q[0].a, ability.q[0].a);
+    assert.equal(parseGeneratedAbilities(malformedArray, 1)[0].q[1].a, ability.q[1].a);
+    assert.equal(parseStoredAbility(malformedStored).q[0].a, ability.q[0].a);
+  });
+
+  it('restores unescaped LaTeX in model-supplied Ability corrections', (): void => {
+    const original = createSkill();
+    const correction = createSkill();
+
+    correction.q[0].a = String.raw`<kx>3 \times 1000 = 3000</kx> m.`;
+
+    const malformed = JSON.stringify({
+      duplicatePairs: [],
+      reviews: [{ ability: correction, errors: ['Incorrect multiplication'], hasErrors: true, index: 0 }]
+    }).replaceAll(String.raw`\\times`, String.raw`\times`);
+    const result = parseAbilityRepairResult(malformed, [original], ['ability-1']);
+
+    assert.equal(result.reviews[0].ability?.q[0].a, correction.q[0].a);
+  });
+
   it('preserves the original skill and exercise fields without adding metadata', (): void => {
     const skill = createSkill();
     const [parsed] = parseGeneratedAbilities(JSON.stringify([skill]), 1);

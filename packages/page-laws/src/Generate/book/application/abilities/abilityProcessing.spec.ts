@@ -134,7 +134,7 @@ describe('Ability no-op repair recovery', (): void => {
     batch[0].ability!.q[0].a = Array.from({ length: 28 }, () => 'explanation').join(' ');
     const repaired = createAbility();
 
-    repaired.q[1].a = '<kx>4\times 2 = 8</kx>';
+    repaired.q[1].a = '<kx>4\\times 2 = 8</kx>';
     const initial = { duplicatePairs: [], reviews: [{
       index: 1, hasErrors: true, errors: ['Missing calculation'], ability: repaired
     }] };

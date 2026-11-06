@@ -9,6 +9,7 @@ import type { OpenRouterCostReporter } from '../../../../openrouter/cost.js';
 import OpenAI from 'openai';
 
 import { FIX_ABILITIES_REQUEST_PROMPT, JSON_VALIDATION_PROMPT } from '../../infrastructure/ai/prompts/abilities.js';
+import { parseModelJson } from '../../domain/modelJson.js';
 import { abilityBrevityIssues, parseAbilityRepairResult } from '../../../../abilities/abilities.js';
 import { LEARNER_AGE_PROMPT, MATH_DISPLAY_REQUIREMENTS_PROMPT, TIKZ_EDITOR_GEOMETRY_PROMPT, TIKZ_NATIVE_STYLING_PROMPT } from '../../infrastructure/ai/prompts/shared.js';
 import { openRouterRequestGate } from '../../../../openrouter/concurrency.js';
@@ -53,16 +54,6 @@ export interface TikzAiReview {
 
 export const abilityModuleId = (bookId: number, skillId: number): string => `book-${bookId}-skill-${skillId}`;
 export const conceptAbilityModuleId = (bookId: number, conceptId: number): string => `book-${bookId}-concept-${conceptId}`;
-
-function parseJson (content: string): unknown {
-  const json = content.replace(/^```json\s*|\s*```$/g, '').trim();
-
-  try {
-    return JSON.parse(json) as unknown;
-  } catch {
-    return JSON.parse(json.replace(/\\(?!["\\/bfnrt]|u[0-9a-fA-F]{4})/g, '\\\\')) as unknown;
-  }
-}
 
 export async function requestChatContent (client: OpenAI, model: string, systemPrompt: string, userPrompt: string, jsonObject: boolean, onCost?: OpenRouterCostReporter, maxOutputTokens?: number, signal?: AbortSignal, visualPng?: string): Promise<string> {
   if (visualPng && !visualPng.startsWith('data:image/png;base64,')) {
@@ -116,7 +107,7 @@ export async function requestChatContentWithTruncationRetry (client: OpenAI, mod
 }
 
 export function parseGeneratedSkills (content: string, expectedCount: number): Array<{ description: string; title: string }> {
-  const parsed = parseJson(content);
+  const parsed = parseModelJson(content);
   const values = Array.isArray(parsed) ? parsed : (parsed as { skills?: unknown })?.skills;
 
   if (!Array.isArray(values)) {
@@ -391,7 +382,7 @@ export function exerciseNeedsCompletedFigure (question: string): boolean {
 }
 
 export function parseTikzAiReview (content: string): TikzAiReview {
-  const parsed = parseJson(content);
+  const parsed = parseModelJson(content);
 
   if (
     typeof parsed !== 'object' ||
