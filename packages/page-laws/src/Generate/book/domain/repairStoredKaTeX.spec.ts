@@ -58,6 +58,43 @@ describe('book-wide stored KaTeX repair', (): void => {
       String.raw`<kx>4 \times 2 + \alpha</kx>`);
   });
 
+  it('fixes literal doubled backslashes left by an earlier Fix KaTeX run', (): void => {
+    const broken = String.raw`<kx>4 \\times 3 = 12</kx> square meters.`;
+    const corrected = String.raw`<kx>4 \times 3 = 12</kx> square meters.`;
+    const result = fixCorruptedKaTeXText(broken);
+
+    assert.deepEqual(result, { text: corrected, commandsFixed: 1 });
+    assert.equal(fixCorruptedKaTeXText(result.text).commandsFixed, 0);
+
+    const stored = makeAbility(broken);
+    const repaired = repairStoredAbilityKaTeX(stored);
+
+    assert.ok(repaired);
+    assert.equal(repaired.commandsFixed, 2); // question and answer
+    assert.equal((JSON.parse(repaired.content) as { q: Array<{ a: string }> }).q[0].a, corrected);
+    assert.equal(repairStoredAbilityKaTeX(repaired.content), null);
+  });
+
+  it('keeps correct JSON escaping, legitimate KaTeX line breaks and prose intact', (): void => {
+    const correct = String.raw`<kx>4 \times 3 = 12</kx>`;
+    const lineBreak = String.raw`<kx>\\\times</kx>`; // \\ row break followed by \times
+    const otherLineBreak = String.raw`<kx>\\ x + y</kx>`;
+    const unrelated = String.raw`Outside <kx>word \\hello</kx> and \\times`;
+
+    assert.equal(repairStoredAbilityKaTeX(makeAbility(correct)), null);
+    assert.deepEqual(fixCorruptedKaTeXText(lineBreak), { text: lineBreak, commandsFixed: 0 });
+    assert.deepEqual(fixCorruptedKaTeXText(otherLineBreak), { text: otherLineBreak, commandsFixed: 0 });
+    assert.deepEqual(fixCorruptedKaTeXText(unrelated), { text: unrelated, commandsFixed: 0 });
+  });
+
+  it('fixes other known double-escaped commands without touching unrelated data', (): void => {
+    const overescaped = String.raw`<kx>\\frac{1}{2} + \\sqrt{9} + \\alpha</kx>`;
+    const correct = String.raw`<kx>\frac{1}{2} + \sqrt{9} + \alpha</kx>`;
+
+    assert.deepEqual(fixCorruptedKaTeXText(overescaped), { text: correct, commandsFixed: 3 });
+    assert.equal(repairStoredAbilityKaTeX(makeAbility(correct)), null);
+  });
+
   it('returns null when no repair is necessary', (): void => {
     assert.equal(repairStoredAbilityKaTeX(makeAbility(math)), null);
     assert.equal(repairStoredAbilityKaTeX(JSON.stringify({ h: 'Plain text', q: [] })), null);
