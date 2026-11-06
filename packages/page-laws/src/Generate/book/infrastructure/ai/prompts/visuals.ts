@@ -1,6 +1,8 @@
 // Copyright 2021-2026 @polkadot/app-laws authors & contributors
 // SPDX-License-Identifier: Apache-2.0
 
+import { NUMBER_LINE_MARKER_ALIGNMENT_PROMPT } from './shared.js';
+
 export const ABILITY_QUESTION_IMAGE_PROMPT = (imageDescription: string, question: string): string => {
   return imageDescription
     ? `${imageDescription}
@@ -57,7 +59,9 @@ Supported element types:
 
 Every element needs a unique stable id. Keep labels as separate text elements. Use only black/white/gray/grey/red/blue/green/orange/purple/yellow/brown/transparent/none or hex colors. Prefer simple geometry and explicit labels. Do not put equations in paths; use text with ordinary Unicode mathematical symbols when practical. Scene width/height default to 960x640 and should normally be left at those values. Do not set viewBox unless a reference scene already supplies one.
 
-STROKE STYLE RULE: omit "dash" by default and render ordinary boundaries, axes, partition dividers, grid lines, and measurement lines as SOLID. Use "dash" only when the VISUAL REQUEST explicitly requires a dashed, dotted, broken, hidden, auxiliary/construction, or otherwise non-solid line. Never invent dashed separators merely as a styling choice.`;
+STROKE STYLE RULE: omit "dash" by default and render ordinary boundaries, axes, partition dividers, grid lines, and measurement lines as SOLID. Use "dash" only when the VISUAL REQUEST explicitly requires a dashed, dotted, broken, hidden, auxiliary/construction, or otherwise non-solid line. Never invent dashed separators merely as a styling choice.
+
+NUMBER-LINE MARKER PLACEMENT: ${NUMBER_LINE_MARKER_ALIGNMENT_PROMPT}`;
 
   if (referenceScene) {
     return `Modify an existing deterministic educational vector scene. Return ONLY a patch; do not redraw or restate unchanged objects. Preserve the existing dimensions, viewBox, coordinate system, positions, labels, styles, and all unchanged element ids. Add, remove, or update only what the requested worked solution requires. The application rejects patches that move content outside the preserved viewBox.
@@ -92,6 +96,8 @@ ${visualPrompt}`;
 
 export const OPEN_ROUTER_SOLUTION_RASTER_PROMPT = (visualPrompt: string): string => {
   return `Create the complete worked-solution visual. Show the correct constructed, drawn, labeled, shaded, plotted, graphed, marked, or modified result required by the solution. If this is an updated version of a question visual, preserve all unchanged base objects, labels, scale, coordinate system, and layout and apply only the requested change.
+
+NUMBER-LINE MARKER PLACEMENT: ${NUMBER_LINE_MARKER_ALIGNMENT_PROMPT}
 
 ${visualPrompt}`;
 };

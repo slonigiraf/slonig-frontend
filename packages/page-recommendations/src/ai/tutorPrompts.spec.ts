@@ -284,6 +284,28 @@ describe('AI Tutor generated fake solution wording', (): void => {
     }
   });
 
+  it('requires ordinary words within KaTeX to be wrapped in LaTeX text mode without changing kx tags', (): void => {
+    const prompt = generatedStagePrompt(skill, nextStage(StageType.correct_fake_solution, 'Correct solution'), studentExercise);
+
+    assert.match(prompt, /ordinary-language words or labels must appear inside a mathematical <kx>/);
+    assert.ok(prompt.includes(String.raw`<kx>9 \text{hundreds} \div 6 = 1</kx>`));
+    assert.ok(prompt.includes(String.raw`\\text{hundreds}`));
+    assert.match(prompt, /Keep mathematical variables, symbols, and LaTeX commands intact/);
+  });
+
+  it('requires KaTeX multiline math to use row separators in aligned environments and JSON-escaped backslashes', (): void => {
+    const prompt = generatedStagePrompt(skill, nextStage(StageType.correct_fake_solution, 'Correct solution'), studentExercise);
+    const parsedMath = String.raw`<kx>\begin{aligned}5.8 &\approx 6,\\31.2 &\approx 30;\\30 \div 6 &= 5\end{aligned}</kx>`;
+    const jsonMath = JSON.stringify(parsedMath).slice(1, -1);
+
+    assert.ok(prompt.includes(parsedMath));
+    assert.ok(prompt.includes(jsonMath));
+    assert.ok(prompt.includes(String.raw`NEVER use the literal \n`));
+    assert.ok(prompt.includes(String.raw`\\\\ (four backslashes)`));
+    assert.ok(prompt.includes(String.raw`\begin{aligned}...\end{aligned}`));
+    assert.equal(JSON.parse(`"${jsonMath}"`), parsedMath);
+  });
+
   it('requires a correct TikZ solution when the skill examples contain solution images', (): void => {
     const stage = nextStage(StageType.correct_fake_solution, 'Correct solution');
     const prompt = generatedStagePrompt(
