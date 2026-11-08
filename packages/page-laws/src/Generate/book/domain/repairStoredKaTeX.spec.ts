@@ -24,6 +24,24 @@ describe('book-wide stored KaTeX repair', (): void => {
     assert.equal(fixed.commandsFixed, 5);
   });
 
+  it('restores U+0005Delta only inside math and leaves other content alone', (): void => {
+    const broken = '<kx>\u0005Delta=2^2-4(1)(5)=-16<0</kx>';
+    const corrected = String.raw`<kx>\Delta=2^2-4(1)(5)=-16<0</kx>`;
+    const original = `Outside \u0005Delta ${broken} <kx>\u0005Deltax</kx>`;
+    const expected = `Outside \u0005Delta ${corrected} <kx>\u0005Deltax</kx>`;
+
+    assert.deepEqual(fixCorruptedKaTeXText(original), { text: expected, commandsFixed: 1 });
+    assert.equal(fixCorruptedKaTeXText(expected).commandsFixed, 0);
+
+    const stored = makeAbility(broken);
+    const repaired = repairStoredAbilityKaTeX(stored);
+
+    assert.ok(repaired);
+    assert.equal(repaired.commandsFixed, 2); // question and answer
+    assert.equal((JSON.parse(repaired.content) as { q: Array<{ a: string }> }).q[0].a, corrected);
+    assert.equal(repairStoredAbilityKaTeX(repaired.content), null);
+  });
+
   it('repairs old Ability JSON and preserves its images, prompts and schema', (): void => {
     const original = makeAbility(`Work out ${math}`);
     const parsed = JSON.parse(original) as { q: Array<{ h: string; a: string; i: number | null; p: number | null }> };

@@ -88,12 +88,21 @@ export function fixCorruptedKaTeXText (text: string): { text: string; commandsFi
       return `\\${commandPrefixes[control]}${suffix}`;
     });
 
+    // Some stored math contains ENQ (U+0005) instead of the backslash in
+    // \Delta. This is not a normal JSON escape, so repair only this exact
+    // recognizable sequence inside <kx> tags.
+    const restoredDelta = restoredControls.replace(/\u0005Delta(?![a-zA-Z])/g, () => {
+      commandsFixed++;
+
+      return '\\Delta';
+    });
+
     // A previous generation/repair can also leave TWO literal slashes in a
     // decoded text value: <kx>4 \\times 3</kx>. Unlike JSON's required
     // escaping, KaTeX needs one runtime slash. Match exactly two slashes before
     // a known command, preserving any longer runs (e.g. a line break followed
     // by a command) and all other uses of \\ in math.
-    return restoredControls.replace(/\\{2,}/g, (slashes: string, offset: number, source: string) => {
+    return restoredDelta.replace(/\\{2,}/g, (slashes: string, offset: number, source: string) => {
       if (slashes.length !== 2) return slashes;
 
       const nextCommand = /^[a-zA-Z]+/.exec(source.slice(offset + slashes.length))?.[0];
