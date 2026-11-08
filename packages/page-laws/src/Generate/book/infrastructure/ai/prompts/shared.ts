@@ -16,6 +16,7 @@ export const MATH_DISPLAY_REQUIREMENTS_PROMPT = String.raw`Math display requirem
 - Fractions: whenever a mathematical fraction is written or displayed, use LaTeX fraction notation \frac{a}{b} (with the actual numerator and denominator substituted), never slash notation such as a/b. In JSON strings, escape the LaTeX backslash so the JSON remains valid (for example, \\frac{a}{b}); in TikZ labels, render \frac{...}{...} in TeX math mode.
 - Number lines: a number line is a straight line with equally spaced ticks, with numbers shown below the ticks, 0 and 1 always labeled, and exactly one arrow indicating the positive direction. The number line always has one extra step between the last tick mark and the arrow. Do not use arrowheads at both ends and do not omit the positive-direction arrow.
 - Marked points on number lines: ${NUMBER_LINE_MARKER_ALIGNMENT_PROMPT}
+- Parallel-line identification marks: Matching arrow-shaped marks indicating parallel lines must point along their respective lines.
 - Coordinate planes / Cartesian axes: when drawing intersecting x- and y-axes, use a consistent scale and place tick labels so they are readable and associated with the correct axis. If both axes meet at the origin and 0 is labeled there, show EXACTLY ONE origin label "0" at the intersection. Never place two separate 0 labels, one for the x-axis and another for the y-axis, on top of or beside each other at the origin.
 - TikZ angle labels: use the literal Unicode angle symbol in node text, e.g. {∠AOC}, not {$\angle AOC$}.`;
 
