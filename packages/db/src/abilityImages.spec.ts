@@ -62,6 +62,89 @@ describe('TikZ visual QA persistence', (): void => {
     }
   });
 
+  it('keeps a failed answer image red when only its question image is manually corrected', async (): Promise<void> => {
+    const bookId = await createBook({ contentHash: `independent-image-errors-${Date.now()}`, created: Date.now(), name: 'Independent image errors', opfsName: 'independent-image-errors.pdf', size: 1 });
+    const originalQuestion = '\\begin{tikzpicture}\\draw (0,0)--(1,1);\\end{tikzpicture}';
+    const originalAnswer = '\\begin{tikzpicture}\\draw (0,0)--(1,0);\\end{tikzpicture}';
+    const fixedQuestion = '\\begin{tikzpicture}\\draw (0,0)--(2,2);\\end{tikzpicture}';
+    const fixedAnswer = '\\begin{tikzpicture}\\draw (0,0)--(2,0);\\end{tikzpicture}';
+
+    try {
+      const moduleId = `book-${bookId}-concept-777`;
+
+      await storeAbility(moduleId, JSON.stringify({ h: 'Compare the figures', i: '', t: 3, q: [
+        { h: 'What does the drawing show?', a: 'A line', p: originalQuestion, i: originalAnswer }
+      ] }));
+      const [ability] = await getAbilities(moduleId);
+      const exercise = (JSON.parse(ability.content) as { q: Array<{ p: number; i: number }> }).q[0];
+      const questionIssue = 'Question has a misplaced label';
+      const answerIssue = 'Answer has an overlapping label';
+
+      await setTikzImageQaState(exercise.p, originalQuestion, { renderStatus: 'passed', visualQaStatus: 'failed', detectedIssues: [questionIssue] });
+      await setTikzImageQaState(exercise.i, originalAnswer, { renderStatus: 'passed', visualQaStatus: 'failed', detectedIssues: [answerIssue] });
+      assert.equal((await getBookVisualQaSummary(bookId)).failed, 2);
+
+      // The editor saves the question with preserveDependentAnswerImages=true.
+      // Its own warning should go away, not the answer's unrelated warning.
+      const question = (await getImage(exercise.p))!;
+
+      await putImage({ ...question, data: fixedQuestion, valid: undefined }, undefined, { preserveDependentAnswerImages: true });
+      const repairedQuestion = (await getImage(exercise.p))!;
+      const stillBrokenAnswer = (await getImage(exercise.i))!;
+
+      assert.equal(repairedQuestion.visualQaStatus, 'pending');
+      assert.deepEqual(repairedQuestion.detectedIssues, []);
+      assert.equal(stillBrokenAnswer.data, originalAnswer);
+      assert.equal(stillBrokenAnswer.visualQaStatus, 'failed');
+      assert.deepEqual(stillBrokenAnswer.detectedIssues, [answerIssue]);
+      assert.equal((await getBookVisualQaSummary(bookId)).failed, 1);
+
+      // Only correcting the answer itself may clear its outstanding warning.
+      await putImage({ ...stillBrokenAnswer, data: fixedAnswer, valid: undefined }, undefined, { preserveDependentAnswerImages: true });
+      const repairedAnswer = (await getImage(exercise.i))!;
+
+      assert.equal(repairedAnswer.visualQaStatus, 'pending');
+      assert.deepEqual(repairedAnswer.detectedIssues, []);
+      assert.equal((await getBookVisualQaSummary(bookId)).failed, 0);
+    } finally {
+      await deleteBook(bookId);
+    }
+  });
+
+  it('marks a previously approved answer pending when its question is manually changed', async (): Promise<void> => {
+    const bookId = await createBook({ contentHash: `recheck-answer-${Date.now()}`, created: Date.now(), name: 'Recheck dependent answer', opfsName: 'recheck-answer.pdf', size: 1 });
+    const questionSource = '\\begin{tikzpicture}\\draw (0,0)--(1,1);\\end{tikzpicture}';
+    const answerSource = '\\begin{tikzpicture}\\draw (0,0)--(1,0);\\end{tikzpicture}';
+
+    try {
+      const moduleId = `book-${bookId}-concept-777`;
+
+      await storeAbility(moduleId, JSON.stringify({ h: 'A question', i: '', t: 3, q: [
+        { h: 'Draw', a: 'Line', p: questionSource, i: answerSource }
+      ] }));
+      const [ability] = await getAbilities(moduleId);
+      const exercise = (JSON.parse(ability.content) as { q: Array<{ p: number; i: number }> }).q[0];
+      const reviewResult = { sourceVersion: tikzSourceVersion(answerSource), hasErrors: false, errors: [], reviewedAt: Date.now(), attempt: 1 };
+
+      await setTikzImageQaState(exercise.i, answerSource, { renderStatus: 'passed', visualQaStatus: 'passed', detectedIssues: [], reviewResult });
+      assert.equal(isTikzImageQaPassed((await getImage(exercise.i))!), true);
+
+      const question = (await getImage(exercise.p))!;
+
+      await putImage({ ...question, data: `${questionSource} `, valid: undefined }, undefined, { preserveDependentAnswerImages: true });
+      const answer = (await getImage(exercise.i))!;
+
+      assert.equal(answer.data, answerSource, 'manual question edits must preserve the answer source');
+      assert.equal(answer.valid, undefined);
+      assert.equal(answer.visualQaStatus, 'pending');
+      assert.equal(answer.reviewResult, undefined);
+      assert.deepEqual(answer.detectedIssues, []);
+      assert.equal(isTikzImageQaPassed(answer), false);
+    } finally {
+      await deleteBook(bookId);
+    }
+  });
+
   it('preserves detected render/review failures rather than converting them into an approved render', async (): Promise<void> => {
     const source = '\\begin{tikzpicture}\\draw(0,0)--(1,1);\\end{tikzpicture}';
     const id = await createImage({ data: source, type: 'tikz', prompt: 'A diagram', valid: undefined });

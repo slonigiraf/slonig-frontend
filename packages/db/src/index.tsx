@@ -2312,15 +2312,23 @@ export async function putImage(image: Image, expectedSource?: string | null, opt
                 }
             }
 
-            // Manual edits preserve the answer SVG/TikZ and its Image id: only
-            // its old visual QA result is stale. Automated question generation
-            // retains the existing dependency-regeneration behavior.
+            // Editing a question invalidates the linked answer's *approval*,
+            // not an existing failure on that separate Image. Keep an unfixed
+            // answer red (with its diagnostics) until it is edited or reviewed
+            // successfully; only previously clean answers become pending.
+            // Automated question generation still discards obsolete answers.
             for (const answerId of dependentAnswerIds) {
                 const answer = await db.images.get(answerId);
 
                 if (answer) {
+                    const answerWasFailed = answer.valid === false || answer.renderStatus === 'failed' || answer.visualQaStatus === 'failed';
+
                     await db.images.put(options.preserveDependentAnswerImages
-                        ? { ...answer, valid: undefined, visualQaStatus: 'pending', detectedIssues: [], reviewResult: undefined }
+                        ? { ...answer, valid: answerWasFailed ? answer.valid : undefined,
+                            visualQaStatus: answerWasFailed ? 'failed' : 'pending',
+                            detectedIssues: answerWasFailed
+                                ? [...new Set([...(answer.detectedIssues ?? []), ...(answer.reviewResult?.errors ?? [])])]
+                                : [], reviewResult: undefined }
                         : { ...answer, type: 'prompt', data: null, valid: undefined,
                             renderStatus: undefined, visualQaStatus: undefined, detectedIssues: undefined,
                             sourceVersion: undefined, reviewResult: undefined });
