@@ -39,6 +39,10 @@ export default function AbilityReviewMode ({ allowQueuedReview = false, chapters
   const [historyIndex, setHistoryIndex] = useState(0);
   const [acknowledgedReviewIds, setAcknowledgedReviewIds] = useState<readonly string[]>([]);
   const [saving, setSaving] = useState(false);
+  // Keep the outgoing card visible while its IndexedDB write (and the parent
+  // snapshot/log refresh) completes. Otherwise pending[0] can change before
+  // advance() runs, producing two separate navigation renders.
+  const savingAbilityIdRef = useRef<string | null>(null);
   const contentRef = useRef<HTMLElement>(null);
   const entries = useMemo(() => {
     const selectedIds = reviewAbilityIds === undefined ? undefined : new Set(reviewAbilityIds);
@@ -55,7 +59,9 @@ export default function AbilityReviewMode ({ allowQueuedReview = false, chapters
   // Immediately hide that row from the pending queue so Next/Space cannot
   // briefly redisplay the Ability that was just reviewed.
   const pending = entries.filter(({ record }) => !record.reviewed && !acknowledgedReviewIds.includes(record.id));
-  const current = (historyIndex < visitedIds.length
+  const current = (saving && savingAbilityIdRef.current
+    ? entries.find(({ record }) => record.id === savingAbilityIdRef.current)
+    : undefined) ?? (historyIndex < visitedIds.length
     ? entries.find(({ record }) => record.id === visitedIds[historyIndex])
     : undefined) ?? pending[0];
   const isCurrentReviewed = Boolean(current && (current.record.reviewed || acknowledgedReviewIds.includes(current.record.id)));
@@ -78,6 +84,7 @@ export default function AbilityReviewMode ({ allowQueuedReview = false, chapters
 
   const markReviewed = useCallback(async (): Promise<void> => {
     if (!current || isCurrentReviewed || saving) return;
+    savingAbilityIdRef.current = current.record.id;
     setSaving(true);
     try {
       await onReviewed(current.record);
@@ -85,6 +92,7 @@ export default function AbilityReviewMode ({ allowQueuedReview = false, chapters
     } catch (error) {
       onError(error instanceof Error ? error.message : 'Unable to save this review.');
     } finally {
+      savingAbilityIdRef.current = null;
       setSaving(false);
     }
   }, [advance, current, isCurrentReviewed, onError, onReviewed, saving]);
@@ -119,6 +127,7 @@ export default function AbilityReviewMode ({ allowQueuedReview = false, chapters
   // completed with Next if the fix was already queued successfully.
   const queueFixAndReview = useCallback(async (record: StoredAbility, instructions: AbilityFixInstructions): Promise<void> => {
     if (!onQueueFix) return;
+    savingAbilityIdRef.current = record.id;
     setSaving(true);
     try {
       await onQueueFix(record, instructions);
@@ -131,6 +140,7 @@ export default function AbilityReviewMode ({ allowQueuedReview = false, chapters
         onError(error instanceof Error ? error.message : 'Unable to save this review. Use Next to try again.');
       }
     } finally {
+      savingAbilityIdRef.current = null;
       setSaving(false);
     }
   }, [advance, current?.record.id, onError, onQueueFix, onReviewed]);

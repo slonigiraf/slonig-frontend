@@ -37,12 +37,16 @@ function extractCallback (name, context) {
   return sandbox.module.exports;
 }
 
+function savingAbilityIdRefValue (ctx) { return ctx.savingAbilityIdRef.current; }
+
 function queueHarness ({ failsQueue = false, failsReview = false, isAlreadyReviewed = false } = {}) {
   const record = { id: 'first', reviewed: isAlreadyReviewed };
   const events = [];
   let releaseQueue;
   const queueGate = new Promise((resolve) => { releaseQueue = resolve; });
+  const savingAbilityIdRef = { current: null };
   const ctx = {
+    savingAbilityIdRef,
     advance: () => events.push('advance'),
     Error,
     current: { record },
@@ -65,12 +69,14 @@ function queueHarness ({ failsQueue = false, failsReview = false, isAlreadyRevie
 }
 
 test('Fix with AI queues, marks the Ability reviewed, then moves one forward', async () => {
-  const { action, events, record, releaseQueue } = queueHarness();
+  const { action, events, record, releaseQueue, ctx } = queueHarness();
   const operation = action(record, { overall: 'Fix the image' });
   assert.deepEqual(events, ['saving', 'queue']);
+  assert.equal(savingAbilityIdRefValue(ctx), 'first');
   releaseQueue();
   await operation;
   assert.deepEqual(events, ['saving', 'queue', 'queued', 'review', 'reviewed', 'advance', 'idle']);
+  assert.equal(savingAbilityIdRefValue(ctx), null);
 });
 
 test('Failed scheduling cannot mark reviewed or advance', async () => {
@@ -95,6 +101,49 @@ test('Rescheduling an already-reviewed Ability advances without reviewing twice'
   releaseQueue();
   await operation;
   assert.deepEqual(events, ['saving', 'queue', 'queued', 'advance', 'idle']);
+});
+
+test('Space review pins the outgoing card until the async save finishes', async () => {
+  const events = [];
+  const record = { id: 'first', reviewed: false };
+  const savingAbilityIdRef = { current: null };
+  let releaseReview;
+  const gate = new Promise((resolve) => { releaseReview = resolve; });
+  const ctx = {
+    advance: (justReviewed) => events.push(justReviewed ? 'advance-reviewed' : 'advance'),
+    current: { record }, isCurrentReviewed: false, saving: false,
+    savingAbilityIdRef,
+    onReviewed: async () => { events.push('write'); await gate; events.push('written'); },
+    onError: (message) => events.push(`error:${message}`),
+    setSaving: (flag) => events.push(flag ? 'saving' : 'idle'),
+    useCallback: (callback) => callback
+  };
+  const markReviewed = extractCallback('markReviewed', ctx);
+  const work = markReviewed();
+  assert.deepEqual(events, ['saving', 'write']);
+  assert.equal(savingAbilityIdRef.current, 'first');
+  releaseReview();
+  await work;
+  assert.deepEqual(events, ['saving', 'write', 'written', 'advance-reviewed', 'idle']);
+  assert.equal(savingAbilityIdRef.current, null);
+});
+
+test('Failed review save unpins the card without advancing', async () => {
+  const events = [];
+  const savingAbilityIdRef = { current: null };
+  const ctx = {
+    advance: () => events.push('advance'),
+    current: { record: { id: 'first', reviewed: false } },
+    isCurrentReviewed: false, saving: false, savingAbilityIdRef,
+    onReviewed: async () => { throw new Error('Database failed'); },
+    onError: (message) => events.push(message),
+    setSaving: (flag) => events.push(flag ? 'saving' : 'idle'),
+    useCallback: (callback) => callback,
+    Error
+  };
+  await extractCallback('markReviewed', ctx)();
+  assert.deepEqual(events, ['saving', 'Database failed', 'idle']);
+  assert.equal(savingAbilityIdRef.current, null);
 });
 
 test('An existing queued fix shows an enabled Next button, even while other AI work runs', () => {
@@ -142,7 +191,7 @@ test('Space follows Next for queued fixes, persisting review when not previously
 
 function evaluate (name, context) {
   const declaration = findNode((node) => ts.isVariableDeclaration(node) && node.name.getText(ast) === name);
-  const sandbox = { module: { exports: null }, ...context };
+  const sandbox = { module: { exports: null }, saving: false, savingAbilityIdRef: { current: null }, ...context };
   vm.runInNewContext(compile(declaration.initializer.getText(ast)), sandbox);
   return sandbox.module.exports;
 }
@@ -175,6 +224,17 @@ test('The next Ability and progress include confirmed saves while IndexedDB refr
   assert.deepEqual(Array.from(optimistic, ({ record }) => record.id), ['c']);
   assert.equal(evaluate('current', { entries, pending: optimistic, historyIndex: 1, visitedIds: ['b'] }).record.id, 'c');
   assert.equal(evaluate('reviewedCount', { entries, pending: optimistic }), 2);
+  // The parent updates its reviewed snapshot before its async log refresh
+  // completes. Keep the entire outgoing card (text AND images) selected until
+  // the operation advances, rather than switching on pending[0] mid-save.
+  assert.equal(evaluate('current', {
+    entries, pending: optimistic, historyIndex: 0, visitedIds: [],
+    saving: true, savingAbilityIdRef: { current: 'b' }
+  }).record.id, 'b');
+  assert.equal(evaluate('current', {
+    entries, pending: optimistic, historyIndex: 1, visitedIds: ['b'],
+    saving: false, savingAbilityIdRef: { current: null }
+  }).record.id, 'c');
   assert.doesNotMatch(source, /navigationSessionKey|skippedIds/);
 });
 
