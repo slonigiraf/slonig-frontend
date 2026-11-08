@@ -18,7 +18,8 @@ export const MATH_DISPLAY_REQUIREMENTS_PROMPT = String.raw`Math display requirem
 - Marked points on number lines: ${NUMBER_LINE_MARKER_ALIGNMENT_PROMPT}
 - Parallel-line identification marks: Matching arrow-shaped marks indicating parallel lines must point along their respective lines.
 - Coordinate planes / Cartesian axes: when drawing intersecting x- and y-axes, use a consistent scale and place tick labels so they are readable and associated with the correct axis. If both axes meet at the origin and 0 is labeled there, show EXACTLY ONE origin label "0" at the intersection. Never place two separate 0 labels, one for the x-axis and another for the y-axis, on top of or beside each other at the origin.
-- TikZ angle labels: use the literal Unicode angle symbol in node text, e.g. {∠AOC}, not {$\angle AOC$}.`;
+- TikZ angle labels: use the literal Unicode angle symbol in node text, e.g. {∠AOC}, not {$\angle AOC$}.
+- TikZ Celsius labels: write the literal Unicode degree symbol followed by C directly in node text, e.g. {25°C}, not {$^\circ$C}, {$^\circ\mathrm{C}$}, or {25\textdegree C}. The embedded TikZ Editor is not a full LaTeX engine; avoid TeX degree commands inside its node labels. This rule applies to TikZ labels, not learner-facing <kx> math.`;
 
 export const TIKZ_NATIVE_STYLING_PROMPT = 'Avoid LaTeX text-formatting macros (`\\underline`, `\\textbf`, `\\textit`, `\\textcolor`, `\\sout`, etc.). Use native TikZ node styles for fonts, sizes, and colors; draw underlines, strikethroughs, highlights, and borders geometrically. Preserve whitespace, avoid unsupported commands and package dependencies, and use separate named nodes when necessary. Prioritize correct rendering over code brevity.';
 

@@ -4,6 +4,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
+import { CONCEPT_ABILITY_WORKFLOW_SYSTEM_PROMPT } from './abilities.js';
 import { KATEX_MULTILINE_REQUIREMENTS_PROMPT, LEARNER_TEXT_MARKUP_PROMPT, MATH_DISPLAY_REQUIREMENTS_PROMPT, NUMBER_LINE_MARKER_ALIGNMENT_PROMPT } from './shared.js';
 
 describe('shared book-generation KaTeX instructions', (): void => {
@@ -37,6 +38,18 @@ describe('shared book-generation KaTeX instructions', (): void => {
     assert.match(NUMBER_LINE_MARKER_ALIGNMENT_PROMPT, /same y-coordinate/);
     assert.match(NUMBER_LINE_MARKER_ALIGNMENT_PROMPT, /offsetting a label must never move the point marker/);
     assert.match(NUMBER_LINE_MARKER_ALIGNMENT_PROMPT, /question visuals show only points already given/);
+  });
+
+  it('requires Unicode Celsius labels in embedded TikZ for Ability generation', (): void => {
+    const abilityPrompt = CONCEPT_ABILITY_WORKFLOW_SYSTEM_PROMPT('en', 'Temperature');
+
+    for (const prompt of [MATH_DISPLAY_REQUIREMENTS_PROMPT, abilityPrompt]) {
+      assert.ok(prompt.includes('TikZ Celsius labels:'));
+      assert.ok(prompt.includes('{25°C}'));
+      assert.ok(prompt.includes(String.raw`{$^\circ$C}`));
+      assert.ok(prompt.includes(String.raw`{25\textdegree C}`));
+      assert.ok(prompt.includes('not learner-facing <kx> math'));
+    }
   });
 
   it('shows the correctly formatted example and JSON escaping', (): void => {
