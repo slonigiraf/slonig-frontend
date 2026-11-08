@@ -33,6 +33,7 @@ import type { MathpixPdfJob } from './MathpixPdfJob.js';
 import type { TikzSvgCacheEntry } from './TikzSvgCache.js';
 import type { BookProcessingRun } from './BookProcessingRun.js';
 import type { BookAbilityWorkItem, BookAbilityChangeLogEntry } from './AbilityWork.js';
+import type { SkillUploadCheckpoint } from './SkillUploadCheckpoint.js';
 
 // Ordinal checkpoints are only understood while upgrading databases created
 // before named checkpoints were introduced. Runtime Book objects never use them.
@@ -135,6 +136,7 @@ export class SlonigDB extends Dexie {
   bookAbilitySplitQueues!: Table<{ bookId: number; conceptIds: number[] }, number>;
   bookAbilityWorkQueues!: Table<{ bookId: number; items: BookAbilityWorkItem[] }, number>;
   bookAbilityChangeLog!: Table<BookAbilityChangeLogEntry, number>;
+  skillUploadCheckpoints!: Table<SkillUploadCheckpoint, [number, string, string]>;
 
   constructor(name = 'slonig') {
     super(name);
@@ -747,6 +749,12 @@ export class SlonigDB extends Dexie {
     // Temporary restore rows live in the SAME IndexedDB database so that the
     // final replacement and staging cleanup share a single atomic transaction.
     this.version(106).stores({ backupStaging: '++id,operationId,tableName,[operationId+tableName+id]' });
+    // Record completed IPFS uploads so an interrupted publication can reuse
+    // their digests after a reload. This is an additive migration: books,
+    // abilities and images must not be modified or dropped.
+    this.version(107).stores({
+      skillUploadCheckpoints: '&[bookId+chainGenesisHash+abilityId],bookId'
+    });
 
   }
 }

@@ -233,7 +233,15 @@ function SkillsCourse ({ book, onBookChange }: { book: Book; onBookChange: (upda
   const abilityDragPointerIdRef = useRef<number | undefined>(undefined);
   const abilityDragPointerYRef = useRef<number | undefined>(undefined);
   const abilityAutoScrollFrameRef = useRef<number | undefined>(undefined);
+  const latestChaptersRef = useRef<ChapterTemplates[]>([]);
   const chapters = useLiveQuery(async (): Promise<ChapterTemplates[]> => {
+    // Publishing may update hundreds of Ability rows. Avoid rerunning the
+    // expensive whole-course hydration on every individual ID assignment.
+    // The live query will reload once publishing finishes.
+    if (isPublishing) {
+      return latestChaptersRef.current;
+    }
+
     const [storedChapters, pages, pageLessConcepts] = await Promise.all([getBookChapters(book.id), getBookPages(book.id), getBookConceptsForBookPage(book.id, 0)]);
     const pageRows = await Promise.all(pages.map(async (page) => ({
       concepts: await getBookConceptsForBookPage(book.id, page.pageNumber),
@@ -273,14 +281,16 @@ function SkillsCourse ({ book, onBookChange }: { book: Book; onBookChange: (upda
       return { chapter, templates };
     }));
 
-    if (!storedBook.chapterOrder?.length) {
-      return loaded;
+    if (storedBook.chapterOrder?.length) {
+      const ranks = new Map(storedBook.chapterOrder.map((id, rank) => [id, rank]));
+
+      loaded.sort((a, b) => (ranks.get(a.chapter.id as number) ?? Number.MAX_SAFE_INTEGER) - (ranks.get(b.chapter.id as number) ?? Number.MAX_SAFE_INTEGER));
     }
 
-    const ranks = new Map(storedBook.chapterOrder.map((id, rank) => [id, rank]));
+    latestChaptersRef.current = loaded;
 
-    return loaded.sort((a, b) => (ranks.get(a.chapter.id as number) ?? Number.MAX_SAFE_INTEGER) - (ranks.get(b.chapter.id as number) ?? Number.MAX_SAFE_INTEGER));
-  }, [book.id, storedBook.chapterOrder?.join(',')]);
+    return loaded;
+  }, [book.id, isPublishing, storedBook.chapterOrder?.join(',')]);
   const outline = useMemo((): OutlineItem[] => {
     const excludedChapterIds = new Set(storedBook.excludedCourseChapterIds || []);
     const items: OutlineItem[] = [];

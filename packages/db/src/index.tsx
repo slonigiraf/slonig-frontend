@@ -43,6 +43,7 @@ import type { StandardEmbedding } from './db/StandardEmbedding.js';
 import type { ConceptEmbedding } from './db/ConceptEmbedding.js';
 import type { MathpixPdfJob } from './db/MathpixPdfJob.js';
 import type { BookProcessingRun } from './db/BookProcessingRun.js';
+import type { SkillUploadCheckpoint } from './db/SkillUploadCheckpoint.js';
 import { readTikzSvgCache, writeTikzSvgCache } from './db/TikzSvgCache.js';
 import { shouldExportDatabaseRow } from './backup.js';
 import { BACKUP_DB_BATCH, stageRestoreBatch, commitRestoreStaging, discardRestoreStaging, validateRestoreTableNames } from './backupStorage.js';
@@ -50,6 +51,7 @@ import { BACKUP_DB_BATCH, stageRestoreBatch, commitRestoreStaging, discardRestor
 export { BOOK_PROCESSING_STAGES, getBookCompletedStages, isBookProcessingStageComplete, isBookProcessingStageSatisfied, bookStagesInvalidatedByRerun, withBookProcessingStagesResetFrom, withInvalidatedBookProcessingStages, withBypassedBookProcessingStage, withCompletedBookProcessingStage } from './db/Book.js';
 export type { LearnRequest, TutorAction, CanceledInsurance, Reexamination, LetterTemplate, CanceledLetter, Reimbursement, Letter, Insurance, Lesson, Pseudonym, Setting, Signer, UsageRight, Agreement, Ability, AbilityExercise, AbilityValue, Image, Book, BookProcessingStageKey, BookStageSpend, BookStageSpendKey, BookSubject, BookPage, MathpixHeading, BookChapter, BookConcept, Skill, ExerciseTemplate, AiTutorStudentMessage, StandardEmbedding, ConceptEmbedding, MathpixPdfJob };
 export type { BookProcessingRun } from './db/BookProcessingRun.js';
+export type { SkillUploadCheckpoint } from './db/SkillUploadCheckpoint.js';
 export { getIsBookProcessingActive, subscribeBookProcessingActivity, setBookProcessingActivity } from './processingActivity.js';
 
 export function getBookProcessingRun(bookId: number): Promise<BookProcessingRun | undefined> {
@@ -699,8 +701,24 @@ export async function getBookByContentHash(contentHash: string): Promise<Book | 
     return withNamedBookStages(await db.books.where('contentHash').equals(contentHash).first());
 }
 
+/** Look up one successful JSON upload without scanning other abilities. */
+export async function getSkillUploadCheckpoint (
+    bookId: number,
+    chainGenesisHash: string,
+    abilityId: string
+): Promise<SkillUploadCheckpoint | undefined> {
+    return db.skillUploadCheckpoints.get([bookId, chainGenesisHash, abilityId]);
+}
+
+/** Only call after IPFS has confirmed the pin; each write is durable in IndexedDB. */
+export async function putSkillUploadCheckpoint (
+    checkpoint: SkillUploadCheckpoint
+): Promise<void> {
+    await db.skillUploadCheckpoints.put(checkpoint);
+}
+
 export async function deleteBook(id: number): Promise<void> {
-    await db.transaction('rw', db.books, db.bookPages, db.bookChapters, db.bookConcepts, db.conceptEmbeddings, db.skills, db.exerciseTemplates, db.abilities, db.images, db.mathpixPdfJobs, db.bookProcessingRuns, db.fixConceptsChapterStatuses, db.bookAbilitySplitQueues, db.bookAbilityWorkQueues, db.bookAbilityChangeLog, async () => {
+    await db.transaction('rw', db.books, db.bookPages, db.bookChapters, db.bookConcepts, db.conceptEmbeddings, db.skills, db.exerciseTemplates, db.abilities, db.images, db.mathpixPdfJobs, db.bookProcessingRuns, db.fixConceptsChapterStatuses, db.bookAbilitySplitQueues, db.bookAbilityWorkQueues, db.bookAbilityChangeLog, db.skillUploadCheckpoints, async () => {
         const pageKeys = await db.bookPages.where('bookId').equals(id).primaryKeys();
         const chapterIds = (await db.bookChapters.where('bookId').equals(id).primaryKeys()) as number[];
         const skillIds = (await Promise.all(chapterIds.map((chapterId) => db.skills.where('chapterId').equals(chapterId).primaryKeys()))).flat() as number[];
@@ -730,6 +748,7 @@ export async function deleteBook(id: number): Promise<void> {
         await db.bookAbilitySplitQueues.delete(id);
         await db.bookAbilityWorkQueues.delete(id);
         await db.bookAbilityChangeLog.where('bookId').equals(id).delete();
+        await db.skillUploadCheckpoints.where('bookId').equals(id).delete();
     });
 }
 
@@ -2543,7 +2562,15 @@ export async function replaceAbility(oldRecordId: string, content: string, optio
             }
         }
 
-        await deleteUnreferencedAbilityImages(abilityImageIds(previous.content));
+        // Avoid scanning every Ability when a text-only edit leaves all Image
+        // references intact (as when assigning a knowledge ID for publishing).
+        const nextImageIds = new Set(abilityImageIds(normalizedContent));
+        const removedImageIds = abilityImageIds(previous.content).filter((id) => !nextImageIds.has(id));
+
+        if (removedImageIds.length) {
+            await deleteUnreferencedAbilityImages(removedImageIds);
+        }
+
         return nextId;
     });
 }

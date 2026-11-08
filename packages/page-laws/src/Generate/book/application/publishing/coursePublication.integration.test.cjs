@@ -28,13 +28,18 @@ class BN {
 const courseId = `0x${'11'.repeat(32)}`;
 const directoryId = `0x${'22'.repeat(32)}`;
 const moduleId = `0x${'33'.repeat(32)}`;
+const skillId = `0x${'44'.repeat(32)}`;
 const digest = (index) => `0x${index.toString(16).padStart(64, '0')}`;
 const lawType = { COURSE: 1, LIST: 2, MODULE: 3, SKILL: 4 };
 
-function fixture({ shellExists = false, failFinalOnce = false } = {}) {
+function fixture({ shellExists = false, failFinalOnce = false, existingDirectoryIds = [], uploadCheckpoints = new Map() } = {}) {
   const events = [];
   const items = new Map();
   const pinned = new Map();
+  const storedAbilities = new Map();
+  const replacements = [];
+  const pinnedSkills = [];
+  const statuses = [];
   let nextDigest = 20;
   let shouldFailFinal = failFinalOnce;
 
@@ -44,7 +49,7 @@ function fixture({ shellExists = false, failFinalOnce = false } = {}) {
     return item;
   }
 
-  store(directoryId, { e: [], h: 'Courses', i: directoryId, t: lawType.LIST }, 11);
+  store(directoryId, { e: [...existingDirectoryIds], h: 'Courses', i: directoryId, t: lawType.LIST }, 11);
   if (shellExists) {
     store(courseId, { e: [], h: 'Course', i: courseId, t: lawType.COURSE }, 0);
   }
@@ -126,6 +131,7 @@ function fixture({ shellExists = false, failFinalOnce = false } = {}) {
 
   const api = {
     tx,
+    genesisHash: { toHex: () => `0x${'aa'.repeat(32)}` },
     consts: {
       utility: { batchedCallsLimit: new BN(1000) },
       system: {},
@@ -137,13 +143,23 @@ function fixture({ shellExists = false, failFinalOnce = false } = {}) {
 
   const imports = {
     '@slonigiraf/db': {
-      putBookChapter: async () => {}, replaceAbility: async (id) => id,
+      getAbility: async (id) => storedAbilities.get(id),
+      getSkillUploadCheckpoint: async (bookId, chainGenesisHash, abilityId) =>
+        uploadCheckpoints.get(`${bookId}:${chainGenesisHash}:${abilityId}`),
+      putSkillUploadCheckpoint: async (entry) => {
+        uploadCheckpoints.set(`${entry.bookId}:${entry.chainGenesisHash}:${entry.abilityId}`, entry);
+      },
+      putBookChapter: async () => {},
+      replaceAbility: async (id, content, options) => {
+        replacements.push({ id, content: JSON.parse(content), options });
+        return `changed-${id}`;
+      },
       updateBookFields: async () => {}
     },
     '@slonigiraf/slonig-components': { LawType: lawType },
     'bn.js': { __esModule: true, default: BN },
     '@polkadot/util': { BN_ZERO: new BN(0) },
-    '../../../../common/util.js': { randomIdHex: () => courseId },
+    '../../../../common/util.js': { randomIdHex: () => skillId },
     '../../domain/standards/standards.js': { moduleStandardsText: () => '', standardsChapterKey: () => '' },
     '../../infrastructure/storage/standardsStorage.js': { loadStoredBookStandards: () => ({}) },
     '../../domain/publishing/bookPublishing.js': {
@@ -167,8 +183,9 @@ function fixture({ shellExists = false, failFinalOnce = false } = {}) {
     api, bookId: 1, courseName: 'Course', coursePrice: new BN(7),
     currentPair: { address: 'Alice' }, knowledgeId: directoryId,
     loadKnowledgeItem: async (id) => items.get(id),
-    onBookUpdated: () => {}, onPublishedIds: () => {}, onStatus: () => {},
+    onBookUpdated: () => {}, onPublishedIds: () => {}, onStatus: (status) => statuses.push(status),
     pinKnowledgeItem: async (json) => {
+      if (json.t === lawType.SKILL) pinnedSkills.push(json);
       const hash = digest(nextDigest++);
       pinned.set(hash, json);
       return hash;
@@ -179,7 +196,7 @@ function fixture({ shellExists = false, failFinalOnce = false } = {}) {
     storedBook: { id: 1, name: 'Course', knowledgeId: courseId }
   };
 
-  return { events, items, options, publish: exports.publishProcessedBook };
+  return { events, items, options, pinnedSkills, publish: exports.publishProcessedBook, replacements, statuses, storedAbilities, uploadCheckpoints };
 }
 
 test('zero-priced unlisted shell precedes modules; course burn and directory link are final', async () => {
@@ -196,6 +213,33 @@ test('zero-priced unlisted shell precedes modules; course burn and directory lin
   assert.deepEqual(f.items.get(directoryId).json.e, [courseId]);
   assert.equal(f.items.get(courseId).amount.toString(), '7');
   assert.equal(f.items.get(directoryId).amount.toString(), '11');
+});
+
+test('publishing to an existing list appends the Course without sorting or deduplicating existing entries', async () => {
+  const first = `0x${'ff'.repeat(32)}`;
+  const second = `0x${'00'.repeat(32)}`;
+  const existingDirectoryIds = [first, second, first];
+  const f = fixture({ existingDirectoryIds });
+
+  await f.publish(f.options);
+
+  assert.deepEqual(f.items.get(directoryId).json.e, [...existingDirectoryIds, courseId]);
+  assert.deepEqual(existingDirectoryIds, [first, second, first], 'Must not mutate the source list');
+  assert.equal(f.events.filter((event) => event === `edit:${directoryId}:11`).length, 1);
+});
+
+test('republishing a Course already in an existing list keeps its position and does not edit the list', async () => {
+  const first = `0x${'ff'.repeat(32)}`;
+  const last = `0x${'00'.repeat(32)}`;
+  const existingDirectoryIds = [first, courseId, last];
+  const f = fixture({ shellExists: true, existingDirectoryIds });
+  const originalDigest = f.items.get(directoryId).digestHex;
+
+  await f.publish(f.options);
+
+  assert.deepEqual(f.items.get(directoryId).json.e, existingDirectoryIds);
+  assert.equal(f.items.get(directoryId).digestHex, originalDigest, 'No directory upload or edit is needed');
+  assert.equal(f.events.filter((event) => event === `edit:${directoryId}:11`).length, 0);
 });
 
 test('failure before atomic finalization leaves shell unlisted and unburned, then retries', async () => {
@@ -235,4 +279,176 @@ test('UI estimates the directory edit fee separately and includes it in the rema
   assert.match(uiSource, /\.add\(directoryFee \|\| BN_ZERO\)/);
   assert.match(uiSource, /Maximum remaining insertion total \(burn \+ directory fee\)/);
   assert.match(uiSource, /\.clone\(\)\s*\.add\(/);
+});
+
+
+test('publishing an Ability knowledge ID preserves stored Image foreign keys', async () => {
+  const f = fixture();
+  const rowId = 'ability-row';
+  const rawAbility = {
+    h: 'Question', i: 'not-yet-published', q: [
+      { a: 'Answer', h: 'Exercise', p: 17, i: 18 }
+    ], t: lawType.SKILL
+  };
+  const hydratedAbility = {
+    ...rawAbility, q: [{ ...rawAbility.q[0], p: 'original-tikz-question', i: 'original-tikz-answer' }]
+  };
+
+  f.storedAbilities.set(rowId, { content: JSON.stringify(rawAbility) });
+  f.options.publishableChapters[0].templates = [
+    { moduleId, recordId: rowId, template: hydratedAbility }
+  ];
+  f.options.preparePublishedAbility = async (template, id) => ({
+    localAbility: { ...template, i: id },
+    publishAbility: { ...template, i: id, q: [{ ...template.q[0], p: 'bafy-question', i: 'bafy-answer' }] }
+  });
+
+  await f.publish(f.options);
+
+  assert.equal(f.replacements.length, 1);
+  assert.equal(f.replacements[0].id, rowId);
+  assert.equal(f.replacements[0].options.preserveImageReferences, true);
+  assert.equal(f.replacements[0].content.i, skillId);
+  assert.equal(f.replacements[0].content.q[0].p, 17);
+  assert.equal(f.replacements[0].content.q[0].i, 18);
+  assert.equal(f.items.get(skillId).json.q[0].p, 'bafy-question');
+  assert.deepEqual(f.items.get(moduleId).json.e, [skillId]);
+});
+
+
+function withSkill(f, title = 'Original question') {
+  f.options.publishableChapters[0].templates = [{
+    moduleId,
+    recordId: 'row-1',
+    template: { h: title, i: skillId, t: lawType.SKILL }
+  }];
+  f.options.preparePublishedAbility = async (template, id) => ({
+    localAbility: { ...template, i: id },
+    publishAbility: { ...template, i: id }
+  });
+}
+
+/** Simulate a crash after skill IPFS pinning but before blockchain writes. */
+function failNextModuleUpload(f) {
+  const pin = f.options.pinKnowledgeItem;
+  let fail = true;
+  f.options.pinKnowledgeItem = async (json) => {
+    if (json.t === lawType.MODULE && fail) {
+      fail = false;
+      throw new Error('Simulated interruption before blockchain publishing');
+    }
+    return pin(json);
+  };
+}
+
+test('IPFS skill digest checkpoint survives interruption and is reused on retry', async () => {
+  const f = fixture();
+  withSkill(f);
+  failNextModuleUpload(f);
+
+  await assert.rejects(f.publish(f.options), /Simulated interruption/);
+  assert.equal(f.pinnedSkills.length, 1);
+  assert.equal(f.uploadCheckpoints.size, 1);
+  const entry = [...f.uploadCheckpoints.values()][0];
+  assert.equal(entry.abilityId, skillId);
+  assert.equal(entry.bookId, 1);
+  assert.match(entry.contentHash, /^[a-f0-9]{64}$/);
+  assert.match(entry.ipfsDigest, /^0x[a-f0-9]{64}$/);
+  assert.equal(f.items.has(skillId), false, 'Skill has been pinned, but not created on-chain');
+
+  await f.publish(f.options);
+  assert.equal(f.pinnedSkills.length, 1, 'Retry must NOT re-pin identical JSON');
+  assert.deepEqual(f.items.get(skillId).json, { h: 'Original question', i: skillId, t: lawType.SKILL });
+  assert.ok(f.statuses.some((status) => status.includes('1 reused')));
+});
+
+test('changing an Ability invalidates its saved digest and uploads changed payload', async () => {
+  const f = fixture();
+  withSkill(f);
+  failNextModuleUpload(f);
+
+  await assert.rejects(f.publish(f.options), /Simulated interruption/);
+  const oldHash = [...f.uploadCheckpoints.values()][0].contentHash;
+
+  withSkill(f, 'Edited question');
+  await f.publish(f.options);
+  assert.equal(f.pinnedSkills.length, 2, 'Modified JSON must be pinned again');
+  assert.equal(f.items.get(skillId).json.h, 'Edited question');
+  assert.notEqual([...f.uploadCheckpoints.values()][0].contentHash, oldHash);
+});
+
+test('checkpoint never crosses blockchain networks', async () => {
+  const f = fixture();
+  withSkill(f);
+  failNextModuleUpload(f);
+  await assert.rejects(f.publish(f.options), /Simulated interruption/);
+
+  f.options.api.genesisHash.toHex = () => `0x${'bb'.repeat(32)}`;
+  await f.publish(f.options);
+  assert.equal(f.pinnedSkills.length, 2);
+  assert.equal(f.uploadCheckpoints.size, 2);
+});
+
+test('invalid checkpoint digests are ignored instead of being submitted to blockchain', async () => {
+  const f = fixture();
+  withSkill(f);
+  failNextModuleUpload(f);
+  await assert.rejects(f.publish(f.options), /Simulated interruption/);
+  const key = [...f.uploadCheckpoints.keys()][0];
+  f.uploadCheckpoints.get(key).ipfsDigest = 'not-a-valid-sha256-digest';
+
+  await f.publish(f.options);
+  assert.equal(f.pinnedSkills.length, 2);
+  assert.equal(f.items.get(skillId).json.h, 'Original question');
+});
+
+test('failed pin never saves a checkpoint; subsequent retry must actually upload', async () => {
+  const f = fixture();
+  withSkill(f);
+  const pin = f.options.pinKnowledgeItem;
+  let fail = true;
+  f.options.pinKnowledgeItem = async (json) => {
+    if (json.t === lawType.SKILL && fail) {
+      fail = false;
+      throw new Error('Simulated IPFS error');
+    }
+    return pin(json);
+  };
+  await assert.rejects(f.publish(f.options), /Simulated IPFS error/);
+  assert.equal(f.uploadCheckpoints.size, 0);
+
+  await f.publish(f.options);
+  assert.equal(f.pinnedSkills.length, 1);
+  assert.equal(f.uploadCheckpoints.size, 1);
+});
+
+test('a partial multi-Ability upload reuses completed pins and uploads only the missing ones', async () => {
+  const f = fixture();
+  const ids = [skillId, `0x${'55'.repeat(32)}`, `0x${'66'.repeat(32)}`];
+  f.options.publishableChapters[0].templates = ids.map((id, index) => ({
+    moduleId, recordId: `row-${index}`,
+    template: { h: `Question ${index}`, i: id, t: lawType.SKILL }
+  }));
+  f.options.preparePublishedAbility = async (template) => ({ localAbility: template, publishAbility: template });
+  const pin = f.options.pinKnowledgeItem;
+  let failed = false;
+  f.options.pinKnowledgeItem = async (json) => {
+    if (!failed && json.i === ids[2]) {
+      failed = true;
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      throw new Error('Network interrupted at skill 3');
+    }
+    return pin(json);
+  };
+
+  await assert.rejects(f.publish(f.options), /Network interrupted at skill 3/);
+  assert.equal(f.pinnedSkills.length, 2);
+  assert.equal(f.uploadCheckpoints.size, 2);
+  assert.deepEqual(f.pinnedSkills.map(({ i }) => i), ids.slice(0, 2));
+
+  await f.publish(f.options);
+  assert.equal(f.pinnedSkills.length, 3, 'Only the previously failed item should be uploaded');
+  assert.equal(f.uploadCheckpoints.size, 3);
+  assert.deepEqual(f.items.get(moduleId).json.e, ids);
+  assert.ok(f.statuses.some((status) => status.includes('2 reused')));
 });

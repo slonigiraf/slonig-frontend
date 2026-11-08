@@ -8,7 +8,7 @@ import type { DispatchError } from '@polkadot/types/interfaces';
 import type { Book, BookChapter } from '@slonigiraf/db';
 import type { GeneratedAbility, PreparedAbilityForPublishing } from '../../../../abilities/abilities.js';
 
-import { putBookChapter, replaceAbility, updateBookFields } from '@slonigiraf/db';
+import { getAbility, getSkillUploadCheckpoint, putBookChapter, putSkillUploadCheckpoint, replaceAbility, updateBookFields } from '@slonigiraf/db';
 import { LawType } from '@slonigiraf/slonig-components';
 import BN from 'bn.js';
 
@@ -65,6 +65,16 @@ const BATCH_SAFETY_PERCENT = 85;
 const FALLBACK_WEIGHT_PERCENT = 64;
 const MAX_PUBLISH_BATCH_CALLS = 1000;
 const MAX_CONCURRENT_SKILLS = 20;
+
+/** Hash exactly the JSON bytes passed to pinKnowledgeItem, not the hydrated
+ * local Ability. A content edit or changed visual CID must invalidate the pin.
+ */
+async function skillContentHash (json: Record<string, unknown>): Promise<string> {
+  const bytes = new TextEncoder().encode(JSON.stringify(json));
+  const digest = await crypto.subtle.digest('SHA-256', bytes);
+
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
+}
 
 interface SimpleWeight {
   proofSize: BN;
@@ -359,6 +369,8 @@ export async function publishProcessedBook ({ api, bookId, courseName, coursePri
   const standardsByChapter = loadStoredBookStandards(bookId);
   const templateRecordChanges = new Map<string, string>();
   const allTemplateRows = publishableChapters.flatMap(({ templates }) => templates);
+  // Distinguish identical Ability IDs on different blockchain networks.
+  const chainGenesisHash = api.genesisHash.toHex();
   let preparedSkillCount = 0;
 
   onStatus(`Preparing skill content: 0/${allTemplateRows.length} (up to ${MAX_CONCURRENT_SKILLS} in parallel)…`);
@@ -368,15 +380,26 @@ export async function publishProcessedBook ({ api, bookId, courseName, coursePri
   const preparedTemplateRows = await mapWithConcurrency(allTemplateRows, MAX_CONCURRENT_SKILLS, async (row) => {
     const skillId = isKnowledgeId(row.template.i) ? row.template.i : randomIdHex();
     const { localAbility, publishAbility } = await preparePublishedAbility(row.template, skillId);
-    const didLocalTemplateChange = JSON.stringify(localAbility) !== JSON.stringify(row.template);
+    const didLocalTemplateChange = localAbility.i !== row.template.i;
     let recordId = row.recordId;
 
-    // Persist only the local representation. replaceAbility moves q[].p/q[].i
-    // visual payloads into Image rows and leaves image ids in the stored
-    // Ability. The IPFS CID substitutions in publishAbility exist only for
-    // this final publishing operation.
+    // Publishing changes only the Ability's knowledge ID. Preserve the
+    // existing DB Image foreign keys instead of rehydrating/reinserting every
+    // image and then scanning the entire Ability table for old references.
+    // IPFS CID substitutions in publishAbility never enter the local DB.
     if (didLocalTemplateChange) {
-      const newRecordId = await replaceAbility(row.recordId, JSON.stringify(localAbility));
+      const storedAbility = await getAbility(row.recordId);
+
+      if (!storedAbility) {
+        throw new Error(`Ability ${row.recordId} was removed while publishing.`);
+      }
+
+      const storedJson = JSON.parse(storedAbility.content) as Record<string, unknown>;
+      const newRecordId = await replaceAbility(
+        row.recordId,
+        JSON.stringify({ ...storedJson, i: skillId }),
+        { preserveImageReferences: true }
+      );
 
       if (newRecordId !== row.recordId) {
         templateRecordChanges.set(row.recordId, newRecordId);
@@ -460,6 +483,7 @@ export async function publishProcessedBook ({ api, bookId, courseName, coursePri
     return true;
   });
   let checkedSkillCount = 0;
+  let reusedSkillUploads = 0;
 
   onStatus(`Checking and uploading skills: 0/${uniqueSkills.length} (up to ${MAX_CONCURRENT_SKILLS} in parallel)…`);
 
@@ -475,13 +499,38 @@ export async function publishProcessedBook ({ api, bookId, courseName, coursePri
         return undefined;
       }
 
-      const digest = await pinKnowledgeItem({ ...template });
+      // Hash the fully prepared payload (including visual CIDs), using the
+      // exact serialization pinKnowledgeItem sends to IPFS. A matching
+      // checkpoint lets a retry skip the large JSON pin, even if no blockchain
+      // transaction has committed yet.
+      const payload = { ...template };
+      const contentHash = await skillContentHash(payload);
+      const checkpoint = await getSkillUploadCheckpoint(bookId, chainGenesisHash, template.i);
+      let digest: string;
+
+      if (checkpoint?.contentHash === contentHash && isKnowledgeId(checkpoint.ipfsDigest)) {
+        digest = checkpoint.ipfsDigest;
+        reusedSkillUploads++;
+      } else {
+        digest = await pinKnowledgeItem(payload);
+        // Never checkpoint a failed pin. Wait for IndexedDB to commit before
+        // considering this Ability uploaded, so reloads can safely reuse it.
+        await putSkillUploadCheckpoint({
+          abilityId: template.i,
+          bookId,
+          chainGenesisHash,
+          contentHash,
+          ipfsDigest: digest,
+          uploadedAt: Date.now()
+        });
+      }
+
       const amount = skillPrice || BN_ZERO;
 
       return { amount, id: template.i, transaction: api.tx.laws.create(template.i, digest, amount) };
     } finally {
       checkedSkillCount++;
-      onStatus(`Checking and uploading skills: ${checkedSkillCount}/${uniqueSkills.length} (up to ${MAX_CONCURRENT_SKILLS} in parallel)…`);
+      onStatus(`Checking and uploading skills: ${checkedSkillCount}/${uniqueSkills.length} (${reusedSkillUploads} reused, up to ${MAX_CONCURRENT_SKILLS} in parallel)…`);
     }
   });
   const skillOperations = preparedSkillOperations.filter((operation): operation is PublishOperation => operation !== undefined);
@@ -566,23 +615,11 @@ export async function publishProcessedBook ({ api, bookId, courseName, coursePri
     throw new Error('The selected publishing location is no longer a knowledge list.');
   }
 
-  const existingIds = Array.isArray(currentList.json.e)
-    ? currentList.json.e.filter((id): id is string => typeof id === 'string')
-    : [];
-  const titledIds = await Promise.all([...new Set([...existingIds, savedCourseId])].map(async (id) => {
-    if (id === savedCourseId) {
-      return { id, title: trimmedCourseName };
-    }
-
-    const item = await loadKnowledgeItem(id);
-
-    return { id, title: typeof item?.json.h === 'string' ? item.json.h : id };
-  }));
-
-  titledIds.sort((a, b) => a.title.localeCompare(b.title, undefined, { sensitivity: 'base' }) || a.id.localeCompare(b.id));
-
-  const sortedIds = titledIds.map(({ id }) => id);
-  const listChanged = JSON.stringify(existingIds) !== JSON.stringify(sortedIds);
+  // The selected list may have a manually curated order. Only append a new
+  // Course; never sort, deduplicate, or otherwise rewrite existing entries.
+  // On retry/republish, a Course already in the list keeps its position.
+  const existingIds: unknown[] = Array.isArray(currentList.json.e) ? currentList.json.e : [];
+  const listChanged = !existingIds.includes(savedCourseId);
   const finalOperations: PublishOperation[] = [{
     // BN.sub mutates its receiver; preserve the target price passed to the
     // extrinsic and any BN referenced by the caller or the cached chain item.
@@ -592,7 +629,7 @@ export async function publishProcessedBook ({ api, bookId, courseName, coursePri
   }];
 
   if (listChanged) {
-    const updatedListDigest = await pinKnowledgeItem({ ...currentList.json, e: sortedIds });
+    const updatedListDigest = await pinKnowledgeItem({ ...currentList.json, e: [...existingIds, savedCourseId] });
 
     finalOperations.push({
       // Keeping the existing directory price costs a transaction fee, not a

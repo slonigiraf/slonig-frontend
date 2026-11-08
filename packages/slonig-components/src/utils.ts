@@ -79,8 +79,9 @@ export async function getIPFSContentIDAndPinIt(ipfs: IPFSHTTPClient, content: st
   return cid.toString();
 }
 export async function getIPFSContentIDForBytesAndPinIt(ipfs: IPFSHTTPClient, bytes: Uint8Array) {
+  // ipfs.add({ pin: true }) already pins the CID. A second pin.add is
+  // redundant and significantly increases load during bulk publishing.
   const { cid } = await ipfs.add(bytes, { pin: true, hashAlg: 'sha2-256', cidVersion: 1 });
-  await ipfs.pin.add(cid);
   return cid.toString();
 }
 
