@@ -189,6 +189,72 @@ test('Space follows Next for queued fixes, persisting review when not previously
   }
 });
 
+test('Space after Back uses review navigation instead of clicking the focused Back button', async () => {
+  const effect = findNode((node) => ts.isCallExpression(node) && node.expression.getText(ast) === 'useEffect' && node.arguments[0]?.getText(ast).includes("event.key !== ' '") && node.arguments[0]?.getText(ast).includes('markReviewed'));
+  const code = compile(effect.arguments[0].getText(ast));
+
+  // A browser leaves keyboard focus on the button clicked to go Back.
+  // This was formerly excluded by the Space listener, causing another Back click.
+  class FocusedElement {
+    constructor (tag) { this.tag = tag; }
+    closest (selector) { return selector.split(', ').includes(this.tag) ? this : null; }
+  }
+
+  for (const alreadyReviewed of [false, true]) {
+    const events = [];
+    const listeners = [];
+    const context = {
+      advance: () => events.push('advance'),
+      allowQueuedReview: false,
+      current: { record: { id: 'previous-ability' } },
+      document: { querySelector: () => null },
+      Element: FocusedElement,
+      hasLoadError: false,
+      isBusy: false,
+      isCurrentReviewed: alreadyReviewed,
+      isLoading: false,
+      isNextAction: alreadyReviewed,
+      markReviewed: async () => { events.push('review'); events.push('advance'); },
+      queuedSplit: false,
+      saving: false,
+      window: {
+        addEventListener: (...args) => listeners.push(['add', ...args]),
+        removeEventListener: (...args) => listeners.push(['remove', ...args])
+      },
+      module: { exports: null }
+    };
+    vm.runInNewContext(code, context);
+    const cleanup = context.module.exports();
+    const [_, eventName, onKeyDown, capture] = listeners[0];
+    assert.equal(eventName, 'keydown');
+    assert.equal(capture, true, 'Keyboard handler must capture before button activation');
+
+    let prevented = false;
+    const focusedBack = new FocusedElement('button');
+    const space = (overrides = {}) => ({
+      key: ' ', target: focusedBack, preventDefault: () => { prevented = true; }, ...overrides
+    });
+    onKeyDown(space());
+    await Promise.resolve();
+    assert.equal(prevented, true, 'Focused Back must not receive a native Space click');
+    assert.deepEqual(events, alreadyReviewed ? ['advance'] : ['review', 'advance']);
+
+    prevented = false;
+    onKeyDown(space({ repeat: true }));
+    assert.equal(prevented, true, 'Auto-repeat must not trigger a Back click');
+    assert.deepEqual(events, alreadyReviewed ? ['advance'] : ['review', 'advance']);
+
+    prevented = false;
+    onKeyDown(space({ target: new FocusedElement('input') }));
+    assert.equal(prevented, false, 'Space within a text input must remain editable');
+    assert.deepEqual(events, alreadyReviewed ? ['advance'] : ['review', 'advance']);
+
+    cleanup();
+    assert.equal(listeners.at(-1)[0], 'remove');
+    assert.equal(listeners.at(-1)[3], true);
+  }
+});
+
 function evaluate (name, context) {
   const declaration = findNode((node) => ts.isVariableDeclaration(node) && node.name.getText(ast) === name);
   const sandbox = { module: { exports: null }, saving: false, savingAbilityIdRef: { current: null }, ...context };

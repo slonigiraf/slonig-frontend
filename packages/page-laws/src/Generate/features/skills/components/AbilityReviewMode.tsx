@@ -145,30 +145,34 @@ export default function AbilityReviewMode ({ allowQueuedReview = false, chapters
     }
   }, [advance, current?.record.id, onError, onQueueFix, onReviewed]);
 
-  // Space reviews an unreviewed Ability, or follows Next on a reviewed or
-  // queued-for-AI-fix Ability. Leave typing and native controls alone.
+  // Space always follows review navigation, even when Back or another button
+  // has keyboard focus. Handle it during capture so a focused button cannot
+  // treat Space as a second click. Leave typing in editable controls alone.
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent): void => {
-      if (event.key !== ' ' || event.repeat || event.isComposing || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey ||
-          !current || isLoading || hasLoadError || saving || document.querySelector('.ui--Modal')) return;
+      if (event.key !== ' ' || event.isComposing || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey ||
+          !current || isLoading || hasLoadError || document.querySelector('.ui--Modal')) return;
 
       const target = event.target;
-      if (target instanceof Element && target.closest('input, textarea, select, button, a, [role="button"], [role="textbox"], [contenteditable="true"], [contenteditable=""]')) return;
+      if (target instanceof Element && target.closest('input, textarea, select, [role="textbox"], [contenteditable="true"], [contenteditable=""]')) return;
+
+      // Consume Space even while a review is saving or when the key repeats:
+      // neither case should activate a focused Back button or scroll the page.
+      event.preventDefault();
+      if (event.repeat || saving) return;
 
       if (isNextAction) {
-        event.preventDefault();
         if (isCurrentReviewed) advance();
         else void markReviewed();
         return;
       }
 
       if (isBusy || (queuedSplit && !allowQueuedReview)) return;
-      event.preventDefault();
       void markReviewed();
     };
 
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
+    window.addEventListener('keydown', onKeyDown, true);
+    return () => window.removeEventListener('keydown', onKeyDown, true);
   }, [advance, allowQueuedReview, current, hasLoadError, isBusy, isCurrentReviewed, isLoading, isNextAction, markReviewed, queuedSplit, saving]);
 
   // Calculate a shared *maximum* height for question/answer visuals; actual
